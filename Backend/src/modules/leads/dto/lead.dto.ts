@@ -107,6 +107,16 @@ export class LeadQueryDto {
   @IsOptional()
   @IsMongoId()
   contactId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  followUpDateFrom?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  followUpDateTo?: string;
 }
 
 export class AddConsultationDto {

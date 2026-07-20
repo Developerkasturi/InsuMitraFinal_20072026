@@ -58,7 +58,7 @@ export class LeadsService {
   async findAll(tenantId: string, userId: string, role: UserRole, query: LeadQueryDto) {
     const page  = Math.max(1, parseInt(String((query as any).page  ?? 1), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
-    const { stage, search, assignedEmployeeId, contactId } = query as any;
+    const { stage, search, assignedEmployeeId, contactId, followUpDateFrom, followUpDateTo } = query as any;
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
@@ -66,6 +66,11 @@ export class LeadsService {
     if (stage)                      where.stage              = stage;
     if (assignedEmployeeId)         where.assignedEmployeeId = assignedEmployeeId;
     if (contactId)                  where.contactId          = contactId;
+    if (followUpDateFrom || followUpDateTo) {
+      where.followUpDate = {};
+      if (followUpDateFrom) where.followUpDate.gte = new Date(followUpDateFrom);
+      if (followUpDateTo)   where.followUpDate.lte = new Date(followUpDateTo);
+    }
     if (search) {
       where.contact = {
         OR: [

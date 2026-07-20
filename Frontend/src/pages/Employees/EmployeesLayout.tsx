@@ -23,6 +23,7 @@ export interface Employee {
       notes?: string | null; callsMade?: number;
       visitsCompleted?: number; premiumCollected?: number;
       nextDayPlan?: string | null;
+      adminRemarks?: string | null;
     }[];
   };
   designation?: string; department?: string; phone?: string; isActive: boolean;

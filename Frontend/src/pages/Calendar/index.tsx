@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calendarService, contactsService, policiesService, leadsService } from '@api/index';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addDays, subDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Tag, Cake, Users, RefreshCw, Zap, CalendarDays } from 'lucide-react';
 import Modal from '@comps/common/Modal';
@@ -113,16 +113,50 @@ export default function Calendar() {
   // Sidebar tabular database records
   const { data: contactsRes } = useQuery({
     queryKey: ['calendar-contacts-birthdays'],
-    queryFn: () => contactsService.list({ limit: 200 }),
+    queryFn: () => contactsService.list({ limit: 2000 }),
   });
-  const { data: policiesRes } = useQuery({
-    queryKey: ['calendar-policies-renewals'],
-    queryFn: () => policiesService.list({ limit: 200 }),
+
+  const selectedDayStart = useMemo(() => startOfDay(selectedDate), [selectedDate]);
+  const selectedDayEnd = useMemo(() => endOfDay(selectedDate), [selectedDate]);
+  const selectedDayKey = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+
+  const { data: selectedDayEventsRes } = useQuery({
+    queryKey: ['calendar-day-events', selectedDayKey],
+    queryFn: () => calendarService.list({
+      startDate: selectedDayStart.toISOString(),
+      endDate: selectedDayEnd.toISOString(),
+    }),
   });
-  const { data: leadsRes } = useQuery({
-    queryKey: ['calendar-leads-followups'],
-    queryFn: () => leadsService.list({ limit: 200 }),
+  const selectedDayEvents: any[] = selectedDayEventsRes?.data ?? [];
+
+  const { data: selectedDayPoliciesRes } = useQuery({
+    queryKey: ['calendar-day-policies', selectedDate.toISOString().slice(0, 10)],
+    queryFn: () => policiesService.list({
+      limit: 200,
+      nextDueDateFrom: selectedDayStart.toISOString(),
+      nextDueDateTo: selectedDayEnd.toISOString(),
+    }),
   });
+  const selectedDayPolicies: any[] = selectedDayPoliciesRes?.data ?? [];
+
+  const { data: selectedDayLeadsRes } = useQuery({
+    queryKey: ['calendar-day-leads', selectedDayKey],
+    queryFn: () => leadsService.list({
+      limit: 200,
+      followUpDateFrom: selectedDayStart.toISOString(),
+      followUpDateTo: selectedDayEnd.toISOString(),
+    }),
+  });
+  const selectedDayLeads: any[] = selectedDayLeadsRes?.data ?? [];
+
+  const invalidateAgendaQueries = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['calendar'] }),
+      qc.invalidateQueries({ queryKey: ['calendar-day-events'] }),
+      qc.invalidateQueries({ queryKey: ['calendar-day-policies'] }),
+      qc.invalidateQueries({ queryKey: ['calendar-day-leads'] }),
+    ]);
+  };
 
   const birthdaysToday = useMemo(() => {
     const isBirthdayVisible = visibleCategories.includes('BIRTHDAY');
@@ -138,55 +172,47 @@ export default function Calendar() {
 
     // Calendar events of type BIRTHDAY on the selected date
     const eventBirthdays = isBirthdayVisible
-      ? events
+      ? selectedDayEvents
           .filter(e => e.eventType === 'BIRTHDAY' && isSameDay(new Date(e.startAt ?? e.startTime), selectedDate))
           .map(e => ({ _type: 'event', id: e.id, label: e.title, event: e }))
       : [];
 
     return [...contactBirthdays, ...eventBirthdays];
-  }, [contactsRes, events, selectedDate, visibleCategories]);
+  }, [contactsRes, selectedDayEvents, selectedDate, visibleCategories]);
 
   const renewalsToday = useMemo(() => {
-    return (policiesRes?.data ?? []).filter((p: any) => {
-      if (!p.nextDueDate) return false;
-      const dDate = new Date(p.nextDueDate);
-      return isSameDay(dDate, selectedDate);
-    });
-  }, [policiesRes, selectedDate]);
+    return selectedDayPolicies;
+  }, [selectedDayPolicies]);
 
   const leadsToday = useMemo(() => {
-    return (leadsRes?.data ?? []).filter((l: any) => {
-      if (!l.followUpDate) return false;
-      const fDate = new Date(l.followUpDate);
-      return isSameDay(fDate, selectedDate);
-    });
-  }, [leadsRes, selectedDate]);
+    return selectedDayLeads;
+  }, [selectedDayLeads]);
 
   // All calendar events on selected date (non-birthday) for Tasks section
   const tasksToday = useMemo(() => {
-    return events.filter(e => {
+    return selectedDayEvents.filter(e => {
       const isDateMatch = isSameDay(new Date(e.startAt ?? e.startTime), selectedDate);
       const isNotBirthday = e.eventType !== 'BIRTHDAY';
       const isVisible = visibleCategories.includes(e.eventType || 'OTHER');
       return isDateMatch && isNotBirthday && isVisible;
     });
-  }, [events, selectedDate, visibleCategories]);
+  }, [selectedDayEvents, selectedDate, visibleCategories]);
 
   const createEvent = useMutation({
     mutationFn: calendarService.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['calendar'] }); toast.success('Event created'); setModalOpen(false); },
+    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event created'); setModalOpen(false); },
     onError:   () => toast.error('Failed to create event'),
   });
 
   const updateEvent = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => calendarService.update(id, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['calendar'] }); toast.success('Event updated'); setEditTarget(null); },
+    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event updated'); setEditTarget(null); },
     onError:   () => toast.error('Failed to update event'),
   });
 
   const deleteEvent = useMutation({
     mutationFn: (id: string) => calendarService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['calendar'] }); toast.success('Event deleted'); setDeleteTarget(null); setViewTarget(null); },
+    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event deleted'); setDeleteTarget(null); setViewTarget(null); },
     onError:   () => toast.error('Failed to delete event'),
   });
 
@@ -234,7 +260,7 @@ export default function Calendar() {
   // Quick templates addition mutation
   const quickAddMutation = useMutation({
     mutationFn: calendarService.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['calendar'] }); toast.success('Quick event added!'); },
+    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Quick event added!'); },
     onError: () => toast.error('Failed to add quick event'),
   });
 
