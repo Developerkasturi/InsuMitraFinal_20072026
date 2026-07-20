@@ -46,7 +46,12 @@ export class CreateClaimDto {
   approvedAmount?: number;
 }
 
-export class UpdateClaimDto extends PartialType(CreateClaimDto) {}
+export class UpdateClaimDto extends PartialType(CreateClaimDto) {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
+}
 
 export class UpdateClaimStatusDto {
   @ApiProperty({ enum: ClaimStatus })

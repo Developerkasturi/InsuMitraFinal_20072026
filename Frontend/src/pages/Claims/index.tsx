@@ -517,11 +517,7 @@ export default function Claims() {
     enabled: !!selectedContact,
   });
 
-  const { data: policyResults } = useQuery({
-    queryKey: ['policies-by-contact', selectedContact?.id],
-    queryFn: () => policiesService.list({ contactId: selectedContact!.id, limit: 50 }),
-    enabled: !!selectedContact,
-  });
+  const activeContactPolicies = contactDetail?.data?.policies ?? [];
 
 
 
@@ -1340,7 +1336,6 @@ export default function Claims() {
                 <input type="hidden" {...register('policyId')} />
                 <button
                   type="button"
-                  disabled={!selectedContact}
                   onClick={() => setPolicyDropdown(v => !v)}
                   className="input w-full text-left text-gray-700 bg-white mt-1 flex justify-between items-center"
                 >
@@ -1351,10 +1346,10 @@ export default function Claims() {
                 </button>
                 {policyDropdown && (
                   <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
-                    {(policyResults?.data ?? []).length === 0 ? (
+                    {activeContactPolicies.length === 0 ? (
                       <li className="px-3 py-2 text-sm text-gray-400">No active policies</li>
                     ) : (
-                      (policyResults?.data ?? []).map((p: any) => (
+                      activeContactPolicies.map((p: any) => (
                         <li key={p.id} onMouseDown={() => {
                           setSelectedPolicy(p);
                           setValue('policyId', p.id, { shouldValidate: true });

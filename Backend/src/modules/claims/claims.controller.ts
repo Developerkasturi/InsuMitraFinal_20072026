@@ -70,6 +70,16 @@ export class ClaimsController {
     return this.svc.update(user.tenantId, id, dto, user.id, user.role);
   }
 
+  @Patch(':id')
+  @Roles(UserRole.EMPLOYEE)
+  updateViaPatch(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateClaimDto,
+  ) {
+    return this.svc.update(user.tenantId, id, dto, user.id, user.role);
+  }
+
   @Patch(':id/status')
   @Roles(UserRole.EMPLOYEE)
   @ApiOperation({ summary: 'Update claim status through its lifecycle' })
