@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { leadsService } from '@api/index';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function useLeads(params?: Record<string, any>) {
   return useQuery({
@@ -116,9 +118,19 @@ export function useUpdateLead() {
 
 export function useDeleteLead() {
   const qc = useQueryClient();
+  const role = useAuthStore(s => s.user?.role);
   return useMutation({
-    mutationFn: (id: string) => leadsService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['leads'] }); toast.success('Lead deleted'); },
+    mutationFn: (id: string) => deleteOrRequestEntity({
+      role,
+      entityType: 'Lead',
+      entityId: id,
+      deleteFn: () => leadsService.remove(id),
+      requestReason: 'Employee requested deletion of lead',
+    }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      toast.success(result.mode === 'requested' ? 'Deletion request submitted to admin' : 'Lead deleted');
+    },
     onError:   (e: any) => toast.error(e.response?.data?.message ?? 'Error'),
   });
 }

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { policiesService } from '@api/index';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function usePolicies(params?: Record<string, any>) {
   return useQuery({ queryKey: ['policies', params], queryFn: () => policiesService.list(params) });
@@ -38,9 +40,19 @@ export function useUpdatePolicy() {
 
 export function useDeletePolicy() {
   const qc = useQueryClient();
+  const role = useAuthStore(s => s.user?.role);
   return useMutation({
-    mutationFn: (id: string) => policiesService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['policies'] }); toast.success('Policy deleted'); },
+    mutationFn: (id: string) => deleteOrRequestEntity({
+      role,
+      entityType: 'Policy',
+      entityId: id,
+      deleteFn: () => policiesService.remove(id),
+      requestReason: 'Employee requested deletion of policy',
+    }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      toast.success(result.mode === 'requested' ? 'Deletion request submitted to admin' : 'Policy deleted');
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Error deleting policy'),
   });
 }

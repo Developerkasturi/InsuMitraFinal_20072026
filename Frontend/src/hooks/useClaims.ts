@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { claimsService } from '@api/index';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function useClaims(params?: Record<string, any>) {
   return useQuery({ queryKey: ['claims', params], queryFn: () => claimsService.list(params) });
@@ -33,9 +35,19 @@ export function useUpdateClaimStatus() {
 
 export function useDeleteClaim() {
   const qc = useQueryClient();
+  const role = useAuthStore(s => s.user?.role);
   return useMutation({
-    mutationFn: (id: string) => claimsService.remove(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['claims'] }); toast.success('Claim deleted'); },
+    mutationFn: (id: string) => deleteOrRequestEntity({
+      role,
+      entityType: 'Claim',
+      entityId: id,
+      deleteFn: () => claimsService.remove(id),
+      requestReason: 'Employee requested deletion of claim',
+    }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['claims'] });
+      toast.success(result.mode === 'requested' ? 'Deletion request submitted to admin' : 'Claim deleted');
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Error deleting claim'),
   });
 }

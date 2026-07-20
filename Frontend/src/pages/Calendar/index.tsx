@@ -7,6 +7,8 @@ import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { useAuthStore } from '@store/auth.store';
+import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 // ── Event type colours ─────────────────────────────────────────────────────────
 const EVENT_COLORS: Record<string, string> = {
@@ -74,6 +76,7 @@ export default function Calendar() {
   const [deleteTarget,setDeleteTarget]= useState<any | null>(null);
   const [viewTarget,  setViewTarget]  = useState<any | null>(null);
   const [overflowDay, setOverflowDay] = useState<{ date: Date; events: any[] } | null>(null);
+  const role = useAuthStore(s => s.user?.role);
 
   // Queries for calendar events
   const start = startOfMonth(currentDate);
@@ -211,8 +214,19 @@ export default function Calendar() {
   });
 
   const deleteEvent = useMutation({
-    mutationFn: (id: string) => calendarService.remove(id),
-    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event deleted'); setDeleteTarget(null); setViewTarget(null); },
+    mutationFn: (id: string) => deleteOrRequestEntity({
+      role,
+      entityType: 'CalendarEvent',
+      entityId: id,
+      deleteFn: () => calendarService.remove(id),
+      requestReason: 'Employee requested deletion of calendar event',
+    }),
+    onSuccess: (result) => {
+      void invalidateAgendaQueries();
+      toast.success(result.mode === 'requested' ? 'Deletion request submitted to admin' : 'Event deleted');
+      setDeleteTarget(null);
+      setViewTarget(null);
+    },
     onError:   () => toast.error('Failed to delete event'),
   });
 

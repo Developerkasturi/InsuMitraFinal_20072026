@@ -7,11 +7,12 @@ import { RbacGuard } from '../../common/guards/rbac.guard';
 import { UserRole } from '@prisma/client';
 
 @Controller('api/deletion-requests')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard)
 export class DeletionRequestsController {
   constructor(private readonly deletionService: DeletionRequestsService) {}
 
   @Post()
+  @UseGuards(TenantGuard)
   async requestDeletion(
     @CurrentUser() user: any,
     @Body() body: { entityType: string; entityId: string; reason?: string }
@@ -29,7 +30,9 @@ export class DeletionRequestsController {
   @UseGuards(RbacGuard)
   @Roles(UserRole.OWNER, UserRole.SUPERADMIN)
   async findAll(@CurrentUser() user: any) {
-    const data = await this.deletionService.findAll(user.tenantId);
+    const data = user.role === UserRole.SUPERADMIN
+      ? await this.deletionService.findAllGlobal()
+      : await this.deletionService.findAll(user.tenantId);
     return { data };
   }
 
@@ -41,6 +44,8 @@ export class DeletionRequestsController {
     @Param('id') id: string,
     @Body() body: { action: 'APPROVED' | 'REJECTED' }
   ) {
-    return this.deletionService.resolveRequest(user.tenantId, id, user.userId, body.action);
+    return user.role === UserRole.SUPERADMIN
+      ? this.deletionService.resolveRequestGlobal(id, user.userId, body.action)
+      : this.deletionService.resolveRequest(user.tenantId, id, user.userId, body.action);
   }
 }

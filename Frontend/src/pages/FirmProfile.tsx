@@ -11,6 +11,7 @@ import {
   Building2, Image as ImageIcon, Palette, Globe, Phone, Mail, Shield,
   Lock, Save, RefreshCw, Eye, Plus, Trash2, Edit2
 } from 'lucide-react';
+import Modal from '@comps/common/Modal';
 import AgencyDetailModal from '../components/firm-profile/AgencyDetailModal';
 import BannerModal from '../components/firm-profile/BannerModal';
 
@@ -191,6 +192,8 @@ export default function FirmProfile() {
   // Modal states
   const [agencyModal, setAgencyModal] = useState<{ open: boolean, data?: any }>({ open: false });
   const [bannerModal, setBannerModal] = useState<{ open: boolean, data?: any }>({ open: false });
+  const [deleteAgencyTarget, setDeleteAgencyTarget] = useState<any | null>(null);
+  const [deleteBannerTarget, setDeleteBannerTarget] = useState<any | null>(null);
 
   // Agency Details Query
   const { data: agencyRes, refetch: refetchAgency } = useQuery({
@@ -450,7 +453,7 @@ export default function FirmProfile() {
                       <p className="text-xs font-medium text-gray-500 mt-0.5 truncate">Code: {a.brokerCode || 'N/A'} • Sub: {a.subBrokerCode || 'N/A'}</p>
                     </div>
                   </div>
-                  <button onClick={() => deleteAgency.mutate(a.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={() => setDeleteAgencyTarget(a)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -513,7 +516,7 @@ export default function FirmProfile() {
                     <button onClick={() => setBannerModal({ open: true, data: b })} className="w-8 h-8 flex items-center justify-center bg-white/90 hover:bg-white text-gray-700 rounded-full shadow-lg backdrop-blur-sm transition-all">
                       <Edit2 size={14} />
                     </button>
-                    <button onClick={() => deleteBanner.mutate(b.id)} className="w-8 h-8 flex items-center justify-center bg-red-500/90 hover:bg-red-500 text-white rounded-full shadow-lg backdrop-blur-sm transition-all">
+                    <button onClick={() => setDeleteBannerTarget(b)} className="w-8 h-8 flex items-center justify-center bg-red-500/90 hover:bg-red-500 text-white rounded-full shadow-lg backdrop-blur-sm transition-all">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -534,6 +537,44 @@ export default function FirmProfile() {
           </div>
         </div>
       )}
+
+      <Modal open={!!deleteAgencyTarget} onClose={() => setDeleteAgencyTarget(null)} title="Delete Agency Detail" size="sm">
+        <p className="text-sm text-gray-600 mb-4">
+          Delete <strong>{deleteAgencyTarget?.brokerName || 'this agency detail'}</strong>?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setDeleteAgencyTarget(null)}>Cancel</button>
+          <button
+            className="btn-danger"
+            disabled={deleteAgency.isPending}
+            onClick={async () => {
+              await deleteAgency.mutateAsync(deleteAgencyTarget!.id);
+              setDeleteAgencyTarget(null);
+            }}
+          >
+            {deleteAgency.isPending ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteBannerTarget} onClose={() => setDeleteBannerTarget(null)} title="Delete Banner" size="sm">
+        <p className="text-sm text-gray-600 mb-4">
+          Delete <strong>{deleteBannerTarget?.title || 'this banner'}</strong>?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setDeleteBannerTarget(null)}>Cancel</button>
+          <button
+            className="btn-danger"
+            disabled={deleteBanner.isPending}
+            onClick={async () => {
+              await deleteBanner.mutateAsync(deleteBannerTarget!.id);
+              setDeleteBannerTarget(null);
+            }}
+          >
+            {deleteBanner.isPending ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </Modal>
 
       {/* Modals */}
       <AgencyDetailModal

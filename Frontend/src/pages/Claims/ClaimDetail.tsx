@@ -50,6 +50,7 @@ export default function ClaimDetail() {
   const [newStatus, setNewStatus] = useState('');
   const [approvedAmount, setApprovedAmount] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [deleteDocTarget, setDeleteDocTarget] = useState<any | null>(null);
 
   const { data: claim, isLoading } = useQuery({
     queryKey: ['claim', id],
@@ -330,7 +331,7 @@ export default function ClaimDetail() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
-                    <button onClick={() => removeDoc.mutate(doc.id)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
+                    <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
                   </div>
                 </div>
               ))}
@@ -443,6 +444,25 @@ export default function ClaimDetail() {
               {uploading ? 'Uploading…' : 'Upload'}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteDocTarget} onClose={() => setDeleteDocTarget(null)} title="Delete Document" size="sm">
+        <p className="text-sm text-gray-600 mb-4">
+          Delete <strong>{deleteDocTarget?.fileName ?? deleteDocTarget?.originalName ?? 'this document'}</strong>?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setDeleteDocTarget(null)}>Cancel</button>
+          <button
+            className="btn-danger"
+            disabled={removeDoc.isPending}
+            onClick={async () => {
+              await removeDoc.mutateAsync(deleteDocTarget!.id);
+              setDeleteDocTarget(null);
+            }}
+          >
+            {removeDoc.isPending ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
       </Modal>
     </div>

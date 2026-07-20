@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { policiesService, documentsService } from '@api/index';
 import { ArrowLeft, Plus, Download, FileText, Trash2, Users, CreditCard, Award, Shield, Upload, X } from 'lucide-react';
 import clsx from 'clsx';
 import Modal from '@comps/common/Modal';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -60,6 +60,7 @@ export default function PolicyDetail() {
   const [uploadFile, setUploadFile]     = useState<File | null>(null);
   const [uploadTag, setUploadTag]       = useState('');
   const [uploadUploading, setUploadUploading] = useState(false);
+  const [deleteDocTarget, setDeleteDocTarget] = useState<any | null>(null);
 
   const { data: policy, isLoading } = useQuery({
     queryKey: ['policy', id],
@@ -406,7 +407,7 @@ export default function PolicyDetail() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
-                    <button onClick={() => removeDoc.mutate(doc.id)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13}/></button>
+                    <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13}/></button>
                   </div>
                 </div>
               ))}
@@ -582,6 +583,25 @@ export default function PolicyDetail() {
               {uploadUploading ? 'Uploading…' : 'Upload'}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!deleteDocTarget} onClose={() => setDeleteDocTarget(null)} title="Delete Document" size="sm">
+        <p className="text-sm text-gray-600 mb-4">
+          Delete <strong>{deleteDocTarget?.fileName ?? deleteDocTarget?.originalName ?? 'this document'}</strong>?
+        </p>
+        <div className="flex justify-end gap-2">
+          <button className="btn-secondary" onClick={() => setDeleteDocTarget(null)}>Cancel</button>
+          <button
+            className="btn-danger"
+            disabled={removeDoc.isPending}
+            onClick={async () => {
+              await removeDoc.mutateAsync(deleteDocTarget!.id);
+              setDeleteDocTarget(null);
+            }}
+          >
+            {removeDoc.isPending ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
       </Modal>
     </div>

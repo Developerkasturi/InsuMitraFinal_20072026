@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { contactsService } from '@api/index';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function useContacts(params?: Record<string, any>) {
   return useQuery({
@@ -41,9 +43,19 @@ export function useUpdateContact() {
 
 export function useDeleteContact() {
   const qc = useQueryClient();
+  const role = useAuthStore(s => s.user?.role);
   return useMutation({
-    mutationFn: contactsService.remove,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contacts'] }); toast.success('Contact deleted'); },
+    mutationFn: (id: string) => deleteOrRequestEntity({
+      role,
+      entityType: 'Contact',
+      entityId: id,
+      deleteFn: () => contactsService.remove(id),
+      requestReason: 'Employee requested deletion of contact',
+    }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success(result.mode === 'requested' ? 'Deletion request submitted to admin' : 'Contact deleted');
+    },
     onError:   (e: any) => toast.error(e.response?.data?.message ?? 'Failed to delete contact'),
   });
 }

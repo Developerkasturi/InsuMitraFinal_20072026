@@ -45,7 +45,7 @@ export class CalendarController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.EMPLOYEE)
+  @Roles(UserRole.OWNER)
   deleteEvent(@CurrentUser() user: any, @Param('id') id: string) {
     return this.svc.deleteEvent(user.tenantId, id);
   }

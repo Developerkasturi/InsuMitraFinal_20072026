@@ -99,6 +99,16 @@ export const superAdminService = {
     return data as { data: any[]; meta: { total: number } };
   },
 
+  async getDeletionRequests() {
+    const { data } = await superApi.get('/deletion-requests');
+    return data as { data: any[] };
+  },
+
+  async resolveDeletionRequest(id: string, action: 'APPROVED' | 'REJECTED') {
+    const { data } = await superApi.put(`/deletion-requests/${id}/resolve`, { action });
+    return data;
+  },
+
   logout() {
     // TEMP DEBUG
     console.log('[superAdminService.logout()] called — stack:', new Error().stack);
