@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: insumitra-backend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm ci && npx prisma generate && node --max-old-space-size=460 node_modules/.bin/nest build
+    startCommand: npx prisma db push && npm run start:prod
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000

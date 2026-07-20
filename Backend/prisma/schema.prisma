@@ -1,0 +1,1229 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// InsuMitra — Prisma Schema  (v2)
+// Multi-tenant SaaS Insurance CRM · MongoDB
+// 41 models · MongoDB ObjectId PKs · Soft-delete (deleted_at) · Timestamps
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum UserRole {
+  SUPERADMIN
+  OWNER
+  EMPLOYEE
+  CONTACT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum RelationshipType {
+  SELF
+  SPOUSE
+  CHILD
+  PARENT
+  SIBLING
+  IN_LAW
+  OTHER
+}
+
+enum LeadStage {
+  OPEN
+  CONTACTED
+  PROPOSAL_SENT
+  IN_DISCUSSION
+  LOGIN_PROGRESS
+  PAYMENT_DONE
+  LOST
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WalletTxType {
+  CREDIT
+  DEBIT
+}
+
+enum EventType {
+  RENEWAL
+  PAYMENT_DUE
+  BIRTHDAY
+  FOLLOWUP
+  MEETING
+  OTHER
+}
+
+enum ClaimStatus {
+  INTIMATED
+  DOC_COLLECTION
+  FILED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  SETTLED
+}
+
+enum PolicyStatus {
+  ACTIVE
+  LAPSED
+  EXPIRED
+  CANCELLED
+  SURRENDERED
+}
+
+enum PaymentMode {
+  CASH
+  CHEQUE
+  NEFT
+  RTGS
+  UPI
+  CREDIT_CARD
+  DEBIT_CARD
+}
+
+enum PaymentFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  SINGLE
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  RENEWAL_REMINDER
+  PAYMENT_DUE
+  BIRTHDAY
+  LEAD_FOLLOWUP
+  CLAIM_UPDATE
+  TASK_ASSIGNED
+  SYSTEM
+  DELETION_REQUEST
+  DELETION_APPROVED
+  ASSIGNMENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum DocumentType {
+  AADHAAR
+  PAN
+  PASSPORT
+  DRIVING_LICENSE
+  POLICY_DOCUMENT
+  CLAIM_DOCUMENT
+  PROPOSAL_FORM
+  KYC
+  OTHER
+}
+
+enum DeletionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GLOBAL TABLES  (no tenant_id — platform-level)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Platform super administrators
+model SuperAdmin {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("superadmins")
+}
+
+/// Subscription tiers available on the platform
+model SubscriptionPlan {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  name             String   @unique
+  description      String?
+  priceMonthly     Float  @map("price_monthly")
+  priceYearly      Float  @map("price_yearly")
+  maxUsers         Int      @map("max_users")
+  maxContacts      Int      @map("max_contacts")
+  maxPolicies      Int      @map("max_policies")
+  features         Json     @default("{}")          // JSON feature flags
+  isActive         Boolean  @default(true)          @map("is_active")
+  trialDays        Int      @default(14)            @map("trial_days")
+  createdAt        DateTime @default(now())         @map("created_at")
+  updatedAt        DateTime @updatedAt              @map("updated_at")
+
+  subscriptions    Subscription[]
+
+  @@map("subscription_plans")
+}
+
+/// Global key-value platform configuration
+model PlatformSetting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  isPublic  Boolean  @default(false) @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@map("platform_settings")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TENANT  (one row = one insurance agency)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Each insurance agency is one tenant
+model Tenant {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  slug            String    @unique      // URL-safe identifier
+  email           String    @unique
+  phone           String?
+  logoUrl         String?   @map("logo_url")
+  website         String?
+  gstNumber       String?   @map("gst_number")
+  panNumber       String?   @map("pan_number")
+  licenseNumber   String?   @map("license_number")
+  address         String?
+  city            String?
+  state           String?
+  pincode         String?
+  isActive        Boolean   @default(true) @map("is_active")
+  agentPhotoUrl   String?   @map("agent_photo_url")
+  primaryColor    String?   @map("primary_color")
+  tagline         String?
+  socialMedia     Json?     @map("social_media")
+
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt      @map("updated_at")
+
+  // Relations
+  users                     User[]
+  contacts                  Contact[]
+  insuranceCompanies        InsuranceCompany[]
+  insurancePlans            InsurancePlan[]
+  productInterests          ProductInterest[]
+  policies                  Policy[]
+  claims                    Claim[]
+  employeeProfiles          EmployeeProfile[]
+  commissions               Commission[]
+  commissionYears           CommissionYear[]
+  whatsappCampaigns         WhatsappCampaign[]
+  whatsappTemplates         WhatsappTemplate[]
+  whatsappWallet            WhatsappWallet?
+  calendarEvents            CalendarEvent[]
+  subscriptions             Subscription[]
+  documents                 Document[]
+  notifications             Notification[]
+  activityLogs              ActivityLog[]
+  employeeTasks             EmployeeTask[]
+  employeeDailyLogs         EmployeeDailyLog[]
+  featureFeedbacks          FeatureFeedback[]
+  agencyDetails             AgencyDetail[]
+  banners                   Banner[]
+  deletionRequests          DeletionRequest[]
+
+  @@map("tenants")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// USERS & AUTH
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Platform users — every role is stored here
+model User {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String    @map("tenant_id") @db.ObjectId
+  email           String
+  passwordHash    String    @map("password_hash")
+  role            UserRole
+  isActive        Boolean   @default(true) @map("is_active")
+  permissions     String[]  @default([])
+  lastLoginAt     DateTime? @map("last_login_at")
+  refreshToken    String?   @map("refresh_token")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt      @map("updated_at")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeProfile EmployeeProfile?
+  contacts        Contact[]  @relation("ContactUser")
+
+  assignedContacts           Contact[]         @relation("ContactAssignedEmployee")
+  assignedLeads              ProductInterest[] @relation("AssignedEmployee")
+  assignedPolicies           Policy[]          @relation("AssignedEmployee")
+  assignedClaims             Claim[]           @relation("AssignedEmployee")
+  createdTasks               EmployeeTask[]    @relation("TaskCreator")
+  assignedTasks              EmployeeTask[]    @relation("TaskAssignee")
+  dailyLogs                  EmployeeDailyLog[]
+  commissionsBeneficiary     Commission[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CONTACTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Customer / prospect profiles
+model Contact {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String    @map("tenant_id") @db.ObjectId
+  userId String?   @map("user_id") @db.ObjectId  // linked login if any (uniqueness enforced at app layer)
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
+  email             String?
+  phone             String
+  alternatePhone    String?   @map("alternate_phone")
+  dateOfBirth       DateTime? @map("date_of_birth")
+  gender            Gender?
+  avatarUrl         String?   @map("avatar_url")
+  panNumber         String?   @map("pan_number")
+  aadhaarNumber     String?   @map("aadhaar_number")
+  annualIncome      Float?  @map("annual_income")
+  notes             String?
+  tags              String[]  @default([])
+  source            String?
+  assignedEmployeeId String?           @map("assigned_employee_id") @db.ObjectId
+  followUpDate      DateTime?         @map("follow_up_date")
+  leadStage         String?           @map("lead_stage")
+  leadStatus        String?           @map("lead_status")
+  leadType          String?           @map("lead_type")
+  isActive          Boolean   @default(true)           @map("is_active")
+  deletedAt         DateTime? @map("deleted_at")
+  createdAt         DateTime  @default(now())          @map("created_at")
+  updatedAt         DateTime  @updatedAt               @map("updated_at")
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User?     @relation("ContactUser", fields: [userId], references: [id])
+  assignedEmployee   User?             @relation("ContactAssignedEmployee", fields: [assignedEmployeeId], references: [id])
+
+  addresses         Address[]
+  occupations       Occupation[]
+  relationships     ContactRelationship[]  @relation("PrimaryContact")
+  relatedTo         ContactRelationship[]  @relation("RelatedContact")
+  productInterests  ProductInterest[]
+  policies          Policy[]
+  claims            Claim[]
+  documents         Document[]
+  activityLogs      ActivityLog[]
+  calendarEvents    CalendarEvent[]
+
+  @@index([tenantId])
+  @@index([tenantId, phone])
+  @@index([tenantId, deletedAt])
+  @@map("contacts")
+}
+
+/// Postal addresses linked to contacts
+model Address {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  contactId String   @map("contact_id") @db.ObjectId
+  type        String   @default("HOME")   // HOME | OFFICE | OTHER
+  line1       String   @map("line_1")
+  line2       String?  @map("line_2")
+  city        String
+  state       String
+  pincode     String
+  country     String   @default("India")
+  isPrimary   Boolean  @default(false)    @map("is_primary")
+  createdAt   DateTime @default(now())   @map("created_at")
+  updatedAt   DateTime @updatedAt        @map("updated_at")
+
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("addresses")
+}
+
+/// Contact occupation / employment info
+model Occupation {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  contactId String   @map("contact_id") @db.ObjectId
+  type         String   // SALARIED | SELF_EMPLOYED | BUSINESS | RETIRED | STUDENT
+  companyName  String?  @map("company_name")
+  designation  String?
+  industry     String?
+  yearsOfExp   Int?     @map("years_of_exp")
+  isPrimary    Boolean  @default(true) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt     @map("updated_at")
+
+  contact      Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("occupations")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FIRM PROFILE & AGENCY DETAILS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model AgencyDetail {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String   @map("tenant_id") @db.ObjectId
+  
+  brokerName       String?  @map("broker_name")
+  brokerCode       String?  @map("broker_code")
+  subBrokerCode    String?  @map("sub_broker_code")
+  insuranceCompany String?  @map("insurance_company")
+  homeBranchName   String?  @map("home_branch_name")
+  homeBranchCode   String?  @map("home_branch_code")
+  agentName        String?  @map("agent_name")
+  agentCode        String?  @map("agent_code")
+  
+  bankIfsc         String?  @map("bank_ifsc")
+  bankBranch       String?  @map("bank_branch")
+  bankAccountNo    String?  @map("bank_account_no")
+  email            String?
+  phone            String?
+
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt      @map("updated_at")
+
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("agency_details")
+}
+
+model Banner {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId         String   @map("tenant_id") @db.ObjectId
+  
+  title            String?
+  imageUrl         String   @map("image_url")
+  linkUrl          String?  @map("link_url")
+  isActive         Boolean  @default(true) @map("is_active")
+  order            Int      @default(0)
+
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt      @map("updated_at")
+
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("banners")
+}
+
+/// Family / relationship links between contacts
+model ContactRelationship {
+  id                String           @id @default(auto()) @map("_id") @db.ObjectId
+  primaryContactId String           @map("primary_contact_id") @db.ObjectId
+  relatedContactId String           @map("related_contact_id") @db.ObjectId
+  relationshipType  RelationshipType @map("relationship_type")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  primaryContact    Contact          @relation("PrimaryContact",  fields: [primaryContactId], references: [id], onDelete: Cascade)
+  relatedContact    Contact          @relation("RelatedContact",  fields: [relatedContactId], references: [id], onDelete: Cascade)
+
+  @@unique([primaryContactId, relatedContactId])
+  @@map("contact_relationships")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// INSURANCE CATALOG  (companies & plans)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model InsuranceCompany {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  name        String
+  shortCode   String   @map("short_code")
+  logoUrl     String?  @map("logo_url")
+  website     String?
+  phone       String?
+  email       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt     @map("updated_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plans       InsurancePlan[]
+
+  @@unique([tenantId, shortCode])
+  @@index([tenantId])
+  @@map("insurance_companies")
+}
+
+model InsurancePlan {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  companyId String   @map("company_id") @db.ObjectId
+  name              String
+  planCode          String   @map("plan_code")
+  category          String   // LIFE | HEALTH | MOTOR | TRAVEL | GENERAL
+  subCategory       String?  @map("sub_category")
+  description       String?
+  minSumAssured     Float? @map("min_sum_assured")
+  maxSumAssured     Float? @map("max_sum_assured")
+  minAge            Int?     @map("min_age")
+  maxAge            Int?     @map("max_age")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt     @map("updated_at")
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company           InsuranceCompany  @relation(fields: [companyId], references: [id])
+  productInterests  ProductInterest[]
+  policies          Policy[]
+
+  @@unique([tenantId, planCode, companyId])
+  @@index([tenantId])
+  @@map("insurance_plans")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// LEADS / PRODUCT INTERESTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model ProductInterest {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String    @map("tenant_id") @db.ObjectId
+  contactId String    @map("contact_id") @db.ObjectId
+  planId String?   @map("plan_id") @db.ObjectId
+  assignedEmployeeId String?   @map("assigned_employee_id") @db.ObjectId
+  source String?
+  interests String[] @default([])
+  stage                LeadStage @default(OPEN)
+  sumAssuredRequired   Float?  @map("sum_assured_required")
+  premiumBudget        Float?  @map("premium_budget")
+  followUpDate         DateTime? @map("follow_up_date")
+  notes                String?
+  lostReason           String?   @map("lost_reason")
+  deletedAt            DateTime? @map("deleted_at")
+  createdAt            DateTime  @default(now())              @map("created_at")
+  updatedAt            DateTime  @updatedAt                   @map("updated_at")
+
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact              Contact   @relation(fields: [contactId], references: [id])
+  plan                 InsurancePlan? @relation(fields: [planId], references: [id])
+  assignedEmployee     User?     @relation("AssignedEmployee", fields: [assignedEmployeeId], references: [id])
+  consultations        ProductInterestConsultation[]
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+  @@index([tenantId, assignedEmployeeId])
+  @@index([tenantId, deletedAt])
+  @@map("product_interests")
+}
+
+model ProductInterestConsultation {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  productInterestId String   @map("product_interest_id") @db.ObjectId
+  notes             String
+  scheduledAt       DateTime? @map("scheduled_at")
+  completedAt       DateTime? @map("completed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  productInterest   ProductInterest @relation(fields: [productInterestId], references: [id], onDelete: Cascade)
+
+  @@index([productInterestId])
+  @@map("product_interest_consultations")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// POLICIES
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Policy {
+  id                   String           @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String           @map("tenant_id") @db.ObjectId
+  policyNumber         String           @map("policy_number")
+  contactId String           @map("contact_id") @db.ObjectId
+  planId String           @map("plan_id") @db.ObjectId
+  assignedEmployeeId String?          @map("assigned_employee_id") @db.ObjectId
+  status               PolicyStatus     @default(ACTIVE)
+  sumAssured           Float          @map("sum_assured")
+  premiumAmount        Float          @map("premium_amount")
+  paymentFrequency     PaymentFrequency @map("payment_frequency")
+  startDate            DateTime         @map("start_date")
+  endDate              DateTime         @map("end_date")
+  nextDueDate          DateTime?        @map("next_due_date")
+  maturityDate         DateTime?        @map("maturity_date")
+  agentCode            String?          @map("agent_code")
+  notes                String?
+  deletedAt            DateTime?        @map("deleted_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt      @map("updated_at")
+
+  tenant               Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact              Contact          @relation(fields: [contactId], references: [id])
+  plan                 InsurancePlan    @relation(fields: [planId], references: [id])
+  assignedEmployee     User?            @relation("AssignedEmployee", fields: [assignedEmployeeId], references: [id])
+
+  members              PolicyMember[]
+  payments             PolicyPayment[]
+  loans                PolicyLoan[]
+  nominees             PolicyNominee[]
+  healthCheckups       PreventiveHealthCheckup[]
+  claims               Claim[]
+  documents            Document[]
+  commissions          Commission[]
+
+  @@unique([tenantId, policyNumber])
+  @@index([tenantId])
+  @@index([tenantId, contactId])
+  @@index([tenantId, status])
+  @@index([tenantId, nextDueDate])
+  @@index([tenantId, assignedEmployeeId])
+  @@index([tenantId, deletedAt])
+  @@map("policies")
+}
+
+model PolicyMember {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  policyId String   @map("policy_id") @db.ObjectId
+  name        String
+  relationship RelationshipType
+  dateOfBirth DateTime? @map("date_of_birth")
+  gender      Gender?
+  sumInsured  Float?  @map("sum_insured")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt     @map("updated_at")
+
+  policy      Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("policy_members")
+}
+
+model PolicyPayment {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  policyId String      @map("policy_id") @db.ObjectId
+  amount        Float
+  dueDate       DateTime    @map("due_date")
+  paidDate      DateTime?   @map("paid_date")
+  mode          PaymentMode?
+  referenceNo   String?     @map("reference_no")
+  receiptUrl    String?     @map("receipt_url")
+  isPaid        Boolean     @default(false) @map("is_paid")
+  lateFee       Float?    @map("late_fee")
+  createdAt     DateTime    @default(now())   @map("created_at")
+  updatedAt     DateTime    @updatedAt        @map("updated_at")
+
+  policy        Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@index([policyId, isPaid])
+  @@map("policy_payments")
+}
+
+model PolicyLoan {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  policyId String   @map("policy_id") @db.ObjectId
+  loanAmount    Float  @map("loan_amount")
+  interestRate  Float  @map("interest_rate")
+  disbursedDate DateTime @map("disbursed_date")
+  repaidDate    DateTime? @map("repaid_date")
+  outstandingAmt Float  @map("outstanding_amt")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt     @map("updated_at")
+
+  policy        Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("policy_loans")
+}
+
+model PolicyNominee {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  policyId String   @map("policy_id") @db.ObjectId
+  name         String
+  relationship RelationshipType
+  dateOfBirth  DateTime? @map("date_of_birth")
+  sharePercent Float   @map("share_percent")
+  phone        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt     @map("updated_at")
+
+  policy       Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("policy_nominees")
+}
+
+model PreventiveHealthCheckup {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  policyId String    @map("policy_id") @db.ObjectId
+  scheduledAt DateTime  @map("scheduled_at")
+  completedAt DateTime? @map("completed_at")
+  notes       String?
+  reportUrl   String?   @map("report_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt     @map("updated_at")
+
+  policy      Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("preventive_health_checkups")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CLAIMS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Claim {
+  id                 String      @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String      @map("tenant_id") @db.ObjectId
+  policyId String      @map("policy_id") @db.ObjectId
+  contactId String      @map("contact_id") @db.ObjectId
+  assignedEmployeeId String?     @map("assigned_employee_id") @db.ObjectId
+  claimNumber        String      @map("claim_number")
+  status             ClaimStatus @default(INTIMATED)
+  claimType          String      @map("claim_type")   // DEATH | HEALTH | ACCIDENTAL | MATURITY
+  claimAmount        Float     @map("claim_amount")
+  approvedAmount     Float?    @map("approved_amount")
+  intimatedAt        DateTime    @map("intimated_at")
+  filedAt            DateTime?   @map("filed_at")
+  settledAt          DateTime?   @map("settled_at")
+  rejectionReason    String?     @map("rejection_reason")
+  notes              String?
+  deletedAt          DateTime?   @map("deleted_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt      @map("updated_at")
+
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  policy             Policy      @relation(fields: [policyId], references: [id])
+  contact            Contact     @relation(fields: [contactId], references: [id])
+  assignedEmployee   User?       @relation("AssignedEmployee", fields: [assignedEmployeeId], references: [id])
+
+  expenses           ClaimExpense[]
+  documents          Document[]
+
+  @@unique([tenantId, claimNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, assignedEmployeeId])
+  @@index([tenantId, deletedAt])
+  @@map("claims")
+}
+
+model ClaimExpense {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  claimId     String   @map("claim_id") @db.ObjectId
+  description String
+  amount      Float
+  category    String   @default("OTHER")
+  date        DateTime
+  receiptUrl  String?  @map("receipt_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("claim_expenses")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// EMPLOYEES
+// ═════════════════════════════════════════════════════════════════════════════
+
+model EmployeeProfile {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  userId String   @unique @map("user_id") @db.ObjectId
+  firstName        String   @map("first_name")
+  lastName         String   @map("last_name")
+  phone            String
+  designation      String?
+  department       String?
+  dateOfJoining    DateTime? @map("date_of_joining")
+  dateOfBirth      DateTime? @map("date_of_birth")
+  gender           Gender?
+  baseSalary       Float?  @map("base_salary")
+  bonusPlanned     Float?  @map("bonus_planned")
+  monthlyTarget    Float?  @map("monthly_target")
+  callsTarget      Int     @default(0) @map("calls_target")
+  visitsTarget     Int     @default(0) @map("visits_target")
+  bankName         String?   @map("bank_name")
+  bankAccountNumber String?  @map("bank_account_number")
+  bankIfscCode     String?   @map("bank_ifsc_code")
+  bankBranch       String?   @map("bank_branch")
+  bankAccountType  String?   @map("bank_account_type")
+  avatarUrl        String?   @map("avatar_url")
+  isActive         Boolean   @default(true) @map("is_active")
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt     @map("updated_at")
+
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@map("employee_profiles")
+}
+
+model EmployeeTask {
+  id               String     @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String     @map("tenant_id") @db.ObjectId
+  createdById String     @map("created_by_id") @db.ObjectId
+  assignedToId String     @map("assigned_to_id") @db.ObjectId
+  title            String
+  description      String?
+  status           TaskStatus   @default(PENDING)
+  priority         TaskPriority @default(MEDIUM)
+  dueDate          DateTime?    @map("due_date")
+  completedAt      DateTime?    @map("completed_at")
+  relatedContactId String?      @map("related_contact_id") @db.ObjectId
+  relatedPolicyId  String?      @map("related_policy_id")
+  deletedAt        DateTime?    @map("deleted_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt      @map("updated_at")
+
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy        User       @relation("TaskCreator",  fields: [createdById],  references: [id])
+  assignedTo       User       @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, assignedToId])
+  @@index([tenantId, status])
+  @@index([tenantId, deletedAt])
+  @@map("employee_tasks")
+}
+
+model EmployeeDailyLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  userId String   @map("user_id") @db.ObjectId
+  logDate     DateTime @map("log_date")
+  checkIn     DateTime? @map("check_in")
+  checkOut    DateTime? @map("check_out")
+  notes       String?
+  leadsWorked Int      @default(0) @map("leads_worked")
+  callsMade   Int      @default(0) @map("calls_made")
+  visitsCompleted   Int      @default(0) @map("visits_completed")
+  premiumCollected  Float    @default(0) @map("premium_collected")
+  nextDayPlan       String?  @map("next_day_plan")
+  isEditedByAdmin   Boolean  @default(false) @map("is_edited_by_admin")
+  adminRemarks      String?  @map("admin_remarks")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt    @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, logDate])
+  @@index([tenantId])
+  @@map("employee_daily_logs")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// COMMISSIONS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model CommissionYear {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  year        Int
+  name        String   // e.g. "FY 2024-25"
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt     @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  commissions Commission[]
+
+  @@unique([tenantId, year])
+  @@index([tenantId])
+  @@map("commission_years")
+}
+
+model Commission {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  policyId String   @map("policy_id") @db.ObjectId
+  commissionYearId String   @map("commission_year_id") @db.ObjectId
+  beneficiaryId    String   @map("beneficiary_id") @db.ObjectId
+  
+  // Base
+  basePremium          Float? @map("base_premium")
+  baseCommissionRate   Float? @map("base_commission_rate")
+  baseCommissionAmount Float? @map("base_commission_amount")
+  
+  // Addon
+  addonPremium          Float? @map("addon_premium")
+  addonCommissionRate   Float? @map("addon_commission_rate")
+  addonCommissionAmount Float? @map("addon_commission_amount")
+
+  // Other types
+  deductibleRate        Float? @map("deductible_rate")
+  deductibleAmount      Float? @map("deductible_amount")
+  monthlyGridRate       Float? @map("monthly_grid_rate")
+  monthlyGridAmount     Float? @map("monthly_grid_amount")
+  otherRate             Float? @map("other_rate")
+  otherAmount           Float? @map("other_amount")
+  renewalRate           Float? @map("renewal_rate")
+  renewalAmount         Float? @map("renewal_amount")
+
+  // Yearly splits
+  year1Commission       Float? @map("year1_commission")
+  year2Commission       Float? @map("year2_commission")
+  year3Commission       Float? @map("year3_commission")
+  year4Commission       Float? @map("year4_commission")
+  year5Commission       Float? @map("year5_commission")
+
+  amount           Float
+  rate             Float  @map("rate")
+  isPaid           Boolean  @default(false)           @map("is_paid")
+  paidAt           DateTime? @map("paid_at")
+  notes            String?
+  createdAt        DateTime @default(now())           @map("created_at")
+  updatedAt        DateTime @updatedAt                @map("updated_at")
+
+  tenant         Tenant         @relation(fields: [tenantId],         references: [id], onDelete: Cascade)
+  policy         Policy         @relation(fields: [policyId],         references: [id])
+  commissionYear CommissionYear @relation(fields: [commissionYearId], references: [id])
+  beneficiary    User           @relation(fields: [beneficiaryId],    references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, beneficiaryId])
+  @@index([tenantId, policyId])
+  @@map("commissions")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// WHATSAPP MARKETING
+// ═════════════════════════════════════════════════════════════════════════════
+
+model WhatsappTemplate {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  name        String
+  body        String   // Supports {{variable}} placeholders
+  category    String   // PROMOTIONAL | TRANSACTIONAL | REMINDER
+  language    String   @default("en")
+  variables   String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaigns   WhatsappCampaign[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("whatsapp_templates")
+}
+
+model WhatsappCampaign {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String         @map("tenant_id") @db.ObjectId
+  templateId String         @map("template_id") @db.ObjectId
+  name          String
+  status        CampaignStatus @default(DRAFT)
+  scheduledAt   DateTime?      @map("scheduled_at")
+  startedAt     DateTime?      @map("started_at")
+  completedAt   DateTime?      @map("completed_at")
+  targetFilters Json           @default("{}") @map("target_filters") // audience filter criteria
+  totalCount    Int            @default(0) @map("total_count")
+  sentCount     Int            @default(0) @map("sent_count")
+  failedCount   Int            @default(0) @map("failed_count")
+  costPerMsg    Float?       @map("cost_per_msg")
+  totalCost     Float?       @map("total_cost")
+  deletedAt     DateTime?      @map("deleted_at")
+  createdAt     DateTime       @default(now())      @map("created_at")
+  updatedAt     DateTime       @updatedAt           @map("updated_at")
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template      WhatsappTemplate  @relation(fields: [templateId], references: [id])
+  logs          WhatsappLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("whatsapp_campaigns")
+}
+
+model WhatsappLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  campaignId String   @map("campaign_id") @db.ObjectId
+  phone       String
+  status      String   // QUEUED | SENT | DELIVERED | READ | FAILED
+  error       String?
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign    WhatsappCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([campaignId, status])
+  @@map("whatsapp_logs")
+}
+
+/// Per-tenant WhatsApp wallet balance
+model WhatsappWallet {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @unique @map("tenant_id") @db.ObjectId
+  balance   Float  @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt     @map("updated_at")
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions  WalletTransaction[]
+
+  @@map("whatsapp_wallets")
+}
+
+model WalletTransaction {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  walletId String       @map("wallet_id") @db.ObjectId
+  type        WalletTxType
+  amount      Float
+  balanceAfter Float @map("balance_after")
+  description String?
+  referenceId String?  @map("reference_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  wallet      WhatsappWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@map("wallet_transactions")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CALENDAR EVENTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model CalendarEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  contactId String?  @map("contact_id") @db.ObjectId
+  title       String
+  description String?
+  eventType   EventType @map("event_type")
+  startAt     DateTime  @map("start_at")
+  endAt       DateTime? @map("end_at")
+  isAllDay    Boolean   @default(false) @map("is_all_day")
+  isAutomatic Boolean   @default(false) @map("is_automatic")
+  relatedId String?   @map("related_id") @db.ObjectId  // policyId | leadId (polymorphic)
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now())      @map("created_at")
+  updatedAt   DateTime  @updatedAt           @map("updated_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, startAt])
+  @@index([tenantId, deletedAt])
+  @@map("calendar_events")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTIONS & BILLING
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Subscription {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String             @map("tenant_id") @db.ObjectId
+  planId String             @map("plan_id") @db.ObjectId
+  status      SubscriptionStatus @default(TRIAL)
+  startDate   DateTime           @map("start_date")
+  endDate     DateTime           @map("end_date")
+  trialEnd    DateTime?          @map("trial_end")
+  cancelledAt DateTime?          @map("cancelled_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt      @map("updated_at")
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan        SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payments    SubscriptionPayment[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionId String   @map("subscription_id") @db.ObjectId
+  amount         Float
+  currency       String   @default("INR")
+  status         String   // PENDING | PAID | FAILED | REFUNDED
+  gateway        String?  // RAZORPAY | STRIPE | MANUAL
+  gatewayId      String?  @map("gateway_id")
+  paidAt         DateTime? @map("paid_at")
+  invoiceUrl     String?   @map("invoice_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt     @map("updated_at")
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("subscription_payments")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DOCUMENTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Document {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String       @map("tenant_id") @db.ObjectId
+  contactId String?      @map("contact_id") @db.ObjectId
+  policyId String?      @map("policy_id") @db.ObjectId
+  claimId String?      @map("claim_id") @db.ObjectId
+  type        DocumentType @default(OTHER)
+  name        String
+  storageKey  String?      @map("storage_key")  // S3 key or Supabase path
+  url         String        // S3 / Supabase URL
+  mimeType    String?      @map("mime_type")
+  sizeBytes   Int?         @map("size_bytes")
+  uploadedById String?     @map("uploaded_by_id") @db.ObjectId
+  isVerified  Boolean      @default(false) @map("is_verified")
+  expiresAt   DateTime?    @map("expires_at")
+  deletedAt   DateTime?    @map("deleted_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt     @map("updated_at")
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+  policy      Policy?   @relation(fields: [policyId],  references: [id])
+  claim       Claim?    @relation(fields: [claimId],   references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, contactId])
+  @@index([tenantId, policyId])
+  @@index([tenantId, deletedAt])
+  @@map("documents")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Notification {
+  id         String           @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String           @map("tenant_id") @db.ObjectId
+  userId String           @map("user_id") @db.ObjectId
+  type       NotificationType
+  title      String
+  body       String
+  data       Json             @default("{}")
+  isRead     Boolean          @default(false) @map("is_read")
+  readAt     DateTime?        @map("read_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([tenantId, userId, isRead])
+  @@map("notifications")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ACTIVITY LOGS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model ActivityLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId String   @map("tenant_id") @db.ObjectId
+  userId String?  @map("user_id") @db.ObjectId
+  contactId String?  @map("contact_id") @db.ObjectId
+  entityType  String   @map("entity_type")  // Contact | Policy | Claim | Lead
+  entityId String   @map("entity_id") @db.ObjectId
+  action      String   // CREATE | UPDATE | DELETE | VIEW | STAGE_CHANGE | IMPORT
+  description String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, contactId])
+  @@map("activity_logs")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FEATURE FEEDBACK
+// ═════════════════════════════════════════════════════════════════════════════
+
+model FeatureFeedback {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @map("tenant_id") @db.ObjectId
+  userId    String   @map("user_id") @db.ObjectId
+  message   String
+  rating    Int?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("feature_feedbacks")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DELETION REQUESTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+model DeletionRequest {
+  id          String                @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId    String                @map("tenant_id") @db.ObjectId
+  requestedBy String                @map("requested_by") @db.ObjectId
+  entityType  String                @map("entity_type")
+  entityId    String                @map("entity_id") @db.ObjectId
+  reason      String?
+  status      DeletionRequestStatus @default(PENDING)
+  resolvedBy  String?               @map("resolved_by") @db.ObjectId
+  resolvedAt  DateTime?             @map("resolved_at")
+  createdAt   DateTime              @default(now()) @map("created_at")
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("deletion_requests")
+}
