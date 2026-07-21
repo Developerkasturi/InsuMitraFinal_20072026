@@ -222,6 +222,19 @@ export class LeadsService {
     const lead = await this.prisma.productInterest.findFirst({ where: { id, tenantId } });
     if (!lead) throw new NotFoundException('Lead not found');
     await this.prisma.productInterest.delete({ where: { id } });
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Lead',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the lead',
+        }
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for lead delete: ${err.message}`);
+    }
     return { data: null, message: 'Lead deleted' };
   }
 

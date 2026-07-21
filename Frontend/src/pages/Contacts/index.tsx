@@ -5,7 +5,7 @@ import {
   Calendar, Award, TrendingUp, Filter, Settings, UserPlus
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
-import { deletionRequestsService } from '../../api/deletionRequestsService';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useLeads, useCreateLead } from '@hooks/useLeads';
 import { useLookupStore } from '@store/lookup.store';
 import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
@@ -54,6 +54,7 @@ interface Contact {
 }
 
 export default function Contacts() {
+  const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -380,7 +381,7 @@ export default function Contacts() {
       leadStatus: contact?.leadStage ? (stageMap[contact.leadStage] || 'OPEN') : 'OPEN',
       interestedIn: ['Health'],
       leadSource: contact?.source || 'By Agent',
-      assignedEmployeeId: contact?.assignedEmployeeId || curEmp?.id || currentUser?.id || '',
+      assignedEmployeeId: contact?.assignedEmployeeId || curEmp?.userId || currentUser?.id || '',
       followUpDate: contact?.followUpDate ? contact.followUpDate.split('T')[0] : '',
     });
     setLeadComments([]);
@@ -427,7 +428,7 @@ export default function Contacts() {
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
       leadSource: 'By Agent',
-      assignedEmployeeId: curEmp?.id || currentUser?.id || '',
+      assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
     setLeadComments([]);
@@ -774,7 +775,7 @@ export default function Contacts() {
     };
     if (body.alternatePhone?.trim()) payload.alternatePhone = body.alternatePhone.trim();
     if (body.email?.trim()) payload.email = body.email.trim();
-    if (body.gender && body.gender !== '') payload.gender = body.gender;
+    if (body.gender && (body.gender as string) !== '') payload.gender = body.gender;
     if (body.dateOfBirth?.trim()) {
       // Ensure dateOfBirth is sent as ISO string
       try {
@@ -834,8 +835,8 @@ export default function Contacts() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    const isOwner = authUser?.role === 'OWNER';
-    if (isOwner) {
+    const isAdmin = authUser?.role === 'OWNER' || authUser?.role === 'SUPERADMIN';
+    if (isAdmin) {
       await deleteContact.mutateAsync(deleteTarget.id);
     } else {
       const toastId = toast.loading('Submitting delete request to admin...');
@@ -1829,7 +1830,7 @@ export default function Contacts() {
             >
               <option value="">All Agents</option>
               {employees?.map((emp: any) => (
-                <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                <option key={emp.id} value={emp.userId}>{emp.firstName} {emp.lastName}</option>
               ))}
             </select>
           </div>
@@ -2005,17 +2006,19 @@ export default function Contacts() {
                 <option value="Other">Other</option>
               </select>
             </div>
-            <div>
-              <label className="label">Assigned To</label>
-              <select {...register('assignedEmployeeId')} className="input">
-                <option value="">— Unassigned —</option>
-                {employees?.map((emp: any) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {user?.role !== 'EMPLOYEE' && (
+              <div>
+                <label className="label">Assigned To</label>
+                <select {...register('assignedEmployeeId')} className="input">
+                  <option value="">— Unassigned —</option>
+                  {employees?.map((emp: any) => (
+                    <option key={emp.id} value={emp.userId}>
+                      {emp.firstName} {emp.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div>
@@ -2817,21 +2820,23 @@ export default function Contacts() {
                   </div>
 
                   {/* Assigned Employee */}
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
-                    <select
-                      className="input w-full"
-                      value={leadInfoFields.assignedEmployeeId}
-                      onChange={e => setLeadInfoFields(l => ({ ...l, assignedEmployeeId: e.target.value }))}
-                    >
-                      <option value="">Select Employee</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.firstName} {emp.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {user?.role !== 'EMPLOYEE' && (
+                    <div>
+                      <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                      <select
+                        className="input w-full"
+                        value={leadInfoFields.assignedEmployeeId}
+                        onChange={e => setLeadInfoFields(l => ({ ...l, assignedEmployeeId: e.target.value }))}
+                      >
+                        <option value="">Select Employee</option>
+                        {employees.map(emp => (
+                          <option key={emp.id} value={emp.userId}>
+                            {emp.firstName} {emp.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Follow up Date */}
                   <div>

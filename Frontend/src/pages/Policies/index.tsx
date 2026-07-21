@@ -4,6 +4,7 @@ import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Sa
 import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulkAssignPolicies } from '@hooks/usePolicies';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, employeesService, claimsService, documentsService } from '@api/index';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
@@ -148,6 +149,7 @@ type EditForm = z.infer<typeof editSchema>;
 
 export default function Policies() {
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   const [page, setPage] = useState(1);
@@ -223,7 +225,6 @@ export default function Policies() {
     }
   };
 
-  const location = useLocation();
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('action') === 'add') {
@@ -681,7 +682,18 @@ export default function Policies() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    await deletePolicy.mutateAsync(deleteTarget.id);
+    const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'OWNER';
+    if (isAdmin) {
+      await deletePolicy.mutateAsync(deleteTarget.id);
+    } else {
+      const toastId = toast.loading('Submitting delete request to admin...');
+      try {
+        await deletionRequestsService.requestDeletion('Policy', deleteTarget.id, `Employee requested deletion of policy ${deleteTarget.policyNumber}`);
+        toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+      }
+    }
     setDeleteTarget(null);
   };
 
@@ -1249,20 +1261,22 @@ export default function Policies() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="label">Assigned To</label>
-              <select
-                {...register('assignedEmployeeId')}
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-              >
-                <option value="">Select Employee</option>
-                {employeeResults?.data?.map((emp: any) => (
-                  <option key={emp.id} value={emp.userId}>
-                    {emp.firstName || emp.employeeProfile?.firstName || ''} {emp.lastName || emp.employeeProfile?.lastName || ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {user?.role !== 'EMPLOYEE' && (
+              <div className="flex flex-col gap-1">
+                <label className="label">Assigned To</label>
+                <select
+                  {...register('assignedEmployeeId')}
+                  className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                >
+                  <option value="">Select Employee</option>
+                  {employeeResults?.data?.map((emp: any) => (
+                    <option key={emp.id} value={emp.userId}>
+                      {emp.firstName || emp.employeeProfile?.firstName || ''} {emp.lastName || emp.employeeProfile?.lastName || ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* ── Riders / Addons Multi-Select ── */}
             <div className="col-span-2 flex flex-col gap-1">
@@ -1512,20 +1526,22 @@ export default function Policies() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="label">Assigned To</label>
-              <select
-                {...regEdit('assignedEmployeeId')}
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-              >
-                <option value="">Select Employee</option>
-                {employeeResults?.data?.map((emp: any) => (
-                  <option key={emp.id} value={emp.userId}>
-                    {emp.firstName || emp.employeeProfile?.firstName || ''} {emp.lastName || emp.employeeProfile?.lastName || ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {user?.role !== 'EMPLOYEE' && (
+              <div className="flex flex-col gap-1">
+                <label className="label">Assigned To</label>
+                <select
+                  {...regEdit('assignedEmployeeId')}
+                  className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                >
+                  <option value="">Select Employee</option>
+                  {employeeResults?.data?.map((emp: any) => (
+                    <option key={emp.id} value={emp.userId}>
+                      {emp.firstName || emp.employeeProfile?.firstName || ''} {emp.lastName || emp.employeeProfile?.lastName || ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1">
               <label className="label">Sum Insured (₹) *</label>

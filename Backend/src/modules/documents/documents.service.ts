@@ -123,6 +123,20 @@ export class DocumentsService {
       await this.supabase!.storage.from(this.bucket).remove([doc.storageKey!]);
     }
     await this.prisma.document.delete({ where: { id } });
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Document',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the document',
+        }
+      });
+    } catch (err: any) {
+      // logger might not be injected in this service, so we ignore or console.log
+      console.warn(`ActivityLog write failed for document delete: ${err.message}`);
+    }
     return { message: 'Document deleted successfully' };
   }
 }

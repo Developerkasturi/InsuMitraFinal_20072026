@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@store/auth.store';
 import { tenantService, subscriptionsService, agencyDetailsService, bannersService } from '@api/index';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -548,7 +549,18 @@ export default function FirmProfile() {
             className="btn-danger"
             disabled={deleteAgency.isPending}
             onClick={async () => {
-              await deleteAgency.mutateAsync(deleteAgencyTarget!.id);
+              const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'OWNER';
+              if (isAdmin) {
+                await deleteAgency.mutateAsync(deleteAgencyTarget!.id);
+              } else {
+                const toastId = toast.loading('Submitting delete request to admin...');
+                try {
+                  await deletionRequestsService.requestDeletion('AgencyDetail', deleteAgencyTarget!.id, `Employee requested deletion of agency detail ${deleteAgencyTarget?.brokerName}`);
+                  toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+                }
+              }
               setDeleteAgencyTarget(null);
             }}
           >
@@ -567,7 +579,18 @@ export default function FirmProfile() {
             className="btn-danger"
             disabled={deleteBanner.isPending}
             onClick={async () => {
-              await deleteBanner.mutateAsync(deleteBannerTarget!.id);
+              const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'OWNER';
+              if (isAdmin) {
+                await deleteBanner.mutateAsync(deleteBannerTarget!.id);
+              } else {
+                const toastId = toast.loading('Submitting delete request to admin...');
+                try {
+                  await deletionRequestsService.requestDeletion('Banner', deleteBannerTarget!.id, `Employee requested deletion of banner ${deleteBannerTarget?.title}`);
+                  toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+                }
+              }
               setDeleteBannerTarget(null);
             }}
           >

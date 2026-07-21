@@ -195,8 +195,21 @@ export class PoliciesService {
     if (!policy) throw new NotFoundException('Policy not found');
     await this.prisma.policy.update({
       where: { id },
-      data:  { status: 'CANCELLED' },
+      data:  { status: 'CANCELLED' }, // or soft delete
     });
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Policy',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the policy',
+        }
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for policy delete: ${err.message}`);
+    }
     return { data: null, message: 'Policy cancelled' };
   }
 

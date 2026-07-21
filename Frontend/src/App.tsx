@@ -48,6 +48,7 @@ const Settings       = lazy(() => import('@pages/Settings'));
 const Subscription   = lazy(() => import('@pages/Subscription'));
 const Insurance      = lazy(() => import('@pages/Insurance'));
 const Documents      = lazy(() => import('@pages/Documents'));
+const DeletionRequests = lazy(() => import('@pages/DeletionRequests'));
 const GlobalSearch   = lazy(() => import('@pages/Search'));
 const FirmProfile    = lazy(() => import('@pages/FirmProfile'));
 
@@ -184,6 +185,7 @@ export default function App() {
         <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
         <Route path="dashboard" element={<Suspense fallback={<Loader />}><SuperAdminDashboard /></Suspense>} />
         <Route path="tenants"   element={<Suspense fallback={<Loader />}><SuperAdminTenants /></Suspense>} />
+        <Route path="deletion-requests" element={<Suspense fallback={<Loader />}><DeletionRequests /></Suspense>} />
       </Route>
 
       {/* Client Portal */}
@@ -246,6 +248,7 @@ export default function App() {
         <Route path="operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="documents"    element={<OwnerRoute><PlanProtectedRoute feature="documents"><Suspense fallback={<Loader />}><Documents /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="search"       element={<OwnerRoute><Suspense fallback={<Loader />}><GlobalSearch /></Suspense></OwnerRoute>} />
+        <Route path="deletion-requests" element={<OwnerRoute><Suspense fallback={<Loader />}><DeletionRequests /></Suspense></OwnerRoute>} />
       </Route>
 
       <Route path="*" element={<IndexRedirect />} />

@@ -12,6 +12,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAddClaimExpense, useRemoveClaimExpense } from '@hooks/useClaims';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 const STATUS_BADGE: Record<string, string> = {
   INTIMATED: 'badge-yellow',
@@ -37,6 +39,7 @@ export default function ClaimDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { user: authUser } = useAuthStore();
 
   // Lookup store
   const employees = useLookupStore(s => s.employees);
@@ -457,7 +460,18 @@ export default function ClaimDetail() {
             className="btn-danger"
             disabled={removeDoc.isPending}
             onClick={async () => {
-              await removeDoc.mutateAsync(deleteDocTarget!.id);
+              const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+              if (isAdmin) {
+                await removeDoc.mutateAsync(deleteDocTarget!.id);
+              } else {
+                const toastId = toast.loading('Submitting delete request to admin...');
+                try {
+                  await deletionRequestsService.requestDeletion('Document', deleteDocTarget!.id, `Employee requested deletion of document ${deleteDocTarget?.fileName}`);
+                  toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+                }
+              }
               setDeleteDocTarget(null);
             }}
           >

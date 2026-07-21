@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, Navigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, LogOut, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, ChevronLeft, Trash2 } from 'lucide-react';
 import { useSuperAdminStore } from '@store/superadmin.store';
 import { superAdminService } from '@api/superadmin.service';
 import clsx from 'clsx';
@@ -7,6 +7,7 @@ import clsx from 'clsx';
 const NAV = [
   { to: '/superadmin/dashboard', label: 'Dashboard',  Icon: LayoutDashboard },
   { to: '/superadmin/tenants',   label: 'Tenants',    Icon: Building2 },
+  { to: '/superadmin/deletion-requests', label: 'Delete Requests', Icon: Trash2 },
 ];
 
 function SuperAdminGuard({ children }: { children: React.ReactNode }) {

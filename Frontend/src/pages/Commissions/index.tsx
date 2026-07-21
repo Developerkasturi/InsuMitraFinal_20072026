@@ -9,6 +9,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 interface Commission {
   id: string; amount: number; rate: number; isPaid: boolean; paidAt?: string;
@@ -81,6 +83,7 @@ function ComputedCell({ label, value, green }: { label: string; value: string; g
 }
 
 export default function Commissions() {
+  const { user: authUser } = useAuthStore();
   const [page, setPage]             = useState(1);
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
@@ -669,7 +672,21 @@ export default function Commissions() {
         </p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
-          <button className="btn-danger" disabled={deleteCommission.isPending} onClick={() => deleteCommission.mutate(deleteTarget!.id)}>
+          <button className="btn-danger" disabled={deleteCommission.isPending} onClick={async () => {
+            const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+            if (isAdmin) {
+              deleteCommission.mutate(deleteTarget!.id);
+            } else {
+              const toastId = toast.loading('Submitting delete request to admin...');
+              try {
+                await deletionRequestsService.requestDeletion('Commission', deleteTarget!.id, `Employee requested deletion of commission`);
+                toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+              }
+              setDeleteTarget(null);
+            }
+          }}>
             {deleteCommission.isPending ? 'Deleting…' : 'Delete'}
           </button>
         </div>

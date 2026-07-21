@@ -187,6 +187,19 @@ export class ClaimsService {
     const claim = await this.prisma.claim.findFirst({ where: { id, tenantId } });
     if (!claim) throw new NotFoundException('Claim not found');
     await this.prisma.claim.delete({ where: { id } });
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Claim',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the claim',
+        }
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for claim delete: ${err.message}`);
+    }
     return { data: null, message: 'Claim deleted' };
   }
 

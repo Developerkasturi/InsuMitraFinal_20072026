@@ -27,7 +27,7 @@ export class EmployeesController {
   }
 
   @Get()
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.EMPLOYEE)
   findAll(@CurrentUser() user: any, @Query() query: any) {
     return this.svc.findAll(user.tenantId, query);
   }

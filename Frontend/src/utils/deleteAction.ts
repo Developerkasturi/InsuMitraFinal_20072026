@@ -1,4 +1,4 @@
-import { deletionRequestsService } from '@/api/deletionRequestsService';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 type DeleteActionParams = {
   role?: string | null;

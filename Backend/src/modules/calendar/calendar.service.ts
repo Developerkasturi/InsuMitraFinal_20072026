@@ -14,33 +14,32 @@ export class CalendarService {
 
     const where: any = { tenantId };
     if (startDate) where.startAt = { gte: new Date(startDate) };
-    if (endDate)   where.startAt = { ...where.startAt, lte: new Date(endDate) };
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
+      where.startAt = { ...where.startAt, lte: end };
+    }
     if (eventType) where.eventType = eventType;
 
     if (role === UserRole.EMPLOYEE) {
+      const allowedContacts = await this.prisma.contact.findMany({
+        where: {
+          tenantId,
+          OR: [
+            { assignedEmployeeId: userId },
+            { policies: { some: { assignedEmployeeId: userId } } },
+            { productInterests: { some: { assignedEmployeeId: userId } } },
+            { claims: { some: { assignedEmployeeId: userId } } }
+          ]
+        },
+        select: { id: true }
+      });
+      const allowedContactIds = allowedContacts.map(c => c.id);
+
       where.OR = [
         { contactId: null },
-        {
-          contact: {
-            policies: {
-              some: { assignedEmployeeId: userId }
-            }
-          }
-        },
-        {
-          contact: {
-            productInterests: {
-              some: { assignedEmployeeId: userId }
-            }
-          }
-        },
-        {
-          contact: {
-            claims: {
-              some: { assignedEmployeeId: userId }
-            }
-          }
-        }
+        { contactId: { isSet: false } },
+        { contactId: { in: allowedContactIds } }
       ];
     }
 
@@ -71,13 +70,37 @@ export class CalendarService {
   }
 
   /** Upcoming events for the next 7 days — used in dashboard widgets */
-  async getUpcoming(tenantId: string, days = 7) {
+  async getUpcoming(tenantId: string, days = 7, userId?: string, role?: UserRole) {
     const now    = new Date();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() + days);
 
+    const where: any = { tenantId, startAt: { gte: now, lte: cutoff } };
+
+    if (role === UserRole.EMPLOYEE && userId) {
+      const allowedContacts = await this.prisma.contact.findMany({
+        where: {
+          tenantId,
+          OR: [
+            { assignedEmployeeId: userId },
+            { policies: { some: { assignedEmployeeId: userId } } },
+            { productInterests: { some: { assignedEmployeeId: userId } } },
+            { claims: { some: { assignedEmployeeId: userId } } }
+          ]
+        },
+        select: { id: true }
+      });
+      const allowedContactIds = allowedContacts.map(c => c.id);
+
+      where.OR = [
+        { contactId: null },
+        { contactId: { isSet: false } },
+        { contactId: { in: allowedContactIds } }
+      ];
+    }
+
     return this.prisma.calendarEvent.findMany({
-      where:   { tenantId, startAt: { gte: now, lte: cutoff } },
+      where,
       include: { contact: { select: { firstName: true, lastName: true } } },
       orderBy: { startAt: 'asc' },
       take:    20,

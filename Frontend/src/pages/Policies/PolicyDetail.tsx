@@ -10,6 +10,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
@@ -52,6 +54,7 @@ export default function PolicyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate  = useNavigate();
   const qc = useQueryClient();
+  const { user: authUser } = useAuthStore();
 
   const [paymentModal, setPaymentModal] = useState(false);
   const [memberModal, setMemberModal]   = useState(false);
@@ -596,7 +599,18 @@ export default function PolicyDetail() {
             className="btn-danger"
             disabled={removeDoc.isPending}
             onClick={async () => {
-              await removeDoc.mutateAsync(deleteDocTarget!.id);
+              const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+              if (isAdmin) {
+                await removeDoc.mutateAsync(deleteDocTarget!.id);
+              } else {
+                const toastId = toast.loading('Submitting delete request to admin...');
+                try {
+                  await deletionRequestsService.requestDeletion('Document', deleteDocTarget!.id, `Employee requested deletion of document ${deleteDocTarget?.fileName}`);
+                  toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+                } catch (err: any) {
+                  toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+                }
+              }
               setDeleteDocTarget(null);
             }}
           >

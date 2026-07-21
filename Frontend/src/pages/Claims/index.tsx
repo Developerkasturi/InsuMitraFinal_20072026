@@ -9,6 +9,7 @@ import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, claimsService, documentsService } from '@api/index';
 import DataTable, { Column } from '@comps/common/DataTable';
+
 import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -17,6 +18,8 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useLookupStore } from '@store/lookup.store';
 import clsx from 'clsx';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 interface Claim {
   id: string; claimNumber: string; status: string; claimType: string;
@@ -123,6 +126,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   onSave: (body: any) => void; onCancel: () => void;
   employees: any[];
 }) {
+  const user = useAuthStore(s => s.user);
   const notesData = getClaimNotesData(initial.notes);
   const [claimType, setClaimType] = useState((initial as any).claimType ?? 'HEALTH');
   const [claimAmount, setClaimAmount] = useState(String((initial as any).claimAmount ?? ''));
@@ -162,17 +166,19 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
             <option value="MATURITY">Maturity</option>
           </select>
         </div>
-        <div>
-          <label className="label">Assignee</label>
-          <select className="input" value={assignedEmployeeId} onChange={e => setAssignedEmployeeId(e.target.value)}>
-            <option value="">Unassigned</option>
-            {employees.map((emp: any) => (
-              <option key={emp.id} value={emp.userId}>
-                {emp.firstName} {emp.lastName}
-              </option>
-            ))}
-          </select>
-        </div>
+        {user?.role !== 'EMPLOYEE' && (
+          <div>
+            <label className="label">Assignee</label>
+            <select className="input" value={assignedEmployeeId} onChange={e => setAssignedEmployeeId(e.target.value)}>
+              <option value="">Unassigned</option>
+              {employees.map((emp: any) => (
+                <option key={emp.id} value={emp.userId}>
+                  {emp.firstName} {emp.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -281,6 +287,9 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
 
 export default function Claims() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const qc = useQueryClient();
+  const { user: authUser } = useAuthStore();
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Claim | null>(null);
@@ -1294,7 +1303,7 @@ export default function Claims() {
                       setValue('contactId', '');
                       setSelectedPolicy(null);
                       setValue('policyId', '');
-                      setContactSearch('');
+                      setContactSearch(e.target.value);
                     }
                     setContactSearch(e.target.value);
                     setContactDropdown(true);
@@ -1621,14 +1630,28 @@ export default function Claims() {
         <p className="text-sm text-gray-600 mb-4">Delete claim <strong>{deleteTarget?.claimNumber}</strong>?</p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
-          <button className="btn-danger" onClick={async () => { await deleteClaim.mutateAsync(deleteTarget!.id); setDeleteTarget(null); }}>
+          <button className="btn-danger" onClick={async () => {
+            const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+            if (isAdmin) {
+              await deleteClaim.mutateAsync(deleteTarget!.id);
+            } else {
+              const toastId = toast.loading('Submitting delete request to admin...');
+              try {
+                await deletionRequestsService.requestDeletion('Claim', deleteTarget!.id, `Employee requested deletion of claim ${deleteTarget?.claimNumber}`);
+                toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+              }
+            }
+            setDeleteTarget(null);
+          }}>
             Delete
           </button>
         </div>
       </Modal>
 
       {/* Claim Detail Sheet */}
-      <Modal open={detailOpen} onClose={() => { setDetailOpen(false); setSelectedClaim(null); }} title="Claim Details" size="xl">
+      <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="Claim Details" size="xl">
         {selectedClaim ? (
           <ClaimDetailView claim={selectedClaim} onEdit={() => { setDetailOpen(false); setEditTarget(selectedClaim); }} />
         ) : null}

@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { useUiSettingsStore, FONT_SIZE_MAP, type FontSizeLevel } from '@store/ui-settings.store';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 /* ─── Schemas ──────────────────────────────────────────────────────────────── */
 const companySchema = z.object({
@@ -404,6 +406,7 @@ function FontSizePanel() {
 /* ─── Main Insurance / Operations Page ─────────────────────────────────────── */
 export default function Insurance() {
   const qc = useQueryClient();
+  const { user: authUser } = useAuthStore();
   const [activeTab, setActiveTab]         = useState<'companies' | 'export' | 'display'>('companies');
   const [companyModal, setCompanyModal]   = useState(false);
   const [editCompany, setEditCompany]     = useState<any | null>(null);
@@ -731,7 +734,21 @@ export default function Insurance() {
         <p className="text-sm text-gray-600 mb-4">Delete <strong>{deleteCompany?.name}</strong>? All associated plans will also be deleted.</p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteCompany(null)}>Cancel</button>
-          <button className="btn-danger" disabled={removeCompany.isPending} onClick={() => removeCompany.mutate(deleteCompany!.id)}>
+          <button className="btn-danger" disabled={removeCompany.isPending} onClick={async () => {
+            const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+            if (isAdmin) {
+              removeCompany.mutate(deleteCompany!.id);
+            } else {
+              const toastId = toast.loading('Submitting delete request to admin...');
+              try {
+                await deletionRequestsService.requestDeletion('InsuranceCompany', deleteCompany!.id, `Employee requested deletion of insurance company ${deleteCompany?.name}`);
+                toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+              }
+              setDeleteCompany(null);
+            }
+          }}>
             {removeCompany.isPending ? 'Deleting…' : 'Delete'}
           </button>
         </div>
@@ -742,7 +759,21 @@ export default function Insurance() {
         <p className="text-sm text-gray-600 mb-4">Delete plan <strong>{deletePlan?.name}</strong>?</p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeletePlan(null)}>Cancel</button>
-          <button className="btn-danger" disabled={removePlan.isPending} onClick={() => removePlan.mutate(deletePlan!.id)}>
+          <button className="btn-danger" disabled={removePlan.isPending} onClick={async () => {
+            const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+            if (isAdmin) {
+              removePlan.mutate(deletePlan!.id);
+            } else {
+              const toastId = toast.loading('Submitting delete request to admin...');
+              try {
+                await deletionRequestsService.requestDeletion('InsurancePlan', deletePlan!.id, `Employee requested deletion of insurance plan ${deletePlan?.name}`);
+                toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+              }
+              setDeletePlan(null);
+            }
+          }}>
             {removePlan.isPending ? 'Deleting…' : 'Delete'}
           </button>
         </div>

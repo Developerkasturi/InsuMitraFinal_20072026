@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, TrendingUp, Shield, FileText,
   UserCheck, DollarSign, MessageSquare, Calendar,
   CreditCard, LogOut, ChevronLeft, ChevronRight, Building2,
-  Lock, Briefcase, Zap, Target, Clock, ChevronDown, ChevronUp,
+  Lock, Briefcase, Zap, Target, Clock, ChevronDown, ChevronUp, Trash2
 } from 'lucide-react';
 import { useState } from 'react';
 import { authService } from '@api/auth.service';
@@ -24,6 +24,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
   { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
+  { to: '/deletion-requests', label: 'Delete Requests', Icon: Trash2, roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/firm-profile', label: 'Firm Profile', Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
@@ -38,7 +39,7 @@ const EMPLOYEE_SUB_ITEMS = [
 
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
 const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
-const MGMT_ROUTES     = ['/commissions', '/subscription', '/firm-profile'];
+const MGMT_ROUTES     = ['/commissions', '/deletion-requests', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
   title: string;

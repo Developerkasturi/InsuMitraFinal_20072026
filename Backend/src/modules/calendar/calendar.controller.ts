@@ -23,7 +23,7 @@ export class CalendarController {
   @Get('upcoming')
   @Roles(UserRole.EMPLOYEE)
   getUpcoming(@CurrentUser() user: any, @Query('days') days = 7) {
-    return this.svc.getUpcoming(user.tenantId, +days);
+    return this.svc.getUpcoming(user.tenantId, +days, user.id, user.role);
   }
 
   @Post()

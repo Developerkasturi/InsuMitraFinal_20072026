@@ -113,6 +113,19 @@ export class CommissionsService {
     const commission = await this.prisma.commission.findFirst({ where: { id, tenantId } });
     if (!commission) throw new NotFoundException('Commission not found');
     await this.prisma.commission.delete({ where: { id } });
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Commission',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the commission',
+        }
+      });
+    } catch (err: any) {
+      console.warn(`ActivityLog write failed for commission delete: ${err.message}`);
+    }
     return { data: null, message: 'Commission deleted' };
   }
 

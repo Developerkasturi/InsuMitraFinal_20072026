@@ -5,6 +5,8 @@ import { Upload, FileText, Trash2, Search, Eye, X } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@store/auth.store';
+import { deletionRequestsService } from '@api/deletionRequestsService';
 
 const TAG_OPTIONS = ['POLICY', 'PREMIUM_RECEIPT', 'CLAIM', 'DISCHARGE_VOUCHER', 'MEDICAL_REPORT', 'ID_PROOF', 'KYC', 'OTHER'];
 
@@ -16,6 +18,7 @@ const TAG_BADGE: Record<string, string> = {
 
 export default function Documents() {
   const qc = useQueryClient();
+  const { user: authUser } = useAuthStore();
   const [search, setSearch]         = useState('');
   const [tagFilter, setTagFilter]   = useState('');
   const [uploadModal, setUploadModal] = useState(false);
@@ -202,7 +205,21 @@ export default function Documents() {
         </p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
-          <button className="btn-danger" disabled={removeDoc.isPending} onClick={() => removeDoc.mutate(deleteTarget!.id)}>
+          <button className="btn-danger" disabled={removeDoc.isPending} onClick={async () => {
+            const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
+            if (isAdmin) {
+              removeDoc.mutate(deleteTarget!.id);
+            } else {
+              const toastId = toast.loading('Submitting delete request to admin...');
+              try {
+                await deletionRequestsService.requestDeletion('Document', deleteTarget!.id, `Employee requested deletion of document ${deleteTarget?.fileName}`);
+                toast.success('Deletion request submitted to admin successfully!', { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to submit request', { id: toastId });
+              }
+              setDeleteTarget(null);
+            }
+          }}>
             {removeDoc.isPending ? 'Deleting…' : 'Delete'}
           </button>
         </div>

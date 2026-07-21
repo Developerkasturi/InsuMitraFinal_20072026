@@ -172,6 +172,19 @@ export class ContactsService {
     const existing = await this.repo.findOne(tenantId, id);
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
     await this.repo.remove(tenantId, id);
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          entityType: 'Contact',
+          entityId: id,
+          action: 'DELETE',
+          description: 'Admin directly deleted the contact',
+        }
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for contact delete: ${err.message}`);
+    }
     return { data: null, message: 'Contact deleted successfully' };
   }
 
