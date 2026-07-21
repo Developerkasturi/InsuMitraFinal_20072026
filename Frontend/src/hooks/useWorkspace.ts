@@ -17,41 +17,35 @@ export function useClockIn() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['workspace', 'data'] });
       qc.invalidateQueries({ queryKey: ['employees'] });
-      toast.success(res.message || 'Clocked in successfully');
+      toast.success(res.message || 'Attendance marked successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Clock in failed'),
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to mark attendance'),
   });
 }
 
 export function useClockOut() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (eodData?: {
-      notes?: string;
-      callsMade?: number;
-      visitsCompleted?: number;
-      premiumCollected?: number;
-      nextDayPlan?: string;
-    }) => workspaceService.clockOut(eodData),
+    mutationFn: workspaceService.clockOut,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['workspace', 'data'] });
       qc.invalidateQueries({ queryKey: ['employees'] });
-      toast.success(res.message || 'Clocked out successfully');
+      toast.success(res.message || 'Attendance ended successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Clock out failed'),
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to end attendance'),
   });
 }
 
 export function useUpsertDailyLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: employeesService.upsertDailyLog,
+    mutationFn: (eodData: any) => workspaceService.saveEod(eodData),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['workspace', 'data'] });
       qc.invalidateQueries({ queryKey: ['employees'] });
-      toast.success(res.message || 'Daily log saved');
+      toast.success(res.message || 'EOD report saved successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to save daily log'),
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to save EOD report'),
   });
 }
 

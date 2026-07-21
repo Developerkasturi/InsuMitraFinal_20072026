@@ -242,13 +242,14 @@ export const bannersService = {
 export const workspaceService = {
   getData:  ()                   => api.get('/workspace').then(r => r.data),
   clockIn:  ()                   => api.post('/workspace/clock-in').then(r => r.data),
-  clockOut: (eodData?: {
+  clockOut: ()                   => api.post('/workspace/clock-out').then(r => r.data),
+  saveEod:  (eodData: {
     notes?: string;
     callsMade?: number;
     visitsCompleted?: number;
     premiumCollected?: number;
     nextDayPlan?: string;
-  }) => api.post('/workspace/clock-out', eodData).then(r => r.data),
+  }) => api.post('/workspace/log', eodData).then(r => r.data),
 };
 
 /* ─── Feature Feedback ──────────────────────────────────────────────────── */

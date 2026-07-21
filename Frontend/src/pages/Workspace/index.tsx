@@ -17,14 +17,17 @@ import {
   Plus, CheckSquare, Target, User, Shield,
   FileText, Users, Calendar, Phone, DollarSign
 } from 'lucide-react';
-import { format, differenceInSeconds } from 'date-fns';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
-function formatDuration(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
+  const diffMs = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  if (diffMs <= 0) return '0m';
+  const totalMins = Math.floor(diffMs / (1000 * 60));
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  return `${mins}m`;
 }
 
 export default function Workspace() {
@@ -47,7 +50,6 @@ export default function Workspace() {
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDueDate, setTaskDueDate] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
 
   // EOD fields
   const [callsMade, setCallsMade] = useState(0);
@@ -59,21 +61,6 @@ export default function Workspace() {
   const logToday = workspaceData?.dailyLog;
   const isClockedIn = !!logToday?.checkIn && !logToday?.checkOut;
   const isClockedOut = !!logToday?.checkIn && !!logToday?.checkOut;
-
-  // Track clock-in running timer
-  useEffect(() => {
-    let interval: any;
-    if (isClockedIn && logToday?.checkIn) {
-      const checkInTime = new Date(logToday.checkIn);
-      interval = setInterval(() => {
-        const diff = differenceInSeconds(new Date(), checkInTime);
-        setElapsed(diff > 0 ? diff : 0);
-      }, 1000);
-    } else {
-      setElapsed(0);
-    }
-    return () => clearInterval(interval);
-  }, [isClockedIn, logToday?.checkIn]);
 
   // Sync log fields to local state
   useEffect(() => {
@@ -93,13 +80,7 @@ export default function Workspace() {
   };
 
   const handleClockOut = () => {
-    clockOutMutation.mutate({
-      notes,
-      callsMade,
-      visitsCompleted,
-      premiumCollected,
-      nextDayPlan
-    }, {
+    clockOutMutation.mutate(undefined, {
       onSuccess: () => refetch()
     });
   };
@@ -107,7 +88,6 @@ export default function Workspace() {
   const handleSaveLog = (e: React.FormEvent) => {
     e.preventDefault();
     saveLogMutation.mutate({
-      logDate: new Date().toISOString(),
       notes,
       callsMade,
       visitsCompleted,
@@ -167,7 +147,7 @@ export default function Workspace() {
         <div className="mt-4 md:mt-0 flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm">
           <Clock className="w-5 h-5 text-primary-200" />
           <span className="text-sm font-medium">
-            Shift Status: {isClockedOut ? 'Shift Completed' : isClockedIn ? 'On Duty' : 'Not Clocked In'}
+            Shift Status: {isClockedOut ? 'Attendance Ended' : isClockedIn ? 'Attendance Marked (On Duty)' : 'Attendance Not Marked'}
           </span>
         </div>
       </div>
@@ -175,75 +155,88 @@ export default function Workspace() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Clock In / Out & Logs Column */}
+        {/* Attendance & EOD Column */}
         <div className="space-y-6 lg:col-span-2">
           
-          {/* Attendance Actions */}
+          {/* Attendance & EOD Form Card */}
           <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
               <Clock className="w-5 h-5 text-primary-600" /> Attendance & Daily Log
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {/* Attendance Card */}
+              <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Mark / End Attendance</h3>
                 {!logToday?.checkIn ? (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-500">You haven't clocked in for the day yet. Start your shift now.</p>
+                    <p className="text-xs text-gray-500">You haven't marked attendance for today yet. Click below to mark present.</p>
                     <button
                       onClick={handleClockIn}
-                      className="btn-primary flex items-center gap-2 px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium cursor-pointer"
+                      disabled={clockInMutation.isPending}
+                      className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
                     >
-                      <Play className="w-4 h-4" /> Clock In
+                      <Play className="w-4 h-4" /> {clockInMutation.isPending ? 'Marking...' : 'Mark Attendance'}
                     </button>
                   </div>
                 ) : isClockedIn ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-xl border border-green-100 flex items-center gap-4">
-                      <div className="bg-green-500 p-2.5 rounded-lg text-white animate-pulse">
-                        <Clock className="w-5 h-5" />
+                  <div className="space-y-3">
+                    <div className="p-3 bg-green-50 rounded-xl border border-green-100 flex items-center gap-3">
+                      <div className="bg-green-500 p-2 rounded-lg text-white">
+                        <Clock className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs text-green-700 font-semibold uppercase tracking-wider">Clocked In</p>
-                        <p className="text-2xl font-bold text-gray-800">{formatDuration(elapsed)}</p>
-                        <p className="text-xs text-gray-500">Started at {format(new Date(logToday.checkIn), 'hh:mm a')}</p>
+                        <p className="text-[10px] text-green-700 font-bold uppercase tracking-wider">Attendance Marked (On Duty)</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          Marked In at {format(new Date(logToday.checkIn), 'hh:mm a')}
+                        </p>
                       </div>
                     </div>
                     
                     <button
                       onClick={handleClockOut}
-                      className="btn-primary flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium cursor-pointer"
+                      disabled={clockOutMutation.isPending}
+                      className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
                     >
-                      <Square className="w-4 h-4" /> Clock Out & Complete Shift
+                      <Square className="w-4 h-4" /> {clockOutMutation.isPending ? 'Ending...' : 'End Attendance'}
                     </button>
                   </div>
                 ) : (
-                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-4">
-                    <div className="bg-gray-400 p-2.5 rounded-lg text-white">
-                      <CheckCircle className="w-5 h-5" />
+                  <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3">
+                    <div className="bg-gray-400 p-2 rounded-lg text-white">
+                      <CheckCircle className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Shift Finished</p>
-                      <p className="text-sm font-semibold text-gray-800">
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Attendance Ended</p>
+                      <p className="text-xs font-semibold text-gray-800">
                         In: {format(new Date(logToday.checkIn), 'hh:mm a')} | Out: {format(new Date(logToday.checkOut), 'hh:mm a')}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Excellent work today!</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Duration: {formatTotalDuration(logToday.checkIn, logToday.checkOut)} | Shift completed
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Log Notes Section */}
+              {/* Independent EOD Form & Planning Section */}
               <form onSubmit={handleSaveLog} className="space-y-3 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">EOD Form & Planning</h3>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">EOD Form & Planning</h3>
+                  {logToday?.updatedAt && (
+                    <span className="text-[10px] text-gray-400 font-medium">
+                      Saved: {format(new Date(logToday.updatedAt), 'hh:mm a')}
+                    </span>
+                  )}
+                </div>
                 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Calls Made</label>
                     <input
                       type="number"
                       value={callsMade}
                       onChange={(e) => setCallsMade(Math.max(0, parseInt(e.target.value) || 0))}
-                      disabled={isClockedOut}
                       className="input w-full p-2 text-xs border border-gray-200 rounded-lg text-center"
                     />
                   </div>
@@ -253,7 +246,6 @@ export default function Workspace() {
                       type="number"
                       value={visitsCompleted}
                       onChange={(e) => setVisitsCompleted(Math.max(0, parseInt(e.target.value) || 0))}
-                      disabled={isClockedOut}
                       className="input w-full p-2 text-xs border border-gray-200 rounded-lg text-center"
                     />
                   </div>
@@ -263,7 +255,6 @@ export default function Workspace() {
                       type="number"
                       value={premiumCollected}
                       onChange={(e) => setPremiumCollected(Math.max(0, parseFloat(e.target.value) || 0))}
-                      disabled={isClockedOut}
                       className="input w-full p-2 text-xs border border-gray-200 rounded-lg text-center"
                     />
                   </div>
@@ -276,7 +267,6 @@ export default function Workspace() {
                     value={nextDayPlan}
                     onChange={(e) => setNextDayPlan(e.target.value)}
                     placeholder="Agenda, follow ups, scheduled visits..."
-                    disabled={isClockedOut}
                     className="input w-full p-2 text-xs border border-gray-200 rounded-lg"
                   />
                 </div>
@@ -287,19 +277,17 @@ export default function Workspace() {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Summarize your progress, key client interactions today..."
-                    disabled={isClockedOut}
-                    className="input w-full min-h-[60px] text-xs p-2.5 border border-gray-200 rounded-lg"
+                    className="input w-full min-h-[50px] text-xs p-2 border border-gray-200 rounded-lg"
                   />
                 </div>
 
-                {logToday?.checkIn && !isClockedOut && (
-                  <button
-                    type="submit"
-                    className="btn-secondary w-full text-xs font-semibold py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer"
-                  >
-                    Save EOD / Progress Update
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  disabled={saveLogMutation.isPending}
+                  className="btn-primary w-full text-xs font-semibold py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white transition-all cursor-pointer shadow-sm"
+                >
+                  {saveLogMutation.isPending ? 'Saving EOD...' : 'Save EOD'}
+                </button>
               </form>
             </div>
           </div>
@@ -347,35 +335,52 @@ export default function Workspace() {
             </Link>
           </div>
 
-          {/* Recent Activity Log Logs Table */}
+          {/* EOD History Table */}
           <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
-              <ClipboardList className="w-5 h-5 text-primary-600" /> Recent Daily Logs (Last 7 Days)
+              <ClipboardList className="w-5 h-5 text-primary-600" /> EOD History
             </h2>
             {recentLogs.length === 0 ? (
-              <div className="text-center py-6 text-sm text-gray-400">No shift history found.</div>
+              <div className="text-center py-6 text-sm text-gray-400">No EOD history found.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-100">
                   <thead>
                     <tr className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      <th className="pb-3">Date</th>
-                      <th className="pb-3">Clock In</th>
-                      <th className="pb-3">Clock Out</th>
-                      <th className="pb-3">Notes</th>
+                      <th className="pb-3 px-2">Date</th>
+                      <th className="pb-3 px-2">Attendance</th>
+                      <th className="pb-3 px-2 text-center">Calls</th>
+                      <th className="pb-3 px-2 text-center">Visits</th>
+                      <th className="pb-3 px-2 text-right">Premium</th>
+                      <th className="pb-3 px-2">Next Day Plan</th>
+                      <th className="pb-3 px-2">Notes / Remarks</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm">
+                  <tbody className="divide-y divide-gray-100 text-xs">
                     {recentLogs.map((log: any, i: number) => (
-                      <tr key={i} className="text-gray-700">
-                        <td className="py-3 font-medium">{format(new Date(log.logDate), 'dd/MMM/yyyy')}</td>
-                        <td className="py-3 text-green-600 font-medium">
-                          {log.checkIn ? format(new Date(log.checkIn), 'hh:mm a') : '—'}
+                      <tr key={i} className="text-gray-700 hover:bg-gray-50/50">
+                        <td className="py-3 px-2 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd MMM yyyy')}</td>
+                        <td className="py-3 px-2">
+                          {log.checkIn ? (
+                            <span className="text-green-600 font-medium">
+                              In: {format(new Date(log.checkIn), 'hh:mm a')}
+                              {log.checkOut ? ` | Out: ${format(new Date(log.checkOut), 'hh:mm a')}` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </td>
-                        <td className="py-3 text-red-500 font-medium">
-                          {log.checkOut ? format(new Date(log.checkOut), 'hh:mm a') : '—'}
+                        <td className="py-3 px-2 text-center font-medium">{log.callsMade ?? 0}</td>
+                        <td className="py-3 px-2 text-center font-medium">{log.visitsCompleted ?? 0}</td>
+                        <td className="py-3 px-2 text-right font-medium text-green-700">
+                          ₹{Number(log.premiumCollected ?? 0).toLocaleString('en-IN')}
                         </td>
-                        <td className="py-3 text-gray-500 truncate max-w-xs">{log.notes || '—'}</td>
+                        <td className="py-3 px-2 text-gray-600 truncate max-w-[150px]" title={log.nextDayPlan || undefined}>
+                          {log.nextDayPlan || '—'}
+                        </td>
+                        <td className="py-3 px-2 text-gray-500 truncate max-w-[180px]" title={log.notes || log.adminRemarks || undefined}>
+                          {log.notes || log.adminRemarks || '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

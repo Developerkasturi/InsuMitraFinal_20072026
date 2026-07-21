@@ -22,17 +22,24 @@ export class WorkspaceController {
 
   @Post('clock-in')
   @Roles(UserRole.EMPLOYEE)
-  @ApiOperation({ summary: 'Clock in for the day' })
+  @ApiOperation({ summary: 'Mark attendance for the day' })
   clockIn(@CurrentUser() user: any) {
     return this.svc.clockIn(user.tenantId, user.id);
   }
 
   @Post('clock-out')
   @Roles(UserRole.EMPLOYEE)
-  @ApiOperation({ summary: 'Clock out for the day' })
-  clockOut(
+  @ApiOperation({ summary: 'End attendance for the day' })
+  clockOut(@CurrentUser() user: any) {
+    return this.svc.clockOut(user.tenantId, user.id);
+  }
+
+  @Post('log')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Save EOD entry for today' })
+  saveEod(
     @CurrentUser() user: any,
-    @Body() body?: {
+    @Body() body: {
       notes?: string;
       callsMade?: number;
       visitsCompleted?: number;
@@ -40,6 +47,6 @@ export class WorkspaceController {
       nextDayPlan?: string;
     }
   ) {
-    return this.svc.clockOut(user.tenantId, user.id, body);
+    return this.svc.saveEod(user.tenantId, user.id, body);
   }
 }

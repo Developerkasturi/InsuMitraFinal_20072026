@@ -255,7 +255,29 @@ export class WorkspaceService {
     return { data: log, message: 'Clocked in successfully' };
   }
 
-  async clockOut(tenantId: string, userId: string, eodData?: {
+  async clockOut(tenantId: string, userId: string) {
+    const todayStr = dayjs().format('YYYY-MM-DD');
+    const todayDate = new Date(todayStr);
+
+    const existing = await this.prisma.employeeDailyLog.findFirst({
+      where: { userId, logDate: todayDate },
+    });
+
+    if (!existing || !existing.checkIn) {
+      throw new Error('Must mark attendance before ending attendance');
+    }
+
+    const log = await this.prisma.employeeDailyLog.update({
+      where: { userId_logDate: { userId, logDate: todayDate } },
+      data: {
+        checkOut: new Date(),
+      },
+    });
+
+    return { data: log, message: 'Attendance ended successfully' };
+  }
+
+  async saveEod(tenantId: string, userId: string, eodData: {
     notes?: string;
     callsMade?: number;
     visitsCompleted?: number;
@@ -265,26 +287,29 @@ export class WorkspaceService {
     const todayStr = dayjs().format('YYYY-MM-DD');
     const todayDate = new Date(todayStr);
 
-    const existing = await this.prisma.employeeDailyLog.findFirst({
-      where: { userId, logDate: todayDate },
-    });
+    const data: any = {
+      notes: eodData.notes,
+      callsMade: eodData.callsMade !== undefined ? Number(eodData.callsMade) : undefined,
+      visitsCompleted: eodData.visitsCompleted !== undefined ? Number(eodData.visitsCompleted) : undefined,
+      premiumCollected: eodData.premiumCollected !== undefined ? Number(eodData.premiumCollected) : undefined,
+      nextDayPlan: eodData.nextDayPlan,
+    };
 
-    if (!existing || !existing.checkIn) {
-      throw new Error('Must clock in before clocking out');
-    }
+    Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
 
-    const log = await this.prisma.employeeDailyLog.update({
+    const log = await this.prisma.employeeDailyLog.upsert({
       where: { userId_logDate: { userId, logDate: todayDate } },
-      data: {
-        checkOut: new Date(),
-        notes: eodData?.notes || existing.notes,
-        callsMade: eodData?.callsMade !== undefined ? Number(eodData.callsMade) : existing.callsMade,
-        visitsCompleted: eodData?.visitsCompleted !== undefined ? Number(eodData.visitsCompleted) : existing.visitsCompleted,
-        premiumCollected: eodData?.premiumCollected !== undefined ? Number(eodData.premiumCollected) : existing.premiumCollected,
-        nextDayPlan: eodData?.nextDayPlan || existing.nextDayPlan,
+      create: {
+        tenantId,
+        userId,
+        logDate: todayDate,
+        ...data,
+      },
+      update: {
+        ...data,
       },
     });
 
-    return { data: log, message: 'Clocked out successfully' };
+    return { data: log, message: 'EOD report saved successfully' };
   }
 }

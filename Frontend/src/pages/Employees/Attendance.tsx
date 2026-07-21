@@ -36,7 +36,7 @@ export default function EmployeeAttendance() {
     },
     {
       key: 'user' as any,
-      label: 'CHECK IN',
+      label: 'ATTENDANCE IN',
       render: r => {
         const log = r.user?.dailyLogs?.[0];
         return log?.checkIn
@@ -46,7 +46,7 @@ export default function EmployeeAttendance() {
     },
     {
       key: 'user' as any,
-      label: 'CHECK OUT',
+      label: 'ATTENDANCE OUT',
       render: r => {
         const log = r.user?.dailyLogs?.[0];
         if (log?.checkOut) {
