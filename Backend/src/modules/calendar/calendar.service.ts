@@ -9,17 +9,7 @@ import { UserRole } from '@prisma/client';
 export class CalendarService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getEvents(tenantId: string, userId: string, role: UserRole, query: any) {
-    const { startDate, endDate, eventType } = query;
 
-    const where: any = { tenantId };
-    if (startDate) where.startAt = { gte: new Date(startDate) };
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setUTCHours(23, 59, 59, 999);
-      where.startAt = { ...where.startAt, lte: end };
-    }
-    if (eventType) where.eventType = eventType;
 
   private async getEmployeeAllowedContactIds(tenantId: string, userId: string): Promise<string[]> {
     const [directContacts, pContacts, lContacts, cContacts] = await Promise.all([

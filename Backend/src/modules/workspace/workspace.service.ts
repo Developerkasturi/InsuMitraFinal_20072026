@@ -159,11 +159,6 @@ export class WorkspaceService {
     } = targetMetrics;
 
     const monthlyCommission = commAgg._sum.amount || 0;
-      _sum: {
-        amount: true
-      }
-    });
-    monthlyCommission = commAgg._sum.amount || 0;
 
     // 5. Recent daily logs (last 7 logs)
     const recentLogs = await this.prisma.employeeDailyLog.findMany({
