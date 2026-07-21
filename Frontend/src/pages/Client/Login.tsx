@@ -41,68 +41,72 @@ export default function ClientLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="h-screen w-full relative overflow-hidden bg-slate-50 flex items-center justify-center p-3 md:p-4 select-none">
+      {/* Ambient background glows */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-indigo-200/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-200/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-40 pointer-events-none" />
+
+      <div className="relative w-full max-w-md my-auto">
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center mb-3">
-              <Shield className="text-primary-600" size={28} />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Client Portal</h1>
-            <p className="text-sm text-gray-500 mt-1">View your policies, claims, and documents</p>
+        <div className="bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl p-5 md:p-6 shadow-xl shadow-slate-200/80 space-y-3">
+          {/* Logo / Header */}
+          <div className="flex flex-col items-center text-center space-y-1">
+            <img src="/InsumitraLogo.png" alt="InsuMitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
+            <h1 className="text-xl font-black text-slate-800 tracking-tight">Client Portal</h1>
+            <p className="text-[11px] text-slate-500 font-medium">View your active policies, claims & documents</p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email address</label>
               <input
                 type="email"
                 autoComplete="email"
                 {...register('email')}
-                className="input w-full"
+                className="w-full px-4 py-3 bg-slate-50/70 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
                 placeholder="you@example.com"
               />
-              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+              {errors.email && <p className="text-[11px] text-rose-500 font-semibold mt-1"><span>•</span> {errors.email.message}</p>}
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPwd ? 'text' : 'password'}
                   autoComplete="current-password"
                   {...register('password')}
-                  className="input w-full pr-10"
+                  className="w-full pl-4 pr-10 py-3 bg-slate-50/70 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPwd(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-[11px] text-rose-500 font-semibold mt-1"><span>•</span> {errors.password.message}</p>}
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn-primary w-full py-2.5 text-sm font-semibold disabled:opacity-60"
+              className="w-full mt-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/35 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
             >
-              {isSubmitting ? 'Signing in…' : 'Sign In'}
+              {isSubmitting ? 'Signing in…' : 'Sign In to Portal'}
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
-            Don't have access?{' '}
-            <span className="text-gray-500">Contact your insurance agent to receive an invitation.</span>
-          </p>
+          <div className="pt-2 border-t border-slate-100 text-center">
+            <a href="/login" className="text-xs text-slate-500 hover:text-slate-800 font-semibold transition-colors">
+              ← Back to Main Agency Login
+            </a>
+          </div>
         </div>
       </div>
     </div>
