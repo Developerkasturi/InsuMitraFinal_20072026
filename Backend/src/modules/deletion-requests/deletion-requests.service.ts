@@ -26,16 +26,60 @@ export class DeletionRequestsService {
   }
 
   async findAll(tenantId: string) {
-    return this.prisma.deletionRequest.findMany({
+    const requests = await this.prisma.deletionRequest.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
     });
+    return this.populateRequesters(requests);
   }
 
   async findAllGlobal() {
-    return this.prisma.deletionRequest.findMany({
+    const requests = await this.prisma.deletionRequest.findMany({
       orderBy: { createdAt: 'desc' },
     });
+    return this.populateRequesters(requests);
+  }
+
+  private async populateRequesters(requests: any[]) {
+    const userIds = [...new Set(requests.map(r => r.requestedBy).filter(Boolean))];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        email: true,
+        employeeProfile: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    const userMap = new Map();
+    users.forEach(u => {
+      const firstName = u.employeeProfile?.firstName || '';
+      const lastName = u.employeeProfile?.lastName || '';
+      const name = `${firstName} ${lastName}`.trim() || u.email.split('@')[0];
+      userMap.set(u.id, {
+        id: u.id,
+        email: u.email,
+        firstName,
+        lastName,
+        name,
+      });
+    });
+
+    return requests.map(r => ({
+      ...r,
+      requestedBy: userMap.get(r.requestedBy) || {
+        id: r.requestedBy,
+        email: '',
+        name: 'Unknown User',
+        firstName: '',
+        lastName: '',
+      },
+    }));
   }
 
   async resolveRequest(tenantId: string, requestId: string, adminId: string, action: 'APPROVED' | 'REJECTED') {

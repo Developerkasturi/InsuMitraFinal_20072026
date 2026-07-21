@@ -71,17 +71,26 @@ export default function DeletionRequests() {
     {
       label: 'Requested By',
       key: 'requestedBy',
-      render: (row: any) => (
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xs">
-            {row.requestedBy?.firstName?.[0]}{row.requestedBy?.lastName?.[0]}
+      render: (row: any) => {
+        const reqUser = typeof row.requestedBy === 'object' ? row.requestedBy : null;
+        const name = reqUser?.name || (reqUser?.firstName ? `${reqUser.firstName} ${reqUser.lastName || ''}`.trim() : null) || 'Unknown User';
+        const email = reqUser?.email || '';
+        const initials = (reqUser?.firstName && reqUser?.lastName)
+          ? `${reqUser.firstName[0]}${reqUser.lastName[0]}`.toUpperCase()
+          : name.slice(0, 2).toUpperCase();
+
+        return (
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-xs shrink-0">
+              {initials}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{name}</div>
+              {email && <div className="text-xs text-gray-500">{email}</div>}
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-medium text-gray-900">{row.requestedBy?.firstName} {row.requestedBy?.lastName}</div>
-            <div className="text-[10px] text-gray-500">{row.requestedBy?.email}</div>
-          </div>
-        </div>
-      )
+        );
+      }
     },
     {
       label: 'Reason / Details',

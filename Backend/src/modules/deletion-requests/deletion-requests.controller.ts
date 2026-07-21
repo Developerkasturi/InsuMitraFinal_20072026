@@ -6,7 +6,7 @@ import { CurrentUser, Roles } from '../../common/decorators/roles.decorator';
 import { RbacGuard } from '../../common/guards/rbac.guard';
 import { UserRole } from '@prisma/client';
 
-@Controller('api/deletion-requests')
+@Controller('deletion-requests')
 @UseGuards(JwtAuthGuard)
 export class DeletionRequestsController {
   constructor(private readonly deletionService: DeletionRequestsService) {}
@@ -17,9 +17,10 @@ export class DeletionRequestsController {
     @CurrentUser() user: any,
     @Body() body: { entityType: string; entityId: string; reason?: string }
   ) {
+    const userId = user.id ?? user.userId;
     return this.deletionService.createRequest(
       user.tenantId,
-      user.userId,
+      userId,
       body.entityType,
       body.entityId,
       body.reason
@@ -44,8 +45,9 @@ export class DeletionRequestsController {
     @Param('id') id: string,
     @Body() body: { action: 'APPROVED' | 'REJECTED' }
   ) {
+    const userId = user.id ?? user.userId;
     return user.role === UserRole.SUPERADMIN
-      ? this.deletionService.resolveRequestGlobal(id, user.userId, body.action)
-      : this.deletionService.resolveRequest(user.tenantId, id, user.userId, body.action);
+      ? this.deletionService.resolveRequestGlobal(id, userId, body.action)
+      : this.deletionService.resolveRequest(user.tenantId, id, userId, body.action);
   }
 }
