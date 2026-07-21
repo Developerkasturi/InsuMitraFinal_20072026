@@ -21,20 +21,49 @@ export class CalendarService {
     }
     if (eventType) where.eventType = eventType;
 
+  private async getEmployeeAllowedContactIds(tenantId: string, userId: string): Promise<string[]> {
+    const [directContacts, pContacts, lContacts, cContacts] = await Promise.all([
+      this.prisma.contact.findMany({
+        where: { tenantId, assignedEmployeeId: userId },
+        select: { id: true },
+      }),
+      this.prisma.policy.findMany({
+        where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+        select: { contactId: true },
+      }),
+      this.prisma.productInterest.findMany({
+        where: { tenantId, assignedEmployeeId: userId },
+        select: { contactId: true },
+      }),
+      this.prisma.claim.findMany({
+        where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+        select: { contactId: true },
+      }),
+    ]);
+
+    const ids = new Set<string>([
+      ...directContacts.map(c => c.id),
+      ...pContacts.map(p => p.contactId),
+      ...lContacts.map(l => l.contactId),
+      ...cContacts.map(c => c.contactId),
+    ]);
+    return Array.from(ids);
+  }
+
+  async getEvents(tenantId: string, userId: string, role: UserRole, query: any) {
+    const { startDate, endDate, eventType } = query;
+
+    const where: any = { tenantId };
+    if (startDate) where.startAt = { gte: new Date(startDate) };
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999);
+      where.startAt = { ...where.startAt, lte: end };
+    }
+    if (eventType) where.eventType = eventType;
+
     if (role === UserRole.EMPLOYEE) {
-      const allowedContacts = await this.prisma.contact.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { assignedEmployeeId: userId },
-            { policies: { some: { assignedEmployeeId: userId } } },
-            { productInterests: { some: { assignedEmployeeId: userId } } },
-            { claims: { some: { assignedEmployeeId: userId } } }
-          ]
-        },
-        select: { id: true }
-      });
-      const allowedContactIds = allowedContacts.map(c => c.id);
+      const allowedContactIds = await this.getEmployeeAllowedContactIds(tenantId, userId);
 
       where.OR = [
         { contactId: null },
@@ -78,19 +107,7 @@ export class CalendarService {
     const where: any = { tenantId, startAt: { gte: now, lte: cutoff } };
 
     if (role === UserRole.EMPLOYEE && userId) {
-      const allowedContacts = await this.prisma.contact.findMany({
-        where: {
-          tenantId,
-          OR: [
-            { assignedEmployeeId: userId },
-            { policies: { some: { assignedEmployeeId: userId } } },
-            { productInterests: { some: { assignedEmployeeId: userId } } },
-            { claims: { some: { assignedEmployeeId: userId } } }
-          ]
-        },
-        select: { id: true }
-      });
-      const allowedContactIds = allowedContacts.map(c => c.id);
+      const allowedContactIds = await this.getEmployeeAllowedContactIds(tenantId, userId);
 
       where.OR = [
         { contactId: null },

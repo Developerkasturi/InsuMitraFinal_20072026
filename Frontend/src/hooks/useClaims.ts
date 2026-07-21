@@ -5,7 +5,7 @@ import { useAuthStore } from '@store/auth.store';
 import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function useClaims(params?: Record<string, any>) {
-  return useQuery({ queryKey: ['claims', params], queryFn: () => claimsService.list(params) });
+  return useQuery({ queryKey: ['claims', params], queryFn: () => claimsService.list(params), staleTime: 2 * 60_000 });
 }
 
 export function useClaim(id: string) {

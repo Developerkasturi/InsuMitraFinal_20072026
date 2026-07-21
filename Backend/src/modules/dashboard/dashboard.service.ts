@@ -100,13 +100,14 @@ export class DashboardService {
   // ─── Policy Portfolio (by product & insurance company) ───────────────────────────
   async getPolicyPortfolio(tenantId: string) {
     const policies = await this.prisma.policy.findMany({
-      where:   { tenantId, status: 'ACTIVE' },
-      include: {
+      where: { tenantId, status: 'ACTIVE' },
+      select: {
         plan: {
-          include: {
-            company: { select: { name: true } }
-          }
-        }
+          select: {
+            category: true,
+            company: { select: { name: true } },
+          },
+        },
       },
     });
 

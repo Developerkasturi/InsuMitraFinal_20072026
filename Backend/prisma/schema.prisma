@@ -742,6 +742,7 @@ model Claim {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, assignedEmployeeId])
+  @@index([tenantId, contactId])
   @@index([tenantId, deletedAt])
   @@map("claims")
 }
@@ -853,6 +854,7 @@ model EmployeeDailyLog {
 
   @@unique([userId, logDate])
   @@index([tenantId])
+  @@index([tenantId, userId, logDate])
   @@map("employee_daily_logs")
 }
 

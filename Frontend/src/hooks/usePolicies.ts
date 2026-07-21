@@ -5,7 +5,7 @@ import { useAuthStore } from '@store/auth.store';
 import { deleteOrRequestEntity } from '@utils/deleteAction';
 
 export function usePolicies(params?: Record<string, any>) {
-  return useQuery({ queryKey: ['policies', params], queryFn: () => policiesService.list(params) });
+  return useQuery({ queryKey: ['policies', params], queryFn: () => policiesService.list(params), staleTime: 2 * 60_000 });
 }
 
 export function usePolicy(id: string) {

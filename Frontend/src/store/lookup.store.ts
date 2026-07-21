@@ -95,6 +95,10 @@ export const useLookupStore = create<LookupState>((set, get) => ({
   },
 
   loadAll: async (force = false) => {
+    const s = get();
+    if (!force && s.companies.length > 0 && s.plans.length > 0 && s.employees.length > 0 && s.tenantDetails) {
+      return;
+    }
     set({ loading: true, error: null });
     try {
       await Promise.all([

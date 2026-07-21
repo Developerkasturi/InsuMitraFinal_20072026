@@ -8,6 +8,7 @@ export function useLeads(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['leads', params],
     queryFn:  () => leadsService.list(params),
+    staleTime: 2 * 60_000,
   });
 }
 
@@ -15,6 +16,7 @@ export function useLeadKanban() {
   return useQuery({
     queryKey: ['leads', 'kanban'],
     queryFn:  () => leadsService.kanban(),
+    staleTime: 2 * 60_000,
   });
 }
 

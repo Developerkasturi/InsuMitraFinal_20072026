@@ -8,6 +8,7 @@ export function useContacts(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['contacts', params],
     queryFn:  () => contactsService.list(params),
+    staleTime: 2 * 60_000,
   });
 }
 
@@ -16,6 +17,7 @@ export function useContact(id: string) {
     queryKey: ['contacts', id],
     queryFn:  () => contactsService.get(id),
     enabled:  !!id,
+    staleTime: 2 * 60_000,
   });
 }
 
