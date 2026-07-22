@@ -123,7 +123,7 @@ type Form = z.infer<typeof schema>;
 // Aligned edit form with automatic calculations
 function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   initial: Claim; isPending: boolean;
-  onSave: (body: any) => void; onCancel: () => void;
+  onSave: (body: any, files?: any) => void; onCancel: () => void;
   employees: any[];
 }) {
   const user = useAuthStore(s => s.user);
@@ -133,6 +133,17 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [approvedAmount, setApprovedAmount] = useState(String((initial as any).approvedAmount ?? ''));
   const [rejectionReason, setRejectionReason] = useState((initial as any).rejectionReason ?? '');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState((initial as any).assignedEmployeeId ?? '');
+
+  // Document files state
+  const [claimFormFile, setClaimFormFile] = useState<File | null>(null);
+  const [dischargeSummaryFile, setDischargeSummaryFile] = useState<File | null>(null);
+  const [medicalReportsFile, setMedicalReportsFile] = useState<File | null>(null);
+  const [billsFile, setBillsFile] = useState<File | null>(null);
+  const [otherImpDocsFile, setOtherImpDocsFile] = useState<File | null>(null);
+  const [queryLetterFile, setQueryLetterFile] = useState<File | null>(null);
+  const [replyDocsFile, setReplyDocsFile] = useState<File | null>(null);
+  const [settlementLetterFile, setSettlementLetterFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Split expense charges
   const [amtHospital, setAmtHospital] = useState(notesData.amtHospital || 0);
@@ -153,6 +164,78 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
     const total = Number(amtHospital) + Number(amtMedicine) + Number(amtLab) + Number(amtPreHosp) + Number(amtPostHosp) + Number(amtOthers);
     setClaimAmount(String(total));
   }, [amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers]);
+
+  const handleSave = async () => {
+    setUploading(true);
+    try {
+      const uploadPromises: Promise<any>[] = [];
+      const contactId = initial.contact?.id;
+      const policyId = initial.policy?.id;
+      const claimId = initial.id;
+
+      const getMeta = (type: string) => {
+        const meta: any = { claimId, type };
+        if (contactId) meta.contactId = contactId;
+        if (policyId) meta.policyId = policyId;
+        return meta;
+      };
+
+      if (claimFormFile) {
+        uploadPromises.push(documentsService.upload(claimFormFile, getMeta('CLAIM_FORM')).catch(e => console.error(e)));
+      }
+      if (dischargeSummaryFile) {
+        uploadPromises.push(documentsService.upload(dischargeSummaryFile, getMeta('DISCHARGE_SUMMARY')).catch(e => console.error(e)));
+      }
+      if (medicalReportsFile) {
+        uploadPromises.push(documentsService.upload(medicalReportsFile, getMeta('MEDICAL_REPORTS')).catch(e => console.error(e)));
+      }
+      if (billsFile) {
+        uploadPromises.push(documentsService.upload(billsFile, getMeta('BILLS')).catch(e => console.error(e)));
+      }
+      if (otherImpDocsFile) {
+        uploadPromises.push(documentsService.upload(otherImpDocsFile, getMeta('OTHER_IMP_DOCUMENTS')).catch(e => console.error(e)));
+      }
+      if (queryLetterFile) {
+        uploadPromises.push(documentsService.upload(queryLetterFile, getMeta('CLAIM_QUERY_LETTER')).catch(e => console.error(e)));
+      }
+      if (replyDocsFile) {
+        uploadPromises.push(documentsService.upload(replyDocsFile, getMeta('REPLY_DOCUMENTS')).catch(e => console.error(e)));
+      }
+      if (settlementLetterFile) {
+        uploadPromises.push(documentsService.upload(settlementLetterFile, getMeta('CLAIM_SETTLEMENT_LETTER')).catch(e => console.error(e)));
+      }
+
+      if (uploadPromises.length > 0) {
+        await Promise.all(uploadPromises);
+        toast.success('Attached documents uploaded');
+      }
+
+      onSave({
+        claimType,
+        claimAmount: Number(claimAmount),
+        approvedAmount: approvedAmount ? Number(approvedAmount) : undefined,
+        rejectionReason: rejectionReason || undefined,
+        assignedEmployeeId: assignedEmployeeId || null,
+        notes: serializeNotes({
+          diagnosis,
+          hospital,
+          admissionAt,
+          dischargeAt,
+          amtHospital,
+          amtMedicine,
+          amtLab,
+          amtPreHosp,
+          amtPostHosp,
+          amtOthers,
+          notes: notesText
+        })
+      });
+    } catch (err: any) {
+      toast.error('Failed to save claim details');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -255,30 +338,86 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         <textarea className="input" rows={2} value={notesText} onChange={e => setNotesText(e.target.value)} />
       </div>
 
+      {/* Add Files / Documents Upload Card (Same as Add Claim form) */}
+      <div className="bg-slate-50/70 border border-slate-200 p-4 rounded-2xl space-y-3">
+        <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block">Add Files / Documents</span>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="label text-[11px]">Claim Form</label>
+            <input
+              type="file"
+              onChange={e => setClaimFormFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Discharge Summary</label>
+            <input
+              type="file"
+              onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Imp Medical Reports</label>
+            <input
+              type="file"
+              onChange={e => setMedicalReportsFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Imp Bills</label>
+            <input
+              type="file"
+              onChange={e => setBillsFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Other IMP Documents</label>
+            <input
+              type="file"
+              onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Claim Query Letter</label>
+            <input
+              type="file"
+              onChange={e => setQueryLetterFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Reply Documents</label>
+            <input
+              type="file"
+              onChange={e => setReplyDocsFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+          <div>
+            <label className="label text-[11px]">Claim Settlement Letter</label>
+            <input
+              type="file"
+              onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)}
+              className="input w-full bg-white mt-1 text-xs py-1"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="button" className="btn-primary" disabled={isPending}
-          onClick={() => onSave({
-            claimType,
-            claimAmount: Number(claimAmount),
-            approvedAmount: approvedAmount ? Number(approvedAmount) : undefined,
-            rejectionReason: rejectionReason || undefined,
-            assignedEmployeeId: assignedEmployeeId || null,
-            notes: serializeNotes({
-              diagnosis,
-              hospital,
-              admissionAt,
-              dischargeAt,
-              amtHospital,
-              amtMedicine,
-              amtLab,
-              amtPreHosp,
-              amtPostHosp,
-              amtOthers,
-              notes: notesText
-            })
-          })}>
-          Save
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={isPending || uploading}
+          onClick={handleSave}
+        >
+          {uploading ? 'Uploading Files...' : isPending ? 'Saving...' : 'Save'}
         </button>
       </div>
     </div>

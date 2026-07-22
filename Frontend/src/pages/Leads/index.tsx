@@ -552,50 +552,93 @@ export default function Leads() {
       {/* Quick Filter Buttons */}
       <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5 py-1">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-2 select-none">Quick Filter:</span>
-          <button
-            onClick={() => setFilterStatuses([])}
-            className={clsx(
-              'px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none',
-              filterStatuses.length === 0
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/10'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-            )}
-          >
-            All Statuses
-          </button>
-          {ALL_BACKEND_STAGES.map(opt => {
-            const isSelected = filterStatuses.includes(opt.value);
-            return (
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-2 select-none">
+            Quick Filter ({viewMode === 'board' ? 'Products' : 'Statuses'}):
+          </span>
+          {viewMode === 'board' ? (
+            <>
               <button
-                key={opt.value}
-                onClick={() => {
-                  setFilterStatuses(prev =>
-                    prev.includes(opt.value)
-                      ? prev.filter(v => v !== opt.value)
-                      : [...prev, opt.value]
-                  );
-                }}
+                onClick={() => setFilterPlans([])}
                 className={clsx(
-                  'px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer select-none flex items-center gap-1.5',
-                  isSelected
-                    ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
+                  'px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none',
+                  filterPlans.length === 0
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/10'
                     : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 )}
               >
-                <span className={clsx('h-1.5 w-1.5 rounded-full',
-                  opt.value === 'OPEN' && 'bg-blue-500',
-                  opt.value === 'CONTACTED' && 'bg-indigo-500',
-                  opt.value === 'PROPOSAL_SENT' && 'bg-purple-500',
-                  opt.value === 'IN_DISCUSSION' && 'bg-amber-500',
-                  opt.value === 'LOGIN_PROGRESS' && 'bg-orange-500',
-                  opt.value === 'PAYMENT_DONE' && 'bg-emerald-500',
-                  opt.value === 'LOST' && 'bg-rose-500'
-                )} />
-                {opt.label}
+                All Products
               </button>
-            );
-          })}
+              {PLAN_CATEGORIES.map(opt => {
+                const isSelected = filterPlans.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setFilterPlans(prev =>
+                        prev.includes(opt.value)
+                          ? prev.filter(v => v !== opt.value)
+                          : [...prev, opt.value]
+                      );
+                    }}
+                    className={clsx(
+                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer select-none flex items-center gap-1.5',
+                      isSelected
+                        ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setFilterStatuses([])}
+                className={clsx(
+                  'px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none',
+                  filterStatuses.length === 0
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/10'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                )}
+              >
+                All Statuses
+              </button>
+              {ALL_BACKEND_STAGES.map(opt => {
+                const isSelected = filterStatuses.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setFilterStatuses(prev =>
+                        prev.includes(opt.value)
+                          ? prev.filter(v => v !== opt.value)
+                          : [...prev, opt.value]
+                      );
+                    }}
+                    className={clsx(
+                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer select-none flex items-center gap-1.5',
+                      isSelected
+                        ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className={clsx('h-1.5 w-1.5 rounded-full',
+                      opt.value === 'OPEN' && 'bg-blue-500',
+                      opt.value === 'CONTACTED' && 'bg-indigo-500',
+                      opt.value === 'PROPOSAL_SENT' && 'bg-purple-500',
+                      opt.value === 'IN_DISCUSSION' && 'bg-amber-500',
+                      opt.value === 'LOGIN_PROGRESS' && 'bg-orange-500',
+                      opt.value === 'PAYMENT_DONE' && 'bg-emerald-500',
+                      opt.value === 'LOST' && 'bg-rose-500'
+                    )} />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
@@ -603,15 +646,15 @@ export default function Leads() {
       {showFilters && (
         <div className="card-panel grid grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50/50 p-4 border rounded-xl">
           <div>
-            <label className="label text-[11px]">Product Category</label>
+            <label className="label text-[11px] font-bold text-gray-700">Product Category (Multi-Select)</label>
             <div className="relative" ref={planFilterRef}>
               <button type="button" onClick={() => setPlanFilterOpen(!planFilterOpen)}
-                className="input text-xs flex items-center justify-between w-full text-left">
+                className="input text-xs flex items-center justify-between w-full text-left bg-white font-medium">
                 <span className="truncate">{filterPlans.length === 0 ? 'All Products' : `${filterPlans.length} selected`}</span>
                 <ChevronDown size={12} className="text-gray-400 shrink-0" />
               </button>
               {planFilterOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1">
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
                   {PLAN_CATEGORIES.map(opt => (
                     <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterPlans.includes(opt.value)}
@@ -621,7 +664,7 @@ export default function Leads() {
                     </label>
                   ))}
                   {filterPlans.length > 0 && (
-                    <button onClick={() => setFilterPlans([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center">Clear</button>
+                    <button onClick={() => setFilterPlans([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center font-bold">Clear Selected</button>
                   )}
                 </div>
               )}
@@ -629,18 +672,17 @@ export default function Leads() {
           </div>
 
           <div>
-            <label className="label text-[11px]">
-              Lead Status
-              {viewMode === 'board' && <span className="ml-1 text-[10px] text-gray-400">(all views)</span>}
+            <label className="label text-[11px] font-bold text-gray-700">
+              Lead Status (Multi-Select)
             </label>
             <div className="relative" ref={statusFilterRef}>
               <button type="button" onClick={() => setStatusFilterOpen(!statusFilterOpen)}
-                className="input text-xs flex items-center justify-between w-full text-left">
-                <span className="truncate">{filterStatuses.length === 0 ? 'All Stages' : `${filterStatuses.length} selected`}</span>
+                className="input text-xs flex items-center justify-between w-full text-left bg-white font-medium">
+                <span className="truncate">{filterStatuses.length === 0 ? 'All Statuses / Stages' : `${filterStatuses.length} selected`}</span>
                 <ChevronDown size={12} className="text-gray-400 shrink-0" />
               </button>
               {statusFilterOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1">
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
                   {ALL_BACKEND_STAGES.map(opt => (
                     <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterStatuses.includes(opt.value)}
@@ -650,7 +692,7 @@ export default function Leads() {
                     </label>
                   ))}
                   {filterStatuses.length > 0 && (
-                    <button onClick={() => setFilterStatuses([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center">Clear</button>
+                    <button onClick={() => setFilterStatuses([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center font-bold">Clear Selected</button>
                   )}
                 </div>
               )}
@@ -1057,17 +1099,19 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
             <span className="truncate">{card.contact.email}</span>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Shield size={12} className="text-slate-500 shrink-0" />
-            <span className="truncate font-semibold text-slate-800">{card.plan?.name || 'No Product'}</span>
-          </div>
-          {card.premiumBudget && (
-            <span className="text-[10px] font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 border border-slate-200/50">
-              ₹{Number(card.premiumBudget).toLocaleString('en-IN')}
-            </span>
-          )}
+        <div className="flex items-center gap-2 min-w-0">
+          <Shield size={12} className="text-slate-500 shrink-0" />
+          <span className="truncate font-semibold text-slate-800">{card.plan?.name || 'No Product'}</span>
         </div>
+
+        {/* Expected Premium in Card View */}
+        <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-900 mt-1">
+          <span className="text-[11px] text-emerald-700 font-medium">Expected Premium</span>
+          <span className="font-bold text-emerald-800 text-xs">
+            ₹{Number(card.premiumBudget || card.expectedPremium || 0).toLocaleString('en-IN')}
+          </span>
+        </div>
+
         {followUp && (
           <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded px-2 py-0.5 w-fit font-bold mt-1">
             <Calendar size={10} className="shrink-0 text-amber-600" />
