@@ -77,7 +77,7 @@ export class WorkspaceService {
       // 4. Targets & Progress Metrics
       role === UserRole.EMPLOYEE
         ? (async () => {
-            const [profile, aggregate, logAggregate] = await Promise.all([
+            const [profile, aggregate, leadAggregate, logAggregate] = await Promise.all([
               this.prisma.employeeProfile.findFirst({ where: { userId, tenantId } }),
               this.prisma.policy.aggregate({
                 where: {
@@ -88,24 +88,36 @@ export class WorkspaceService {
                 },
                 _sum: { premiumAmount: true },
               }),
+              this.prisma.productInterest.aggregate({
+                where: {
+                  tenantId,
+                  assignedEmployeeId: userId,
+                  stage: 'PAYMENT_DONE',
+                  updatedAt: { gte: startOfMonth, lte: endOfMonth },
+                  deletedAt: null,
+                },
+                _sum: { premiumBudget: true, sumAssuredRequired: true },
+              }),
               this.prisma.employeeDailyLog.aggregate({
                 where: { tenantId, userId, logDate: { gte: startOfMonth, lte: endOfMonth } },
                 _sum: { callsMade: true, visitsCompleted: true },
               }),
             ]);
+            const policyProgress = aggregate._sum.premiumAmount || 0;
+            const leadProgress = (leadAggregate._sum.premiumBudget || 0) + (leadAggregate._sum.sumAssuredRequired || 0);
             return {
               monthlyTarget: profile?.monthlyTarget || 0,
               baseSalary: profile?.baseSalary || 0,
               bonusPlanned: profile?.bonusPlanned || 0,
               callsTarget: profile?.callsTarget || 0,
               visitsTarget: profile?.visitsTarget || 0,
-              targetProgress: aggregate._sum.premiumAmount || 0,
+              targetProgress: policyProgress + leadProgress,
               callsProgress: logAggregate._sum.callsMade || 0,
               visitsProgress: logAggregate._sum.visitsCompleted || 0,
             };
           })()
         : (async () => {
-            const [profilesAgg, aggregate, logAggregate] = await Promise.all([
+            const [profilesAgg, aggregate, leadAggregate, logAggregate] = await Promise.all([
               this.prisma.employeeProfile.aggregate({
                 where: { tenantId, isActive: true },
                 _sum: {
@@ -124,18 +136,29 @@ export class WorkspaceService {
                 },
                 _sum: { premiumAmount: true },
               }),
+              this.prisma.productInterest.aggregate({
+                where: {
+                  tenantId,
+                  stage: 'PAYMENT_DONE',
+                  updatedAt: { gte: startOfMonth, lte: endOfMonth },
+                  deletedAt: null,
+                },
+                _sum: { premiumBudget: true, sumAssuredRequired: true },
+              }),
               this.prisma.employeeDailyLog.aggregate({
                 where: { tenantId, logDate: { gte: startOfMonth, lte: endOfMonth } },
                 _sum: { callsMade: true, visitsCompleted: true },
               }),
             ]);
+            const policyProgress = aggregate._sum.premiumAmount || 0;
+            const leadProgress = (leadAggregate._sum.premiumBudget || 0) + (leadAggregate._sum.sumAssuredRequired || 0);
             return {
               monthlyTarget: profilesAgg._sum.monthlyTarget || 0,
               baseSalary: profilesAgg._sum.baseSalary || 0,
               bonusPlanned: profilesAgg._sum.bonusPlanned || 0,
               callsTarget: profilesAgg._sum.callsTarget || 0,
               visitsTarget: profilesAgg._sum.visitsTarget || 0,
-              targetProgress: aggregate._sum.premiumAmount || 0,
+              targetProgress: policyProgress + leadProgress,
               callsProgress: logAggregate._sum.callsMade || 0,
               visitsProgress: logAggregate._sum.visitsCompleted || 0,
             };
@@ -201,6 +224,10 @@ export class WorkspaceService {
       where: { userId, logDate: todayDate },
     });
 
+    if (existing && existing.checkOut) {
+      throw new Error('Attendance is locked after EOD submission for today');
+    }
+
     if (existing && existing.checkIn) {
       return { data: existing, message: 'Already clocked in today' };
     }
@@ -231,6 +258,10 @@ export class WorkspaceService {
 
     if (!existing || !existing.checkIn) {
       throw new Error('Must mark attendance before ending attendance');
+    }
+
+    if (existing.checkOut) {
+      return { data: existing, message: 'Attendance already ended and locked for today' };
     }
 
     const log = await this.prisma.employeeDailyLog.update({

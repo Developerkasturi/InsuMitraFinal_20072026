@@ -35,7 +35,7 @@ async function testCalendar() {
       password: 'Owner@1234!'
     });
 
-    const loginRes = await request('https://insumitra-testing.onrender.com/api/v1/auth/login', {
+    const loginRes = await request('https://insumitrafinal-20072026.onrender.com/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ async function testCalendar() {
     const token = loginData.data?.accessToken;
     if (token) {
       console.log('Testing GET /calendar with NO params ...');
-      const calRes = await request(`https://insumitra-testing.onrender.com/api/v1/calendar`, {
+      const calRes = await request(`https://insumitrafinal-20072026.onrender.com/api/v1/calendar`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`

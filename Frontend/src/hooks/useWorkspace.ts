@@ -56,6 +56,7 @@ export function useUpdateTaskStatus() {
       employeesService.updateTaskStatus(taskId, status),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['workspace', 'data'] });
+      qc.invalidateQueries({ queryKey: ['employee-tasks'] });
       toast.success(res.message || 'Task status updated');
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to update task'),
@@ -68,9 +69,19 @@ export function useCreateTask() {
     mutationFn: employeesService.createTask,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['workspace', 'data'] });
+      qc.invalidateQueries({ queryKey: ['employee-tasks'] });
       toast.success(res.message || 'Task created successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to create task'),
   });
 }
+
+export function useEmployeeTasks(params?: any) {
+  return useQuery({
+    queryKey: ['employee-tasks', params],
+    queryFn: () => employeesService.getTasks(params),
+    staleTime: 30_000,
+  });
+}
+
 

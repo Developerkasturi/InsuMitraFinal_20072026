@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
   Calendar, Award, TrendingUp, Filter, Settings, UserPlus
@@ -56,6 +56,7 @@ interface Contact {
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'contacts' | 'leads' | 'customers' | 'birthdays'>('contacts');
@@ -66,6 +67,12 @@ export default function Contacts() {
   const [dateTo, setDateTo] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      setModalOpen(true);
+    }
+  }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Contact | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [editLeadId, setEditLeadId] = useState<string | null>(null);

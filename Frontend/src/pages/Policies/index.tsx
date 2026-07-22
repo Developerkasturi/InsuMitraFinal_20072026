@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Save, ChevronDown, Settings } from 'lucide-react';
 import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulkAssignPolicies } from '@hooks/usePolicies';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -150,10 +150,17 @@ type EditForm = z.infer<typeof editSchema>;
 export default function Policies() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      setModalOpen(true);
+    }
+  }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Policy | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Policy | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

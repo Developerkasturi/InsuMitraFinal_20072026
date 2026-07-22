@@ -143,8 +143,11 @@ const ALL_BACKEND_STAGES = [
   { value: 'LOST',           label: 'Lost' },
 ];
 
+import { useSearchParams } from 'react-router-dom';
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Leads() {
+  const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'board' | 'table'>('board');
   const [showFilters, setShowFilters] = useState(false);
   const [createInitialStage, setCreateInitialStage] = useState<string>('OPEN');
@@ -175,6 +178,12 @@ export default function Leads() {
 
   // Modals
   const [modalOpen, setModalOpen]       = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      setModalOpen(true);
+    }
+  }, [searchParams]);
   const [editTarget, setEditTarget]     = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 

@@ -805,14 +805,18 @@ model EmployeeProfile {
 
 model EmployeeTask {
   id               String     @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId String     @map("tenant_id") @db.ObjectId
-  createdById String     @map("created_by_id") @db.ObjectId
-  assignedToId String     @map("assigned_to_id") @db.ObjectId
+  tenantId         String     @map("tenant_id") @db.ObjectId
+  createdById      String     @map("created_by_id") @db.ObjectId
+  assignedToId     String     @map("assigned_to_id") @db.ObjectId
   title            String
   description      String?
   status           TaskStatus   @default(PENDING)
   priority         TaskPriority @default(MEDIUM)
   dueDate          DateTime?    @map("due_date")
+  startDate        DateTime?    @map("start_date")
+  targetTime       String?      @map("target_time")
+  timeRequired     String?      @map("time_required")
+  comments         String?
   completedAt      DateTime?    @map("completed_at")
   relatedContactId String?      @map("related_contact_id") @db.ObjectId
   relatedPolicyId  String?      @map("related_policy_id")

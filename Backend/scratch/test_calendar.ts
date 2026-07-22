@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 async function testCalendar() {
-  const BASE_URL = 'https://insumitra-testing.onrender.com/api/v1';
+  const BASE_URL = 'https://insumitrafinal-20072026.onrender.com/api/v1';
   console.log('Testing Owner Login...');
   try {
     const res = await axios.post(`${BASE_URL}/auth/login`, {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
@@ -288,10 +288,17 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
 export default function Claims() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { user: authUser } = useAuthStore();
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      setModalOpen(true);
+    }
+  }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Claim | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Claim | null>(null);
   
