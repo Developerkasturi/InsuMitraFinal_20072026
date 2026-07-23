@@ -53,6 +53,7 @@ export const leadsService = {
     f.append('file', file);
     return api.post('/leads/import', f, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
+  getRenewalWindow: () => api.get('/leads/config/renewal-window').then(r => r.data),
 };
 
 /* ─── Policies ───────────────────────────────────────────────────────────── */

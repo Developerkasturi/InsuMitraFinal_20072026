@@ -39,6 +39,13 @@ export class LeadsController {
     return this.svc.findAll(user.tenantId, user.id, user.role, query);
   }
 
+  @Get('config/renewal-window')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Get configured policy renewal window settings' })
+  getRenewalWindow() {
+    return this.svc.getRenewalWindow();
+  }
+
   @Get(':id')
   @Roles(UserRole.EMPLOYEE)
   findOne(@CurrentUser() user: any, @Param('id') id: string) {

@@ -107,6 +107,11 @@ export class ContactsRepository {
           where:   { status: 'ACTIVE' },
           include: { plan: { include: { company: true } } },
         },
+        productInterests: {
+          include: {
+            consultations: { orderBy: { createdAt: 'desc' } }
+          }
+        },
         _count: { select: { policies: true, claims: true, documents: true } },
       },
     });

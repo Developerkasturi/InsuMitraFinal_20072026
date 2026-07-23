@@ -126,6 +126,136 @@ export class LeadsService {
   // ── Create lead ──────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateLeadDto, createdById: string, role?: UserRole) {
+    // Validate if any of the incoming interests already exist in database for this contact
+    if (dto.contactId && dto.interests && dto.interests.length > 0) {
+      const existingLeads = await this.prisma.productInterest.findMany({
+        where: {
+          contactId: dto.contactId,
+          tenantId,
+        },
+      });
+
+      const existingPolicies = await this.prisma.policy.findMany({
+        where: {
+          contactId: dto.contactId,
+          tenantId,
+        },
+        include: {
+          plan: true,
+        },
+      });
+
+      for (const incomingProd of dto.interests) {
+        let incomingLeadType = 'FRESH';
+        const notesText = dto.notes || '';
+        if (notesText.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(notesText);
+            incomingLeadType = parsed.leadType || 'FRESH';
+          } catch (e) {}
+        } else {
+          const matchType = notesText.match(/Type:\s*(\w+)/i);
+          if (matchType && matchType[1]) {
+            incomingLeadType = matchType[1].toUpperCase();
+          }
+        }
+
+        const activeLead = existingLeads.find(l => {
+          if (l.stage === 'LOST' || l.stage === 'PAYMENT_DONE') return false;
+
+          let leadStatus = 'INTERESTED';
+          const lNotes = l.notes || '';
+          if (lNotes.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(lNotes);
+              leadStatus = parsed.leadStatus || 'INTERESTED';
+            } catch (e) {}
+          } else {
+            const matchStatus = lNotes.match(/Status:\s*(\w+)/i);
+            if (matchStatus && matchStatus[1]) {
+              leadStatus = matchStatus[1].toUpperCase();
+            }
+          }
+
+          if (leadStatus === 'LEAD_LOST' || leadStatus === 'NOT_INTERESTED') {
+            return false;
+          }
+
+          return (l.interests || []).some(i => i.toLowerCase() === incomingProd.toLowerCase());
+        });
+
+        if (activeLead) {
+          let activeLeadType = 'FRESH';
+          const lNotes = activeLead.notes || '';
+          if (lNotes.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(lNotes);
+              activeLeadType = parsed.leadType || 'FRESH';
+            } catch (e) {}
+          } else {
+            const matchType = lNotes.match(/Type:\s*(\w+)/i);
+            if (matchType && matchType[1]) {
+              activeLeadType = matchType[1].toUpperCase();
+            }
+          }
+
+          if (incomingLeadType === 'RENEWAL') {
+            if (activeLeadType === 'RENEWAL') {
+              throw new ForbiddenException(`An active Renewal lead already exists for this product.`);
+            }
+          } else {
+            throw new ForbiddenException(`Product interest '${incomingProd}' already exists for this contact.`);
+          }
+        }
+
+        const matchedActivePolicy = existingPolicies.find(p => {
+          if (p.status && p.status !== 'ACTIVE') return false;
+
+          const cat = (p.plan?.category || p.category || '').toUpperCase();
+          const incomingUpper = incomingProd.toUpperCase();
+          if (incomingUpper === 'HEALTH' && cat === 'HEALTH') return true;
+          if (incomingUpper === 'LIFE' && cat === 'LIFE') return true;
+          if (incomingUpper === 'MOTOR' && cat === 'MOTOR') return true;
+          return false;
+        });
+
+        if (matchedActivePolicy) {
+          let incomingLeadType = 'FRESH';
+          const notesText = dto.notes || '';
+          if (notesText.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(notesText);
+              incomingLeadType = parsed.leadType || 'FRESH';
+            } catch (e) {}
+          } else {
+            const matchType = notesText.match(/Type:\s*(\w+)/i);
+            if (matchType && matchType[1]) {
+              incomingLeadType = matchType[1].toUpperCase();
+            }
+          }
+
+          if (incomingLeadType !== 'RENEWAL') {
+            throw new ForbiddenException(`An active policy already exists for this product. Only a Renewal lead can be created.`);
+          }
+
+          if (matchedActivePolicy.endDate) {
+            const expiryDate = new Date(matchedActivePolicy.endDate);
+            const now = new Date();
+            expiryDate.setHours(0, 0, 0, 0);
+            now.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            
+            const config = await this.getRenewalWindow();
+            const maxWindow = config.data.maxWindow;
+
+            if (diffDays > maxWindow) {
+              throw new ForbiddenException(`Renewal cannot be created yet. The policy is outside the renewal period.`);
+            }
+          }
+        }
+      }
+    }
+
     // When an employee creates a lead without explicitly naming an assignee,
     // auto-assign it to themselves so it immediately appears in their list view.
     const data: any = { ...dto, tenantId };
@@ -378,5 +508,15 @@ export class LeadsService {
     }
 
     return { created, skipped };
+  }
+
+  async getRenewalWindow() {
+    const setting = await this.prisma.platformSetting.findUnique({
+      where: { key: 'renewal_reminder_windows' },
+    });
+    const windows = setting
+      ? setting.value.split(',').map((s: string) => parseInt(s.trim(), 10)).filter((n: number) => !isNaN(n))
+      : [45, 30, 15, 7, 3];
+    return { data: { windows, maxWindow: Math.max(...windows, 45) } };
   }
 }

@@ -2,12 +2,12 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, ChevronDown
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, ChevronDown, Save
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useLookupStore } from '@store/lookup.store';
-import { contactsService, policiesService, claimsService } from '@api/index';
+import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
@@ -175,6 +175,45 @@ export default function Contacts() {
     newComment: string;
   };
 
+  function parseLeadNotes(notesText?: string | null) {
+    const res = {
+      leadStatus: 'INTERESTED',
+      leadType: 'FRESH',
+      cleanNotes: '',
+    };
+    if (!notesText) return res;
+    if (notesText.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(notesText);
+        res.leadStatus = parsed.leadStatus || 'INTERESTED';
+        res.leadType = parsed.leadType || 'FRESH';
+        res.cleanNotes = parsed.cleanNotes || '';
+        return res;
+      } catch (e) {}
+    }
+    const lines = notesText.split('\n');
+    const cleanLines: string[] = [];
+    lines.forEach(line => {
+      if (line.startsWith('Status: ')) {
+        res.leadStatus = line.replace('Status: ', '').trim();
+      } else if (line.startsWith('Type: ')) {
+        res.leadType = line.replace('Type: ', '').trim();
+      } else {
+        cleanLines.push(line);
+      }
+    });
+    res.cleanNotes = cleanLines.join('\n').trim();
+    return res;
+  }
+
+  function serializeLeadNotes(card: ProductInterestCard) {
+    return JSON.stringify({
+      leadStatus: card.leadStatus,
+      leadType: card.leadType,
+      cleanNotes: card.otherProduct ? `Other Product: ${card.otherProduct}` : '',
+    });
+  }
+
   const newProductInterestCard = (): ProductInterestCard => ({
     id: Math.random().toString(36).slice(2),
     collapsed: false,
@@ -196,8 +235,23 @@ export default function Contacts() {
   const addProductInterest = () =>
     setProductInterests(prev => [...prev, newProductInterestCard()]);
 
-  const removeProductInterest = (id: string) =>
+  const removeProductInterest = async (id: string) => {
+    const isExisting = id.length === 24 || /^[0-9a-fA-F]{24}$/.test(id);
+    if (isExisting) {
+      if (!confirm('Are you sure you want to delete this product interest from the server?')) return;
+      const toastId = toast.loading('Deleting product interest...');
+      try {
+        await leadsService.remove(id);
+        toast.success('Product interest deleted from server successfully!', { id: toastId });
+        qc.invalidateQueries({ queryKey: ['contacts'] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      } catch (err: any) {
+        toast.error('Failed to delete product interest from server', { id: toastId });
+        return;
+      }
+    }
     setProductInterests(prev => prev.filter(c => c.id !== id));
+  };
 
   const updateProductInterest = (id: string, field: keyof ProductInterestCard, value: any) =>
     setProductInterests(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
@@ -205,19 +259,92 @@ export default function Contacts() {
   const toggleProductCollapse = (id: string) =>
     setProductInterests(prev => prev.map(c => c.id === id ? { ...c, collapsed: !c.collapsed } : c));
 
-  const addProductComment = (id: string) => {
+  const addProductComment = async (id: string) => {
+    const card = productInterests.find(c => c.id === id);
+    if (!card || !card.newComment.trim()) return;
+
     const user = useAuthStore.getState().user;
     const author = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User' : 'User';
+    const commentText = card.newComment.trim();
+
+    const isExisting = id.length === 24 || /^[0-9a-fA-F]{24}$/.test(id);
+    if (isExisting) {
+      const toastId = toast.loading('Adding comment...');
+      try {
+        await leadsService.addConsultation(id, { notes: commentText });
+        toast.success('Comment added successfully!', { id: toastId });
+        qc.invalidateQueries({ queryKey: ['contacts'] });
+        qc.invalidateQueries({ queryKey: ['leads'] });
+      } catch (err: any) {
+        toast.error('Failed to save comment to server', { id: toastId });
+      }
+    }
+
+    const comment = {
+      text: commentText,
+      author,
+      datetime: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    };
+
     setProductInterests(prev => prev.map(c => {
-      if (c.id !== id || !c.newComment.trim()) return c;
-      const comment: ProductComment = {
-        text: c.newComment.trim(),
-        author,
-        datetime: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      };
+      if (c.id !== id) return c;
       return { ...c, comments: [...c.comments, comment], newComment: '' };
     }));
   };
+
+  const saveProductInterestCard = async (cardId: string) => {
+    if (!editContactId) {
+      toast.error('Please save the contact details first using "Save Draft" or "Save & Close"');
+      return;
+    }
+    const card = productInterests.find(c => c.id === cardId);
+    if (!card) return;
+
+    const product = card.interestedIn[0];
+    if (!product) {
+      toast.error('Please select a product category');
+      return;
+    }
+
+    const toastId = toast.loading(card.id.length === 24 ? 'Updating product interest...' : 'Saving product interest...');
+    try {
+      const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
+      
+      let stage = 'OPEN';
+      if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
+      else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
+      else stage = card.leadStage;
+
+      const serializedNotes = serializeLeadNotes(card);
+
+      const body = {
+        contactId: editContactId,
+        interests,
+        stage,
+        source: card.leadSource,
+        assignedEmployeeId: card.assignedEmployeeId || undefined,
+        followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
+        premiumBudget: Number(card.expectedPremium) || undefined,
+        notes: serializedNotes,
+      };
+
+      const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
+      if (isExisting) {
+        await leadsService.update(card.id, body);
+        toast.success('Product interest updated successfully!', { id: toastId });
+      } else {
+        const res = await leadsService.create(body);
+        const savedLead = res.data ?? res;
+        setProductInterests(prev => prev.map(c => c.id === cardId ? { ...c, id: savedLead.id } : c));
+        toast.success('Product interest created successfully!', { id: toastId });
+      }
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save product interest', { id: toastId });
+    }
+  };
+
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
 
   // Family members state
@@ -693,6 +820,60 @@ export default function Contacts() {
         }
       }
 
+      // Save Product Interests (Leads) and prevent duplicates
+      const uniqueProductInterests: typeof productInterests = [];
+      const seenProducts = new Set<string>();
+      for (const card of productInterests) {
+        const prod = card.interestedIn[0];
+        if (!prod) continue;
+        const actualProdName = prod === 'Other' && card.otherProduct ? card.otherProduct : prod;
+        if (!seenProducts.has(actualProdName)) {
+          seenProducts.add(actualProdName);
+          uniqueProductInterests.push(card);
+        }
+      }
+
+      for (const card of uniqueProductInterests) {
+        const product = card.interestedIn[0];
+        const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
+        
+        let stage = 'OPEN';
+        if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
+        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
+        else stage = card.leadStage;
+
+        const serializedNotes = serializeLeadNotes(card);
+
+        const body = {
+          contactId: contactId!,
+          interests,
+          stage,
+          source: card.leadSource,
+          assignedEmployeeId: card.assignedEmployeeId || undefined,
+          followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
+          premiumBudget: Number(card.expectedPremium) || undefined,
+          notes: serializedNotes,
+        };
+
+        const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
+        const saveLeadFlow = async () => {
+          try {
+            if (isExisting) {
+              await leadsService.update(card.id, body);
+            } else {
+              const res = await leadsService.create(body);
+              const savedLead = res.data ?? res;
+              for (const cmt of card.comments) {
+                await leadsService.addConsultation(savedLead.id, { notes: cmt.text });
+              }
+            }
+          } catch (leadErr) {
+            console.error('Failed to save product interest:', leadErr);
+          }
+        };
+        subResourcePromises.push(saveLeadFlow());
+      }
+
       // Await all sub-resource updates concurrently
       await Promise.all(subResourcePromises);
 
@@ -859,6 +1040,52 @@ export default function Contacts() {
       if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
       if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
       setPolicies(parsedPolicies);
+
+      // Load & map product interests/leads
+      const backendInterests = contact.productInterests || [];
+      const mappedInterests = backendInterests.map((lead: any) => {
+        const extra = parseLeadNotes(lead.notes);
+        const comments = (lead.consultations || []).map((c: any) => ({
+          text: c.notes || '',
+          author: c.author || 'System',
+          datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+        }));
+
+        const interestsList = lead.interests || [];
+        const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
+        const standardInterests = interestsList.filter((p: string) => isStandard(p));
+        const otherInterests = interestsList.filter((p: string) => !isStandard(p));
+        
+        const interestedIn = [...standardInterests];
+        let otherProduct = '';
+        if (otherInterests.length > 0) {
+          interestedIn.push('Other');
+          otherProduct = otherInterests.join(', ');
+        }
+
+        const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
+        let leadStage = 'TO_CONTACT';
+        if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
+        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+        else leadStage = lead.stage;
+
+        return {
+          id: lead.id,
+          collapsed: true,
+          interestedIn,
+          otherProduct,
+          leadStage,
+          leadStatus: extra.leadStatus,
+          leadType: extra.leadType,
+          leadSource: lead.source || 'Social Media',
+          assignedEmployeeId: lead.assignedEmployeeId || '',
+          followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
+          expectedPremium,
+          comments,
+          newComment: '',
+        };
+      });
+      setProductInterests(mappedInterests);
 
       setEditContactId(contactId);
       setActiveLeadTab('Personal');
@@ -2275,6 +2502,9 @@ export default function Contacts() {
                             <div className="flex flex-wrap gap-2">
                               {['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting', 'Other'].map(prod => {
                                 const isSel = card.interestedIn.includes(prod);
+                                const isAlreadySelected = productInterests.some(otherCard => 
+                                  otherCard.id !== card.id && otherCard.interestedIn.includes(prod)
+                                );
                                 const PILL_COLORS: Record<string, string> = {
                                   Health: isSel ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
                                   Life: isSel ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
@@ -2285,17 +2515,20 @@ export default function Contacts() {
                                   Porting: isSel ? 'bg-yellow-500 border-yellow-500 text-white' : 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100',
                                   Other: isSel ? 'bg-slate-700 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100',
                                 };
+                                let btnStyle = PILL_COLORS[prod] || (isSel ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 text-slate-600');
+                                if (isAlreadySelected) {
+                                  btnStyle = 'bg-slate-100 border-slate-200 text-slate-400 opacity-40 cursor-not-allowed';
+                                }
                                 return (
                                   <button
                                     key={prod}
                                     type="button"
+                                    disabled={isAlreadySelected}
                                     onClick={() => {
-                                      const next = card.interestedIn.includes(prod)
-                                        ? card.interestedIn.filter(x => x !== prod)
-                                        : [...card.interestedIn, prod];
+                                      const next = isSel ? [] : [prod];
                                       updateProductInterest(card.id, 'interestedIn', next);
                                     }}
-                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer select-none ${PILL_COLORS[prod] || (isSel ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 text-slate-600')}`}
+                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all select-none ${btnStyle}`}
                                   >
                                     {isSel ? '✓ ' : '+ '}{prod}
                                   </button>
