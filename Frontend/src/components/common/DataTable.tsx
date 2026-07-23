@@ -51,34 +51,33 @@ export default function DataTable<T>({
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
-    <div className="overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm">
-
+    <div className="overflow-hidden bg-white rounded-2xl border border-slate-200/70 shadow-sm">
       <div className="overflow-x-auto custom-scrollbar">
-        <table className="min-w-full text-sm">
+        <table className="min-w-full text-sm border-collapse">
 
           {/* ── Header ────────────────────────────────────────────────── */}
           <thead>
-            <tr className="bg-slate-100/60 border-b border-slate-200/80">
+            <tr className="bg-gradient-to-r from-slate-100/90 via-slate-50 to-slate-100/90 border-b border-slate-200/80">
               {columns.map(col => (
                 <th
                   key={String(col.key)}
                   className={clsx(
-                    'px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider',
-                    'text-slate-700 whitespace-nowrap',
-                    col.sortable && 'cursor-pointer select-none hover:text-slate-700 transition-colors duration-100',
+                    'px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider',
+                    'text-slate-500 whitespace-nowrap select-none',
+                    col.sortable && 'cursor-pointer hover:text-blue-600 transition-colors duration-150',
                     col.className,
                   )}
                   onClick={() => col.sortable && handleSort(String(col.key))}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center gap-1.5">
                     {col.label}
                     {col.sortable && (
-                      <span className="text-slate-400 transition-colors duration-100">
+                      <span className="text-slate-400 transition-colors duration-150">
                         {sortKey === String(col.key)
                           ? sortDir === 'asc'
-                            ? <ChevronUp size={11} className="text-blue-500" />
-                            : <ChevronDown size={11} className="text-blue-500" />
-                          : <ChevronUp size={11} className="opacity-25" />
+                            ? <ChevronUp size={12} className="text-blue-600 stroke-[2.5]" />
+                            : <ChevronDown size={12} className="text-blue-600 stroke-[2.5]" />
+                          : <ChevronUp size={12} className="opacity-30 hover:opacity-60" />
                         }
                       </span>
                     )}
@@ -89,16 +88,15 @@ export default function DataTable<T>({
           </thead>
 
           {/* ── Body ──────────────────────────────────────────────────── */}
-          <tbody className="divide-y divide-slate-100/60">
+          <tbody className="divide-y divide-slate-100/80">
             {loading
               ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
+                  <tr key={i} className="even:bg-slate-50/30">
                     {columns.map(col => (
                       <td key={String(col.key)} className="px-5 py-4">
                         <div
-                          className="h-3.5 rounded-full animate-pulse"
+                          className="h-3.5 rounded-full animate-pulse bg-slate-100"
                           style={{
-                            background: '#f3f4f6',
                             width: `${55 + (i * 13 + col.label.length * 7) % 35}%`,
                           }}
                         />
@@ -110,30 +108,31 @@ export default function DataTable<T>({
               ? (
                 <tr>
                   <td colSpan={columns.length} className="px-5 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3 text-gray-400">
-                      <div className="h-12 w-12 rounded-xl bg-gray-50 flex items-center justify-center border border-slate-100">
-                        <Inbox size={20} className="text-gray-300" />
+                    <div className="flex flex-col items-center gap-3 text-slate-400">
+                      <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-200/60 shadow-2xs">
+                        <Inbox size={22} className="text-slate-400" />
                       </div>
-                      <p className="text-sm font-medium">{emptyMessage}</p>
+                      <p className="text-xs font-bold text-slate-500">{emptyMessage}</p>
                     </div>
                   </td>
                 </tr>
               )
-              : data.map(row => (
+              : data.map((row, idx) => (
                 <tr
                   key={rowKey(row)}
                   onClick={() => onRowClick?.(row)}
                   className={clsx(
-                    'transition-colors duration-150',
+                    'transition-all duration-150',
+                    idx % 2 === 1 ? 'bg-slate-50/20' : 'bg-white',
                     onRowClick
-                      ? 'cursor-pointer hover:bg-blue-50/30'
-                      : 'hover:bg-slate-50/50',
+                      ? 'cursor-pointer hover:bg-blue-50/40 hover:shadow-2xs'
+                      : 'hover:bg-slate-50/60',
                   )}
                 >
                   {columns.map(col => (
                     <td
                       key={String(col.key)}
-                      className={clsx('px-5 py-3.5 text-gray-700 align-middle text-[13px] font-medium', col.className)}
+                      className={clsx('px-5 py-3.5 text-slate-700 align-middle text-xs font-medium', col.className)}
                     >
                       {col.render ? col.render(row) : String((row as any)[col.key] ?? '')}
                     </td>
@@ -147,20 +146,18 @@ export default function DataTable<T>({
 
       {/* ── Pagination ────────────────────────────────────────────────── */}
       {total > pageSize && (
-        <div className="flex items-center justify-between px-4 py-3"
-             style={{ borderTop: '1px solid #f3f4f6', background: '#fafafa' }}>
-          <p className="text-xs text-gray-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+          <p className="text-xs font-medium text-slate-500">
             Showing{' '}
-            <span className="font-semibold text-gray-700">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span>
+            <span className="font-extrabold text-slate-800">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span>
             {' '}of{' '}
-            <span className="font-semibold text-gray-700">{total}</span>
+            <span className="font-extrabold text-slate-800">{total}</span> records
           </p>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-1">
             <button
               disabled={page === 1}
               onClick={() => onPageChange?.(page - 1)}
-              className="p-1.5 rounded-lg transition-colors duration-100
-                         hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-500"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 transition-all shadow-2xs"
             >
               <ChevronLeft size={15} />
             </button>
@@ -178,10 +175,10 @@ export default function DataTable<T>({
                   key={pg}
                   onClick={() => onPageChange?.(pg)}
                   className={clsx(
-                    'min-w-[28px] h-7 px-1.5 rounded-lg text-xs font-semibold transition-colors duration-100',
+                    'min-w-[30px] h-7 px-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer',
                     pg === page
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-200',
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 shadow-2xs',
                   )}
                 >
                   {pg}
@@ -192,8 +189,7 @@ export default function DataTable<T>({
             <button
               disabled={page >= totalPages}
               onClick={() => onPageChange?.(page + 1)}
-              className="p-1.5 rounded-lg transition-colors duration-100
-                         hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-500"
+              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-600 transition-all shadow-2xs"
             >
               <ChevronRight size={15} />
             </button>

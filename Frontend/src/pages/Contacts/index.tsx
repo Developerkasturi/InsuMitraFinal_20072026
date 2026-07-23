@@ -2,13 +2,12 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, ChevronDown
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { deletionRequestsService } from '@api/deletionRequestsService';
-import { useLeads, useCreateLead } from '@hooks/useLeads';
 import { useLookupStore } from '@store/lookup.store';
-import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
+import { contactsService, policiesService, claimsService } from '@api/index';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
@@ -59,7 +58,7 @@ export default function Contacts() {
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'contacts' | 'leads' | 'customers' | 'birthdays'>('contacts');
+  const [activeTab, setActiveTab] = useState<'contacts' | 'customers' | 'birthdays'>('contacts');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
@@ -70,7 +69,7 @@ export default function Contacts() {
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') {
-      setModalOpen(true);
+      openCreate();
     }
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Contact | null>(null);
@@ -103,7 +102,8 @@ export default function Contacts() {
     daysUntil: true,
   });
   const [showColPicker, setShowColPicker] = useState(false);
-  const [filterProduct, setFilterProduct] = useState('ALL');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [filterProducts, setFilterProducts] = useState<string[]>([]);
   const [excludeProduct, setExcludeProduct] = useState(false);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -120,10 +120,9 @@ export default function Contacts() {
   const [dirImportOpen, setDirImportOpen] = useState(false);
   const [dirText, setDirText] = useState('');
 
-  // Lead modal state
+  // Customer modal state
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [activeLeadTab, setActiveLeadTab] = useState('Personal');
-  const createLeadMutation = useCreateLead();
 
   const [personalFields, setPersonalFields] = useState({
     fullName: '',
@@ -157,6 +156,68 @@ export default function Contacts() {
 
   const [leadComments, setLeadComments] = useState<string[]>([]);
   const [newComment, setNewComment] = useState('');
+
+  // Product Interest Cards state
+  type ProductComment = { text: string; author: string; datetime: string };
+  type ProductInterestCard = {
+    id: string;
+    collapsed: boolean;
+    interestedIn: string[];
+    otherProduct: string;
+    leadStage: string;
+    leadStatus: string;
+    leadType: string;
+    leadSource: string;
+    assignedEmployeeId: string;
+    followUpDate: string;
+    expectedPremium: string;
+    comments: ProductComment[];
+    newComment: string;
+  };
+
+  const newProductInterestCard = (): ProductInterestCard => ({
+    id: Math.random().toString(36).slice(2),
+    collapsed: false,
+    interestedIn: [],
+    otherProduct: '',
+    leadStage: 'TO_CONTACT',
+    leadStatus: 'INTERESTED',
+    leadType: 'FRESH',
+    leadSource: 'Social Media',
+    assignedEmployeeId: '',
+    followUpDate: '',
+    expectedPremium: '',
+    comments: [],
+    newComment: '',
+  });
+
+  const [productInterests, setProductInterests] = useState<ProductInterestCard[]>([]);
+
+  const addProductInterest = () =>
+    setProductInterests(prev => [...prev, newProductInterestCard()]);
+
+  const removeProductInterest = (id: string) =>
+    setProductInterests(prev => prev.filter(c => c.id !== id));
+
+  const updateProductInterest = (id: string, field: keyof ProductInterestCard, value: any) =>
+    setProductInterests(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+
+  const toggleProductCollapse = (id: string) =>
+    setProductInterests(prev => prev.map(c => c.id === id ? { ...c, collapsed: !c.collapsed } : c));
+
+  const addProductComment = (id: string) => {
+    const user = useAuthStore.getState().user;
+    const author = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User' : 'User';
+    setProductInterests(prev => prev.map(c => {
+      if (c.id !== id || !c.newComment.trim()) return c;
+      const comment: ProductComment = {
+        text: c.newComment.trim(),
+        author,
+        datetime: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      };
+      return { ...c, comments: [...c.comments, comment], newComment: '' };
+    }));
+  };
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
 
   // Family members state
@@ -228,12 +289,6 @@ export default function Contacts() {
   const { employees, plans: dbPlans } = useLookupStore();
 
   const { data: contactsRes, isLoading: contactsLoading } = useContacts({
-    page,
-    limit: 50,
-    search: search || undefined
-  });
-
-  const { data: leadsRes, isLoading: leadsLoading } = useLeads({
     page,
     limit: 50,
     search: search || undefined
@@ -349,62 +404,6 @@ export default function Contacts() {
     onError: () => toast.error('Failed to remove relationship'),
   });
 
-  const openLeadCreate = (contact?: any) => {
-    setPersonalFields({
-      fullName: contact ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim() : '',
-      gender: contact?.gender || '',
-      maritalStatus: contact?.maritalStatus || '',
-      dateOfBirth: contact?.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
-      email: contact?.email || '',
-      aadhaarNumber: contact?.aadhaarNumber || '',
-      whatsappNumber: contact?.phone || '',
-      sameAsWhatsapp: contact ? contact.phone === contact.alternatePhone : false,
-      callingNumber: contact?.alternatePhone || '',
-      education: contact?.education || '',
-      annualIncome: contact?.annualIncome ? String(contact.annualIncome) : '',
-      occupationType: '',
-      companyName: '',
-      state: '',
-      district: '',
-      city: contact?.addresses?.[0]?.city || '',
-      pincode: '',
-      streetAddress: contact?.notes || ''
-    });
-
-    const currentUser = useAuthStore.getState().user;
-    const curEmp = employees.find(e => e.userId === currentUser?.id || e.id === currentUser?.id);
-
-    // Map leadStage to the leadStatus field in Lead Modal (OPEN, CONTACTED, etc.)
-    const stageMap: Record<string, string> = {
-      'To Contact': 'OPEN',
-      'Contacted': 'CONTACTED',
-      'Proposal Sent': 'PROPOSAL_SENT',
-      'Login in Progress': 'LOGIN_PROGRESS',
-      'Payment Done': 'PAYMENT_DONE',
-    };
-
-    setLeadInfoFields({
-      profileType: 'Lead Profile',
-      leadStatus: contact?.leadStage ? (stageMap[contact.leadStage] || 'OPEN') : 'OPEN',
-      interestedIn: ['Health'],
-      leadSource: contact?.source || 'By Agent',
-      assignedEmployeeId: contact?.assignedEmployeeId || curEmp?.userId || currentUser?.id || '',
-      followUpDate: contact?.followUpDate ? contact.followUpDate.split('T')[0] : '',
-    });
-    setLeadComments([]);
-    setNewComment('');
-    setFamilyMembers([]);
-    setPolicies([]);
-    setSelectedCampaigns(contact?.tags?.filter((t: string) => [
-      'Health Awareness', 'New Year Offer', 'Pension Plan',
-      'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
-    ].includes(t)) || []);
-    setEditLeadId(null);
-    setEditContactId(contact?.id || null);
-    setActiveLeadTab('Lead Info');
-    setLeadModalOpen(true);
-  };
-
   const openCustomerCreate = () => {
     setPersonalFields({
       fullName: '',
@@ -440,12 +439,12 @@ export default function Contacts() {
     });
     setLeadComments([]);
     setNewComment('');
+    setProductInterests([]);
     setFamilyMembers([]);
     setPolicies([]);
     setSelectedCampaigns([]);
-    setEditLeadId(null);
     setEditContactId(null);
-    setActiveLeadTab('Lead Info');
+    setActiveLeadTab('Personal');
     setLeadModalOpen(true);
   };
 
@@ -579,10 +578,19 @@ export default function Contacts() {
       const lastName = parts.slice(1).join(' ') || '';
 
       const mergedTags = [...selectedCampaigns];
-      if (leadInfoFields.profileType === 'Lead Profile') {
-        mergedTags.push('lead');
+      const isCustomerTarget = activeTab === 'customers' || leadInfoFields.profileType === 'Client Profile' || leadInfoFields.profileType === 'Customer Profile';
+      if (isCustomerTarget) {
+        if (!mergedTags.includes('customer')) {
+          mergedTags.push('customer');
+        }
       } else {
-        mergedTags.push('customer');
+        if (!mergedTags.includes('contact')) {
+          mergedTags.push('contact');
+        }
+        const custIdx = mergedTags.indexOf('customer');
+        if (custIdx !== -1) {
+          mergedTags.splice(custIdx, 1);
+        }
       }
 
       let contactId = editContactId;
@@ -688,37 +696,16 @@ export default function Contacts() {
       // Await all sub-resource updates concurrently
       await Promise.all(subResourcePromises);
 
-      // Save/Create Lead
-      if (editLeadId) {
-        await leadsService.update(editLeadId, {
-          stage: leadInfoFields.leadStatus,
-          assignedEmployeeId: leadInfoFields.assignedEmployeeId || undefined,
-          followUpDate: leadInfoFields.followUpDate?.trim() ? new Date(leadInfoFields.followUpDate).toISOString() : undefined,
-          notes: leadComments.length > 0 ? leadComments.join('\n') : undefined,
-          interests: leadInfoFields.interestedIn,
-        });
-      } else {
-        await createLeadMutation.mutateAsync({
-          contactId: contactId!,
-          stage: leadInfoFields.leadStatus,
-          assignedEmployeeId: leadInfoFields.assignedEmployeeId || undefined,
-          followUpDate: leadInfoFields.followUpDate?.trim() ? new Date(leadInfoFields.followUpDate).toISOString() : undefined,
-          notes: leadComments.length > 0 ? leadComments.join('\n') : undefined,
-          interests: leadInfoFields.interestedIn,
-        });
-      }
-
-      toast.success(editContactId ? 'Lead successfully updated!' : 'Lead successfully created!', { id: toastId });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      toast.success(editContactId ? 'Customer successfully updated!' : 'Customer successfully created!', { id: toastId });
       qc.invalidateQueries({ queryKey: ['contacts'] });
 
       if (shouldClose) {
         setLeadModalOpen(false);
       } else {
-        openLeadCreate();
+        openCustomerCreate();
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to capture lead', { id: toastId });
+      toast.error(err.response?.data?.message ?? 'Failed to save customer', { id: toastId });
     }
   };
 
@@ -738,106 +725,148 @@ export default function Contacts() {
   };
 
   const openCreate = () => {
-    setEditTarget(null);
-    setFormMedHistory([]);
-    reset();
-    setValue('isActive', 'true');
-    setModalOpen(true);
+    setPersonalFields({
+      fullName: '',
+      gender: '',
+      maritalStatus: '',
+      dateOfBirth: '',
+      email: '',
+      aadhaarNumber: '',
+      whatsappNumber: '',
+      sameAsWhatsapp: false,
+      callingNumber: '',
+      education: '',
+      annualIncome: '',
+      occupationType: '',
+      companyName: '',
+      state: '',
+      district: '',
+      city: '',
+      pincode: '',
+      streetAddress: ''
+    });
+
+    const currentUser = useAuthStore.getState().user;
+    const curEmp = employees.find(e => e.userId === currentUser?.id || e.id === currentUser?.id);
+
+    setLeadInfoFields({
+      profileType: 'Contact Profile',
+      leadStatus: 'OPEN',
+      interestedIn: ['Health'],
+      leadSource: 'By Agent',
+      assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
+      followUpDate: '',
+    });
+    setLeadComments([]);
+    setNewComment('');
+    setProductInterests([]);
+    setFamilyMembers([]);
+    setPolicies([]);
+    setSelectedCampaigns([]);
+    setEditContactId(null);
+    setActiveLeadTab('Personal');
+    setLeadModalOpen(true);
   };
-  const openEdit = (c: Contact) => {
-    setEditTarget(c);
-    setValue('firstName', c.firstName);
-    setValue('lastName', c.lastName);
-    setValue('phone', c.phone);
-    setValue('alternatePhone', c.alternatePhone ?? '');
-    setValue('email', c.email ?? '');
-    setValue('gender', (c.gender as any) ?? '');
-    setValue('dateOfBirth', c.dateOfBirth ? c.dateOfBirth.split('T')[0] : '');
-    setValue('panNumber', c.panNumber ?? '');
-    setValue('aadhaarNumber', c.aadhaarNumber ?? '');
-    setValue('annualIncome', c.annualIncome ?? '');
-    setValue('notes', c.notes ?? '');
-    
-    // Filter out medical tags for the comma-separated text input
-    const nonMedTags = (c.tags ?? []).filter(t => !t.startsWith('med:'));
-    setValue('tags', nonMedTags.join(', '));
 
-    // Extract medical tags for the checkbox inputs
-    const medTags = (c.tags ?? []).filter(t => t.startsWith('med:')).map(t => t.replace('med:', ''));
-    setFormMedHistory(medTags);
+  const openEdit = async (contactOrId: any) => {
+    const contactId = typeof contactOrId === 'string' ? contactOrId : (contactOrId.contactId || contactOrId.id);
+    const toastId = toast.loading('Loading contact details...');
+    try {
+      const res = await contactsService.get(contactId);
+      const contact = res.data;
+      setLoadedContact(contact);
 
-    setValue('source', (c as any).source ?? '');
-    setValue('assignedEmployeeId', (c as any).assignedEmployeeId ?? '');
-    setValue('city', (c as any).addresses?.[0]?.city ?? '');
-    setValue('isActive', c.isActive ? 'true' : 'false');
-    setModalOpen(true);
-  };
-  const closeModal = () => { setModalOpen(false); setEditTarget(null); reset(); };
+      const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
+      const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
-  const onSubmit = async (body: Form) => {
-    const payload: Record<string, any> = {
-      firstName: body.firstName,
-      lastName: body.lastName,
-      phone: body.phone,
-    };
-    if (body.alternatePhone?.trim()) payload.alternatePhone = body.alternatePhone.trim();
-    if (body.email?.trim()) payload.email = body.email.trim();
-    if (body.gender && (body.gender as string) !== '') payload.gender = body.gender;
-    if (body.dateOfBirth?.trim()) {
-      // Ensure dateOfBirth is sent as ISO string
-      try {
-        payload.dateOfBirth = new Date(body.dateOfBirth).toISOString();
-      } catch { /* skip invalid date */ }
-    }
-    if (body.panNumber?.trim()) payload.panNumber = body.panNumber.trim();
-    if (body.aadhaarNumber?.trim()) payload.aadhaarNumber = body.aadhaarNumber.trim();
-    if (body.annualIncome !== '' && body.annualIncome !== undefined && !isNaN(Number(body.annualIncome))) {
-      payload.annualIncome = Number(body.annualIncome);
-    }
-    if (body.notes?.trim()) payload.notes = body.notes.trim();
-    
-    // Combine text tags and checked medical tags
-    const nonMedTags = (body.tags || '').split(',').map(t => t.trim()).filter(Boolean);
-    const medTags = formMedHistory.map(cond => `med:${cond}`);
-    const allTags = [...nonMedTags, ...medTags];
-    if (allTags.length > 0) payload.tags = allTags;
+      setPersonalFields({
+        fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+        gender: contact.gender || '',
+        maritalStatus: contact.maritalStatus || '',
+        dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        email: contact.email || '',
+        aadhaarNumber: contact.aadhaarNumber || '',
+        whatsappNumber: contact.phone || '',
+        sameAsWhatsapp: contact.phone === contact.alternatePhone,
+        callingNumber: contact.alternatePhone || '',
+        education: contact.education || '',
+        annualIncome: contact.annualIncome ? String(contact.annualIncome) : '',
+        occupationType: primaryOcc?.type || '',
+        companyName: primaryOcc?.companyName || '',
+        state: primaryAddr?.state || '',
+        district: primaryAddr?.district || '',
+        city: primaryAddr?.city || '',
+        pincode: primaryAddr?.pincode || '',
+        streetAddress: primaryAddr?.line1 || contact.notes || ''
+      });
 
-    if (body.source?.trim()) payload.source = body.source.trim();
-    if (body.assignedEmployeeId?.trim()) payload.assignedEmployeeId = body.assignedEmployeeId.trim();
-    if (body.city?.trim()) payload.city = body.city.trim();
-    payload.isActive = body.isActive === 'true';
-    if (body.leadStage?.trim()) payload.leadStage = body.leadStage.trim();
-    if (body.leadStatus?.trim()) payload.leadStatus = body.leadStatus.trim();
-    if (body.leadType?.trim()) payload.leadType = body.leadType.trim();
-    if (body.followUpDate?.trim()) payload.followUpDate = body.followUpDate.trim();
+      setLeadInfoFields({
+        profileType: activeTab === 'customers' ? 'Client Profile' : 'Contact Profile',
+        leadStatus: 'OPEN',
+        interestedIn: ['Health'],
+        leadSource: contact.source || 'By Agent',
+        assignedEmployeeId: contact.assignedEmployeeId || '',
+        followUpDate: '',
+      });
 
-    let targetContactId = editTarget?.id;
+      const campaignsList = [
+        'Health Awareness', 'New Year Offer', 'Pension Plan',
+        'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
+      ];
+      const campaigns = contact.tags?.filter((t: string) => campaignsList.includes(t)) || [];
+      setSelectedCampaigns(campaigns);
 
-    if (editTarget) {
-      await updateContact.mutateAsync({ id: editTarget.id, body: payload });
-    } else {
-      const res = await createContact.mutateAsync(payload as any);
-      targetContactId = res?.data?.id ?? res?.id;
-    }
+      const fams = (contact.relationships || []).map((r: any) => {
+        const c = r.relatedContact;
+        return {
+          name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
+          dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
+          relation: r.relationshipType,
+          whatsapp: c?.phone || '',
+          occupation: '',
+          education: '',
+          medicalHistory: []
+        };
+      });
+      setFamilyMembers(fams);
 
-    if (targetContactId) {
-      const newRelations = formRelationships.filter(r => !r.id);
-      for (const rel of newRelations) {
-        try {
-          await contactsService.addRelationship(targetContactId, {
-            relationshipType: rel.relationshipType,
-            name: rel.name,
-            phone: rel.phone || undefined,
-            dateOfBirth: rel.dateOfBirth || undefined,
-            relatedContactId: rel.relatedContactId || undefined,
-          });
-        } catch (e) {
-          console.error('Failed to save relationship', rel, e);
+      const healthEntries: any[] = [];
+      const lifeEntries: any[] = [];
+      (contact.policies || []).forEach((p: any) => {
+        const entry = {
+          company: p.plan?.company?.name || 'Other',
+          planName: p.plan?.name || 'Other',
+          policyNo: p.policyNumber,
+          startDate: p.startDate ? p.startDate.split('T')[0] : '',
+          duration: '1 Year',
+          endDate: p.endDate ? p.endDate.split('T')[0] : '',
+          premium: String(p.premiumAmount),
+          sumInsured: String(p.sumAssured),
+          deductible: '',
+          sumAssured: String(p.sumAssured),
+          maturityDate: p.maturityDate ? p.maturityDate.split('T')[0] : '',
+          paymentTerm: '',
+          entryType: p.status === 'ACTIVE' ? 'New' : 'Renewal'
+        };
+        if (p.plan?.category === 'HEALTH') {
+          healthEntries.push(entry);
+        } else {
+          lifeEntries.push(entry);
         }
-      }
-    }
+      });
 
-    closeModal();
+      const parsedPolicies: any[] = [];
+      if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
+      if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
+      setPolicies(parsedPolicies);
+
+      setEditContactId(contactId);
+      setActiveLeadTab('Personal');
+      setLeadModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (err) {
+      toast.error('Failed to load contact details', { id: toastId });
+    }
   };
 
   const confirmDelete = async () => {
@@ -861,7 +890,7 @@ export default function Contacts() {
   const filteredData = useMemo(() => {
     const list = activeTab === 'birthdays'
       ? (birthdayRes?.data ?? [])
-      : (activeTab === 'leads' ? leadsRes?.data : contactsRes?.data) || [];
+      : (contactsRes?.data || []);
 
     return list.filter((item: any) => {
       // Date range filtering
@@ -877,15 +906,31 @@ export default function Contacts() {
         if (itemDate > toDate) return false;
       }
 
-      // Product Category Advanced Filter
-      if (filterProduct !== 'ALL') {
-        const contactPolicies = policyMap[item.id] ?? [];
+      // Product Category Quick & Advanced Multi-Select Filter
+      if (filterProducts.length > 0) {
+        const contactPolicies = (policyMap[item.id] && policyMap[item.id].length > 0)
+          ? policyMap[item.id]
+          : (item.policies || []);
+
         const itemTags: string[] = item.tags || item.contact?.tags || [];
-        const filterLower = filterProduct.toLowerCase();
-        const matchesProduct = contactPolicies.some((p: any) => p.plan?.category === filterProduct) ||
-          (item.interests && item.interests.some((i: string) => i.toUpperCase() === filterProduct)) ||
-          item.plan?.category === filterProduct ||
-          itemTags.some((t: string) => t.toLowerCase() === filterLower);
+
+        const matchesProduct = filterProducts.some(fp => {
+          const filterLower = fp.toLowerCase();
+          const hasProductPolicy = contactPolicies.some((p: any) => {
+            const cat = (p.plan?.category || p.category || p.plan?.type || '').toUpperCase();
+            const name = (p.plan?.name || p.policyNumber || '').toLowerCase();
+            return cat === fp || cat.includes(fp) || name.includes(filterLower);
+          });
+
+          const hasProductInterest =
+            (item.interests && item.interests.some((i: string) => i.toUpperCase() === fp || i.toLowerCase().includes(filterLower))) ||
+            (item.productInterests && item.productInterests.some((pi: any) => (pi.interests || []).some((i: string) => i.toUpperCase() === fp))) ||
+            item.plan?.category === fp ||
+            itemTags.some((t: string) => t.toLowerCase() === filterLower || t.toLowerCase().includes(filterLower));
+
+          return hasProductPolicy || hasProductInterest;
+        });
+
         const ok = excludeProduct ? !matchesProduct : matchesProduct;
         if (!ok) return false;
       }
@@ -893,31 +938,15 @@ export default function Contacts() {
       const tags = item.tags || item.contact?.tags || [];
       const hasTag = (tag: string) => tags.some((t: string) => t.toLowerCase() === tag.toLowerCase());
 
-      const isLead = (item.productInterests && item.productInterests.length > 0) || hasTag('lead');
       const isCustomer = (item.policies && item.policies.length > 0) || hasTag('customer') || (policyMap[item.id]?.length > 0);
 
       if (activeTab === 'contacts') {
-        if (isLead || isCustomer) return false;
+        if (isCustomer) return false;
         if (selectedFilters.includes('Active') && !item.isActive) return false;
         if (selectedFilters.includes('Inactive') && item.isActive) return false;
-      }
-
-      if (activeTab === 'leads') {
-        if (selectedFilters.includes('Hot') && !hasTag('hot') && item.stage !== 'HOT') return false;
-        if (selectedFilters.includes('Interested') && !hasTag('interested') && item.stage !== 'IN_DISCUSSION') return false;
-        if (selectedFilters.includes('Health')) {
-          const ok = item.interests?.some((i: string) => i.toLowerCase().includes('health')) ||
-            hasTag('health') || item.plan?.name?.toLowerCase().includes('health');
-          if (!ok) return false;
-        }
-        if (selectedFilters.includes('Term')) {
-          const ok = item.interests?.some((i: string) => i.toLowerCase().includes('term')) ||
-            hasTag('term') || item.plan?.name?.toLowerCase().includes('term');
-          if (!ok) return false;
-        }
       } else if (activeTab === 'customers') {
         // Customer tab filters
-        if (isLead && !isCustomer) return false;
+        if (!isCustomer) return false;
 
         const contactPolicies = policyMap[item.id] ?? [];
         const contactClaims = claimMap[item.id] ?? [];
@@ -953,7 +982,7 @@ export default function Contacts() {
       }
       return true;
     });
-  }, [activeTab, leadsRes, contactsRes, birthdayRes, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProduct, excludeProduct]);
+  }, [activeTab, contactsRes, birthdayRes, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProducts, excludeProduct]);
 
   // Client-side Sorting Memo
   const sortedAndFilteredData = useMemo(() => {
@@ -993,124 +1022,7 @@ export default function Contacts() {
     return result;
   }, [filteredData, sortKey, sortDir, policyMap]);
 
-  // Lead Columns matching Vercel screenshot
-  const LEAD_COLS: Column<any>[] = [
-    {
-      key: 'id',
-      label: 'CONTACT ID',
-      sortable: true,
-      render: r => {
-        const cid = r.contactId || r.id;
-        const shortId = cid ? `#${cid.substring(cid.length - 4).toUpperCase()}` : '—';
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openLeadEdit(r);
-            }}
-            className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
-          >
-            {shortId}
-          </button>
-        );
-      }
-    },
-    {
-      key: 'name',
-      label: 'NAME',
-      sortable: true,
-      render: r => (
-        <div>
-          <div className="font-semibold text-gray-900">{r.contact?.firstName} {r.contact?.lastName}</div>
-          <div className="text-[11px] text-gray-500">{r.contact?.phone}</div>
-        </div>
-      )
-    },
-    {
-      key: 'interests',
-      label: 'INTERESTS',
-      sortable: true,
-      render: r => <span className="text-gray-600 text-xs capitalize">{r.interests?.join(', ') || r.plan?.name || '—'}</span>
-    },
-    {
-      key: 'stage',
-      label: 'STATUS',
-      sortable: true,
-      render: r => {
-        const STAGE_LABELS: Record<string, string> = {
-          OPEN: 'New', CONTACTED: 'Follow Up', IN_DISCUSSION: 'Interested',
-          PROPOSAL_SENT: 'Proposal', LOGIN_PROGRESS: 'Negotiation',
-          PAYMENT_DONE: 'Closed', LOST: 'Lost',
-        };
-        const STAGE_COLORS: Record<string, string> = {
-          OPEN: 'badge-blue', CONTACTED: 'badge-gray', IN_DISCUSSION: 'badge-yellow',
-          PROPOSAL_SENT: 'badge-purple', LOGIN_PROGRESS: 'badge-orange',
-          PAYMENT_DONE: 'badge-green', LOST: 'badge-red',
-        };
-        return <span className={clsx(STAGE_COLORS[r.stage] ?? 'badge-gray', 'uppercase text-[10px] font-bold tracking-wider')}>{STAGE_LABELS[r.stage] || r.stage}</span>;
-      }
-    },
-    {
-      key: 'assignedEmployeeId',
-      label: 'ASSIGNED TO',
-      sortable: true,
-      render: r => <span className="text-gray-600 text-xs">{getEmployeeName(r.assignedEmployeeId)}</span>
-    },
-    {
-      key: 'followUpDate',
-      label: 'NEXT FOLLOWUP',
-      sortable: true,
-      render: r => <span className="text-gray-600 text-xs">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
-    },
-    {
-      key: 'waCampaign',
-      label: 'WA CAMPAIGN',
-      render: r => {
-        const campaigns = r.contact?.tags?.filter((t: string) => [
-          'Health Awareness',
-          'New Year Offer',
-          'Pension Plan',
-          'Monsoon Safety',
-          'Term Insurance Promo',
-          'Family Health Package'
-        ].includes(t)) || [];
-        return <span className="text-gray-600 text-xs">{campaigns.join(', ') || '—'}</span>;
-      }
-    },
-    {
-      key: 'actions',
-      label: 'ACTIONS',
-      render: r => (
-        <div className="flex gap-2 justify-start" onClick={e => e.stopPropagation()}>
-          <a
-            href={`https://wa.me/${r.contact?.phone}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-            title="WhatsApp"
-          >
-            <MessageCircle size={14} />
-          </a>
-          <a
-            href={`tel:${r.contact?.phone}`}
-            className="p-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-            title="Call"
-          >
-            <Phone size={14} />
-          </a>
-          <button
-            onClick={() => openLeadEdit(r)}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 cursor-pointer"
-            title="Edit"
-          >
-            <Pencil size={14} />
-          </button>
-        </div>
-      )
-    }
-  ];
-
-  // Contacts Columns
+  // Contact Table Columns
   const CONTACT_COLS: Column<any>[] = [
     {
       key: 'id',
@@ -1126,7 +1038,7 @@ export default function Contacts() {
               setSelectedDetailId(cid);
               setDetailModalOpen(true);
             }}
-            className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {shortId}
           </button>
@@ -1137,13 +1049,26 @@ export default function Contacts() {
       key: 'name',
       label: 'NAME',
       sortable: true,
-      render: r => <span className="font-semibold text-gray-900">{r.firstName} {r.lastName}</span>
+      render: r => {
+        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        return (
+          <div className="flex items-center gap-3 py-0.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
+              {initials}
+            </div>
+            <div>
+              <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
+              <div className="text-[11px] font-medium text-slate-400">{r.phone || '—'}</div>
+            </div>
+          </div>
+        );
+      }
     },
     {
       key: 'phone',
       label: 'PHONE',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.phone || '—'}</span>
+      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone || '—'}</span>
     },
     {
       key: 'leadStage',
@@ -1152,13 +1077,18 @@ export default function Contacts() {
       render: r => {
         const stageColors: Record<string, string> = {
           'To Contact': 'bg-slate-100 text-slate-700 border-slate-200',
-          'Contacted': 'bg-blue-50 text-blue-700 border-blue-100',
-          'Proposal Sent': 'bg-purple-50 text-purple-700 border-purple-100',
-          'Login in Progress': 'bg-amber-50 text-amber-700 border-amber-100',
-          'Payment Done': 'bg-emerald-50 text-emerald-700 border-emerald-100',
+          'Contacted': 'bg-blue-50 text-blue-700 border-blue-200/60',
+          'Proposal Sent': 'bg-purple-50 text-purple-700 border-purple-200/60',
+          'Login in Progress': 'bg-amber-50 text-amber-700 border-amber-200/60',
+          'Payment Done': 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
         };
-        const cls = stageColors[r.leadStage] || 'bg-slate-50 text-slate-500 border-slate-100';
-        return <span className={clsx(cls, 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border')}>{r.leadStage || '—'}</span>;
+        const cls = stageColors[r.leadStage] || 'bg-slate-50 text-slate-500 border-slate-200';
+        return (
+          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs')}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            {r.leadStage || '—'}
+          </span>
+        );
       }
     },
     {
@@ -1167,82 +1097,70 @@ export default function Contacts() {
       sortable: true,
       render: r => {
         const statusColors: Record<string, string> = {
-          'Interested': 'bg-teal-50 text-teal-700 border-teal-100',
-          'Not Interested': 'bg-rose-50 text-rose-700 border-rose-100',
-          'Hot': 'bg-orange-50 text-orange-700 border-orange-100 font-extrabold animate-pulse',
-          'Very Hot': 'bg-red-50 text-red-700 border-red-100 font-black animate-bounce',
+          'Interested': 'bg-teal-50 text-teal-700 border-teal-200/60',
+          'Not Interested': 'bg-rose-50 text-rose-700 border-rose-200/60',
+          'Hot': 'bg-orange-50 text-orange-700 border-orange-200/60 font-black animate-pulse',
+          'Very Hot': 'bg-red-50 text-red-700 border-red-200/60 font-black animate-bounce',
         };
-        const cls = statusColors[r.leadStatus] || 'bg-slate-50 text-slate-500 border-slate-100';
-        return <span className={clsx(cls, 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border')}>{r.leadStatus || '—'}</span>;
+        const cls = statusColors[r.leadStatus] || 'bg-slate-50 text-slate-500 border-slate-200';
+        return (
+          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs')}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            {r.leadStatus || '—'}
+          </span>
+        );
       }
     },
     {
       key: 'followUpDate',
       label: 'NEXT FOLLOW-UP',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'assignedTo',
       label: 'ASSIGNED EMPLOYEE',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-medium">{getEmployeeName(r.assignedEmployeeId)}</span>
+      render: r => <span className="text-slate-700 text-xs font-bold">{getEmployeeName(r.assignedEmployeeId)}</span>
     },
     {
       key: 'source',
       label: 'SOURCE',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold capitalize">{r.source || '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-bold capitalize bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">{r.source || '—'}</span>
     },
     {
       key: 'actions',
       label: 'ACTIONS',
       render: r => {
-        const showConvert = ['Interested', 'Hot', 'Very Hot'].includes(r.leadStatus);
         return (
-          <div className="flex gap-2 justify-start items-center" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => openLogInteraction(r)}
-              className="px-2.5 py-1 rounded-lg bg-blue-50/80 text-blue-600 border border-blue-100 hover:bg-blue-100 hover:border-blue-200 text-[10px] font-bold uppercase tracking-wider cursor-pointer shadow-2xs transition-all"
-              title="Log Interaction"
-            >
-              Log Interaction
-            </button>
-            {showConvert && (
-              <button
-                onClick={() => openLeadCreate(r)}
-                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 text-[10px] font-extrabold uppercase tracking-wider cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
-                title="Convert to Lead"
-              >
-                Convert to Lead
-              </button>
-            )}
+          <div className="flex gap-1.5 justify-start items-center" onClick={e => e.stopPropagation()}>
             <a
               href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-full bg-green-50 text-green-600 border border-green-100 hover:bg-green-100 transition-all shadow-2xs"
+              className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
               title="WhatsApp"
             >
               <MessageCircle size={14} />
             </a>
             <a
               href={`tel:${r.phone}`}
-              className="p-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-all shadow-2xs"
+              className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
               title="Call"
             >
               <Phone size={14} />
             </a>
             <button
               onClick={() => openEdit(r)}
-              className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 cursor-pointer transition-all"
+              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-blue-600 cursor-pointer transition-all hover:scale-105"
               title="Edit"
             >
               <Pencil size={14} />
             </button>
             <button
               onClick={() => setDeleteTarget(r)}
-              className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-red-600 transition-all"
+              className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 cursor-pointer transition-all hover:scale-105"
               title="Delete"
             >
               <Trash2 size={14} />
@@ -1253,7 +1171,7 @@ export default function Contacts() {
     }
   ];
 
-  // Customer/Contacts Columns — matches Vercel screenshot
+  // Customer Columns
   const CUSTOMER_COLS: Column<any>[] = [
     {
       key: 'id',
@@ -1268,7 +1186,7 @@ export default function Contacts() {
               e.stopPropagation();
               openEdit(r);
             }}
-            className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {shortId}
           </button>
@@ -1279,12 +1197,20 @@ export default function Contacts() {
       key: 'name',
       label: 'NAME',
       sortable: true,
-      render: r => (
-        <div>
-          <div className="font-semibold text-gray-900">{r.firstName} {r.lastName}</div>
-          <div className="text-[11px] text-gray-500">{r.phone}</div>
-        </div>
-      )
+      render: r => {
+        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        return (
+          <div className="flex items-center gap-3 py-0.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
+              {initials}
+            </div>
+            <div>
+              <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
+              <div className="text-[11px] font-medium text-slate-400">{r.phone}</div>
+            </div>
+          </div>
+        );
+      }
     },
     {
       key: 'product',
@@ -1292,13 +1218,21 @@ export default function Contacts() {
       sortable: true,
       render: r => {
         const policies = policyMap[r.id] ?? [];
-        if (policies.length === 0) return <span className="text-gray-400 text-xs">—</span>;
+        if (policies.length === 0) return <span className="text-slate-400 text-xs">—</span>;
         const cats = [...new Set(policies.map((p: any) =>
           p.plan?.category
             ? p.plan.category.charAt(0).toUpperCase() + p.plan.category.slice(1).toLowerCase()
             : p.plan?.name
         ).filter(Boolean))];
-        return <span className="text-gray-700 text-xs">{cats.join(', ')}</span>;
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {cats.map((cat: string) => (
+              <span key={cat} className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200/60 text-[10px] font-extrabold shadow-2xs">
+                {cat}
+              </span>
+            ))}
+          </div>
+        );
       }
     },
     {
@@ -1308,13 +1242,19 @@ export default function Contacts() {
       render: r => {
         const policies = policyMap[r.id] ?? [];
         const active = policies.filter((p: any) => p.status === 'ACTIVE');
-        if (active.length === 0) return <span className="text-gray-400 text-xs">—</span>;
+        if (active.length === 0) return <span className="text-slate-400 text-xs">—</span>;
         const due = active.some((p: any) =>
           p.endDate && new Date(p.endDate) <= new Date(Date.now() + 30 * 86400000)
         );
-        return due
-          ? <span className="badge-orange uppercase text-[10px] font-bold tracking-wider">Due</span>
-          : <span className="badge-green uppercase text-[10px] font-bold tracking-wider">OK</span>;
+        return due ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs shadow-orange-500/20 border border-orange-400">
+            <Flame size={11} /> Due
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> OK
+          </span>
+        );
       }
     },
     {
@@ -1324,7 +1264,7 @@ export default function Contacts() {
       render: r => {
         const policies = policyMap[r.id] ?? [];
         const active = policies.find((p: any) => p.status === 'ACTIVE' && p.assignedEmployeeId);
-        return <span className="text-blue-600 text-xs">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
+        return <span className="text-blue-600 text-xs font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
       }
     },
     {
@@ -1333,15 +1273,19 @@ export default function Contacts() {
       sortable: true,
       render: r => {
         const claims = claimMap[r.id] ?? [];
-        if (claims.length === 0) return <span className="text-gray-400 text-xs">—</span>;
+        if (claims.length === 0) return <span className="text-slate-400 text-xs">—</span>;
         const active = claims.find((c: any) => ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status));
         if (active) {
           const CLAIM_LABELS: Record<string, string> = {
             INTIMATED: 'Intimated', FILED: 'Filed', IN_REVIEW: 'In Review',
           };
-          return <span className="badge-yellow uppercase text-[10px] font-bold tracking-wider">{CLAIM_LABELS[active.status] ?? active.status}</span>;
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+              <Star size={11} className="text-amber-500" /> {CLAIM_LABELS[active.status] ?? active.status}
+            </span>
+          );
         }
-        return <span className="text-gray-400 text-xs">—</span>;
+        return <span className="text-slate-400 text-xs">—</span>;
       }
     },
     {
@@ -1353,7 +1297,7 @@ export default function Contacts() {
         const active = claims.find((c: any) =>
           ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status) && c.assignedEmployeeId
         );
-        return <span className="text-gray-500 text-xs">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
+        return <span className="text-slate-600 text-xs font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
       }
     },
     {
@@ -1368,18 +1312,44 @@ export default function Contacts() {
           'Term Insurance Promo',
           'Family Health Package'
         ].includes(t)) || [];
-        return <span className="text-gray-600 text-xs">{campaigns.join(', ') || '—'}</span>;
+        return <span className="text-slate-600 text-xs font-semibold">{campaigns.join(', ') || '—'}</span>;
       }
     },
     {
       key: 'actions',
       label: 'ACTIONS',
       render: r => (
-        <div className="flex gap-2 justify-start" onClick={e => e.stopPropagation()}>
-          <a href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors" title="WhatsApp"><MessageCircle size={14} /></a>
-          <a href={`tel:${r.phone}`} className="p-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Call"><Phone size={14} /></a>
-          <button onClick={() => openEdit(r)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 cursor-pointer" title="Edit"><Pencil size={14} /></button>
-          <button onClick={() => setDeleteTarget(r)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-red-600" title="Delete"><Trash2 size={14} /></button>
+        <div className="flex gap-1.5 justify-start items-center" onClick={e => e.stopPropagation()}>
+          <a
+            href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            title="WhatsApp"
+          >
+            <MessageCircle size={14} />
+          </a>
+          <a
+            href={`tel:${r.phone}`}
+            className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            title="Call"
+          >
+            <Phone size={14} />
+          </a>
+          <button
+            onClick={() => openEdit(r)}
+            className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-blue-600 cursor-pointer transition-all hover:scale-105"
+            title="Edit"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            onClick={() => setDeleteTarget(r)}
+            className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 cursor-pointer transition-all hover:scale-105"
+            title="Delete"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       )
     }
@@ -1401,7 +1371,7 @@ export default function Contacts() {
               setSelectedDetailId(cid);
               setDetailModalOpen(true);
             }}
-            className="text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {shortId}
           </button>
@@ -1412,19 +1382,29 @@ export default function Contacts() {
       key: 'name',
       label: 'NAME',
       sortable: true,
-      render: r => <span className="font-semibold text-gray-900">{r.firstName} {r.lastName}</span>
+      render: r => {
+        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        return (
+          <div className="flex items-center gap-3 py-0.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
+              {initials}
+            </div>
+            <div className="font-extrabold text-slate-900 text-xs">{r.firstName} {r.lastName}</div>
+          </div>
+        );
+      }
     },
     {
       key: 'phone',
       label: 'PHONE',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.phone || '—'}</span>
+      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone || '—'}</span>
     },
     {
       key: 'dateOfBirth',
       label: 'DATE OF BIRTH',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MMM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-semibold">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MMM/yyyy') : '—'}</span>
     },
     {
       key: 'daysUntil',
@@ -1440,9 +1420,9 @@ export default function Contacts() {
         const diff = differenceInDays(nextBday, today);
         return (
           <span className={clsx(
-            "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border",
-            diff === 0 ? "bg-red-50 text-red-700 border-red-100 animate-pulse" :
-            diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-100" : "bg-blue-50 text-blue-700 border-blue-100"
+            "px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border shadow-2xs",
+            diff === 0 ? "bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25 animate-pulse" :
+            diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
           )}>
             {diff === 0 ? 'Today! 🎂' : `${diff} days`}
           </span>
@@ -1453,9 +1433,23 @@ export default function Contacts() {
       key: 'actions',
       label: 'ACTIONS',
       render: r => (
-        <div className="flex gap-2 justify-start" onClick={e => e.stopPropagation()}>
-          <a href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100 transition-colors" title="WhatsApp"><MessageCircle size={14} /></a>
-          <a href={`tel:${r.phone}`} className="p-1.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Call"><Phone size={14} /></a>
+        <div className="flex gap-1.5 justify-start items-center" onClick={e => e.stopPropagation()}>
+          <a
+            href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            title="WhatsApp"
+          >
+            <MessageCircle size={14} />
+          </a>
+          <a
+            href={`tel:${r.phone}`}
+            className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            title="Call"
+          >
+            <Phone size={14} />
+          </a>
         </div>
       )
     }
@@ -1464,8 +1458,7 @@ export default function Contacts() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const isLeads = activeTab === 'leads';
-    const toastId = toast.loading(isLeads ? 'Importing leads…' : 'Importing contacts…');
+    const toastId = toast.loading('Importing contacts…');
     try {
       let fileToUpload: File = file;
       const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
@@ -1478,46 +1471,27 @@ export default function Contacts() {
         fileToUpload = new File([csvContent], file.name.replace(/\.[^/.]+$/, ".csv"), { type: 'text/csv' });
       }
 
-      const res = isLeads
-        ? await leadsService.importCsv(fileToUpload)
-        : await contactsService.importCsv(fileToUpload);
-      toast.success(res.message || (isLeads ? 'Leads imported successfully!' : 'Contacts imported successfully!'), { id: toastId });
-      qc.invalidateQueries({ queryKey: [isLeads ? 'leads' : 'contacts'] });
+      const res = await contactsService.importCsv(fileToUpload);
+      toast.success(res.message || 'Contacts imported successfully!', { id: toastId });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? (isLeads ? 'Failed to import leads' : 'Failed to import contacts'), { id: toastId });
+      toast.error(err?.response?.data?.message ?? 'Failed to import contacts', { id: toastId });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Calculate KPI values
-  const totalLeadsCount = leadsRes?.meta?.total ?? 0;
-  const activeCustomersCount = contactsRes?.meta?.total ?? 0;
-  const followUpsTodayCount = useMemo(() => {
-    return (leadsRes?.data ?? []).filter((l: any) => l.followUpDate && format(new Date(l.followUpDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).length || 3;
-  }, [leadsRes]);
-  const convertedLeadsCount = useMemo(() => {
-    return (leadsRes?.data ?? []).filter((l: any) => l.stage === 'PAYMENT_DONE').length || 12;
-  }, [leadsRes]);
-  const estimatedRevenue = useMemo(() => {
-    const sumLeads = (leadsRes?.data ?? []).reduce((acc: number, curr: any) => acc + (Number(curr.premiumBudget) || 0), 0);
-    const sumPolicies = (policiesRes?.data ?? []).reduce((acc: number, curr: any) => acc + (Number(curr.premium) || 0), 0);
-    return sumLeads + sumPolicies || 458000;
-  }, [leadsRes, policiesRes]);
-
   const activeCols = useMemo(() => {
     const cols = activeTab === 'birthdays'
       ? BIRTHDAY_COLS
-      : activeTab === 'leads'
-      ? LEAD_COLS
       : activeTab === 'customers'
       ? CUSTOMER_COLS
       : CONTACT_COLS;
     return cols.filter(c => visibleColumns[String(c.key)] !== false);
-  }, [activeTab, visibleColumns, LEAD_COLS, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
+  }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans text-slate-800">
       {/* Hidden file input for CSV import */}
       <input
         ref={fileInputRef}
@@ -1527,180 +1501,118 @@ export default function Contacts() {
         onChange={handleImport}
       />
 
-      {/* Header Buttons Panel */}
-      <div className="flex flex-wrap items-center gap-2 w-full justify-end mb-2">
+      {/* Floating Right Action Panel (Import CSV, Import Directory & Add Buttons) */}
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+        {/* Import CSV */}
         <button
-          onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className={clsx(
-            'btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer transition-all',
-            showAdvancedFilters && 'bg-blue-50 border-blue-200 text-blue-600'
-          )}
-          title="Advanced Filters"
-        >
-          <Filter size={14} className={showAdvancedFilters ? 'text-blue-600' : 'text-slate-500'} /> Filters
-        </button>
-
-        <button
-          className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer"
-          title="Import from Phone Directory"
-          onClick={() => setDirImportOpen(true)}
-        >
-          <UserPlus size={14} /> Import Directory
-        </button>
-
-        <button
-          className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer"
-          title="Import CSV"
+          type="button"
           onClick={() => fileInputRef.current?.click()}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
+          title={activeTab === 'customers' ? 'Import Customer' : 'Import Contact'}
         >
-          <Upload size={14} />{' '}
-          {activeTab === 'leads'
-            ? 'Import Lead'
-            : activeTab === 'customers'
-            ? 'Import Customer'
-            : 'Import Contact'}
+          <Upload size={18} strokeWidth={2.2} />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            {activeTab === 'customers' ? 'Import Customer CSV' : 'Import Contact CSV'}
+          </span>
         </button>
 
+        {/* Import Directory */}
+        <button
+          type="button"
+          onClick={() => setDirImportOpen(true)}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-purple-500/25 cursor-pointer group relative"
+          title="Import Phone Directory"
+        >
+          <Users size={18} strokeWidth={2.2} />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            Import Phone Directory
+          </span>
+        </button>
+
+        {/* Add Contact / Customer */}
         {activeTab !== 'birthdays' && (
           <button
-            className="btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer"
-            title={
-              activeTab === 'leads'
-                ? 'Add Lead'
-                : activeTab === 'customers'
-                ? 'Add Customer'
-                : 'Add Contact'
-            }
-            onClick={
-              activeTab === 'leads'
-                ? openLeadCreate
-                : activeTab === 'customers'
-                ? openCustomerCreate
-                : openCreate
-            }
+            type="button"
+            onClick={activeTab === 'customers' ? openCustomerCreate : openCreate}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+            title={activeTab === 'customers' ? 'Add Customer' : 'Add Contact'}
           >
-            <Plus size={14} />{' '}
-            {activeTab === 'leads'
-              ? 'Add Lead'
-              : activeTab === 'customers'
-              ? 'Add Customer'
-              : 'Add Contact'}
+            <UserPlus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              {activeTab === 'customers' ? 'Add Customer' : 'Add Contact'}
+            </span>
           </button>
         )}
       </div>
 
-      {/* Tabs and Quick Filters Row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        {/* Left Side: Tabs & Pills */}
-        <div className="flex items-center gap-6 border-b md:border-b-0 border-slate-100 -mb-4 md:mb-0 pb-4 md:pb-0">
-          <div className="flex px-1 gap-6 shrink-0">
+      {/* Main Control Hub Card */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-4">
+        {/* Top Row: Segmented Navigation & Stats */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+          {/* Segmented Tab Controls */}
+          <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 self-start">
             <button
               onClick={() => { setActiveTab('contacts'); setPage(1); setSelectedFilters([]); }}
               className={clsx(
-                'pb-2.5 text-sm font-bold transition-all cursor-pointer border-b-2 px-1 -mb-[1px]',
-                activeTab === 'contacts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
+                activeTab === 'contacts'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               )}
             >
-              Contacts
-            </button>
-            <button
-              onClick={() => { setActiveTab('leads'); setPage(1); setSelectedFilters([]); }}
-              className={clsx(
-                'pb-2.5 text-sm font-bold transition-all cursor-pointer border-b-2 px-1 -mb-[1px]',
-                activeTab === 'leads' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              )}
-            >
-              Leads
+              <Users size={14} /> Contacts
             </button>
             <button
               onClick={() => { setActiveTab('customers'); setPage(1); setSelectedFilters([]); }}
               className={clsx(
-                'pb-2.5 text-sm font-bold transition-all cursor-pointer border-b-2 px-1 -mb-[1px]',
-                activeTab === 'customers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
+                activeTab === 'customers'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               )}
             >
-              Customers
+              <Award size={14} /> Customers
             </button>
             <button
               onClick={() => { setActiveTab('birthdays'); setPage(1); setSelectedFilters([]); }}
               className={clsx(
-                'pb-2.5 text-sm font-bold transition-all cursor-pointer border-b-2 px-1 -mb-[1px]',
-                activeTab === 'birthdays' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
+                activeTab === 'birthdays'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
               )}
             >
-              Upcoming Birthdays
+              <Calendar size={14} /> Upcoming Birthdays
             </button>
           </div>
-          
-          <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-          {/* Quick Filter Pills — context-aware per tab */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Quick Context-Aware Filter Badges */}
+          <div className="flex items-center gap-2 flex-wrap">
             {activeTab === 'contacts' && (
               <>
                 <button
                   type="button"
                   onClick={() => toggleFilter('Active')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Active') ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Active')
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  Active
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Active
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleFilter('Inactive')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Inactive') ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Inactive')
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-rose-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  Inactive
-                </button>
-              </>
-            )}
-            {activeTab === 'leads' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Hot')}
-                  className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Hot') ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Flame size={12} className={selectedFilters.includes('Hot') ? 'text-white' : 'text-orange-500'} /> Hot
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Interested')}
-                  className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Interested') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Star size={12} className={selectedFilters.includes('Interested') ? 'text-white' : 'text-blue-500'} /> Interested
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Health')}
-                  className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Health') ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Heart size={12} className={selectedFilters.includes('Health') ? 'text-white' : 'text-rose-500'} /> Health
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Term')}
-                  className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Term') ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Shield size={12} className={selectedFilters.includes('Term') ? 'text-white' : 'text-emerald-500'} /> Term
+                  <span className="w-2 h-2 rounded-full bg-rose-400" /> Inactive
                 </button>
               </>
             )}
@@ -1710,130 +1622,249 @@ export default function Contacts() {
                   type="button"
                   onClick={() => toggleFilter('Renew Due')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Renew Due') ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Renew Due')
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-orange-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  <Flame size={12} className={selectedFilters.includes('Renew Due') ? 'text-white' : 'text-orange-500'} /> Renew Due
+                  <Flame size={13} className={selectedFilters.includes('Renew Due') ? 'text-white' : 'text-orange-500'} /> Renew Due
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleFilter('Active Claim')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Active Claim') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Active Claim')
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-amber-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  <Star size={12} className={selectedFilters.includes('Active Claim') ? 'text-white' : 'text-amber-500'} /> Active Claim
+                  <Star size={13} className={selectedFilters.includes('Active Claim') ? 'text-white' : 'text-amber-500'} /> Active Claim
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleFilter('Health')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Health') ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Health')
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  <Heart size={12} className={selectedFilters.includes('Health') ? 'text-white' : 'text-rose-500'} /> Health
+                  <Heart size={13} className={selectedFilters.includes('Health') ? 'text-white' : 'text-rose-500'} /> Health
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleFilter('Term')}
                   className={clsx(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs',
-                    selectedFilters.includes('Term') ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                    selectedFilters.includes('Term')
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   )}
                 >
-                  <Shield size={12} className={selectedFilters.includes('Term') ? 'text-white' : 'text-emerald-500'} /> Term
+                  <Shield size={13} className={selectedFilters.includes('Term') ? 'text-white' : 'text-emerald-500'} /> Term
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Right Side Actions: Search, Date, Export, Settings */}
-        <div className="flex flex-wrap items-center gap-2 justify-end">
-          {/* Search bar inside table toolbar */}
-          <div className="relative w-full sm:w-44">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
-              placeholder={activeTab === 'leads' ? 'Search leads...' : activeTab === 'customers' ? 'Search customers...' : 'Search contacts...'}
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-            />
-          </div>
+        {/* Bottom Row: Product Filter, Search Bar, Date Pickers & Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          {/* Left Side: Product Category Multi-Select Checkbox Dropdown & Exclude Button */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProductDropdown(!showProductDropdown)}
+                className={clsx(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200/90 text-xs font-extrabold cursor-pointer transition-all shadow-2xs select-none",
+                  filterProducts.length > 0
+                    ? "bg-blue-50/90 border-blue-300 text-blue-700"
+                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                )}
+              >
+                <Shield size={14} className="text-blue-600 shrink-0" />
+                <span>
+                  {filterProducts.length === 0
+                    ? "All Products"
+                    : filterProducts.length === 1
+                    ? `Product: ${filterProducts[0]}`
+                    : `${filterProducts.length} Products Selected`}
+                </span>
+                <ChevronDown size={14} className={clsx("text-slate-400 transition-transform duration-150", showProductDropdown && "rotate-180")} />
+              </button>
 
-          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-xs">
-            <Calendar size={13} className="text-slate-400 shrink-0" />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-              className="bg-transparent border-0 outline-none text-[10px] text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
-              title="From Date"
-            />
-            <span className="text-slate-300">-</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={e => { setDateTo(e.target.value); setPage(1); }}
-              className="bg-transparent border-0 outline-none text-[10px] text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
-              title="To Date"
-            />
-          </div>
+              {/* Dropdown Menu Panel */}
+              {showProductDropdown && (
+                <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn text-xs space-y-1.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-1">
+                    <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">Filter By Product</span>
+                    {filterProducts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => { setFilterProducts([]); setPage(1); }}
+                        className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
 
-          {/* Column Visibility Picker Dropdown */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowColPicker(!showColPicker)}
-              className={clsx(
-                "p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer shadow-xs",
-                showColPicker && "bg-blue-50 border-blue-200 text-blue-600"
+                  {/* All Products Checkbox */}
+                  <label className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-extrabold text-slate-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={filterProducts.length === 0}
+                      onChange={() => { setFilterProducts([]); setPage(1); }}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
+                    />
+                    <span>All Products</span>
+                  </label>
+
+                  <div className="border-t border-slate-100 pt-1 space-y-1">
+                    {[
+                      { id: 'HEALTH', label: 'Health' },
+                      { id: 'LIFE', label: 'Life' },
+                      { id: 'MF', label: 'Mutual Funds (MF)' },
+                      { id: 'ACCIDENT', label: 'Accident' },
+                      { id: 'OTHER', label: 'Other' },
+                    ].map(prod => {
+                      const isChecked = filterProducts.includes(prod.id);
+                      return (
+                        <label key={prod.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-bold text-slate-700 select-none">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setFilterProducts(prev => {
+                                const next = prev.includes(prod.id)
+                                  ? prev.filter(p => p !== prod.id)
+                                  : [...prev, prod.id];
+                                return next;
+                              });
+                              setPage(1);
+                            }}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
+                          />
+                          <span>{prod.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              title="Toggle columns"
-            >
-              <Settings size={13} />
-            </button>
-            {showColPicker && (
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs space-y-2">
-                <p className="font-bold text-gray-500 uppercase tracking-wider mb-1 text-[10px]">Show Columns</p>
-                {(activeTab === 'birthdays' ? BIRTHDAY_COLS : activeTab === 'leads' ? LEAD_COLS : activeTab === 'customers' ? CUSTOMER_COLS : CONTACT_COLS).map(c => {
-                  if (c.key === 'actions') return null;
-                  return (
-                    <label key={String(c.key)} className="flex items-center gap-2 cursor-pointer font-medium text-gray-700 hover:text-blue-600 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[String(c.key)] !== false}
-                        onChange={() => setVisibleColumns(prev => ({ ...prev, [String(c.key)]: !prev[String(c.key)] }))}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span>{c.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
+            </div>
+
+            {filterProducts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => { setExcludeProduct(!excludeProduct); setPage(1); }}
+                className={clsx(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border shadow-2xs',
+                  excludeProduct
+                    ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25'
+                    : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
+                )}
+                title={excludeProduct ? `Showing contacts/customers who HAVEN'T purchased selected products` : `Click to show who HAVEN'T purchased selected products`}
+              >
+                {excludeProduct ? `❌ Without Selected Products (Not Purchased)` : `🚫 Exclude / Not Purchased`}
+              </button>
             )}
           </div>
 
-          <button 
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer shadow-xs"
-          >
-            <Filter size={13} />
-          </button>
+          {/* Right Side: Search, Date Range & Column Settings */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-56">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+                placeholder={activeTab === 'customers' ? 'Search customers...' : 'Search contacts...'}
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
+
+            {/* Date Range Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+              <Calendar size={14} className="text-slate-400 shrink-0" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                className="bg-transparent border-0 outline-none text-[11px] font-semibold text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
+                title="From Date"
+              />
+              <span className="text-slate-300 font-bold">-</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                className="bg-transparent border-0 outline-none text-[11px] font-semibold text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
+                title="To Date"
+              />
+            </div>
+
+            {/* Column Picker Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowColPicker(!showColPicker)}
+                className={clsx(
+                  "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
+                  showColPicker && "bg-blue-50 border-blue-200 text-blue-600"
+                )}
+                title="Toggle Columns"
+              >
+                <Settings size={14} />
+              </button>
+              {showColPicker && (
+                <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2 animate-fadeIn">
+                  <p className="font-extrabold text-slate-400 uppercase tracking-wider mb-1 text-[10px]">Show Columns</p>
+                  {(activeTab === 'birthdays' ? BIRTHDAY_COLS : activeTab === 'customers' ? CUSTOMER_COLS : CONTACT_COLS).map(c => {
+                    if (c.key === 'actions') return null;
+                    return (
+                      <label key={String(c.key)} className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[String(c.key)] !== false}
+                          onChange={() => setVisibleColumns(prev => ({ ...prev, [String(c.key)]: !prev[String(c.key)] }))}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                        />
+                        <span>{c.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Filters Toggle Button */}
+            <button 
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={clsx(
+                "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
+                showAdvancedFilters && "bg-blue-50 border-blue-200 text-blue-600"
+              )}
+              title="Advanced Filters"
+            >
+              <Filter size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Advanced Filters Panel */}
       {showAdvancedFilters && (
-        <div className="card grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-50/50 rounded-2xl border border-slate-100 p-4 mb-2 animate-fadeIn">
+        <div className="card grid grid-cols-1 sm:grid-cols-4 gap-4 bg-gradient-to-r from-slate-50 via-blue-50/20 to-slate-50 rounded-2xl border border-slate-200/70 p-4 mb-2 shadow-sm animate-fadeIn">
           <div>
-            <label className="label text-[10px] font-bold text-slate-400">Assigned Agent</label>
+            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Agent</label>
             <select
               value={leadInfoFields.assignedEmployeeId}
               onChange={e => setLeadInfoFields(prev => ({ ...prev, assignedEmployeeId: e.target.value }))}
-              className="input"
+              className="input text-xs font-semibold"
             >
               <option value="">All Agents</option>
               {employees?.map((emp: any) => (
@@ -1842,11 +1873,11 @@ export default function Contacts() {
             </select>
           </div>
           <div>
-            <label className="label text-[10px] font-bold text-slate-400">Lead Source</label>
+            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lead Source</label>
             <select
               value={leadInfoFields.leadSource}
               onChange={e => setLeadInfoFields(prev => ({ ...prev, leadSource: e.target.value }))}
-              className="input"
+              className="input text-xs font-semibold"
             >
               <option value="By Agent">By Agent</option>
               <option value="Online">Online</option>
@@ -1854,31 +1885,13 @@ export default function Contacts() {
               <option value="Walk-in">Walk-in</option>
             </select>
           </div>
-          {activeTab === 'leads' && (
-            <div>
-              <label className="label text-[10px] font-bold text-slate-400">Lead Status</label>
-              <select
-                value={leadInfoFields.leadStatus}
-                onChange={e => setLeadInfoFields(prev => ({ ...prev, leadStatus: e.target.value }))}
-                className="input"
-              >
-                <option value="OPEN">New</option>
-                <option value="CONTACTED">Follow Up</option>
-                <option value="IN_DISCUSSION">Interested</option>
-                <option value="PROPOSAL_SENT">Proposal</option>
-                <option value="LOGIN_PROGRESS">Negotiation</option>
-                <option value="PAYMENT_DONE">Closed</option>
-                <option value="LOST">Lost</option>
-              </select>
-            </div>
-          )}
           <div>
-            <label className="label text-[10px] font-bold text-slate-400">Product Type</label>
+            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Type</label>
             <div className="flex items-center gap-2 mt-1">
               <select
-                value={filterProduct}
-                onChange={e => setFilterProduct(e.target.value)}
-                className="input py-1.5 text-xs flex-1"
+                value={filterProducts[0] || 'ALL'}
+                onChange={e => setFilterProducts(e.target.value === 'ALL' ? [] : [e.target.value])}
+                className="input py-1.5 text-xs font-semibold flex-1"
               >
                 <option value="ALL">All Categories</option>
                 <option value="HEALTH">Health</option>
@@ -1887,12 +1900,12 @@ export default function Contacts() {
                 <option value="ACCIDENT">Accident</option>
                 <option value="OTHER">Other</option>
               </select>
-              <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-1.5 rounded-lg shadow-xs shrink-0 hover:bg-slate-50 transition-colors">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 bg-white border border-slate-200 px-2 py-1.5 rounded-lg shadow-2xs shrink-0 hover:bg-slate-50 transition-colors">
                 <input
                   type="checkbox"
                   checked={excludeProduct}
                   onChange={e => setExcludeProduct(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
                 />
                 <span>Exclude</span>
               </label>
@@ -1906,10 +1919,10 @@ export default function Contacts() {
         <DataTable
           columns={activeCols}
           data={sortedAndFilteredData}
-          total={activeTab === 'leads' ? leadsRes?.meta?.total : activeTab === 'birthdays' ? birthdayList.length : contactsRes?.meta?.total}
+          total={activeTab === 'birthdays' ? birthdayList.length : contactsRes?.meta?.total}
           page={page}
           pageSize={20}
-          loading={activeTab === 'leads' ? leadsLoading : activeTab === 'birthdays' ? birthdayLoading : contactsLoading}
+          loading={activeTab === 'birthdays' ? birthdayLoading : contactsLoading}
           rowKey={r => r.id}
           onPageChange={setPage}
           onSort={(key, dir) => {
@@ -1917,9 +1930,7 @@ export default function Contacts() {
             setSortDir(dir);
           }}
           onRowClick={r => {
-            if (activeTab === 'leads') {
-              openLeadEdit(r);
-            } else if (activeTab === 'customers' || activeTab === 'contacts') {
+            if (activeTab === 'customers' || activeTab === 'contacts') {
               openEdit(r);
             } else {
               const cid = r.contactId || r.id;
@@ -1930,284 +1941,7 @@ export default function Contacts() {
         />
       </div>
 
-      {/* Create / Edit Modal */}
-      <Modal open={modalOpen} onClose={closeModal} title={editTarget ? 'Edit Contact' : 'Add Contact'}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">First Name *</label>
-              <input {...register('firstName')} className="input" />
-              {errors.firstName && <p className="text-xs text-red-500">{errors.firstName.message}</p>}
-            </div>
-            <div>
-              <label className="label">Last Name *</label>
-              <input {...register('lastName')} className="input" />
-              {errors.lastName && <p className="text-xs text-red-500">{errors.lastName.message}</p>}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Phone *</label>
-              <input {...register('phone')} type="tel" className="input" />
-              {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
-            </div>
-            <div>
-              <label className="label">Alternate Phone</label>
-              <input {...register('alternatePhone')} type="tel" className="input" />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Email</label>
-            <input {...register('email')} type="email" className="input" />
-            {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Gender</label>
-              <select {...register('gender')} className="input">
-                <option value="">— Select —</option>
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Date of Birth</label>
-              <input {...register('dateOfBirth')} type="date" className="input" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">PAN Number</label>
-              <input {...register('panNumber')} className="input" placeholder="ABCDE1234F" style={{ textTransform: 'uppercase' }} />
-            </div>
-            <div>
-              <label className="label">Aadhaar Number</label>
-              <input {...register('aadhaarNumber')} className="input" placeholder="XXXX XXXX XXXX" />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Annual Income (₹)</label>
-            <input {...register('annualIncome')} type="number" min="0" className="input" placeholder="e.g. 500000" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="label">City</label>
-              <input {...register('city')} className="input" placeholder="e.g. Mumbai" />
-            </div>
-            <div>
-              <label className="label">Source</label>
-              <select {...register('source')} className="input">
-                <option value="">— Select Source —</option>
-                <option value="Excel Import">Excel Import</option>
-                <option value="Website Inquiry">Website Inquiry</option>
-                <option value="Referral">Referral</option>
-                <option value="Walk-in Visitor">Walk-in Visitor</option>
-                <option value="Social Media">Social Media</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            {user?.role !== 'EMPLOYEE' && (
-              <div>
-                <label className="label">Assigned To</label>
-                <select {...register('assignedEmployeeId')} className="input">
-                  <option value="">— Unassigned —</option>
-                  {employees?.map((emp: any) => (
-                    <option key={emp.id} value={emp.userId}>
-                      {emp.firstName} {emp.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="label">Notes</label>
-            <textarea {...register('notes')} className="input" rows={2} placeholder="Any additional notes…" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Tags <span className="text-gray-400 font-normal">(comma-separated)</span></label>
-              <input {...register('tags')} className="input" placeholder="vip, health, life" />
-            </div>
-            <div>
-              <label className="label">Status</label>
-              <select {...register('isActive')} className="input">
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <span className="label text-[10px] font-bold text-gray-500 block">Medical Conditions</span>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {['Diabetes', 'Hypertension', 'Asthma', 'Heart Condition', 'Thyroid'].map((cond) => {
-                const has = formMedHistory.includes(cond);
-                return (
-                  <label key={cond} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[10px] font-semibold cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-350 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
-                      checked={has}
-                      onChange={() => {
-                        setFormMedHistory(prev =>
-                          has ? prev.filter(x => x !== cond) : [...prev, cond]
-                        );
-                      }}
-                    />
-                    <span>{cond}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2 border-t border-slate-100 pt-3">
-            <div className="flex items-center justify-between">
-              <span className="label text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Family & Relationships</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddRelForm(true);
-                  setNewRelType('SPOUSE');
-                  setNewRelName('');
-                  setNewRelPhone('');
-                  setNewRelDob('');
-                }}
-                className="text-[10px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Plus size={10} /> Add Relation
-              </button>
-            </div>
-
-            {formRelationships.length > 0 && (
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {formRelationships.map((r, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 text-xs">
-                    <div>
-                      <span className="font-extrabold text-blue-600 uppercase text-[9px] mr-2 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{r.relationshipType}</span>
-                      <span className="font-semibold text-gray-700">{r.name || (r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : '—')}</span>
-                      {r.phone && <span className="text-gray-400 font-normal text-[10px] ml-1.5">({r.phone})</span>}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (r.id) {
-                          deleteRelationshipMutation.mutate(r.id);
-                        }
-                        setFormRelationships(prev => prev.filter((_, i) => i !== idx));
-                      }}
-                      className="text-slate-400 hover:text-red-500 p-1 cursor-pointer transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {showAddRelForm && (
-              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-3 space-y-2.5 animate-fadeIn">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[9px] font-bold text-gray-400 block uppercase">Relation *</label>
-                    <select
-                      value={newRelType}
-                      onChange={e => setNewRelType(e.target.value)}
-                      className="input py-1.5 text-xs"
-                    >
-                      <option value="SPOUSE">Spouse</option>
-                      <option value="CHILD">Child</option>
-                      <option value="PARENT">Parent</option>
-                      <option value="SIBLING">Sibling</option>
-                      <option value="NOMINEE">Nominee</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-gray-400 block uppercase">Name *</label>
-                    <input
-                      type="text"
-                      value={newRelName}
-                      onChange={e => setNewRelName(e.target.value)}
-                      placeholder="Full name"
-                      className="input py-1.5 text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[9px] font-bold text-gray-400 block uppercase">Phone</label>
-                    <input
-                      type="tel"
-                      value={newRelPhone}
-                      onChange={e => setNewRelPhone(e.target.value)}
-                      placeholder="Phone number"
-                      className="input py-1.5 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-gray-400 block uppercase">DOB</label>
-                    <input
-                      type="date"
-                      value={newRelDob}
-                      onChange={e => setNewRelDob(e.target.value)}
-                      className="input py-1.5 text-xs"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-1.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddRelForm(false)}
-                    className="px-2.5 py-1 text-[10px] font-semibold text-gray-500 hover:bg-gray-100 rounded-md cursor-pointer border border-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!newRelName.trim()) {
-                        toast.error('Relation Name is required');
-                        return;
-                      }
-                      setFormRelationships(prev => [
-                        ...prev,
-                        {
-                          relationshipType: newRelType,
-                          name: newRelName,
-                          phone: newRelPhone || undefined,
-                          dateOfBirth: newRelDob || undefined,
-                        }
-                      ]);
-                      setShowAddRelForm(false);
-                    }}
-                    className="px-2.5 py-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md cursor-pointer"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn-secondary" onClick={closeModal}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={createContact.isPending || updateContact.isPending}>
-              {editTarget ? 'Save Changes' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Delete Confirm */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Contact" size="sm">
@@ -2397,61 +2131,60 @@ export default function Contacts() {
         onClose={closeLeadModal}
         title={
           editContactId
-            ? (leadInfoFields.profileType === 'Client Profile' ? "Edit Client Profile" : "Edit Lead Profile")
-            : (leadInfoFields.profileType === 'Client Profile' ? "Add New Client" : "Capture New Lead")
+            ? (activeTab === 'customers' ? "Edit Customer Profile" : "Edit Contact Profile")
+            : (activeTab === 'customers' ? "Add New Customer" : "Add New Contact")
         }
         subtitle={
           editContactId
-            ? (leadInfoFields.profileType === 'Client Profile' ? "Update client profile and policies." : "Update lead information and status.")
-            : (leadInfoFields.profileType === 'Client Profile' ? "Manage client profile and policies." : "Manage lead information and status.")
+            ? (activeTab === 'customers' ? "Update customer profile, family details, and policies." : "Update contact profile, family details, and address.")
+            : (activeTab === 'customers' ? "Manage customer profile, family details, and policies." : "Manage contact profile, family details, and address.")
         }
-        size="xl"
+        size="2xl"
         actions={
-          <div className="flex gap-2 mr-2">
+          <div className="flex gap-2.5 mr-1">
             {editContactId ? (
               <button
                 type="button"
-                className="btn-primary px-4 py-1.2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                 onClick={(e) => handleLeadSubmit(e, true)}
-                disabled={createLeadMutation.isPending}
               >
-                {createLeadMutation.isPending ? 'Updating…' : 'Update'}
+                Update Profile
               </button>
             ) : (
               <>
                 <button
                   type="button"
-                  className="btn-secondary px-3 py-1.2 text-xs font-semibold rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                  className="px-4 py-2 text-xs font-extrabold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all"
                   onClick={(e) => handleLeadSubmit(e, false)}
-                  disabled={createLeadMutation.isPending}
                 >
-                  Save
+                  Save Draft
                 </button>
                 <button
                   type="button"
-                  className="btn-primary px-3 py-1.2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+                  className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                   onClick={(e) => handleLeadSubmit(e, true)}
-                  disabled={createLeadMutation.isPending}
                 >
-                  {createLeadMutation.isPending ? 'Saving…' : 'Save & Close'}
+                  Save & Close
                 </button>
               </>
             )}
           </div>
         }
       >
-        <form className="space-y-4">
+        <form className="space-y-3">
 
           {/* Modal sub-navigation tabs */}
-          <div className="flex bg-slate-100/60 p-1 rounded-xl mb-4 gap-1 border border-slate-200/40 overflow-x-auto">
-            {['Lead Info', 'Personal', 'Family', 'Policy', 'WA Campaign', 'History'].map(tab => (
+          <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+            {['Product Interest', 'Personal', 'Family', 'Policy', 'WA Campaign', 'History'].map(tab => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveLeadTab(tab)}
                 className={clsx(
-                  'px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap',
-                  activeLeadTab === tab ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                  'px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap',
+                  activeLeadTab === tab
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
                 )}
               >
                 {tab}
@@ -2460,7 +2193,289 @@ export default function Contacts() {
           </div>
 
           {/* Tab contents */}
-          <div className="h-[360px] overflow-y-auto pr-1">
+          <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar">
+            {activeLeadTab === 'Product Interest' && (
+              <div className="space-y-3 animate-fadeIn pb-2">
+
+                {/* Cards List */}
+                {productInterests.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs gap-2">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center mb-1">
+                      <Shield size={24} className="text-blue-300" />
+                    </div>
+                    <p className="font-semibold text-slate-500">No product interests added yet.</p>
+                    <p className="text-[11px] text-slate-400">Click "+ Add Product Interest" below to get started.</p>
+                  </div>
+                )}
+
+                {productInterests.map((card, idx) => {
+                  const displayName = card.interestedIn.length > 0
+                    ? card.interestedIn.map(p => p === 'Other' && card.otherProduct ? card.otherProduct : p).join(', ')
+                    : 'New Product Interest';
+
+                  const PRODUCT_COLORS: Record<string, string> = {
+                    Health: 'from-emerald-500 to-teal-600',
+                    Life: 'from-blue-500 to-indigo-600',
+                    Term: 'from-violet-500 to-purple-600',
+                    'Accident Policy': 'from-orange-500 to-amber-600',
+                    Motor: 'from-rose-500 to-pink-600',
+                    'Mutual Funds': 'from-cyan-500 to-sky-600',
+                    Porting: 'from-yellow-500 to-orange-500',
+                    Other: 'from-slate-500 to-gray-600',
+                  };
+                  const firstProduct = card.interestedIn[0] || 'Other';
+                  const headerGradient = PRODUCT_COLORS[firstProduct] || 'from-blue-500 to-indigo-600';
+
+                  return (
+                    <div
+                      key={card.id}
+                      className="rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition-all"
+                    >
+                      {/* Card Header — always visible */}
+                      <div
+                        className={`bg-gradient-to-r ${headerGradient} px-4 py-3 flex items-center justify-between cursor-pointer select-none`}
+                        onClick={() => toggleProductCollapse(card.id)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                            <span className="text-white font-black text-[11px]">{idx + 1}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white font-extrabold text-xs truncate">{displayName}</p>
+                            {card.collapsed && card.leadStage && (
+                              <p className="text-white/70 text-[10px] font-semibold truncate">
+                                {card.leadStage.replace(/_/g, ' ')} · {card.leadStatus.replace(/_/g, ' ')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); removeProductInterest(card.id); }}
+                            className="p-1 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all"
+                            title="Remove"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <ChevronDown
+                            size={16}
+                            className={`text-white transition-transform duration-200 ${card.collapsed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Card Body — collapse/expand */}
+                      {!card.collapsed && (
+                        <div className="p-4 space-y-4 bg-white">
+
+                          {/* Interested In — toggle buttons */}
+                          <div>
+                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Interested In</label>
+                            <div className="flex flex-wrap gap-2">
+                              {['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting', 'Other'].map(prod => {
+                                const isSel = card.interestedIn.includes(prod);
+                                const PILL_COLORS: Record<string, string> = {
+                                  Health: isSel ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
+                                  Life: isSel ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
+                                  Term: isSel ? 'bg-violet-600 border-violet-600 text-white' : 'bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100',
+                                  'Accident Policy': isSel ? 'bg-orange-600 border-orange-600 text-white' : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100',
+                                  Motor: isSel ? 'bg-rose-600 border-rose-600 text-white' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100',
+                                  'Mutual Funds': isSel ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-cyan-50 border-cyan-200 text-cyan-700 hover:bg-cyan-100',
+                                  Porting: isSel ? 'bg-yellow-500 border-yellow-500 text-white' : 'bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100',
+                                  Other: isSel ? 'bg-slate-700 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100',
+                                };
+                                return (
+                                  <button
+                                    key={prod}
+                                    type="button"
+                                    onClick={() => {
+                                      const next = card.interestedIn.includes(prod)
+                                        ? card.interestedIn.filter(x => x !== prod)
+                                        : [...card.interestedIn, prod];
+                                      updateProductInterest(card.id, 'interestedIn', next);
+                                    }}
+                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer select-none ${PILL_COLORS[prod] || (isSel ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 text-slate-600')}`}
+                                  >
+                                    {isSel ? '✓ ' : '+ '}{prod}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {card.interestedIn.includes('Other') && (
+                              <input
+                                type="text"
+                                className="input mt-2 text-xs w-full"
+                                placeholder="Specify product name..."
+                                value={card.otherProduct}
+                                onChange={e => updateProductInterest(card.id, 'otherProduct', e.target.value)}
+                              />
+                            )}
+                          </div>
+
+                          {/* Row 1: Stage, Status, Type */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage</label>
+                              <select
+                                className="input w-full text-xs"
+                                value={card.leadStage}
+                                onChange={e => updateProductInterest(card.id, 'leadStage', e.target.value)}
+                              >
+                                <option value="TO_CONTACT">To Contact</option>
+                                <option value="CONTACTED">Contacted</option>
+                                <option value="PROPOSAL_SENT">Proposal Sent</option>
+                                <option value="LOGIN_PROGRESS">Login in Progress</option>
+                                <option value="PAYMENT_DONE">Payment Done</option>
+                                <option value="PROCESS_COMPLETED">Process Completed</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Status</label>
+                              <select
+                                className="input w-full text-xs"
+                                value={card.leadStatus}
+                                onChange={e => updateProductInterest(card.id, 'leadStatus', e.target.value)}
+                              >
+                                <option value="INTERESTED">Interested</option>
+                                <option value="HOT">Hot 🔥</option>
+                                <option value="VERY_HOT">Very Hot 🔥🔥</option>
+                                <option value="NOT_INTERESTED">Not Interested</option>
+                                <option value="LEAD_LOST">Lead Lost</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type</label>
+                              <select
+                                className="input w-full text-xs"
+                                value={card.leadType}
+                                onChange={e => updateProductInterest(card.id, 'leadType', e.target.value)}
+                              >
+                                <option value="FRESH">Fresh</option>
+                                <option value="RENEWAL">Renewal</option>
+                                <option value="PORTING">Porting</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source</label>
+                              <input
+                                type="text"
+                                list={`lead-source-list-${card.id}`}
+                                className="input w-full text-xs"
+                                placeholder="e.g. Social Media"
+                                value={card.leadSource}
+                                onChange={e => updateProductInterest(card.id, 'leadSource', e.target.value)}
+                              />
+                              <datalist id={`lead-source-list-${card.id}`}>
+                                <option value="Social Media" />
+                                <option value="Our Customer Self" />
+                                <option value="Referred by Customer" />
+                                <option value="Walk-in" />
+                                <option value="BNI" />
+                              </datalist>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                              <select
+                                className="input w-full text-xs"
+                                value={card.assignedEmployeeId}
+                                onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
+                              >
+                                <option value="">Select Employee</option>
+                                {employees?.map((emp: any) => (
+                                  <option key={emp.id} value={emp.userId || emp.id}>
+                                    {emp.firstName} {emp.lastName}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date</label>
+                              <input
+                                type="date"
+                                className="input w-full text-xs"
+                                value={card.followUpDate}
+                                onChange={e => updateProductInterest(card.id, 'followUpDate', e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium (₹)</label>
+                              <input
+                                type="number"
+                                className="input w-full text-xs"
+                                placeholder="e.g. 12000"
+                                min={0}
+                                value={card.expectedPremium}
+                                onChange={e => updateProductInterest(card.id, 'expectedPremium', e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Consultation Comments Timeline */}
+                          <div className="bg-slate-50/80 rounded-xl border border-slate-200/60 p-3 space-y-3">
+                            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Consultation Comments</p>
+
+                            {/* Timeline */}
+                            <div className="max-h-36 overflow-y-auto space-y-2 custom-scrollbar">
+                              {card.comments.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic text-center py-4">No comments yet. Add the first one below.</p>
+                              ) : (
+                                card.comments.map((cmt, ci) => (
+                                  <div key={ci} className="bg-white rounded-xl border border-slate-100 p-2.5 shadow-2xs">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">{cmt.author}</span>
+                                      <span className="text-[9px] text-slate-400 font-semibold">{cmt.datetime}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{cmt.text}</p>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+
+                            {/* Add comment input */}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                className="input flex-1 text-xs"
+                                placeholder="Type a comment and press Enter or Add..."
+                                value={card.newComment}
+                                onChange={e => updateProductInterest(card.id, 'newComment', e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') { e.preventDefault(); addProductComment(card.id); }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => addProductComment(card.id)}
+                                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-extrabold text-xs cursor-pointer transition-all shadow-2xs shrink-0"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add Product Interest Button */}
+                <button
+                  type="button"
+                  onClick={addProductInterest}
+                  className="w-full mt-1 py-3 rounded-2xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50 text-blue-600 hover:text-blue-700 text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                >
+                  <Plus size={15} className="group-hover:scale-110 transition-transform" />
+                  + Add Product Interest
+                </button>
+
+              </div>
+            )}
             {activeLeadTab === 'Personal' && (
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -2691,233 +2706,6 @@ export default function Contacts() {
               </div>
             )}
 
-            {activeLeadTab === 'Lead Info' && (
-              <div className="grid grid-cols-2 gap-6 text-xs h-full">
-                {/* Left Column */}
-                <div className="space-y-4 flex flex-col justify-between">
-                  {/* Profile Type */}
-                  {leadInfoFields.profileType !== 'Client Profile' && (
-                    <div>
-                      <label className="label text-[11px] font-bold text-gray-500 uppercase tracking-wider">Profile Type</label>
-                      <div className="flex gap-2 mt-1.5">
-                        {['Lead Profile', 'Client Profile'].map(type => (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => setLeadInfoFields(l => ({ ...l, profileType: type }))}
-                            className={clsx(
-                              'px-4 py-1.5 rounded-lg font-semibold border transition-all cursor-pointer text-xs',
-                              leadInfoFields.profileType === type
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                            )}
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Interested In */}
-                  <div>
-                    <label className="label text-[11px] font-bold text-gray-500 uppercase tracking-wider">Interested In</label>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {['Health', 'Term', 'Mutual Funds', 'Pooling', 'Other'].map(prod => {
-                        const isSelected = leadInfoFields.interestedIn.includes(prod);
-                        return (
-                          <button
-                            key={prod}
-                            type="button"
-                            onClick={() => setLeadInfoFields(l => {
-                              const exists = l.interestedIn.includes(prod);
-                              const next = exists
-                                ? l.interestedIn.filter(p => p !== prod)
-                                : [...l.interestedIn, prod];
-                              return { ...l, interestedIn: next };
-                            })}
-                            className={clsx(
-                              'px-3 py-1.5 rounded-full font-semibold border transition-all cursor-pointer text-xs',
-                              isSelected
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-100 hover:bg-gray-50'
-                            )}
-                          >
-                            {prod}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Consultation History */}
-                  <div className="flex flex-col">
-                    <label className="label text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Consultation History</label>
-                    <div className="h-20 border border-gray-200 rounded-lg p-2 overflow-y-auto bg-gray-50 flex flex-col text-left">
-                      {leadComments.length === 0 ? (
-                        <div className="flex-1 flex items-center justify-center text-center">
-                          <span className="text-gray-400 text-[10px]">No comments recorded</span>
-                        </div>
-                      ) : (
-                        <div className="w-full space-y-1">
-                          {leadComments.map((c, i) => (
-                            <p key={i} className="text-[10px] text-gray-700 bg-white p-1.5 rounded shadow-sm border border-gray-100">{c}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      <input
-                        type="text"
-                        placeholder="Type new comment..."
-                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-xs outline-none bg-white text-gray-800 placeholder-gray-400 focus:border-blue-500 transition-all"
-                        value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg font-semibold cursor-pointer text-xs transition-colors"
-                        onClick={() => {
-                          if (newComment.trim()) {
-                            setLeadComments(c => [...c, newComment.trim()]);
-                            setNewComment('');
-                          }
-                        }}
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column */}
-                <div className="space-y-4">
-                  {/* Lead Status */}
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Status</label>
-                    <select
-                      className="input w-full"
-                      value={leadInfoFields.leadStatus}
-                      onChange={e => setLeadInfoFields(l => ({ ...l, leadStatus: e.target.value }))}
-                    >
-                      <option value="OPEN">Cold</option>
-                      <option value="CONTACTED">Warm (Follow Up)</option>
-                      <option value="IN_DISCUSSION">Hot (Interested)</option>
-                      <option value="PROPOSAL_SENT">Proposal</option>
-                      <option value="LOGIN_PROGRESS">Negotiation</option>
-                      <option value="PAYMENT_DONE">Closed</option>
-                      <option value="LOST">Lost</option>
-                    </select>
-                  </div>
-
-                  {/* Lead Source */}
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source</label>
-                    <select
-                      className="input w-full"
-                      value={leadInfoFields.leadSource}
-                      onChange={e => setLeadInfoFields(l => ({ ...l, leadSource: e.target.value }))}
-                    >
-                      <option value="By Agent">By Agent</option>
-                      <option value="Website">Website</option>
-                      <option value="Social Media">Social Media</option>
-                      <option value="Referral">Referral</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Assigned Employee */}
-                  {user?.role !== 'EMPLOYEE' && (
-                    <div>
-                      <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
-                      <select
-                        className="input w-full"
-                        value={leadInfoFields.assignedEmployeeId}
-                        onChange={e => setLeadInfoFields(l => ({ ...l, assignedEmployeeId: e.target.value }))}
-                      >
-                        <option value="">Select Employee</option>
-                        {employees.map(emp => (
-                          <option key={emp.id} value={emp.userId}>
-                            {emp.firstName} {emp.lastName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Follow up Date */}
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date</label>
-                    <input
-                      type="date"
-                      className="input w-full"
-                      value={leadInfoFields.followUpDate}
-                      onChange={e => setLeadInfoFields(l => ({ ...l, followUpDate: e.target.value }))}
-                    />
-                  </div>
-
-                  {/* Customer Performance Summary */}
-                  {leadInfoFields.profileType === 'Client Profile' && loadedContact && (
-                    <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl space-y-2 text-xs">
-                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-1">Customer Performance Summary</span>
-                      <div className="grid grid-cols-2 gap-2 text-gray-600">
-                        <div>
-                          <span className="text-[10px] text-gray-400 block uppercase">Product</span>
-                          <span className="font-semibold text-gray-700 block truncate">
-                            {(() => {
-                              const policies = loadedContact.policies || [];
-                              if (policies.length === 0) return '—';
-                              return [...new Set(policies.map((p: any) => p.plan?.category || p.plan?.name).filter(Boolean))].join(', ');
-                            })()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 block uppercase">Renew Status</span>
-                          <span className="font-semibold text-gray-700 block">
-                            {(() => {
-                              const active = (loadedContact.policies || []).filter((p: any) => p.status === 'ACTIVE');
-                              if (active.length === 0) return '—';
-                              const due = active.some((p: any) => p.endDate && new Date(p.endDate) <= new Date(Date.now() + 30 * 86400000));
-                              return due ? <span className="text-orange-600 font-bold">Due</span> : <span className="text-green-600 font-bold">OK</span>;
-                            })()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 block uppercase">Renew Assigned</span>
-                          <span className="font-semibold text-gray-700 block truncate">
-                            {(() => {
-                              const active = (loadedContact.policies || []).find((p: any) => p.status === 'ACTIVE' && p.assignedEmployeeId);
-                              return active ? getEmployeeName(active.assignedEmployeeId) : '—';
-                            })()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 block uppercase">Claim Status</span>
-                          <span className="font-semibold text-gray-700 block">
-                            {(() => {
-                              const claims = loadedContact.claims || [];
-                              if (claims.length === 0) return 'No Claims';
-                              const active = claims.find((c: any) => ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status));
-                              return active ? <span className="text-yellow-600 font-bold uppercase">{active.status}</span> : 'No Claims';
-                            })()}
-                          </span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-[10px] text-gray-400 block uppercase">Claim Assigned</span>
-                          <span className="font-semibold text-gray-700 block truncate">
-                            {(() => {
-                              const claims = loadedContact.claims || [];
-                              const active = claims.find((c: any) => ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status) && c.assignedEmployeeId);
-                              return active ? getEmployeeName(active.assignedEmployeeId) : '—';
-                            })()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {activeLeadTab === 'Family' && (
               <div className="h-full flex flex-col gap-0">

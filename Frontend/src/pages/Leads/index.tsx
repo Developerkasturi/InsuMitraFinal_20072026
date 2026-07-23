@@ -459,6 +459,36 @@ export default function Leads() {
   return (
     <div className="h-full flex flex-col gap-4">
 
+      {/* Floating Bottom-Right Action Panel */}
+      <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+      <div className="fixed right-6 bottom-8 z-40 flex flex-row gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+        {/* Import CSV */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
+          title="Import Leads CSV"
+        >
+          <Upload size={18} strokeWidth={2.2} />
+          <span className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            Import Leads CSV
+          </span>
+        </button>
+
+        {/* New Lead */}
+        <button
+          type="button"
+          onClick={() => openCreate('OPEN')}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+          title="New Lead"
+        >
+          <UserPlus size={18} strokeWidth={2.2} />
+          <span className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            New Lead
+          </span>
+        </button>
+      </div>
+
       {/* Unified Search & Actions Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
         {/* Left: Search Bar */}
@@ -534,18 +564,6 @@ export default function Leads() {
               )}
             </div>
           )}
-
-          {/* CSV Import */}
-          <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-          <button onClick={() => fileInputRef.current?.click()}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg">
-            <Upload size={13} /> <span>Import</span>
-          </button>
-
-          {/* Create Lead */}
-          <button onClick={() => openCreate('OPEN')} className="btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg">
-            <Plus size={13} /> <span>New Lead</span>
-          </button>
         </div>
       </div>
 

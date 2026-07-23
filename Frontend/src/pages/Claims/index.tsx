@@ -911,28 +911,43 @@ export default function Claims() {
 
   return (
     <div className="space-y-4">
+      {/* Floating Right Action Panel */}
+      <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+        {/* Import CSV */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
+          title="Import Claims CSV"
+        >
+          <Upload size={18} strokeWidth={2.2} />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            Import Claims CSV
+          </span>
+        </button>
+
+        {/* New Claim */}
+        <button
+          type="button"
+          onClick={() => { setModalOpen(true); setValue('claimNumber', genClaimNumber()); }}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+          title="New Claim"
+        >
+          <Plus size={18} strokeWidth={2.2} />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            New Claim
+          </span>
+        </button>
+      </div>
+
       {/* Actions Toolbar */}
       <div className="flex justify-end items-center gap-3 pb-2">
-        <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
         <button
           onClick={() => setShowAnalytics(!showAnalytics)}
           className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer bg-white text-slate-700 hover:bg-slate-50"
         >
           {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
-        </button>
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer"
-        >
-          <Upload size={14} /> Import CSV
-        </button>
-        
-        <button
-          className="btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer"
-          onClick={() => { setModalOpen(true); setValue('claimNumber', genClaimNumber()); }}
-        >
-          <Plus size={14} /> New Claim
         </button>
       </div>
 
