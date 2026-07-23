@@ -928,31 +928,28 @@ export default function Leads() {
     setSelectedCampaigns([]);
   };
 
-  const checkForDuplicateContact = async (phone?: string, aadhaar?: string) => {
-    if (!phone && !aadhaar) return;
+  const checkForDuplicateContact = async (phone: string, aadhaar: string) => {
+    // Only search when BOTH fields are fully entered
+    if (!phone || !aadhaar) return;
     try {
       const res = await contactsService.list({ limit: 100 });
       const list = res.data || [];
+      // Require BOTH mobile AND aadhaar to match the same contact record
       const match = list.find((c: any) => {
-        const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
         const contactPhone = c.phone ? c.phone.replace(/\D/g, '') : '';
-        const matchPhone = cleanPhone && contactPhone && contactPhone === cleanPhone;
+        const matchPhone = contactPhone && contactPhone === phone;
 
-        const cleanAadhaar = aadhaar ? aadhaar.replace(/\D/g, '') : '';
         const contactAadhaar = c.aadhaarNumber ? c.aadhaarNumber.replace(/\D/g, '') : '';
-        const matchAadhaar = cleanAadhaar && contactAadhaar && contactAadhaar === cleanAadhaar;
+        const matchAadhaar = contactAadhaar && contactAadhaar === aadhaar;
 
-        return matchPhone || matchAadhaar;
+        return matchPhone && matchAadhaar;
       });
 
       if (match) {
         const fullRes = await contactsService.get(match.id);
         const contact = fullRes.data;
-        setLoadedContact(contact);
-        setEditContactId(contact.id);
-        setDuplicateContactMatched(contact);
-        toast.success("Existing Contact Found – Details Loaded");
 
+        // Load address & occupation for personal fields
         const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
         const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
@@ -1017,6 +1014,66 @@ export default function Leads() {
         if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
         if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
         setPolicies(parsedPolicies);
+
+        // WhatsApp Campaigns — populate from contact tags
+        const campaignsList = [
+          'Health Awareness', 'New Year Offer', 'Pension Plan',
+          'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
+        ];
+        const campaigns = contact.tags?.filter((t: string) => campaignsList.includes(t)) || [];
+        setSelectedCampaigns(campaigns);
+
+        // Product Interests — map existing leads for the Product Interest tab
+        const backendInterests = contact.productInterests || [];
+        const mappedInterests = backendInterests.map((lead: any) => {
+          const extra = parseLeadNotes(lead.notes);
+          const comments = (lead.consultations || []).map((c: any) => ({
+            text: c.notes || '',
+            author: c.author || 'System',
+            datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+          }));
+
+          const interestsList = lead.interests || [];
+          const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
+          const standardInterests = interestsList.filter((p: string) => isStandard(p));
+          const otherInterests = interestsList.filter((p: string) => !isStandard(p));
+
+          const interestedIn = [...standardInterests];
+          let otherProduct = '';
+          if (otherInterests.length > 0) {
+            interestedIn.push('Other');
+            otherProduct = otherInterests.join(', ');
+          }
+
+          const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
+          let leadStage = 'TO_CONTACT';
+          if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
+          else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+          else leadStage = lead.stage;
+
+          return {
+            id: lead.id,
+            collapsed: true,
+            interestedIn,
+            otherProduct,
+            leadStage,
+            leadStatus: extra.leadStatus,
+            leadType: extra.leadType,
+            leadSource: lead.source || 'Social Media',
+            assignedEmployeeId: lead.assignedEmployeeId || '',
+            followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
+            expectedPremium,
+            comments,
+            newComment: '',
+          };
+        });
+        setProductInterests(mappedInterests);
+
+        // All data loaded — now mark contact as matched and show banner
+        setLoadedContact(contact);
+        setEditContactId(contact.id);
+        setDuplicateContactMatched(contact);
+        toast.success("Existing Contact Found – Details Loaded");
       }
     } catch (err) {
       console.error(err);
@@ -1027,10 +1084,9 @@ export default function Leads() {
     if (!editTarget && !duplicateContactMatched) {
       const cleanPhone = personalFields.whatsappNumber.replace(/\D/g, '');
       const cleanAadhaar = personalFields.aadhaarNumber.replace(/\D/g, '');
-      if (cleanPhone.length === 10) {
-        checkForDuplicateContact(cleanPhone, undefined);
-      } else if (cleanAadhaar.length === 12) {
-        checkForDuplicateContact(undefined, cleanAadhaar);
+      // Only trigger search when BOTH the 10-digit mobile AND 12-digit Aadhaar are complete
+      if (cleanPhone.length === 10 && cleanAadhaar.length === 12) {
+        checkForDuplicateContact(cleanPhone, cleanAadhaar);
       }
     }
   }, [personalFields.whatsappNumber, personalFields.aadhaarNumber, editTarget, duplicateContactMatched]);
