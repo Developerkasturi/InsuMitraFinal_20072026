@@ -202,7 +202,19 @@ export default function ContactDetail() {
       return;
     }
     if (!fields.phone.trim()) {
-      toast.error('Phone is required');
+      toast.error('Mobile Number is required');
+      return;
+    }
+    if (!/^\d{10}$/.test(fields.phone.trim())) {
+      toast.error('Mobile Number must be exactly 10 digits');
+      return;
+    }
+    if (!fields.aadhaarNumber.trim()) {
+      toast.error('Aadhaar Number is required');
+      return;
+    }
+    if (!/^\d{12}$/.test(fields.aadhaarNumber.trim())) {
+      toast.error('Aadhaar Number must be exactly 12 digits');
       return;
     }
 
@@ -318,13 +330,24 @@ export default function ContactDetail() {
                 </div>
 
                 <div>
-                  <label className="label text-[10px] font-bold text-gray-500">Phone</label>
+                  <label className="label text-[10px] font-bold text-gray-500">Mobile Number *</label>
                   <input
                     type="tel"
-                    className="input w-full p-1"
+                    className={`input w-full p-1 ${
+                      fields.phone && !/^\d{10}$/.test(fields.phone)
+                        ? 'border-red-400'
+                        : ''
+                    }`}
+                    maxLength={10}
                     value={fields.phone}
-                    onChange={e => setFields(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={e => setFields(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '') }))}
                   />
+                  {!fields.phone && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-0.5">Required</p>
+                  )}
+                  {fields.phone && !/^\d{10}$/.test(fields.phone) && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-0.5">Must be exactly 10 digits</p>
+                  )}
                 </div>
 
                 <div>
@@ -383,14 +406,25 @@ export default function ContactDetail() {
                 </div>
 
                 <div>
-                  <label className="label text-[10px] font-bold text-gray-500">Aadhaar Number</label>
+                  <label className="label text-[10px] font-bold text-gray-500">Aadhaar Number *</label>
                   <input
                     type="text"
-                    className="input w-full p-1"
+                    className={`input w-full p-1 ${
+                      fields.aadhaarNumber && !/^\d{12}$/.test(fields.aadhaarNumber)
+                        ? 'border-red-400'
+                        : ''
+                    }`}
                     placeholder="XXXX XXXX XXXX"
+                    maxLength={12}
                     value={fields.aadhaarNumber}
-                    onChange={e => setFields(prev => ({ ...prev, aadhaarNumber: e.target.value }))}
+                    onChange={e => setFields(prev => ({ ...prev, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
                   />
+                  {!fields.aadhaarNumber && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-0.5">Required</p>
+                  )}
+                  {fields.aadhaarNumber && !/^\d{12}$/.test(fields.aadhaarNumber) && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-0.5">Must be exactly 12 digits</p>
+                  )}
                 </div>
 
                 <div>

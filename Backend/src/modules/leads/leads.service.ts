@@ -211,7 +211,7 @@ export class LeadsService {
         const matchedActivePolicy = existingPolicies.find(p => {
           if (p.status && p.status !== 'ACTIVE') return false;
 
-          const cat = (p.plan?.category || p.category || '').toUpperCase();
+          const cat = (p.plan?.category || '').toUpperCase();
           const incomingUpper = incomingProd.toUpperCase();
           if (incomingUpper === 'HEALTH' && cat === 'HEALTH') return true;
           if (incomingUpper === 'LIFE' && cat === 'LIFE') return true;

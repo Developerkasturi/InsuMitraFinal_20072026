@@ -123,11 +123,23 @@ export class PoliciesService {
   }
 
   async create(tenantId: string, dto: CreatePolicyDto, createdById: string, role?: UserRole) {
-    // Ensure policy number is unique within the tenant
     const exists = await this.prisma.policy.findFirst({
       where: { tenantId, policyNumber: dto.policyNumber },
     });
-    if (exists) throw new ConflictException('Policy number already exists');
+    if (exists) {
+      const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
+      const policy = await this.prisma.policy.update({
+        where: { id: exists.id },
+        data: {
+          ...rest,
+          startDate: startDate ? new Date(startDate) : exists.startDate,
+          endDate: endDate ? new Date(endDate) : exists.endDate,
+          maturityDate: maturityDate ? new Date(maturityDate) : exists.maturityDate,
+          nextDueDate: nextDueDate ? new Date(nextDueDate) : exists.nextDueDate,
+        },
+      });
+      return { data: policy, message: 'Policy updated successfully' } as any;
+    }
 
     const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
 

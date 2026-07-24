@@ -698,6 +698,22 @@ export default function Contacts() {
       return;
     }
 
+    const cleanPhone = personalFields.whatsappNumber.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      toast.error('Whatsapp/Mobile Number must be exactly 10 digits');
+      return;
+    }
+
+    const cleanAadhaar = personalFields.aadhaarNumber.replace(/\D/g, '');
+    if (!cleanAadhaar) {
+      toast.error('Aadhaar Number is required');
+      return;
+    }
+    if (cleanAadhaar.length !== 12) {
+      toast.error('Aadhaar Number must be exactly 12 digits');
+      return;
+    }
+
     const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
     try {
       const parts = personalFields.fullName.trim().split(/\s+/);
@@ -733,7 +749,42 @@ export default function Contacts() {
           aadhaarNumber: personalFields.aadhaarNumber || undefined,
           tags: mergedTags,
           notes: personalFields.streetAddress || undefined,
+          annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
         });
+
+        // Update Address: clean up old addresses, then create the new primary address
+        if (loadedContact) {
+          const oldAddresses = loadedContact.addresses || [];
+          for (const addr of oldAddresses) {
+            await contactsService.removeAddress(editContactId, addr.id).catch(err => console.error('Failed to remove old address:', err));
+          }
+        }
+        if (personalFields.state || personalFields.city || personalFields.pincode || personalFields.streetAddress) {
+          await contactsService.addAddress(editContactId, {
+            type: 'HOME',
+            line1: personalFields.streetAddress || 'N/A',
+            city: personalFields.city || 'N/A',
+            state: personalFields.state || 'N/A',
+            pincode: personalFields.pincode || 'N/A',
+            country: 'India',
+            isPrimary: true,
+          }).catch(err => console.error('Failed to add new address:', err));
+        }
+
+        // Update Occupation: clean up old occupations, then create the new primary occupation
+        if (loadedContact) {
+          const oldOccs = loadedContact.occupations || [];
+          for (const occ of oldOccs) {
+            await contactsService.removeOccupation(editContactId, occ.id).catch(err => console.error('Failed to remove old occupation:', err));
+          }
+        }
+        if (personalFields.occupationType || personalFields.companyName || personalFields.annualIncome) {
+          await contactsService.addOccupation(editContactId, {
+            type: personalFields.occupationType || 'SALARIED',
+            companyName: personalFields.companyName || undefined,
+            isPrimary: true,
+          }).catch(err => console.error('Failed to add new occupation:', err));
+        }
       } else {
         const contactRes = await contactsService.createFull({
           contact: {
@@ -783,7 +834,7 @@ export default function Contacts() {
               phone: fam.whatsapp || '0000000000',
               dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
             });
-            const famContactId = famContactRes.data.id;
+            const famContactId = famContactRes.id || famContactRes.data?.id;
 
             await contactsService.addRelationship(contactId!, {
               relatedContactId: famContactId,
@@ -999,14 +1050,18 @@ export default function Contacts() {
 
       const fams = (contact.relationships || []).map((r: any) => {
         const c = r.relatedContact;
+        const primaryOcc = c?.occupations?.find((o: any) => o.isPrimary) || c?.occupations?.[0];
+        const medTags = (c?.tags || [])
+          .filter((t: string) => t.startsWith('med:'))
+          .map((t: string) => t.replace('med:', ''));
         return {
           name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
           dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
           relation: r.relationshipType,
           whatsapp: c?.phone || '',
-          occupation: '',
-          education: '',
-          medicalHistory: []
+          occupation: primaryOcc?.type || '',
+          education: c?.education || '',
+          medicalHistory: medTags
         };
       });
       setFamilyMembers(fams);
@@ -1168,12 +1223,16 @@ export default function Contacts() {
       const isCustomer = (item.policies && item.policies.length > 0) || hasTag('customer') || (policyMap[item.id]?.length > 0);
 
       if (activeTab === 'contacts') {
-        if (isCustomer) return false;
+        if (hasTag('contact')) {
+          // Keep in contacts tab if explicitly tagged as contact
+        } else if (isCustomer) {
+          return false;
+        }
         if (selectedFilters.includes('Active') && !item.isActive) return false;
         if (selectedFilters.includes('Inactive') && item.isActive) return false;
       } else if (activeTab === 'customers') {
         // Customer tab filters
-        if (!isCustomer) return false;
+        if (!isCustomer && !hasTag('customer')) return false;
 
         const contactPolicies = policyMap[item.id] ?? [];
         const contactClaims = claimMap[item.id] ?? [];

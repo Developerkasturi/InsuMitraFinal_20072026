@@ -76,14 +76,16 @@ export class ContactsService {
 
   async create(tenantId: string, dto: CreateContactDto, createdById: string, role?: UserRole) {
     // Duplicate phone check (within same tenant)
-    const existing = await this.repo.findByPhone(tenantId, dto.phone);
-    if (existing) {
-      if (!existing.isActive) {
-        throw new ConflictException(
-          `A contact with phone ${dto.phone} already exists.`,
-        );
+    if (dto.phone !== '0000000000') {
+      const existing = await this.repo.findByPhone(tenantId, dto.phone);
+      if (existing) {
+        if (!existing.isActive) {
+          throw new ConflictException(
+            `A contact with phone ${dto.phone} already exists.`,
+          );
+        }
+        throw new ConflictException(`A contact with phone ${dto.phone} already exists`);
       }
-      throw new ConflictException(`A contact with phone ${dto.phone} already exists`);
     }
 
     if (role === UserRole.EMPLOYEE) {

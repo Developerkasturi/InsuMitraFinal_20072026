@@ -25,15 +25,17 @@ export class ContactsRepository {
     } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId, isActive };
+    const where: any = { tenantId, isActive, relatedTo: { none: {} } };
 
     if (search) {
       where.OR = [
-        { firstName:  { contains: search, mode: 'insensitive' } },
-        { lastName:   { contains: search, mode: 'insensitive' } },
-        { email:      { contains: search, mode: 'insensitive' } },
-        { phone:      { contains: search } },
-        { panNumber:  { contains: search, mode: 'insensitive' } },
+        { firstName:      { contains: search, mode: 'insensitive' } },
+        { lastName:       { contains: search, mode: 'insensitive' } },
+        { email:          { contains: search, mode: 'insensitive' } },
+        { phone:          { contains: search } },
+        { alternatePhone: { contains: search } },
+        { aadhaarNumber:  { contains: search } },
+        { panNumber:      { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -234,6 +236,32 @@ export class ContactsRepository {
       this.prisma.contact.findFirstOrThrow({ where: { id: primaryContactId, tenantId } }),
       this.prisma.contact.findFirstOrThrow({ where: { id: dto.relatedContactId, tenantId } }),
     ]);
+
+    const existing = await this.prisma.contactRelationship.findUnique({
+      where: {
+        primaryContactId_relatedContactId: {
+          primaryContactId,
+          relatedContactId: dto.relatedContactId,
+        },
+      },
+      include: {
+        relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true } },
+      },
+    });
+
+    if (existing) {
+      if (existing.relationshipType !== dto.relationshipType) {
+        return this.prisma.contactRelationship.update({
+          where: { id: existing.id },
+          data: { relationshipType: dto.relationshipType },
+          include: {
+            relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true } },
+          },
+        });
+      }
+      return existing;
+    }
+
     return this.prisma.contactRelationship.create({
       data: {
         primaryContactId,
@@ -298,7 +326,7 @@ export class ContactsRepository {
   // ── Stats ──────────────────────────────────────────────────────────────────
 
   async countByTenant(tenantId: string) {
-    return this.prisma.contact.count({ where: { tenantId, isActive: true } });
+    return this.prisma.contact.count({ where: { tenantId, isActive: true, relatedTo: { none: {} } } });
   }
 
   async getStats(tenantId: string) {
@@ -306,13 +334,13 @@ export class ContactsRepository {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     const [total, addedThisMonth, byGender] = await Promise.all([
-      this.prisma.contact.count({ where: { tenantId, isActive: true } }),
+      this.prisma.contact.count({ where: { tenantId, isActive: true, relatedTo: { none: {} } } }),
       this.prisma.contact.count({
-        where: { tenantId, isActive: true, createdAt: { gte: startOfMonth } },
+        where: { tenantId, isActive: true, createdAt: { gte: startOfMonth }, relatedTo: { none: {} } },
       }),
       this.prisma.contact.groupBy({
         by:     ['gender'],
-        where:  { tenantId, isActive: true },
+        where:  { tenantId, isActive: true, relatedTo: { none: {} } },
         _count: true,
       }),
     ]);
@@ -323,7 +351,7 @@ export class ContactsRepository {
   async upcomingBirthdays(tenantId: string, days = 30) {
     const today    = new Date();
     const contacts = await this.prisma.contact.findMany({
-      where:  { tenantId, isActive: true, dateOfBirth: { not: null } },
+      where:  { tenantId, isActive: true, dateOfBirth: { not: null }, relatedTo: { none: {} } },
       select: { id: true, firstName: true, lastName: true, phone: true, email: true, dateOfBirth: true },
     });
 
@@ -339,7 +367,7 @@ export class ContactsRepository {
 
   async recentContacts(tenantId: string, limit = 5) {
     return this.prisma.contact.findMany({
-      where:   { tenantId, isActive: true },
+      where:   { tenantId, isActive: true, relatedTo: { none: {} } },
       orderBy: { createdAt: 'desc' },
       take:    limit,
       select:  { id: true, firstName: true, lastName: true, phone: true, createdAt: true },

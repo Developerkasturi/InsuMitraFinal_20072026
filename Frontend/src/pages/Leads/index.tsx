@@ -463,7 +463,8 @@ export default function Leads() {
         av = `${a.contact?.firstName ?? ''} ${a.contact?.lastName ?? ''}`;
         bv = `${b.contact?.firstName ?? ''} ${b.contact?.lastName ?? ''}`;
       } else if (sortKey === 'plan') {
-        av = a.plan?.name ?? ''; bv = b.plan?.name ?? '';
+        av = a.plan?.name || (a.interests && a.interests.length > 0 ? a.interests.join(', ') : '');
+        bv = b.plan?.name || (b.interests && b.interests.length > 0 ? b.interests.join(', ') : '');
       } else if (sortKey === 'premiumBudget') {
         av = a.premiumBudget ?? 0; bv = b.premiumBudget ?? 0;
       } else if (sortKey === 'followUpDate') {
@@ -530,7 +531,19 @@ export default function Leads() {
       return;
     }
     if (!personalFields.whatsappNumber.trim()) {
-      toast.error('Whatsapp Number is required');
+      toast.error('Mobile Number is required');
+      return;
+    }
+    if (!/^\d{10}$/.test(personalFields.whatsappNumber.trim())) {
+      toast.error('Mobile Number must be exactly 10 digits');
+      return;
+    }
+    if (!personalFields.aadhaarNumber.trim()) {
+      toast.error('Aadhaar Number is required');
+      return;
+    }
+    if (!/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
+      toast.error('Aadhaar Number must be exactly 12 digits');
       return;
     }
     // Validate renewal policy rule
@@ -614,7 +627,7 @@ export default function Leads() {
                 phone: fam.whatsapp || '0000000000',
                 dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
               });
-              const famContactId = famContactRes.data.id;
+              const famContactId = famContactRes.id || famContactRes.data?.id;
 
               await contactsService.addRelationship(contactId!, {
                 relatedContactId: famContactId,
@@ -632,10 +645,18 @@ export default function Leads() {
         for (const portfolio of policies) {
           const isHealth = portfolio.policyType === 'Health';
           const category = isHealth ? 'HEALTH' : 'LIFE';
-          const matchedPlan = dbPlans.find((p: any) => p.category === category) || dbPlans[0];
 
           for (const entry of portfolio.entries) {
             if (!entry.policyNo.trim()) continue;
+            
+            const matchedPlan = dbPlans.find((p: any) => {
+              const planCompany = p.company?.name || '';
+              const planCategory = p.category || '';
+              return planCategory === category &&
+                     planCompany.toLowerCase() === entry.company.toLowerCase() &&
+                     p.name.toLowerCase() === entry.planName.toLowerCase();
+            }) || dbPlans.find((p: any) => p.category === category) || dbPlans[0];
+
             subResourcePromises.push(
               policiesService.create({
                 policyNumber: entry.policyNo,
@@ -691,7 +712,9 @@ export default function Leads() {
         const saveLeadFlow = async () => {
           try {
             if (isExisting) {
-              await leadsService.update(card.id, body);
+              if (editTarget) {
+                await leadsService.update(card.id, body);
+              }
             } else {
               const res = await leadsService.create(body);
               const savedLead = res.data ?? res;
@@ -932,15 +955,24 @@ export default function Leads() {
     // Only search when BOTH fields are fully entered
     if (!phone || !aadhaar) return;
     try {
-      const res = await contactsService.list({ limit: 100 });
+      const searchPhone = phone.slice(-10);
+      const res = await contactsService.list({ search: searchPhone, limit: 100 });
       const list = res.data || [];
-      // Require BOTH mobile AND aadhaar to match the same contact record
+      // Require BOTH mobile/altMobile AND aadhaar to match the same contact record
       const match = list.find((c: any) => {
         const contactPhone = c.phone ? c.phone.replace(/\D/g, '') : '';
-        const matchPhone = contactPhone && contactPhone === phone;
+        const cleanContactPhone = contactPhone.length > 10 ? contactPhone.slice(-10) : contactPhone;
+        
+        const contactAltPhone = c.alternatePhone ? c.alternatePhone.replace(/\D/g, '') : '';
+        const cleanContactAltPhone = contactAltPhone.length > 10 ? contactAltPhone.slice(-10) : contactAltPhone;
+        
+        const matchPhone = (cleanContactPhone && cleanContactPhone === searchPhone) ||
+                           (cleanContactAltPhone && cleanContactAltPhone === searchPhone);
 
         const contactAadhaar = c.aadhaarNumber ? c.aadhaarNumber.replace(/\D/g, '') : '';
-        const matchAadhaar = contactAadhaar && contactAadhaar === aadhaar;
+        const cleanContactAadhaar = contactAadhaar.length > 12 ? contactAadhaar.slice(-12) : contactAadhaar;
+        const searchAadhaar = aadhaar.slice(-12);
+        const matchAadhaar = cleanContactAadhaar && cleanContactAadhaar === searchAadhaar;
 
         return matchPhone && matchAadhaar;
       });
@@ -1073,7 +1105,7 @@ export default function Leads() {
         setLoadedContact(contact);
         setEditContactId(contact.id);
         setDuplicateContactMatched(contact);
-        toast.success("Existing Contact Found – Details Loaded");
+        toast.success("Existing Contact Found – Details Loaded.");
       }
     } catch (err) {
       console.error(err);
@@ -1082,14 +1114,17 @@ export default function Leads() {
 
   useEffect(() => {
     if (!editTarget && !duplicateContactMatched) {
-      const cleanPhone = personalFields.whatsappNumber.replace(/\D/g, '');
-      const cleanAadhaar = personalFields.aadhaarNumber.replace(/\D/g, '');
-      // Only trigger search when BOTH the 10-digit mobile AND 12-digit Aadhaar are complete
-      if (cleanPhone.length === 10 && cleanAadhaar.length === 12) {
-        checkForDuplicateContact(cleanPhone, cleanAadhaar);
+      const cleanPhone = (personalFields.whatsappNumber || '').replace(/\D/g, '');
+      const cleanAltPhone = (personalFields.callingNumber || '').replace(/\D/g, '');
+      const cleanAadhaar = (personalFields.aadhaarNumber || '').replace(/\D/g, '');
+      
+      const phoneToSearch = cleanPhone.length === 10 ? cleanPhone : (cleanAltPhone.length === 10 ? cleanAltPhone : '');
+      
+      if (phoneToSearch && cleanAadhaar.length === 12) {
+        checkForDuplicateContact(phoneToSearch, cleanAadhaar);
       }
     }
-  }, [personalFields.whatsappNumber, personalFields.aadhaarNumber, editTarget, duplicateContactMatched]);
+  }, [personalFields.whatsappNumber, personalFields.callingNumber, personalFields.aadhaarNumber, editTarget, duplicateContactMatched]);
 
   const hasActivePolicyForCard = (card: any): boolean => {
     if (!loadedContact) return false;
@@ -1672,6 +1707,8 @@ export default function Leads() {
                   const firstProduct = card.interestedIn[0] || 'Other';
                   const headerGradient = PRODUCT_COLORS[firstProduct] || 'from-blue-500 to-indigo-600';
 
+                  const isExisting = !!(card.id && card.id.length === 24);
+
                   return (
                     <div
                       key={card.id}
@@ -1687,7 +1724,14 @@ export default function Leads() {
                             <span className="text-white font-black text-[11px]">{idx + 1}</span>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-white font-extrabold text-xs truncate">{displayName}</p>
+                            <p className="text-white font-extrabold text-xs truncate">
+                              {displayName}
+                              {isExisting && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded bg-white/20 text-white font-bold text-[9px] uppercase tracking-wider">
+                                  Existing
+                                </span>
+                              )}
+                            </p>
                             {card.collapsed && card.leadStage && (
                               <p className="text-white/70 text-[10px] font-semibold truncate">
                                 {card.leadStage.replace(/_/g, ' ')} · {card.leadStatus.replace(/_/g, ' ')}
@@ -1696,14 +1740,16 @@ export default function Leads() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); removeProductInterest(card.id); }}
-                            className="p-1 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all"
-                            title="Remove"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {!isExisting && (
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); removeProductInterest(card.id); }}
+                              className="p-1 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all"
+                              title="Remove"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                           <ChevronDown
                             size={16}
                             className={`text-white transition-transform duration-200 ${card.collapsed ? 'rotate-180' : ''}`}
@@ -1713,7 +1759,7 @@ export default function Leads() {
 
                       {/* Card Body — collapse/expand */}
                       {!card.collapsed && (
-                        <div className="p-4 space-y-4 bg-white">
+                        <fieldset disabled={isExisting} className="p-4 space-y-4 bg-white">
 
                           {/* Interested In — toggle buttons */}
                           <div>
@@ -1925,7 +1971,7 @@ export default function Leads() {
                             </div>
                           </div>
 
-                        </div>
+                        </fieldset>
                       )}
                     </div>
                   );
@@ -1940,7 +1986,7 @@ export default function Leads() {
                     <>
                       {allProductsAdded && (
                         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2.5 rounded-xl text-xs font-bold mb-3 shadow-2xs animate-fadeIn">
-                          All available products have already been added for this contact. No new Product Interest can be created.
+                          All available products have already been added for this contact.
                         </div>
                       )}
                       <button
@@ -2028,15 +2074,25 @@ export default function Leads() {
                   />
                 </div>
                 <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number</label>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number *</label>
                   <input
                     type="text"
-                    className="input w-full"
+                    className={`input w-full ${
+                      personalFields.aadhaarNumber && !/^\d{12}$/.test(personalFields.aadhaarNumber)
+                        ? 'border-red-400 focus:ring-red-400/20'
+                        : ''
+                    }`}
                     placeholder="12-digit Aadhaar No"
                     maxLength={12}
                     value={personalFields.aadhaarNumber}
                     onChange={e => setPersonalFields(p => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
                   />
+                  {personalFields.aadhaarNumber && !/^\d{12}$/.test(personalFields.aadhaarNumber) && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-1">Must be exactly 12 digits</p>
+                  )}
+                  {!personalFields.aadhaarNumber && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-1">Required</p>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
@@ -2063,9 +2119,10 @@ export default function Leads() {
                       type="tel"
                       className="px-3 py-1.5 text-xs w-full outline-none bg-transparent"
                       placeholder="Mobile Number"
+                      maxLength={10}
                       value={personalFields.whatsappNumber}
                       onChange={e => {
-                        const val = e.target.value;
+                        const val = e.target.value.replace(/\D/g, '');
                         setPersonalFields(p => ({
                           ...p,
                           whatsappNumber: val,
@@ -2074,6 +2131,12 @@ export default function Leads() {
                       }}
                     />
                   </div>
+                  {personalFields.whatsappNumber && !/^\d{10}$/.test(personalFields.whatsappNumber) && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-1">Must be exactly 10 digits</p>
+                  )}
+                  {!personalFields.whatsappNumber && (
+                    <p className="text-red-500 text-[10px] font-semibold mt-1">Required</p>
+                  )}
                 </div>
                 <div>
                   <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Calling Number</label>
@@ -2672,7 +2735,7 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
         )}
         <div className="flex items-center gap-2 min-w-0">
           <Shield size={12} className="text-slate-500 shrink-0" />
-          <span className="truncate font-semibold text-slate-800">{card.plan?.name || 'No Product'}</span>
+          <span className="truncate font-semibold text-slate-800">{card.plan?.name || (card.interests && card.interests.length > 0 ? card.interests.join(', ') : 'No Product')}</span>
         </div>
 
         {/* Expected Premium in Card View */}
@@ -2740,12 +2803,16 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
     },
     {
       key: 'plan', label: 'Product',
-      render: (r: any) => (
-        <div>
-          <p className="text-[13px] font-medium text-gray-800">{r.plan?.name ?? '—'}</p>
-          {r.plan?.category && <p className="text-[11px] text-gray-400">{r.plan.category}</p>}
-        </div>
-      ),
+      render: (r: any) => {
+        const prodName = r.plan?.name || (r.interests && r.interests.length > 0 ? r.interests.join(', ') : '—');
+        const prodCat = r.plan?.category || '';
+        return (
+          <div>
+            <p className="text-[13px] font-medium text-gray-800">{prodName}</p>
+            {prodCat && <p className="text-[11px] text-gray-400">{prodCat}</p>}
+          </div>
+        );
+      },
     },
     {
       key: 'hotness', label: 'Hotness',

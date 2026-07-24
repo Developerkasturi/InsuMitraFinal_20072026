@@ -1,7 +1,7 @@
 import {
   IsString, IsEmail, IsOptional, IsEnum, IsNumber,
   IsDateString, IsArray, IsBoolean, IsMongoId, Min, Max,
-  IsIn, ArrayNotEmpty,
+  IsIn, ArrayNotEmpty, Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type, Transform } from 'class-transformer';
@@ -92,8 +92,9 @@ export class CreateContactDto {
   @IsString()
   lastName: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Mobile number — must be exactly 10 digits', example: '9876543210' })
   @IsString()
+  @Matches(/^\d{10}$/, { message: 'Mobile number must be exactly 10 digits' })
   phone: string;
 
   @ApiPropertyOptional()
@@ -121,9 +122,10 @@ export class CreateContactDto {
   @IsString()
   panNumber?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Aadhaar number — must be exactly 12 digits when provided', example: '123456789012' })
   @IsOptional()
   @IsString()
+  @Matches(/^\d{12}$/, { message: 'Aadhaar number must be exactly 12 digits' })
   aadhaarNumber?: string;
 
   @ApiPropertyOptional()

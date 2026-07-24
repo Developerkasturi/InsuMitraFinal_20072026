@@ -97,6 +97,7 @@ export class SearchService {
         tenantId,
         isActive: true,
         deletedAt: null,
+        relatedTo: { none: {} },
         OR: [
           { firstName: { contains: term } },
           { lastName: { contains: term } },
@@ -127,6 +128,7 @@ export class SearchService {
         tenantId,
         isActive: true,
         deletedAt: null,
+        relatedTo: { none: {} },
         ...(isOwner ? {} : { assignedEmployeeId: userId }),
         OR: [
           { firstName: { contains: term, mode: 'insensitive' } },
