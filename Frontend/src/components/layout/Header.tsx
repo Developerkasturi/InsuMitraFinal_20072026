@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@store/auth.store';
 import { authService } from '@api/auth.service';
 
+import { useDebounce } from '@hooks/useDebounce';
+
 export default function Header({ title }: { title?: string }) {
   const [query, setQuery]           = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -13,17 +15,29 @@ export default function Header({ title }: { title?: string }) {
   const user                        = useAuthStore(s => s.user);
   const navigate                    = useNavigate();
 
+  const debouncedQuery = useDebounce(query.trim(), 300);
+
   const { data: notifs } = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn:  () => notificationsService.list({ unreadOnly: true, limit: 1 }),
     refetchInterval: 60_000,
   });
 
-  const { data: searchResults } = useQuery({
-    queryKey: ['global-search', query],
-    queryFn:  () => searchService.search(query),
-    enabled:  query.length >= 2,
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ['global-search', debouncedQuery],
+    queryFn:  () => searchService.search(debouncedQuery),
+    enabled:  debouncedQuery.length >= 2,
   });
+
+  const resultsObj = searchResults?.data?.contacts ? searchResults.data : (searchResults?.data ?? searchResults ?? {});
+  const sectionMap: Record<string, any[]> = {
+    contacts: resultsObj.contacts ?? [],
+    policies: resultsObj.policies ?? [],
+    claims:   resultsObj.claims ?? [],
+    leads:    resultsObj.leads ?? [],
+  };
+  const totalCount = Object.values(sectionMap).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
+  const hasResults = totalCount > 0;
 
   const unreadCount = notifs?.meta?.unreadCount ?? 0;
   const initials    = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
@@ -66,45 +80,72 @@ export default function Header({ title }: { title?: string }) {
             value={query}
             onChange={e => { setQuery(e.target.value); setShowSearch(true); }}
             onFocus={() => setShowSearch(true)}
-            onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 250)}
           />
 
           {/* Search dropdown */}
-          {showSearch && query.length >= 2 && searchResults?.data && (
-            <div className="absolute top-full mt-2.5 w-full min-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in"
-                 style={{
-                   border: '1px solid rgba(226, 232, 240, 0.8)',
-                   boxShadow: '0 10px 30px -10px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.02)',
-                   zIndex: 50,
-                 }}>
-              {(['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
-                const items = (searchResults.data as any)[section] ?? [];
-                if (!items.length) return null;
-                return (
-                  <div key={section} className="border-b border-slate-50 last:border-0">
-                    <div className="px-4 py-2.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/50">
-                      {section}
+          {showSearch && query.trim().length >= 2 && (
+            <div className="absolute top-full mt-2.5 w-full min-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
+              {isSearchLoading ? (
+                <div className="p-4 text-center text-xs text-slate-400 font-medium">Searching…</div>
+              ) : hasResults ? (
+                (['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
+                  const items = sectionMap[section] ?? [];
+                  if (!items.length) return null;
+                  return (
+                    <div key={section} className="border-b border-slate-100 last:border-0">
+                      <div className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/70">
+                        {section} ({items.length})
+                      </div>
+                      {items.map((item: any) => {
+                        const titleText =
+                          item.contactName ||
+                          (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : null) ||
+                          item.policyNumber ||
+                          item.claimNumber ||
+                          'Result';
+
+                        const subDetails = [
+                          section !== 'contacts' && item.policyNumber,
+                          section !== 'contacts' && item.claimNumber,
+                          item.planName,
+                          item.claimType,
+                          item.stage,
+                        ].filter(Boolean);
+
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="w-full text-left px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center justify-between gap-3 cursor-pointer"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setShowSearch(false);
+                              navigate(`/${section}/${item.id}`);
+                            }}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-slate-700 truncate">{titleText}</p>
+                              {subDetails.length > 0 && (
+                                <p className="text-[11px] text-slate-400 truncate">
+                                  {subDetails.join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                            {item.phone && (
+                              <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-1.5 py-0.5 rounded">{item.phone}</span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    {items.map((item: any) => (
-                      <button
-                        key={item.id}
-                        className="w-full text-left px-4.5 py-3 text-xs transition-all duration-150
-                                   hover:bg-blue-50/50 flex items-center justify-between gap-3"
-                        onMouseDown={() => navigate(`/${section}/${item.id}`)}
-                      >
-                        <span className="font-semibold text-slate-700 truncate">
-                          {item.firstName
-                            ? `${item.firstName} ${item.lastName}`
-                            : item.policyNumber || item.claimNumber}
-                        </span>
-                        {item.phone && (
-                          <span className="text-[10px] text-slate-400 font-mono shrink-0">{item.phone}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <div className="p-4 text-center text-xs text-slate-400 font-medium">
+                  No results found for &ldquo;{debouncedQuery}&rdquo;
+                </div>
+              )}
             </div>
           )}
         </div>

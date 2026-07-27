@@ -3,9 +3,9 @@ import { useLeadKanban, useMoveLeadStage, useCreateLead, useUpdateLead, useDelet
 import Modal from '@comps/common/Modal';
 import {
   Plus, Search, Pencil, Trash2, Shield, Upload, Phone, Calendar,
-  MessageCircle, LayoutGrid, List, Filter, X, UserPlus,
+  MessageCircle, LayoutGrid, List, Filter, X, UserPlus, Users,
   UserCircle2, Mail, ChevronDown, Flame, Thermometer, Snowflake,
-  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save
+  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -263,8 +263,11 @@ export default function Leads() {
     collapsed: boolean;
     interestedIn: string[];
     otherProduct: string;
+    descriptionDetails?: string;
     leadStage: string;
     leadStatus: string;
+    dependencyType?: string;
+    dependentDetails?: string;
     leadType: string;
     leadSource: string;
     assignedEmployeeId: string;
@@ -272,6 +275,7 @@ export default function Leads() {
     expectedPremium: string;
     comments: ProductComment[];
     newComment: string;
+    showAllComments?: boolean;
   };
 
   function parseLeadNotes(notesText?: string | null) {
@@ -279,6 +283,9 @@ export default function Leads() {
       leadStatus: 'INTERESTED',
       leadType: 'FRESH',
       cleanNotes: '',
+      dependencyType: 'SELF',
+      dependentDetails: '',
+      descriptionDetails: '',
     };
     if (!notesText) return res;
     if (notesText.trim().startsWith('{')) {
@@ -287,6 +294,9 @@ export default function Leads() {
         res.leadStatus = parsed.leadStatus || 'INTERESTED';
         res.leadType = parsed.leadType || 'FRESH';
         res.cleanNotes = parsed.cleanNotes || '';
+        res.dependencyType = parsed.dependencyType || 'SELF';
+        res.dependentDetails = parsed.dependentDetails || '';
+        res.descriptionDetails = parsed.descriptionDetails || '';
         return res;
       } catch (e) {}
     }
@@ -297,6 +307,12 @@ export default function Leads() {
         res.leadStatus = line.replace('Status: ', '').trim();
       } else if (line.startsWith('Type: ')) {
         res.leadType = line.replace('Type: ', '').trim();
+      } else if (line.startsWith('Dependency: ')) {
+        res.dependencyType = line.replace('Dependency: ', '').trim();
+      } else if (line.startsWith('Dependent Details: ')) {
+        res.dependentDetails = line.replace('Dependent Details: ', '').trim();
+      } else if (line.startsWith('Description Details: ')) {
+        res.descriptionDetails = line.replace('Description Details: ', '').trim();
       } else {
         cleanLines.push(line);
       }
@@ -309,6 +325,9 @@ export default function Leads() {
     return JSON.stringify({
       leadStatus: card.leadStatus,
       leadType: card.leadType,
+      dependencyType: card.dependencyType || 'SELF',
+      dependentDetails: card.dependencyType === 'DEPENDENT' ? (card.dependentDetails || '') : '',
+      descriptionDetails: card.descriptionDetails || '',
       cleanNotes: card.otherProduct ? `Other Product: ${card.otherProduct}` : '',
     });
   }
@@ -318,8 +337,11 @@ export default function Leads() {
     collapsed: false,
     interestedIn: [],
     otherProduct: '',
+    descriptionDetails: '',
     leadStage: 'TO_CONTACT',
     leadStatus: 'INTERESTED',
+    dependencyType: 'SELF',
+    dependentDetails: '',
     leadType: 'FRESH',
     leadSource: 'Social Media',
     assignedEmployeeId: '',
@@ -327,6 +349,7 @@ export default function Leads() {
     expectedPremium: '',
     comments: [],
     newComment: '',
+    showAllComments: false,
   });
 
   const [productInterests, setProductInterests] = useState<ProductInterestCard[]>([]);
@@ -522,7 +545,7 @@ export default function Leads() {
     }
   };
 
-  const { register, handleSubmit, reset, setValue } = useForm<Form>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({ resolver: zodResolver(schema) });
 
   const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean) => {
     if (e) e.preventDefault();
@@ -546,8 +569,49 @@ export default function Leads() {
       toast.error('Aadhaar Number must be exactly 12 digits');
       return;
     }
-    // Validate renewal policy rule
-    for (const card of productInterests) {
+    // Validate renewal policy rule & required fields for new cards
+    for (let i = 0; i < productInterests.length; i++) {
+      const card = productInterests[i];
+      const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
+
+      if (!isExisting) {
+        if (!card.interestedIn || card.interestedIn.length === 0) {
+          toast.error(`Product Interest #${i + 1}: Please select a Product Category`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (card.interestedIn.includes('Other') && !card.otherProduct?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please specify the Other Product Name`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (card.dependencyType === 'DEPENDENT' && !card.dependentDetails?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please enter dependent details`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.leadSource?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please select or enter a Lead Source`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.assignedEmployeeId) {
+          toast.error(`Product Interest #${i + 1}: Please select an Assigned Employee`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.followUpDate?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please select a Follow-up Date`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.expectedPremium || Number(card.expectedPremium) <= 0) {
+          toast.error(`Product Interest #${i + 1}: Please enter a valid Expected Premium / Budget (> 0)`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+      }
+
       if (hasActiveRenewalLeadForCard(card) && card.leadType === 'RENEWAL') {
         toast.error("An active Renewal lead already exists for this product.");
         return;
@@ -673,20 +737,8 @@ export default function Leads() {
         }
       }
 
-      // Save Product Interests (Leads) and prevent duplicates
-      const uniqueProductInterests: typeof productInterests = [];
-      const seenProducts = new Set<string>();
+      // Save Product Interests (Leads)
       for (const card of productInterests) {
-        const prod = card.interestedIn[0];
-        if (!prod) continue;
-        const actualProdName = prod === 'Other' && card.otherProduct ? card.otherProduct : prod;
-        if (!seenProducts.has(actualProdName)) {
-          seenProducts.add(actualProdName);
-          uniqueProductInterests.push(card);
-        }
-      }
-
-      for (const card of uniqueProductInterests) {
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
         
@@ -841,15 +893,32 @@ export default function Leads() {
       setSelectedCampaigns(campaigns);
 
       const fams = (contact.relationships || []).map((r: any) => {
-        const c = r.relatedContact;
+        const c = r.relatedContact || r.contact || {};
+        const primaryOcc = c?.occupations?.find((o: any) => o.isPrimary) || c?.occupations?.[0];
+        const medTags = (c?.tags || [])
+          .filter((t: string) => t.startsWith('med:'))
+          .map((t: string) => t.replace('med:', ''));
+
+        const relRaw = r.relationshipType || '';
+        const relLower = relRaw.toLowerCase();
+        let formattedRel = relRaw ? relRaw.charAt(0).toUpperCase() + relRaw.slice(1).toLowerCase() : 'Other';
+        if (relLower === 'spouse') formattedRel = 'Spouse';
+        else if (relLower === 'son') formattedRel = 'Son';
+        else if (relLower === 'daughter') formattedRel = 'Daughter';
+        else if (relLower === 'father') formattedRel = 'Father';
+        else if (relLower === 'mother') formattedRel = 'Mother';
+        else if (relLower === 'brother') formattedRel = 'Brother';
+        else if (relLower === 'sister') formattedRel = 'Sister';
+        else if (relLower === 'child') formattedRel = 'Child';
+
         return {
           name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
           dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
-          relation: r.relationshipType,
+          relation: formattedRel,
           whatsapp: c?.phone || '',
-          occupation: '',
-          education: '',
-          medicalHistory: []
+          occupation: primaryOcc?.type || '',
+          education: c?.education || '',
+          medicalHistory: medTags
         };
       });
       setFamilyMembers(fams);
@@ -917,8 +986,11 @@ export default function Leads() {
           collapsed: true,
           interestedIn,
           otherProduct,
+          descriptionDetails: extra.descriptionDetails || '',
           leadStage,
           leadStatus: extra.leadStatus,
+          dependencyType: extra.dependencyType || 'SELF',
+          dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
           leadSource: lead.source || 'Social Media',
           assignedEmployeeId: lead.assignedEmployeeId || '',
@@ -1088,8 +1160,11 @@ export default function Leads() {
             collapsed: true,
             interestedIn,
             otherProduct,
+            descriptionDetails: extra.descriptionDetails || '',
             leadStage,
             leadStatus: extra.leadStatus,
+            dependencyType: extra.dependencyType || 'SELF',
+            dependentDetails: extra.dependentDetails || '',
             leadType: extra.leadType,
             leadSource: lead.source || 'Social Media',
             assignedEmployeeId: lead.assignedEmployeeId || '',
@@ -1759,17 +1834,22 @@ export default function Leads() {
 
                       {/* Card Body — collapse/expand */}
                       {!card.collapsed && (
-                        <fieldset disabled={isExisting} className="p-4 space-y-4 bg-white">
+                        <div className="p-4 space-y-4 bg-white">
 
                           {/* Interested In — toggle buttons */}
                           <div>
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Interested In</label>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Interested In</label>
+                              {isExisting && (
+                                <span className="text-[10px] text-slate-400 font-medium italic">
+                                  Category fixed for existing records. Change status below or click "+ Add Product Interest" for a new product.
+                                </span>
+                              )}
+                            </div>
                             <div className="flex flex-wrap gap-2">
                               {['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting', 'Other'].map(prod => {
                                 const isSel = card.interestedIn.includes(prod);
-                                const isAlreadySelected = productInterests.some(otherCard => 
-                                  otherCard.id !== card.id && otherCard.interestedIn.includes(prod)
-                                ) || isProductAlreadyExistsForContact(prod, card.leadType);
+                                const isAlreadySelected = false;
                                 const PILL_COLORS: Record<string, string> = {
                                   Health: isSel ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
                                   Life: isSel ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
@@ -1781,19 +1861,16 @@ export default function Leads() {
                                   Other: isSel ? 'bg-slate-700 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100',
                                 };
                                 let btnStyle = PILL_COLORS[prod] || (isSel ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 text-slate-600');
-                                if (isAlreadySelected) {
-                                  btnStyle = 'bg-slate-100 border-slate-200 text-slate-400 opacity-40 cursor-not-allowed';
-                                }
                                 return (
                                   <button
                                     key={prod}
                                     type="button"
-                                    disabled={isAlreadySelected}
+                                    disabled={isExisting}
                                     onClick={() => {
                                       const next = isSel ? [] : [prod];
                                       updateProductInterest(card.id, 'interestedIn', next);
                                     }}
-                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all select-none ${btnStyle}`}
+                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all select-none ${btnStyle} ${isExisting ? 'opacity-70 cursor-not-allowed' : ''}`}
                                   >
                                     {isSel ? '✓ ' : '+ '}{prod}
                                   </button>
@@ -1816,20 +1893,26 @@ export default function Leads() {
                               </div>
                             )}
                             {card.interestedIn.includes('Other') && (
-                              <input
-                                type="text"
-                                className="input mt-2 text-xs w-full"
-                                placeholder="Specify product name..."
-                                value={card.otherProduct}
-                                onChange={e => updateProductInterest(card.id, 'otherProduct', e.target.value)}
-                              />
+                              <div className="bg-slate-100/90 border-2 border-slate-300 rounded-xl p-3 space-y-1.5 animate-fadeIn mt-2.5">
+                                <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                                  Specify Other Product Name *
+                                </label>
+                                <input
+                                  type="text"
+                                  disabled={isExisting}
+                                  className={`w-full text-xs px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none shadow-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                  placeholder="Specify product name..."
+                                  value={card.otherProduct}
+                                  onChange={e => updateProductInterest(card.id, 'otherProduct', e.target.value)}
+                                />
+                              </div>
                             )}
                           </div>
 
-                          {/* Row 1: Stage, Status, Type */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Row 1: Stage, Status, Dependency, Type */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage *</label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStage}
@@ -1844,7 +1927,9 @@ export default function Leads() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Status</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                                Lead Status *{isExisting ? ' (Editable)' : ''}
+                              </label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStatus}
@@ -1858,9 +1943,22 @@ export default function Leads() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dependency *</label>
                               <select
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                value={card.dependencyType || 'SELF'}
+                                onChange={e => updateProductInterest(card.id, 'dependencyType', e.target.value)}
+                              >
+                                <option value="SELF">Self</option>
+                                <option value="DEPENDENT">Depend</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
+                              <select
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.leadType}
                                 onChange={e => updateProductInterest(card.id, 'leadType', e.target.value)}
                               >
@@ -1869,16 +1967,86 @@ export default function Leads() {
                                 <option value="PORTING">Porting</option>
                               </select>
                             </div>
+                          {/* Members Included Multi-Select Box */}
+                          <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <Users size={12} className="text-blue-600 shrink-0" />
+                                Members Included in Policy / Product *
+                              </label>
+                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                {(card.membersIncluded || []).length} Selected
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {/* Self Option */}
+                              {(() => {
+                                const isSelfSel = (card.membersIncluded || []).includes('Self');
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const prev: string[] = card.membersIncluded || [];
+                                      const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
+                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                    }}
+                                    className={clsx(
+                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                      isSelfSel
+                                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    )}
+                                  >
+                                    <span>Self (Primary Contact)</span>
+                                    {isSelfSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
+                                  </button>
+                                );
+                              })()}
+
+                              {/* Family Member Options */}
+                              {familyMembers.map((fam, famIdx) => {
+                                const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
+                                const isSel = (card.membersIncluded || []).includes(memberLabel);
+                                return (
+                                  <button
+                                    key={famIdx}
+                                    type="button"
+                                    onClick={() => {
+                                      const prev: string[] = card.membersIncluded || [];
+                                      const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
+                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                    }}
+                                    className={clsx(
+                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                      isSel
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    )}
+                                  >
+                                    <span>{memberLabel}</span>
+                                    {isSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {familyMembers.length === 0 && (
+                              <p className="text-[10px] text-slate-400 font-medium italic">
+                                💡 Add family members in the Family Members section above to select them here.
+                              </p>
+                            )}
                           </div>
 
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source *</label>
                               <input
                                 type="text"
+                                disabled={isExisting}
                                 list={`lead-source-list-${card.id}`}
-                                className="input w-full text-xs"
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 placeholder="e.g. Social Media"
                                 value={card.leadSource}
                                 onChange={e => updateProductInterest(card.id, 'leadSource', e.target.value)}
@@ -1892,9 +2060,10 @@ export default function Leads() {
                               </datalist>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee *</label>
                               <select
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.assignedEmployeeId}
                                 onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
                               >
@@ -1907,19 +2076,21 @@ export default function Leads() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date *</label>
                               <input
                                 type="date"
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.followUpDate}
                                 onChange={e => updateProductInterest(card.id, 'followUpDate', e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium (₹)</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
                               <input
                                 type="number"
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 placeholder="e.g. 12000"
                                 min={0}
                                 value={card.expectedPremium}
@@ -1928,50 +2099,128 @@ export default function Leads() {
                             </div>
                           </div>
 
-                          {/* Consultation Comments Timeline */}
-                          <div className="bg-slate-50/80 rounded-xl border border-slate-200/60 p-3 space-y-3">
-                            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Consultation Comments</p>
+                          {/* Consultation Comments Section */}
+                          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                  <MessageCircle size={13} />
+                                </div>
+                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                  Consultation Comments
+                                </h4>
+                              </div>
+                              {card.comments.length > 0 && (
+                                <span className="text-[10px] font-extrabold bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-full">
+                                  {card.comments.length} {card.comments.length === 1 ? 'Comment' : 'Comments'}
+                                </span>
+                              )}
+                            </div>
 
-                            {/* Timeline */}
-                            <div className="max-h-36 overflow-y-auto space-y-2 custom-scrollbar">
+                            {/* Timeline List */}
+                            <div className="max-h-56 overflow-y-auto space-y-2.5 custom-scrollbar pr-0.5">
                               {card.comments.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic text-center py-4">No comments yet. Add the first one below.</p>
+                                <div className="bg-white/60 rounded-xl border border-dashed border-slate-200 p-4 text-center">
+                                  <p className="text-xs text-slate-400 font-medium italic">No comments yet. Add the first summary below.</p>
+                                </div>
                               ) : (
-                                card.comments.map((cmt, ci) => (
-                                  <div key={ci} className="bg-white rounded-xl border border-slate-100 p-2.5 shadow-2xs">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">{cmt.author}</span>
-                                      <span className="text-[9px] text-slate-400 font-semibold">{cmt.datetime}</span>
+                                (card.showAllComments ? card.comments : card.comments.slice(0, 2)).map((cmt, ci) => (
+                                  <div key={ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                        {cmt.author}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                                        {cmt.datetime}
+                                      </span>
                                     </div>
-                                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{cmt.text}</p>
+                                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap pl-0.5">
+                                      {cmt.text}
+                                    </p>
                                   </div>
                                 ))
                               )}
                             </div>
 
-                            {/* Add comment input */}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                className="input flex-1 text-xs"
-                                placeholder="Type a comment and press Enter or Add..."
+                            {/* Know More / Show Less Toggle Button */}
+                            {card.comments.length > 2 && (
+                              <div className="pt-0.5 flex justify-start">
+                                <button
+                                  type="button"
+                                  onClick={() => updateProductInterest(card.id, 'showAllComments', !card.showAllComments)}
+                                  className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
+                                >
+                                  {card.showAllComments ? (
+                                    <>
+                                      Show Less <ChevronUp size={13} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      Know More ({card.comments.length - 2} more history) <ChevronDown size={13} />
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Add Call Summary & Consultation Comment Box */}
+                            <div className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                                  <MessageCircle size={12} className="text-blue-600" />
+                                  Add Call Summary / Comment
+                                </label>
+                                <span className="text-[9px] text-slate-400 font-semibold italic">Press Ctrl+Enter to save</span>
+                              </div>
+                              <textarea
+                                rows={2}
+                                className="w-full text-xs p-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:border-blue-400 outline-none resize-y transition-all"
+                                placeholder="Type call summary, client discussion details, or follow-up notes..."
                                 value={card.newComment}
                                 onChange={e => updateProductInterest(card.id, 'newComment', e.target.value)}
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter') { e.preventDefault(); addProductComment(card.id); }
+                                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    e.preventDefault();
+                                    addProductComment(card.id);
+                                  }
                                 }}
                               />
-                              <button
-                                type="button"
-                                onClick={() => addProductComment(card.id)}
-                                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-extrabold text-xs cursor-pointer transition-all shadow-2xs shrink-0"
-                              >
-                                Add
-                              </button>
+                              <div className="flex justify-end pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => addProductComment(card.id)}
+                                  disabled={!card.newComment.trim()}
+                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex items-center gap-1.5"
+                                >
+                                  <Send size={12} />
+                                  Save Call Summary
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Description Details Box */}
+                            <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                  <FileText size={13} />
+                                </div>
+                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                  Description Details
+                                </h4>
+                              </div>
+                              <textarea
+                                rows={2}
+                                className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
+                                placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
+                                value={card.descriptionDetails || ''}
+                                onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
+                              />
                             </div>
                           </div>
 
-                        </fieldset>
+                        </div>
                       )}
                     </div>
                   );
@@ -1980,7 +2229,7 @@ export default function Leads() {
                 {/* Add Product Interest Button */}
                 {(() => {
                   const standardProds = ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'];
-                  const allProductsAdded = editContactId ? standardProds.every(p => isProductAlreadyExistsForContact(p)) : false;
+                  const allProductsAdded = false;
 
                   return (
                     <>
@@ -2570,32 +2819,185 @@ export default function Leads() {
 
             {activeLeadTab === 'History' && (
               <div className="space-y-4">
-                <div className="flex flex-col">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Lead Activity Timeline</h3>
-                  <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
-                    {editContactId && loadedContact?.productInterests?.flatMap((pi: any) => pi.consultations || []).length === 0 && (
-                      <div className="py-16 text-center text-xs text-slate-400 italic">
-                        No activity or interaction logs found for this lead.
-                      </div>
-                    )}
-                    {!editContactId && (
-                      <div className="py-16 text-center text-xs text-slate-400 italic">
-                        Activity timeline will be available after saving the lead.
-                      </div>
-                    )}
-                    {editContactId && loadedContact?.productInterests?.flatMap((pi: any) => pi.consultations || []).map((act: any, idx: number) => {
-                      const author = act.author || 'System';
-                      return (
-                        <div key={idx} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1.5 transition-all text-xs">
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-                            <span>{act.createdAt ? format(new Date(act.createdAt), 'dd/MM/yyyy hh:mm a') : ''}</span>
-                            <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">{author}</span>
-                          </div>
-                          <p className="text-slate-600 whitespace-pre-wrap leading-relaxed mt-1 font-medium">{act.notes}</p>
-                        </div>
-                      );
-                    })}
+                {/* Tab Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                      <History size={13} />
+                    </div>
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Contact & Family History Log
+                    </h3>
                   </div>
+                  <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                    {familyMembers.length} Family {familyMembers.length === 1 ? 'Member' : 'Members'}
+                  </span>
+                </div>
+
+                <div className="max-h-[420px] overflow-y-auto pr-1 custom-scrollbar space-y-4">
+                  {/* 1. Personal Details Log Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                          <UserCircle2 size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Personal Information Log
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md">
+                        Active Contact
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Full Name</span>
+                        <p className="font-bold text-slate-800">
+                          {watch('firstName') || watch('lastName') ? `${watch('firstName') || ''} ${watch('lastName') || ''}`.trim() : (loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.lastName || ''}`.trim() : 'Not provided')}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
+                        <p className="font-semibold text-slate-700">
+                          {watch('phone') || (loadedContact?.phone) || 'No phone'} 
+                          {(watch('email') || loadedContact?.email) ? ` · ${watch('email') || loadedContact?.email}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
+                        <p className="font-semibold text-slate-700">
+                          {watch('dob') || loadedContact?.dob || 'DOB not set'} 
+                          {(watch('gender') || loadedContact?.gender) ? ` · ${watch('gender') || loadedContact?.gender}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
+                        <p className="font-semibold text-slate-700">
+                          {watch('occupation') || loadedContact?.occupation || 'Not specified'} 
+                          {(watch('maritalStatus') || loadedContact?.maritalStatus) ? ` · ${watch('maritalStatus') || loadedContact?.maritalStatus}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(watch('address') || loadedContact?.address) && (
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 text-xs space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Address Details</span>
+                        <p className="text-slate-700 font-medium">{watch('address') || loadedContact?.address}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Family Members Created & Linked Log Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <Users size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Family Members Created ({familyMembers.length})
+                        </h4>
+                      </div>
+                      {familyMembers.length > 0 && (
+                        <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-md">
+                          {familyMembers.length} {familyMembers.length === 1 ? 'Member Created' : 'Members Created'}
+                        </span>
+                      )}
+                    </div>
+
+                    {familyMembers.length === 0 ? (
+                      <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                        <p className="text-xs text-slate-400 font-medium italic">No family members created for this contact yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {familyMembers.map((member, idx) => (
+                          <div key={idx} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 space-y-2 text-xs hover:border-blue-200 transition-all">
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <span className="font-extrabold text-slate-800 text-xs">
+                                  {member.name || `Family Member #${idx + 1}`}
+                                </span>
+                              </div>
+                              {member.relation && (
+                                <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                                  {member.relation}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                              <div>
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Date of Birth / Phone</span>
+                                <p className="font-semibold text-slate-700">
+                                  {member.dob || 'DOB not set'} {member.whatsapp ? ` · ${member.whatsapp}` : ''}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Occupation & Education</span>
+                                <p className="font-semibold text-slate-700">
+                                  {member.occupation || 'Not set'} {member.education ? ` · ${member.education}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            {member.medicalHistory && member.medicalHistory.length > 0 && (
+                              <div className="pt-1">
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block mb-1">Medical History Tags</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {member.medicalHistory.map((tag, ti) => (
+                                    <span key={ti} className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Particular Contact Audit Log Card */}
+                  {loadedContact && (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-2 text-xs">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                        <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                          <Calendar size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Contact Record Audit Log
+                        </h4>
+                      </div>
+                      <div className="space-y-1.5 pt-1 text-[11px]">
+                        {loadedContact.createdAt && (
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span className="text-slate-500 font-medium">Record Created Date</span>
+                            <span className="font-bold text-slate-700">
+                              {new Date(loadedContact.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {loadedContact.updatedAt && (
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span className="text-slate-500 font-medium">Last Modified Date</span>
+                            <span className="font-bold text-slate-700">
+                              {new Date(loadedContact.updatedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

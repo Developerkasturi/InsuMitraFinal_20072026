@@ -13,18 +13,22 @@ const SECTION_META: Record<string, { label: string; Icon: React.ElementType; rou
 };
 
 function getItemLabel(section: string, item: any): string {
-  if (section === 'contacts') return `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim();
-  if (section === 'policies') return item.policyNumber ?? 'Policy';
-  if (section === 'claims')   return item.claimNumber ?? 'Claim';
-  if (section === 'leads')    return `${item.contact?.firstName ?? ''} ${item.contact?.lastName ?? ''}`.trim() || 'Lead';
+  if (section === 'contacts') return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.phone || 'Contact';
+  if (section === 'policies') return item.policyNumber || item.contactName || 'Policy';
+  if (section === 'claims')   return item.claimNumber || item.contactName || 'Claim';
+  if (section === 'leads')    return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.planName || 'Lead';
   return item.id;
 }
 
 function getItemSub(section: string, item: any): string {
-  if (section === 'contacts') return item.phone ?? item.email ?? '';
-  if (section === 'policies') return `${item.plan?.name ?? ''} · ${item.contact?.firstName ?? ''} ${item.contact?.lastName ?? ''}`;
-  if (section === 'claims')   return `${item.claimType ?? ''} · ${item.policy?.policyNumber ?? ''}`;
-  if (section === 'leads')    return `${item.plan?.name ?? ''} · ${item.stage ?? ''}`;
+  const plan = item.planName || item.plan?.name || '';
+  const contact = item.contactName || `${item.contact?.firstName ?? ''} ${item.contact?.lastName ?? ''}`.trim();
+  const phone = item.phone || item.contact?.phone || item.email || '';
+
+  if (section === 'contacts') return [phone, item.email, item.aadhaarNumber].filter(Boolean).join(' · ');
+  if (section === 'policies') return [plan, contact, item.status].filter(Boolean).join(' · ');
+  if (section === 'claims')   return [item.claimType, contact, item.policyNumber, item.status].filter(Boolean).join(' · ');
+  if (section === 'leads')    return [plan, contact, item.stage].filter(Boolean).join(' · ');
   return '';
 }
 

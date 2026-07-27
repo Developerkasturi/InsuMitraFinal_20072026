@@ -24,22 +24,15 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
   { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
+  { to: '/employees',    label: 'Employees',    Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
   { to: '/deletion-requests', label: 'Delete Requests', Icon: Trash2, roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/firm-profile', label: 'Firm Profile', Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
 
-const EMPLOYEE_SUB_ITEMS = [
-  { to: '/employees',               label: 'Overview',       Icon: UserCheck,  end: true  },
-  { to: '/employees/targets',       label: 'Targets',        Icon: Target,     end: false },
-  { to: '/employees/attendance',    label: 'Attendance',     Icon: Clock,      end: false },
-  { to: '/employees/eod-reports',   label: 'EOD Reports',    Icon: FileText,   end: false },
-  { to: '/employees/access-control',label: 'Access Control', Icon: Shield,     end: false },
-];
-
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
 const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
-const MGMT_ROUTES     = ['/commissions', '/deletion-requests', '/subscription', '/firm-profile'];
+const MGMT_ROUTES     = ['/employees', '/commissions', '/deletion-requests', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
   title: string;
@@ -119,116 +112,7 @@ interface EmployeesMenuProps {
   setLockedFeature: (label: string) => void;
 }
 
-function EmployeesMenu({ collapsed, isEnabled, setLockedFeature }: EmployeesMenuProps) {
-  const location = useLocation();
-  const isOnEmployees = location.pathname.startsWith('/employees');
-  const [open, setOpen] = useState(isOnEmployees);
 
-  const linkBase = clsx(
-    'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium transition-all duration-200 relative group select-none w-full',
-    collapsed ? 'justify-center px-0 w-10 h-10 mx-auto mb-1' : 'hover:translate-x-0.5',
-  );
-
-  // In collapsed mode, just show the icon linking to /employees
-  if (collapsed) {
-    return (
-      <NavLink
-        to="/employees"
-        end
-        onClick={(e) => { if (!isEnabled) { e.preventDefault(); setLockedFeature('Employees'); } }}
-        title="Employees"
-        className={({ isActive }) =>
-          clsx(
-            linkBase,
-            isActive && isEnabled
-              ? 'bg-white/10 text-white shadow-md border-l-2 border-blue-400 pl-[12px]'
-              : 'text-slate-300 hover:bg-white/[0.06] hover:text-white border-l-2 border-transparent',
-            !isEnabled && 'opacity-35 cursor-not-allowed pointer-events-none',
-          )
-        }
-      >
-        <UserCheck size={16} className="shrink-0 transition-transform duration-200 group-hover:scale-110" strokeWidth={2} />
-        <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-100 opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 pointer-events-none whitespace-nowrap shadow-xl z-50">
-          Employees
-          {!isEnabled && <Lock size={10} className="inline ml-1 text-slate-500" />}
-        </div>
-      </NavLink>
-    );
-  }
-
-  return (
-    <div className={clsx(
-      "transition-all duration-200 px-1 mb-1.5",
-      open && isEnabled && "bg-[#111c44] border border-[#1b2559] rounded-2xl p-1 pb-1.5 mt-1"
-    )}>
-      {/* Parent row — clicking toggles sub-menu */}
-      <button
-        onClick={() => {
-          if (!isEnabled) { setLockedFeature('Employees'); return; }
-          setOpen(o => !o);
-        }}
-        className={clsx(
-          linkBase,
-          isOnEmployees && isEnabled
-            ? 'bg-white/10 text-white shadow-md border-l-2 border-blue-400 pl-[12px]'
-            : 'text-slate-300 hover:bg-white/[0.06] hover:text-white border-l-2 border-transparent',
-          !isEnabled && 'opacity-35 cursor-not-allowed pointer-events-none',
-        )}
-      >
-        <div className={clsx(
-          "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 mr-0.5",
-          isOnEmployees && isEnabled
-            ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-            : "bg-white/[0.05] text-slate-355 group-hover:bg-white/[0.1] group-hover:text-white"
-        )}>
-          <UserCheck size={16} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
-        </div>
-        <span className="flex-1 truncate leading-none text-left">Employees</span>
-        {isEnabled && (
-          open
-            ? <ChevronUp size={12} className="shrink-0 text-slate-500" />
-            : <ChevronDown size={12} className="shrink-0 text-slate-500" />
-        )}
-        {!isEnabled && <Lock size={11} className="text-slate-600 shrink-0" />}
-      </button>
-
-      {/* Sub-items */}
-      {open && isEnabled && (
-        <div className="mt-1 space-y-0.5 pl-1.5">
-          {EMPLOYEE_SUB_ITEMS.map(({ to, label, Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 rounded-xl px-3 py-2 text-[12px] font-medium transition-all duration-150 group select-none',
-                  isActive
-                    ? 'text-white bg-white/10 shadow-sm font-semibold'
-                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className={clsx(
-                    "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200",
-                    isActive
-                      ? "bg-blue-500/20 text-blue-400"
-                      : "bg-white/[0.03] text-slate-400 group-hover:bg-white/[0.06] group-hover:text-white"
-                  )}>
-                    <Icon size={13} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
-                  </div>
-                  <span className="truncate">{label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Sidebar() {
   const [collapsed, setCollapsed]         = useState(false);
@@ -331,28 +215,15 @@ export default function Sidebar() {
           setLockedFeature={setLockedFeature}
           user={user}
         />
-        {/* Employees with expandable sub-menu — only for OWNER / SUPERADMIN */}
-        {(user?.role === 'OWNER' || user?.role === 'SUPERADMIN' || (user?.role === 'EMPLOYEE' && (user as any)?.permissions?.includes('manage_employees'))) && (
-          <>
-            {!collapsed && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 pb-2 pt-4 select-none text-slate-500">
-                Management
-              </p>
-            )}
-            <EmployeesMenu
-              collapsed={collapsed}
-              isEnabled={isFeatureEnabled('employees')}
-              setLockedFeature={setLockedFeature}
-            />
-            <NavGroup
-              title=""
-              items={mgmtItems}
-              collapsed={collapsed}
-              isFeatureEnabled={isFeatureEnabled}
-              setLockedFeature={setLockedFeature}
-              user={user}
-            />
-          </>
+        {(mgmtItems.length > 0) && (
+          <NavGroup
+            title="Management"
+            items={mgmtItems}
+            collapsed={collapsed}
+            isFeatureEnabled={isFeatureEnabled}
+            setLockedFeature={setLockedFeature}
+            user={user}
+          />
         )}
       </nav>
 

@@ -792,73 +792,76 @@ export default function Policies() {
       </div>
 
       {/* Actions Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 py-2">
-        <div className="flex flex-wrap items-center gap-3 w-full justify-end">
-            {/* Local Search input */}
-            <div className="relative w-60">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Search policy#, client name, phone..."
-                className="w-full pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
-              />
-            </div>
-
-            {/* Column Visibility Selector */}
-            <div className="relative" ref={colPickerRef}>
-              <button
-                onClick={() => setColPickerOpen(!colPickerOpen)}
-                className={clsx(
-                  "p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer shadow-xs",
-                  colPickerOpen && "bg-blue-50 border-blue-200 text-blue-600"
-                )}
-                title="Toggle columns"
-              >
-                <Settings size={13} />
-              </button>
-              {colPickerOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs space-y-2">
-                  <p className="font-bold text-gray-500 uppercase tracking-wider mb-1 text-[10px]">Show Columns</p>
-                  {[
-                    { key: 'contact.firstName', label: 'Client Name' },
-                    { key: 'policyNumber', label: 'Policy No' },
-                    { key: 'plan.category', label: 'Type' },
-                    { key: 'plan.company.name', label: 'Company' },
-                    { key: 'plan.name', label: 'Plan' },
-                    { key: 'premiumAmount', label: 'Premium' },
-                    { key: 'sumAssured', label: 'Sum Insured' },
-                    { key: 'renewStatus', label: 'Renew Status' },
-                    { key: 'renewAssign', label: 'Renew Assign' },
-                    { key: 'claimStatus', label: 'Claim Status' },
-                    { key: 'claimAssign', label: 'Claim Assign' },
-                  ].map(col => (
-                    <label key={col.key} className="flex items-center gap-2 cursor-pointer font-medium text-gray-700 hover:text-blue-600 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={visibleColumns[col.key] !== false}
-                        onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span>{col.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className={clsx(
-                'btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg',
-                filtersOpen && 'bg-blue-50 border-blue-200 text-blue-600'
-              )}
-            >
-              <Filter size={13} className={filtersOpen ? 'text-blue-600' : 'text-slate-500'} /> <span>Filters</span>
-            </button>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-2">
+        {/* Left Side: Search Bar ONLY */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search policy#, client name, phone..."
+              className="w-full pl-9 pr-4 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold text-slate-800 shadow-2xs"
+            />
           </div>
         </div>
+
+        {/* Right Side: Column Picker & Filters Toggle */}
+        <div className="flex items-center gap-2.5 flex-wrap justify-end">
+          {/* Column Visibility Selector */}
+          <div className="relative" ref={colPickerRef}>
+            <button
+              onClick={() => setColPickerOpen(!colPickerOpen)}
+              className={clsx(
+                "p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 cursor-pointer shadow-2xs",
+                colPickerOpen && "bg-blue-50 border-blue-200 text-blue-600"
+              )}
+              title="Toggle columns"
+            >
+              <Settings size={13} />
+            </button>
+            {colPickerOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs space-y-2">
+                <p className="font-bold text-gray-500 uppercase tracking-wider mb-1 text-[10px]">Show Columns</p>
+                {[
+                  { key: 'contact.firstName', label: 'Client Name' },
+                  { key: 'policyNumber', label: 'Policy No' },
+                  { key: 'plan.category', label: 'Type' },
+                  { key: 'plan.company.name', label: 'Company' },
+                  { key: 'plan.name', label: 'Plan' },
+                  { key: 'premiumAmount', label: 'Premium' },
+                  { key: 'sumAssured', label: 'Sum Insured' },
+                  { key: 'renewStatus', label: 'Renew Status' },
+                  { key: 'renewAssign', label: 'Renew Assign' },
+                  { key: 'claimStatus', label: 'Claim Status' },
+                  { key: 'claimAssign', label: 'Claim Assign' },
+                ].map(col => (
+                  <label key={col.key} className="flex items-center gap-2 cursor-pointer font-medium text-gray-700 hover:text-blue-600 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[col.key] !== false}
+                      onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={clsx(
+              'btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg',
+              filtersOpen && 'bg-blue-50 border-blue-200 text-blue-600'
+            )}
+          >
+            <Filter size={13} className={filtersOpen ? 'text-blue-600' : 'text-slate-500'} /> <span>Filters</span>
+          </button>
+        </div>
+      </div>
 
       {/* Quick Select Category Filters */}
       <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm">

@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, ChevronDown, Save
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -164,8 +164,11 @@ export default function Contacts() {
     collapsed: boolean;
     interestedIn: string[];
     otherProduct: string;
+    descriptionDetails?: string;
     leadStage: string;
     leadStatus: string;
+    dependencyType?: string;
+    dependentDetails?: string;
     leadType: string;
     leadSource: string;
     assignedEmployeeId: string;
@@ -173,6 +176,7 @@ export default function Contacts() {
     expectedPremium: string;
     comments: ProductComment[];
     newComment: string;
+    showAllComments?: boolean;
   };
 
   function parseLeadNotes(notesText?: string | null) {
@@ -180,6 +184,9 @@ export default function Contacts() {
       leadStatus: 'INTERESTED',
       leadType: 'FRESH',
       cleanNotes: '',
+      dependencyType: 'SELF',
+      dependentDetails: '',
+      descriptionDetails: '',
     };
     if (!notesText) return res;
     if (notesText.trim().startsWith('{')) {
@@ -188,6 +195,9 @@ export default function Contacts() {
         res.leadStatus = parsed.leadStatus || 'INTERESTED';
         res.leadType = parsed.leadType || 'FRESH';
         res.cleanNotes = parsed.cleanNotes || '';
+        res.dependencyType = parsed.dependencyType || 'SELF';
+        res.dependentDetails = parsed.dependentDetails || '';
+        res.descriptionDetails = parsed.descriptionDetails || '';
         return res;
       } catch (e) {}
     }
@@ -198,6 +208,12 @@ export default function Contacts() {
         res.leadStatus = line.replace('Status: ', '').trim();
       } else if (line.startsWith('Type: ')) {
         res.leadType = line.replace('Type: ', '').trim();
+      } else if (line.startsWith('Dependency: ')) {
+        res.dependencyType = line.replace('Dependency: ', '').trim();
+      } else if (line.startsWith('Dependent Details: ')) {
+        res.dependentDetails = line.replace('Dependent Details: ', '').trim();
+      } else if (line.startsWith('Description Details: ')) {
+        res.descriptionDetails = line.replace('Description Details: ', '').trim();
       } else {
         cleanLines.push(line);
       }
@@ -210,6 +226,9 @@ export default function Contacts() {
     return JSON.stringify({
       leadStatus: card.leadStatus,
       leadType: card.leadType,
+      dependencyType: card.dependencyType || 'SELF',
+      dependentDetails: card.dependencyType === 'DEPENDENT' ? (card.dependentDetails || '') : '',
+      descriptionDetails: card.descriptionDetails || '',
       cleanNotes: card.otherProduct ? `Other Product: ${card.otherProduct}` : '',
     });
   }
@@ -219,8 +238,11 @@ export default function Contacts() {
     collapsed: false,
     interestedIn: [],
     otherProduct: '',
+    descriptionDetails: '',
     leadStage: 'TO_CONTACT',
     leadStatus: 'INTERESTED',
+    dependencyType: 'SELF',
+    dependentDetails: '',
     leadType: 'FRESH',
     leadSource: 'Social Media',
     assignedEmployeeId: '',
@@ -228,6 +250,7 @@ export default function Contacts() {
     expectedPremium: '',
     comments: [],
     newComment: '',
+    showAllComments: false,
   });
 
   const [productInterests, setProductInterests] = useState<ProductInterestCard[]>([]);
@@ -300,13 +323,42 @@ export default function Contacts() {
     const card = productInterests.find(c => c.id === cardId);
     if (!card) return;
 
-    const product = card.interestedIn[0];
-    if (!product) {
-      toast.error('Please select a product category');
-      return;
+    const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
+
+    // If new card, validate all required fields
+    if (!isExisting) {
+      if (!card.interestedIn || card.interestedIn.length === 0) {
+        toast.error('Please select at least one Product Category (Interested In)');
+        return;
+      }
+      if (card.interestedIn.includes('Other') && !card.otherProduct?.trim()) {
+        toast.error('Please specify the Other Product Name');
+        return;
+      }
+      if (card.dependencyType === 'DEPENDENT' && !card.dependentDetails?.trim()) {
+        toast.error('Please enter dependent details (Name/Relation)');
+        return;
+      }
+      if (!card.leadSource?.trim()) {
+        toast.error('Please select or enter a Lead Source');
+        return;
+      }
+      if (!card.assignedEmployeeId) {
+        toast.error('Please select an Assigned Employee');
+        return;
+      }
+      if (!card.followUpDate?.trim()) {
+        toast.error('Please select a Follow-up Date');
+        return;
+      }
+      if (!card.expectedPremium || Number(card.expectedPremium) <= 0) {
+        toast.error('Please enter a valid Expected Premium / Budget (> 0)');
+        return;
+      }
     }
 
-    const toastId = toast.loading(card.id.length === 24 ? 'Updating product interest...' : 'Saving product interest...');
+    const product = card.interestedIn[0] || 'Other';
+    const toastId = toast.loading(isExisting ? 'Updating product interest status...' : 'Saving product interest...');
     try {
       const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
       
@@ -328,10 +380,9 @@ export default function Contacts() {
         notes: serializedNotes,
       };
 
-      const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
       if (isExisting) {
         await leadsService.update(card.id, body);
-        toast.success('Product interest updated successfully!', { id: toastId });
+        toast.success('Product interest status updated successfully!', { id: toastId });
       } else {
         const res = await leadsService.create(body);
         const savedLead = res.data ?? res;
@@ -674,9 +725,61 @@ export default function Contacts() {
       if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
       setPolicies(parsedPolicies);
 
+      // Load & map product interests/leads
+      const backendInterests = contact.productInterests || [];
+      const mappedInterests: ProductInterestCard[] = backendInterests.map((lead: any) => {
+        const extra = parseLeadNotes(lead.notes);
+        const comments = (lead.consultations || []).map((c: any) => ({
+          text: c.notes || '',
+          author: c.author || 'System',
+          datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+        }));
+
+        const interestsList = lead.interests || [];
+        const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
+        const standardInterests = interestsList.filter((p: string) => isStandard(p));
+        const otherInterests = interestsList.filter((p: string) => !isStandard(p));
+        
+        const interestedIn = [...standardInterests];
+        let otherProduct = '';
+        if (otherInterests.length > 0) {
+          interestedIn.push('Other');
+          otherProduct = otherInterests.join(', ');
+        }
+
+        const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
+        let leadStage = 'TO_CONTACT';
+        if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
+        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+        else leadStage = lead.stage;
+
+        return {
+          id: lead.id,
+          collapsed: true,
+          interestedIn,
+          otherProduct,
+          descriptionDetails: extra.descriptionDetails || '',
+          leadStage,
+          leadStatus: extra.leadStatus,
+          dependencyType: extra.dependencyType || 'SELF',
+          dependentDetails: extra.dependentDetails || '',
+          leadType: extra.leadType,
+          leadSource: lead.source || 'Social Media',
+          assignedEmployeeId: lead.assignedEmployeeId || '',
+          followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
+          expectedPremium,
+          comments,
+          newComment: '',
+          showAllComments: false,
+        };
+      });
+      setProductInterests(mappedInterests);
+
       setEditLeadId(lead?.id || null);
       setEditContactId(contactId);
+      setActiveLeadTab('Product Interest');
       setLeadModalOpen(true);
+      toast.dismiss(toastId);
     } catch (err) {
       toast.error('Failed to load lead details', { id: toastId });
     }
@@ -712,6 +815,49 @@ export default function Contacts() {
     if (cleanAadhaar.length !== 12) {
       toast.error('Aadhaar Number must be exactly 12 digits');
       return;
+    }
+
+    // Validate all product interest cards for missing required fields
+    for (let i = 0; i < productInterests.length; i++) {
+      const card = productInterests[i];
+      const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
+      if (!isExisting) {
+        if (!card.interestedIn || card.interestedIn.length === 0) {
+          toast.error(`Product Interest #${i + 1}: Please select a Product Category`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (card.interestedIn.includes('Other') && !card.otherProduct?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please specify the Other Product Name`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (card.dependencyType === 'DEPENDENT' && !card.dependentDetails?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please enter dependent details`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.leadSource?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please select or enter a Lead Source`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.assignedEmployeeId) {
+          toast.error(`Product Interest #${i + 1}: Please select an Assigned Employee`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.followUpDate?.trim()) {
+          toast.error(`Product Interest #${i + 1}: Please select a Follow-up Date`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+        if (!card.expectedPremium || Number(card.expectedPremium) <= 0) {
+          toast.error(`Product Interest #${i + 1}: Please enter a valid Expected Premium / Budget (> 0)`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
+      }
     }
 
     const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
@@ -871,20 +1017,8 @@ export default function Contacts() {
         }
       }
 
-      // Save Product Interests (Leads) and prevent duplicates
-      const uniqueProductInterests: typeof productInterests = [];
-      const seenProducts = new Set<string>();
+      // Save Product Interests (Leads)
       for (const card of productInterests) {
-        const prod = card.interestedIn[0];
-        if (!prod) continue;
-        const actualProdName = prod === 'Other' && card.otherProduct ? card.otherProduct : prod;
-        if (!seenProducts.has(actualProdName)) {
-          seenProducts.add(actualProdName);
-          uniqueProductInterests.push(card);
-        }
-      }
-
-      for (const card of uniqueProductInterests) {
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
         
@@ -1049,15 +1183,28 @@ export default function Contacts() {
       setSelectedCampaigns(campaigns);
 
       const fams = (contact.relationships || []).map((r: any) => {
-        const c = r.relatedContact;
+        const c = r.relatedContact || r.contact || {};
         const primaryOcc = c?.occupations?.find((o: any) => o.isPrimary) || c?.occupations?.[0];
         const medTags = (c?.tags || [])
           .filter((t: string) => t.startsWith('med:'))
           .map((t: string) => t.replace('med:', ''));
+
+        const relRaw = r.relationshipType || '';
+        const relLower = relRaw.toLowerCase();
+        let formattedRel = relRaw ? relRaw.charAt(0).toUpperCase() + relRaw.slice(1).toLowerCase() : 'Other';
+        if (relLower === 'spouse') formattedRel = 'Spouse';
+        else if (relLower === 'son') formattedRel = 'Son';
+        else if (relLower === 'daughter') formattedRel = 'Daughter';
+        else if (relLower === 'father') formattedRel = 'Father';
+        else if (relLower === 'mother') formattedRel = 'Mother';
+        else if (relLower === 'brother') formattedRel = 'Brother';
+        else if (relLower === 'sister') formattedRel = 'Sister';
+        else if (relLower === 'child') formattedRel = 'Child';
+
         return {
           name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
           dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
-          relation: r.relationshipType,
+          relation: formattedRel,
           whatsapp: c?.phone || '',
           occupation: primaryOcc?.type || '',
           education: c?.education || '',
@@ -1066,12 +1213,38 @@ export default function Contacts() {
       });
       setFamilyMembers(fams);
 
+      const companyOptionsList = [
+        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
+        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
+        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
+        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
+        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
+      ];
+      const healthPlanOptions = ['Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up', 'Other'];
+      const lifePlanOptions = ['Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'];
+
       const healthEntries: any[] = [];
       const lifeEntries: any[] = [];
       (contact.policies || []).forEach((p: any) => {
+        const rawComp = (p.plan?.company?.name || p.companyName || '').trim();
+        const rawPlan = (p.plan?.name || p.planName || '').trim();
+
+        const matchedComp = companyOptionsList.find(c =>
+          c.toLowerCase() === rawComp.toLowerCase() ||
+          rawComp.toLowerCase().includes(c.toLowerCase()) ||
+          c.toLowerCase().includes(rawComp.toLowerCase())
+        ) || rawComp || 'Other';
+
+        const planList = p.plan?.category === 'HEALTH' ? healthPlanOptions : lifePlanOptions;
+        const matchedPlan = planList.find(pl =>
+          pl.toLowerCase() === rawPlan.toLowerCase() ||
+          rawPlan.toLowerCase().includes(pl.toLowerCase()) ||
+          pl.toLowerCase().includes(rawPlan.toLowerCase())
+        ) || rawPlan || 'Other';
+
         const entry = {
-          company: p.plan?.company?.name || 'Other',
-          planName: p.plan?.name || 'Other',
+          company: matchedComp,
+          planName: matchedPlan,
           policyNo: p.policyNumber,
           startDate: p.startDate ? p.startDate.split('T')[0] : '',
           duration: '1 Year',
@@ -1129,8 +1302,11 @@ export default function Contacts() {
           collapsed: true,
           interestedIn,
           otherProduct,
+          descriptionDetails: extra.descriptionDetails || '',
           leadStage,
           leadStatus: extra.leadStatus,
+          dependencyType: extra.dependencyType || 'SELF',
+          dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
           leadSource: lead.source || 'Social Media',
           assignedEmployeeId: lead.assignedEmployeeId || '',
@@ -1794,11 +1970,11 @@ export default function Contacts() {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
-          title={activeTab === 'customers' ? 'Import Customer' : 'Import Contact'}
+          title="Import Contact CSV"
         >
           <Upload size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
-            {activeTab === 'customers' ? 'Import Customer CSV' : 'Import Contact CSV'}
+            Import Contact CSV
           </span>
         </button>
 
@@ -1815,152 +1991,67 @@ export default function Contacts() {
           </span>
         </button>
 
-        {/* Add Contact / Customer */}
-        {activeTab !== 'birthdays' && (
-          <button
-            type="button"
-            onClick={activeTab === 'customers' ? openCustomerCreate : openCreate}
-            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
-            title={activeTab === 'customers' ? 'Add Customer' : 'Add Contact'}
-          >
-            <UserPlus size={18} strokeWidth={2.2} />
-            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
-              {activeTab === 'customers' ? 'Add Customer' : 'Add Contact'}
-            </span>
-          </button>
-        )}
+        {/* Add Contact */}
+        <button
+          type="button"
+          onClick={openCreate}
+          className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+          title="Add Contact"
+        >
+          <UserPlus size={18} strokeWidth={2.2} />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+            Add Contact
+          </span>
+        </button>
       </div>
 
       {/* Main Control Hub Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm space-y-4">
-        {/* Top Row: Segmented Navigation & Stats */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-100">
-          {/* Segmented Tab Controls */}
-          <div className="flex items-center bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 self-start">
-            <button
-              onClick={() => { setActiveTab('contacts'); setPage(1); setSelectedFilters([]); }}
-              className={clsx(
-                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
-                activeTab === 'contacts'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-              )}
-            >
-              <Users size={14} /> Contacts
-            </button>
-            <button
-              onClick={() => { setActiveTab('customers'); setPage(1); setSelectedFilters([]); }}
-              className={clsx(
-                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
-                activeTab === 'customers'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-              )}
-            >
-              <Award size={14} /> Customers
-            </button>
-            <button
-              onClick={() => { setActiveTab('birthdays'); setPage(1); setSelectedFilters([]); }}
-              className={clsx(
-                'px-4 py-2 rounded-lg text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
-                activeTab === 'birthdays'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-              )}
-            >
-              <Calendar size={14} /> Upcoming Birthdays
-            </button>
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
+        {/* Single Row Layout */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          
+          {/* Left Side: Search Bar ONLY */}
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            <div className="relative w-full lg:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+                placeholder="Search contacts..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+              />
+            </div>
           </div>
 
-          {/* Quick Context-Aware Filter Badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {activeTab === 'contacts' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Active')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Active')
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Active
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Inactive')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Inactive')
-                      ? 'bg-rose-600 text-white border-rose-600 shadow-rose-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <span className="w-2 h-2 rounded-full bg-rose-400" /> Inactive
-                </button>
-              </>
-            )}
-            {activeTab === 'customers' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Renew Due')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Renew Due')
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-orange-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Flame size={13} className={selectedFilters.includes('Renew Due') ? 'text-white' : 'text-orange-500'} /> Renew Due
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Active Claim')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Active Claim')
-                      ? 'bg-amber-500 text-white border-amber-500 shadow-amber-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Star size={13} className={selectedFilters.includes('Active Claim') ? 'text-white' : 'text-amber-500'} /> Active Claim
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Health')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Health')
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Heart size={13} className={selectedFilters.includes('Health') ? 'text-white' : 'text-rose-500'} /> Health
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFilter('Term')}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedFilters.includes('Term')
-                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  <Shield size={13} className={selectedFilters.includes('Term') ? 'text-white' : 'text-emerald-500'} /> Term
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+          {/* Right Side: Active/Inactive Badges, All Products Filter, Date Range Selector & Column Settings */}
+          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+            {/* Active / Inactive Status Badges */}
+            <button
+              type="button"
+              onClick={() => toggleFilter('Active')}
+              className={clsx(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                selectedFilters.includes('Active')
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/20'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Active
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleFilter('Inactive')}
+              className={clsx(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                selectedFilters.includes('Inactive')
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-rose-500/20'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400" /> Inactive
+            </button>
 
-        {/* Bottom Row: Product Filter, Search Bar, Date Pickers & Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          {/* Left Side: Product Category Multi-Select Checkbox Dropdown & Exclude Button */}
-          <div className="flex items-center gap-2 flex-wrap">
+            {/* Product Category Multi-Select Dropdown */}
             <div className="relative">
               <button
                 type="button"
@@ -1985,7 +2076,7 @@ export default function Contacts() {
 
               {/* Dropdown Menu Panel */}
               {showProductDropdown && (
-                <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn text-xs space-y-1.5">
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn text-xs space-y-1.5">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-1">
                     <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">Filter By Product</span>
                     {filterProducts.length > 0 && (
@@ -2054,25 +2145,11 @@ export default function Contacts() {
                     ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25'
                     : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
                 )}
-                title={excludeProduct ? `Showing contacts/customers who HAVEN'T purchased selected products` : `Click to show who HAVEN'T purchased selected products`}
+                title={excludeProduct ? `Showing contacts who HAVEN'T purchased selected products` : `Click to show who HAVEN'T purchased selected products`}
               >
-                {excludeProduct ? `❌ Without Selected Products (Not Purchased)` : `🚫 Exclude / Not Purchased`}
+                {excludeProduct ? `❌ Without Selected Products` : `🚫 Exclude / Not Purchased`}
               </button>
             )}
-          </div>
-
-          {/* Right Side: Search, Date Range & Column Settings */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-56">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
-                placeholder={activeTab === 'customers' ? 'Search customers...' : 'Search contacts...'}
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1); }}
-              />
-            </div>
 
             {/* Date Range Selector */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
@@ -2109,7 +2186,7 @@ export default function Contacts() {
               {showColPicker && (
                 <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 text-xs space-y-2 animate-fadeIn">
                   <p className="font-extrabold text-slate-400 uppercase tracking-wider mb-1 text-[10px]">Show Columns</p>
-                  {(activeTab === 'birthdays' ? BIRTHDAY_COLS : activeTab === 'customers' ? CUSTOMER_COLS : CONTACT_COLS).map(c => {
+                  {CONTACT_COLS.map(c => {
                     if (c.key === 'actions') return null;
                     return (
                       <label key={String(c.key)} className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
@@ -2495,6 +2572,7 @@ export default function Contacts() {
                 )}
 
                 {productInterests.map((card, idx) => {
+                  const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
                   const displayName = card.interestedIn.length > 0
                     ? card.interestedIn.map(p => p === 'Other' && card.otherProduct ? card.otherProduct : p).join(', ')
                     : 'New Product Interest';
@@ -2527,7 +2605,14 @@ export default function Contacts() {
                             <span className="text-white font-black text-[11px]">{idx + 1}</span>
                           </div>
                           <div className="min-w-0">
-                            <p className="text-white font-extrabold text-xs truncate">{displayName}</p>
+                            <p className="text-white font-extrabold text-xs truncate">
+                              {displayName}
+                              {isExisting && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded bg-white/20 text-white font-bold text-[9px] uppercase tracking-wider">
+                                  Existing
+                                </span>
+                              )}
+                            </p>
                             {card.collapsed && card.leadStage && (
                               <p className="text-white/70 text-[10px] font-semibold truncate">
                                 {card.leadStage.replace(/_/g, ' ')} · {card.leadStatus.replace(/_/g, ' ')}
@@ -2536,14 +2621,16 @@ export default function Contacts() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); removeProductInterest(card.id); }}
-                            className="p-1 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all"
-                            title="Remove"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {!isExisting && (
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); removeProductInterest(card.id); }}
+                              className="p-1 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all"
+                              title="Remove"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                           <ChevronDown
                             size={16}
                             className={`text-white transition-transform duration-200 ${card.collapsed ? 'rotate-180' : ''}`}
@@ -2557,13 +2644,18 @@ export default function Contacts() {
 
                           {/* Interested In — toggle buttons */}
                           <div>
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Interested In</label>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Interested In</label>
+                              {isExisting && (
+                                <span className="text-[10px] text-slate-400 font-medium italic">
+                                  Category fixed for existing records. Change status below or click "+ Add Product Interest" for a new product.
+                                </span>
+                              )}
+                            </div>
                             <div className="flex flex-wrap gap-2">
                               {['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting', 'Other'].map(prod => {
                                 const isSel = card.interestedIn.includes(prod);
-                                const isAlreadySelected = productInterests.some(otherCard => 
-                                  otherCard.id !== card.id && otherCard.interestedIn.includes(prod)
-                                );
+                                const isAlreadySelected = false;
                                 const PILL_COLORS: Record<string, string> = {
                                   Health: isSel ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
                                   Life: isSel ? 'bg-blue-600 border-blue-600 text-white' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100',
@@ -2575,19 +2667,16 @@ export default function Contacts() {
                                   Other: isSel ? 'bg-slate-700 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100',
                                 };
                                 let btnStyle = PILL_COLORS[prod] || (isSel ? 'bg-slate-700 text-white border-slate-700' : 'bg-white border-slate-200 text-slate-600');
-                                if (isAlreadySelected) {
-                                  btnStyle = 'bg-slate-100 border-slate-200 text-slate-400 opacity-40 cursor-not-allowed';
-                                }
                                 return (
                                   <button
                                     key={prod}
                                     type="button"
-                                    disabled={isAlreadySelected}
+                                    disabled={isExisting}
                                     onClick={() => {
                                       const next = isSel ? [] : [prod];
                                       updateProductInterest(card.id, 'interestedIn', next);
                                     }}
-                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all select-none ${btnStyle}`}
+                                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all select-none ${btnStyle} ${isExisting ? 'opacity-70 cursor-not-allowed' : ''}`}
                                   >
                                     {isSel ? '✓ ' : '+ '}{prod}
                                   </button>
@@ -2595,20 +2684,26 @@ export default function Contacts() {
                               })}
                             </div>
                             {card.interestedIn.includes('Other') && (
-                              <input
-                                type="text"
-                                className="input mt-2 text-xs w-full"
-                                placeholder="Specify product name..."
-                                value={card.otherProduct}
-                                onChange={e => updateProductInterest(card.id, 'otherProduct', e.target.value)}
-                              />
+                              <div className="bg-slate-100/90 border-2 border-slate-300 rounded-xl p-3 space-y-1.5 animate-fadeIn mt-2.5">
+                                <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
+                                  Specify Other Product Name *
+                                </label>
+                                <input
+                                  type="text"
+                                  disabled={isExisting}
+                                  className={`w-full text-xs px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:ring-2 focus:ring-slate-500 focus:border-slate-500 outline-none shadow-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                  placeholder="Specify product name..."
+                                  value={card.otherProduct}
+                                  onChange={e => updateProductInterest(card.id, 'otherProduct', e.target.value)}
+                                />
+                              </div>
                             )}
                           </div>
 
-                          {/* Row 1: Stage, Status, Type */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Row 1: Stage, Status, Dependency, Type */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage *</label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStage}
@@ -2623,7 +2718,9 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Status</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                                Lead Status *{isExisting ? ' (Editable)' : ''}
+                              </label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStatus}
@@ -2637,9 +2734,22 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dependency *</label>
                               <select
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                value={card.dependencyType || 'SELF'}
+                                onChange={e => updateProductInterest(card.id, 'dependencyType', e.target.value)}
+                              >
+                                <option value="SELF">Self</option>
+                                <option value="DEPENDENT">Depend</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
+                              <select
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.leadType}
                                 onChange={e => updateProductInterest(card.id, 'leadType', e.target.value)}
                               >
@@ -2650,14 +2760,104 @@ export default function Contacts() {
                             </div>
                           </div>
 
+                          {/* Members Included Multi-Select Box */}
+                          <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <Users size={12} className="text-blue-600 shrink-0" />
+                                Members Included in Policy / Product *
+                              </label>
+                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                                {(card.membersIncluded || []).length} Selected
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {/* Self Option */}
+                              {(() => {
+                                const isSelfSel = (card.membersIncluded || []).includes('Self');
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const prev: string[] = card.membersIncluded || [];
+                                      const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
+                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                    }}
+                                    className={clsx(
+                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                      isSelfSel
+                                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    )}
+                                  >
+                                    <span>Self (Primary Contact)</span>
+                                    {isSelfSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
+                                  </button>
+                                );
+                              })()}
+
+                              {/* Family Member Options */}
+                              {familyMembers.map((fam, famIdx) => {
+                                const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
+                                const isSel = (card.membersIncluded || []).includes(memberLabel);
+                                return (
+                                  <button
+                                    key={famIdx}
+                                    type="button"
+                                    onClick={() => {
+                                      const prev: string[] = card.membersIncluded || [];
+                                      const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
+                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                    }}
+                                    className={clsx(
+                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                      isSel
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    )}
+                                  >
+                                    <span>{memberLabel}</span>
+                                    {isSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {familyMembers.length === 0 && (
+                              <p className="text-[10px] text-slate-400 font-medium italic">
+                                💡 Add family members in the Family Members section above to select them here.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Prominent Dependent Details Textbox when Depend is selected */}
+                          {card.dependencyType === 'DEPENDENT' && (
+                            <div className="bg-blue-50/80 border-2 border-blue-200 rounded-xl p-3 space-y-1.5 animate-fadeIn">
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+                                Dependent Details / Name / Relation *
+                              </label>
+                              <input
+                                type="text"
+                                disabled={isExisting}
+                                className={`w-full text-xs px-3.5 py-2.5 bg-white border border-blue-300 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                placeholder="Enter dependent details (e.g. Spouse - Anita Sharma, Age 32)..."
+                                value={card.dependentDetails || ''}
+                                onChange={e => updateProductInterest(card.id, 'dependentDetails', e.target.value)}
+                              />
+                            </div>
+                          )}
+
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source *</label>
                               <input
                                 type="text"
+                                disabled={isExisting}
                                 list={`lead-source-list-${card.id}`}
-                                className="input w-full text-xs"
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 placeholder="e.g. Social Media"
                                 value={card.leadSource}
                                 onChange={e => updateProductInterest(card.id, 'leadSource', e.target.value)}
@@ -2671,9 +2871,10 @@ export default function Contacts() {
                               </datalist>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee *</label>
                               <select
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.assignedEmployeeId}
                                 onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
                               >
@@ -2686,19 +2887,21 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date *</label>
                               <input
                                 type="date"
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.followUpDate}
                                 onChange={e => updateProductInterest(card.id, 'followUpDate', e.target.value)}
                               />
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium (₹)</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
                               <input
                                 type="number"
-                                className="input w-full text-xs"
+                                disabled={isExisting}
+                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 placeholder="e.g. 12000"
                                 min={0}
                                 value={card.expectedPremium}
@@ -2707,46 +2910,124 @@ export default function Contacts() {
                             </div>
                           </div>
 
-                          {/* Consultation Comments Timeline */}
-                          <div className="bg-slate-50/80 rounded-xl border border-slate-200/60 p-3 space-y-3">
-                            <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Consultation Comments</p>
+                          {/* Consultation Comments Section */}
+                          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs">
+                            {/* Header */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                  <MessageCircle size={13} />
+                                </div>
+                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                  Consultation Comments
+                                </h4>
+                              </div>
+                              {card.comments.length > 0 && (
+                                <span className="text-[10px] font-extrabold bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-full">
+                                  {card.comments.length} {card.comments.length === 1 ? 'Comment' : 'Comments'}
+                                </span>
+                              )}
+                            </div>
 
-                            {/* Timeline */}
-                            <div className="max-h-36 overflow-y-auto space-y-2 custom-scrollbar">
+                            {/* Timeline List */}
+                            <div className="max-h-56 overflow-y-auto space-y-2.5 custom-scrollbar pr-0.5">
                               {card.comments.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic text-center py-4">No comments yet. Add the first one below.</p>
+                                <div className="bg-white/60 rounded-xl border border-dashed border-slate-200 p-4 text-center">
+                                  <p className="text-xs text-slate-400 font-medium italic">No comments yet. Add the first summary below.</p>
+                                </div>
                               ) : (
-                                card.comments.map((cmt, ci) => (
-                                  <div key={ci} className="bg-white rounded-xl border border-slate-100 p-2.5 shadow-2xs">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">{cmt.author}</span>
-                                      <span className="text-[9px] text-slate-400 font-semibold">{cmt.datetime}</span>
+                                (card.showAllComments ? card.comments : card.comments.slice(0, 2)).map((cmt, ci) => (
+                                  <div key={ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                                        {cmt.author}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                                        {cmt.datetime}
+                                      </span>
                                     </div>
-                                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap">{cmt.text}</p>
+                                    <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap pl-0.5">
+                                      {cmt.text}
+                                    </p>
                                   </div>
                                 ))
                               )}
                             </div>
 
-                            {/* Add comment input */}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                className="input flex-1 text-xs"
-                                placeholder="Type a comment and press Enter or Add..."
+                            {/* Know More / Show Less Toggle Button */}
+                            {card.comments.length > 2 && (
+                              <div className="pt-0.5 flex justify-start">
+                                <button
+                                  type="button"
+                                  onClick={() => updateProductInterest(card.id, 'showAllComments', !card.showAllComments)}
+                                  className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
+                                >
+                                  {card.showAllComments ? (
+                                    <>
+                                      Show Less <ChevronUp size={13} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      Know More ({card.comments.length - 2} more history) <ChevronDown size={13} />
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Add Call Summary & Consultation Comment Box */}
+                            <div className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                                  <MessageCircle size={12} className="text-blue-600" />
+                                  Add Call Summary / Comment
+                                </label>
+                                <span className="text-[9px] text-slate-400 font-semibold italic">Press Ctrl+Enter to save</span>
+                              </div>
+                              <textarea
+                                rows={2}
+                                className="w-full text-xs p-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:border-blue-400 outline-none resize-y transition-all"
+                                placeholder="Type call summary, client discussion details, or follow-up notes..."
                                 value={card.newComment}
                                 onChange={e => updateProductInterest(card.id, 'newComment', e.target.value)}
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter') { e.preventDefault(); addProductComment(card.id); }
+                                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    e.preventDefault();
+                                    addProductComment(card.id);
+                                  }
                                 }}
                               />
-                              <button
-                                type="button"
-                                onClick={() => addProductComment(card.id)}
-                                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-extrabold text-xs cursor-pointer transition-all shadow-2xs shrink-0"
-                              >
-                                Add
-                              </button>
+                              <div className="flex justify-end pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => addProductComment(card.id)}
+                                  disabled={!card.newComment.trim()}
+                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex items-center gap-1.5"
+                                >
+                                  <Send size={12} />
+                                  Save Call Summary
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Description Details Box */}
+                            <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                  <FileText size={13} />
+                                </div>
+                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                  Description Details
+                                </h4>
+                              </div>
+                              <textarea
+                                rows={2}
+                                className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
+                                placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
+                                value={card.descriptionDetails || ''}
+                                onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
+                              />
                             </div>
                           </div>
 
@@ -3283,6 +3564,15 @@ export default function Contacts() {
                                       onChange={e => updatePolicyItem(pIdx, eIdx, 'company', e.target.value)}
                                     >
                                       <option value="">Select Company</option>
+                                      {entry.company && ![
+                                         'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
+                                         'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
+                                         'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
+                                         'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
+                                         'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
+                                       ].includes(entry.company) && (
+                                         <option value={entry.company}>{entry.company}</option>
+                                       )}
                                       <option>Star Health</option>
                                       <option>HDFC Ergo</option>
                                       <option>ICICI Lombard</option>
@@ -3314,6 +3604,12 @@ export default function Contacts() {
                                       onChange={e => updatePolicyItem(pIdx, eIdx, 'planName', e.target.value)}
                                     >
                                       <option value="">Select Plan</option>
+                                      {entry.planName && ![
+                                         'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
+                                         'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
+                                       ].includes(entry.planName) && (
+                                         <option value={entry.planName}>{entry.planName}</option>
+                                       )}
                                       {isHealth ? (
                                         <>
                                           <option>Individual</option>
@@ -3487,8 +3783,189 @@ export default function Contacts() {
             )}
 
             {activeLeadTab === 'History' && (
-              <div className="py-8 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                <p className="text-xs text-gray-400 font-semibold">{activeLeadTab} information will be accessible after saving the lead.</p>
+              <div className="space-y-4">
+                {/* Tab Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                      <History size={13} />
+                    </div>
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                      Contact & Family History Log
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                    {familyMembers.length} Family {familyMembers.length === 1 ? 'Member' : 'Members'}
+                  </span>
+                </div>
+
+                <div className="max-h-[420px] overflow-y-auto pr-1 custom-scrollbar space-y-4">
+                  {/* 1. Personal Details Log Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                          <UserCircle2 size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Personal Information Log
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md">
+                        Active Contact
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Full Name</span>
+                        <p className="font-bold text-slate-800">
+                          {personalFields.fullName ? personalFields.fullName.trim() : (loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.lastName || ''}`.trim() : 'Not provided')}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
+                        <p className="font-semibold text-slate-700">
+                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'} 
+                          {(personalFields.email || loadedContact?.email) ? ` · ${personalFields.email || loadedContact?.email}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
+                        <p className="font-semibold text-slate-700">
+                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'} 
+                          {(personalFields.gender || loadedContact?.gender) ? ` · ${personalFields.gender || loadedContact?.gender}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
+                        <p className="font-semibold text-slate-700">
+                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'} 
+                          {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(personalFields.streetAddress || personalFields.city || loadedContact?.address) && (
+                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 text-xs space-y-0.5">
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Address Details</span>
+                        <p className="text-slate-700 font-medium">
+                          {[personalFields.streetAddress, personalFields.city, personalFields.state, personalFields.pincode].filter(Boolean).join(', ') || loadedContact?.address}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Family Members Created & Linked Log Card */}
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <Users size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Family Members Created ({familyMembers.length})
+                        </h4>
+                      </div>
+                      {familyMembers.length > 0 && (
+                        <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-md">
+                          {familyMembers.length} {familyMembers.length === 1 ? 'Member Created' : 'Members Created'}
+                        </span>
+                      )}
+                    </div>
+
+                    {familyMembers.length === 0 ? (
+                      <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                        <p className="text-xs text-slate-400 font-medium italic">No family members created for this contact yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {familyMembers.map((member, idx) => (
+                          <div key={idx} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 space-y-2 text-xs hover:border-blue-200 transition-all">
+                            <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
+                                  {idx + 1}
+                                </span>
+                                <span className="font-extrabold text-slate-800 text-xs">
+                                  {member.name || `Family Member #${idx + 1}`}
+                                </span>
+                              </div>
+                              {member.relation && (
+                                <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
+                                  {member.relation}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                              <div>
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Date of Birth / Phone</span>
+                                <p className="font-semibold text-slate-700">
+                                  {member.dob || 'DOB not set'} {member.whatsapp ? ` · ${member.whatsapp}` : ''}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Occupation & Education</span>
+                                <p className="font-semibold text-slate-700">
+                                  {member.occupation || 'Not set'} {member.education ? ` · ${member.education}` : ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            {member.medicalHistory && member.medicalHistory.length > 0 && (
+                              <div className="pt-1">
+                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block mb-1">Medical History Tags</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {member.medicalHistory.map((tag, ti) => (
+                                    <span key={ti} className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Particular Contact Audit Log Card */}
+                  {loadedContact && (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-2 text-xs">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                        <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                          <Calendar size={13} />
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Contact Record Audit Log
+                        </h4>
+                      </div>
+                      <div className="space-y-1.5 pt-1 text-[11px]">
+                        {loadedContact.createdAt && (
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span className="text-slate-500 font-medium">Record Created Date</span>
+                            <span className="font-bold text-slate-700">
+                              {new Date(loadedContact.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {loadedContact.updatedAt && (
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span className="text-slate-500 font-medium">Last Modified Date</span>
+                            <span className="font-bold text-slate-700">
+                              {new Date(loadedContact.updatedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
