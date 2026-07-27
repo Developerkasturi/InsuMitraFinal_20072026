@@ -1967,6 +1967,8 @@ export default function Leads() {
                                 <option value="PORTING">Porting</option>
                               </select>
                             </div>
+                          </div>
+
                           {/* Members Included Multi-Select Box */}
                           <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2">
                             <div className="flex items-center justify-between">
@@ -1975,21 +1977,21 @@ export default function Leads() {
                                 Members Included in Policy / Product *
                               </label>
                               <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                {(card.membersIncluded || []).length} Selected
+                                {((card as any).membersIncluded || []).length} Selected
                               </span>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                               {/* Self Option */}
                               {(() => {
-                                const isSelfSel = (card.membersIncluded || []).includes('Self');
+                                const isSelfSel = ((card as any).membersIncluded || []).includes('Self');
                                 return (
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const prev: string[] = card.membersIncluded || [];
+                                      const prev: string[] = (card as any).membersIncluded || [];
                                       const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
-                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
                                     }}
                                     className={clsx(
                                       "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
@@ -2007,15 +2009,15 @@ export default function Leads() {
                               {/* Family Member Options */}
                               {familyMembers.map((fam, famIdx) => {
                                 const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
-                                const isSel = (card.membersIncluded || []).includes(memberLabel);
+                                const isSel = ((card as any).membersIncluded || []).includes(memberLabel);
                                 return (
                                   <button
                                     key={famIdx}
                                     type="button"
                                     onClick={() => {
-                                      const prev: string[] = card.membersIncluded || [];
+                                      const prev: string[] = (card as any).membersIncluded || [];
                                       const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
-                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
                                     }}
                                     className={clsx(
                                       "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
@@ -2870,7 +2872,7 @@ export default function Leads() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
                         <p className="font-semibold text-slate-700">
-                          {watch('dob') || loadedContact?.dob || 'DOB not set'} 
+                          {(watch as any)('dob') || loadedContact?.dob || 'DOB not set'} 
                           {(watch('gender') || loadedContact?.gender) ? ` · ${watch('gender') || loadedContact?.gender}` : ''}
                         </p>
                       </div>
@@ -2878,16 +2880,16 @@ export default function Leads() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
                         <p className="font-semibold text-slate-700">
-                          {watch('occupation') || loadedContact?.occupation || 'Not specified'} 
-                          {(watch('maritalStatus') || loadedContact?.maritalStatus) ? ` · ${watch('maritalStatus') || loadedContact?.maritalStatus}` : ''}
+                          {(watch as any)('occupation') || loadedContact?.occupation || 'Not specified'} 
+                          {((watch as any)('maritalStatus') || loadedContact?.maritalStatus) ? ` · ${watch('maritalStatus' as any) || loadedContact?.maritalStatus}` : ''}
                         </p>
                       </div>
                     </div>
 
-                    {(watch('address') || loadedContact?.address) && (
+                    {((watch as any)('address') || loadedContact?.address) && (
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 text-xs space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Address Details</span>
-                        <p className="text-slate-700 font-medium">{watch('address') || loadedContact?.address}</p>
+                        <p className="text-slate-700 font-medium">{(watch as any)('address') || loadedContact?.address}</p>
                       </div>
                     )}
                   </div>
@@ -2953,7 +2955,7 @@ export default function Leads() {
                               <div className="pt-1">
                                 <span className="text-[9px] font-extrabold text-slate-400 uppercase block mb-1">Medical History Tags</span>
                                 <div className="flex flex-wrap gap-1">
-                                  {member.medicalHistory.map((tag, ti) => (
+                                  {member.medicalHistory.map((tag: any, ti: number) => (
                                     <span key={ti} className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
                                       {tag}
                                     </span>

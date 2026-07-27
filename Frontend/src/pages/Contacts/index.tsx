@@ -2768,21 +2768,21 @@ export default function Contacts() {
                                 Members Included in Policy / Product *
                               </label>
                               <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                {(card.membersIncluded || []).length} Selected
+                                {((card as any).membersIncluded || []).length} Selected
                               </span>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                               {/* Self Option */}
                               {(() => {
-                                const isSelfSel = (card.membersIncluded || []).includes('Self');
+                                const isSelfSel = ((card as any).membersIncluded || []).includes('Self');
                                 return (
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const prev: string[] = card.membersIncluded || [];
+                                      const prev: string[] = (card as any).membersIncluded || [];
                                       const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
-                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
                                     }}
                                     className={clsx(
                                       "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
@@ -2800,15 +2800,15 @@ export default function Contacts() {
                               {/* Family Member Options */}
                               {familyMembers.map((fam, famIdx) => {
                                 const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
-                                const isSel = (card.membersIncluded || []).includes(memberLabel);
+                                const isSel = ((card as any).membersIncluded || []).includes(memberLabel);
                                 return (
                                   <button
                                     key={famIdx}
                                     type="button"
                                     onClick={() => {
-                                      const prev: string[] = card.membersIncluded || [];
+                                      const prev: string[] = (card as any).membersIncluded || [];
                                       const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
-                                      updateProductInterest(card.id, 'membersIncluded', next);
+                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
                                     }}
                                     className={clsx(
                                       "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
