@@ -24,15 +24,18 @@ export class EmployeesService {
 
     const where: any = {
       tenantId,
-      isActive: true,
-      user: { role: { not: UserRole.CONTACT } },
+      isActive: { not: false },
     };
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName:  { contains: search, mode: 'insensitive' } },
-        { phone:     { contains: search } },
+      where.AND = [
+        {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName:  { contains: search, mode: 'insensitive' } },
+            { phone:     { contains: search } },
+          ],
+        },
       ];
     }
 
@@ -58,16 +61,12 @@ export class EmployeesService {
                 dailyLogs: {
                   where: { logDate: today },
                   select: {
-                    checkIn: true,
-                    checkOut: true,
-                    notes: true,
-                    adminRemarks: true,
-                    callsMade: true,
-                    visitsCompleted: true,
-                    premiumCollected: true,
-                    nextDayPlan: true,
+                    checkIn: true, checkOut: true, notes: true,
+                    callsMade: true, visitsCompleted: true, premiumCollected: true,
+                    nextDayPlan: true, adminRemarks: true,
                   },
-              },
+                  take: 1,
+                },
             },
           },
         },
@@ -75,8 +74,6 @@ export class EmployeesService {
       }),
       this.prisma.employeeProfile.count({ where }),
     ]);
-
-    console.log('[findAll DB RESULT]', JSON.stringify(data[0], null, 2));
 
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
@@ -123,7 +120,7 @@ export class EmployeesService {
     if (data.gender === '' || data.gender === undefined || data.gender === null) {
       data.gender = null;
     }
-    for (const field of ['bankName', 'bankAccountNumber', 'bankIfscCode', 'bankBranch', 'bankAccountType']) {
+    for (const field of ['bankName', 'bankAccountNumber', 'bankIfscCode', 'bankBranch', 'bankAccountType', 'aadhaarNumber']) {
       if (data[field] === '' || data[field] === undefined) {
         data[field] = null;
       }
@@ -138,6 +135,7 @@ export class EmployeesService {
   async create(tenantId: string, dto: {
     email: string; password: string;
     firstName: string; lastName: string; phone: string;
+    aadhaarNumber?: string | null;
     designation?: string; department?: string;
     dateOfJoining?: string | Date | null;
     dateOfBirth?: string | Date | null;
@@ -173,6 +171,7 @@ export class EmployeesService {
     const callsTarget = dto.callsTarget != null && dto.callsTarget !== '' ? Number(dto.callsTarget) : 0;
     const visitsTarget = dto.visitsTarget != null && dto.visitsTarget !== '' ? Number(dto.visitsTarget) : 0;
     const gender = dto.gender && dto.gender !== '' ? dto.gender : null;
+    const aadhaarNumber = dto.aadhaarNumber || null;
     const bankName = dto.bankName || null;
     const bankAccountNumber = dto.bankAccountNumber || null;
     const bankIfscCode = dto.bankIfscCode || null;
@@ -181,7 +180,7 @@ export class EmployeesService {
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { tenantId, email: dto.email, passwordHash, role: UserRole.EMPLOYEE },
+        data: { tenantId, email: dto.email, passwordHash, role: UserRole.EMPLOYEE, isActive: true },
       });
 
       if (dto.contactId) {
@@ -198,6 +197,7 @@ export class EmployeesService {
           firstName:   dto.firstName,
           lastName:    dto.lastName,
           phone:       dto.phone,
+          aadhaarNumber,
           designation: dto.designation,
           department:  dto.department,
           dateOfJoining,
@@ -213,6 +213,7 @@ export class EmployeesService {
           bankIfscCode,
           bankBranch,
           bankAccountType,
+          isActive:    true,
         },
         include: { user: { select: { email: true, role: true } } },
       });
@@ -239,279 +240,133 @@ export class EmployeesService {
   async getTasks(tenantId: string, userId: string, role: UserRole, query: any) {
     const page  = Math.max(1, parseInt(String(query.page  ?? 1), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String(query.limit ?? 20), 10) || 20));
-    const { status } = query;
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
 
     const where: any = { tenantId };
-    if (role === UserRole.EMPLOYEE) where.assignedToId = userId;
-    if (status) where.status = status;
+    if (role === UserRole.EMPLOYEE) {
+      where.assignedToId = userId;
+    }
 
-    const [data, total] = await Promise.all([
+    const [tasks, total] = await Promise.all([
       this.prisma.employeeTask.findMany({
         where,
         skip,
-        take:    limit,
-        include: {
-          assignedTo: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
-          createdBy:  { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
-        },
-        orderBy: { createdAt: 'desc' },
+        take: limit,
+        orderBy: { dueDate: 'asc' },
       }),
       this.prisma.employeeTask.count({ where }),
     ]);
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return { data: tasks, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 
-  async createTask(tenantId: string, createdById: string, dto: any) {
-    // When no assignee is specified (e.g. self-created task from the Workspace
-    // page), default to the creator. Both Employee and Owner creating a task
-    // for themselves follow this path; Owner assigning to someone else sends
-    // an explicit assignedToId which takes precedence.
-    const assignedToId = dto.assignedToId ?? createdById;
-
+  async createTask(tenantId: string, createdById: string, dto: {
+    assignedToId: string; title: string; description?: string;
+    dueDate?: string | Date; priority?: any;
+  }) {
     const task = await this.prisma.employeeTask.create({
-      data: { ...dto, tenantId, createdById, assignedToId },
+      data: {
+        tenantId,
+        createdById,
+        assignedToId: dto.assignedToId,
+        title:        dto.title,
+        description:  dto.description,
+        dueDate:      dto.dueDate ? new Date(dto.dueDate) : new Date(),
+        priority:     dto.priority || 'MEDIUM',
+      },
     });
 
-    // Notify assignee (skip self-notification when creator == assignee)
-    if (assignedToId !== createdById) {
-      await this.notifEngine.notifyTaskAssigned(tenantId, assignedToId, task.id, dto.title);
-    }
+    // Notify assigned employee
+    this.notifEngine.notifyTaskAssigned(tenantId, dto.assignedToId, task.id, task.title).catch(() => {});
 
-    return { data: task, message: 'Task created' };
+    return { data: task, message: 'Task assigned' };
   }
 
-  async updateTaskStatus(tenantId: string, taskId: string, status: string) {
+  async updateTaskStatus(tenantId: string, taskId: string, status: any) {
     const task = await this.prisma.employeeTask.findFirst({ where: { id: taskId, tenantId } });
     if (!task) throw new NotFoundException('Task not found');
 
     const updated = await this.prisma.employeeTask.update({
       where: { id: taskId },
-      data:  {
-        status:      status as any,
-        completedAt: status === 'COMPLETED' ? new Date() : undefined,
-      },
+      data:  { status },
     });
-    return { data: updated, message: `Task marked ${status}` };
+
+    return { data: updated, message: 'Task status updated' };
   }
 
   // ── Daily Logs ─────────────────────────────────────────────────────────────
 
-  async getDailyLogs(tenantId: string, userId: string, query: { startDate?: string; endDate?: string }) {
-    const where: any = { tenantId, userId };
-    if (query.startDate) where.logDate = { gte: new Date(query.startDate) };
-    if (query.endDate)   where.logDate = { ...where.logDate, lte: new Date(query.endDate) };
+  async checkIn(tenantId: string, userId: string, notes?: string) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = new Date(`${year}-${month}-${day}`);
+
+    const existing = await this.prisma.employeeDailyLog.findUnique({
+      where: { userId_logDate: { userId, logDate: today } },
+    });
+
+    if (existing && existing.checkIn) {
+      return { data: existing, message: 'Already checked in today' };
+    }
+
+    const log = await this.prisma.employeeDailyLog.upsert({
+      where:  { userId_logDate: { userId, logDate: today } },
+      create: { tenantId, userId, logDate: today, checkIn: now, notes },
+      update: { checkIn: now, notes: notes ?? undefined },
+    });
+
+    return { data: log, message: 'Checked in successfully' };
+  }
+
+  async checkOut(tenantId: string, userId: string, dto: {
+    callsMade?: number; visitsCompleted?: number;
+    premiumCollected?: number; nextDayPlan?: string; notes?: string;
+  }) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = new Date(`${year}-${month}-${day}`);
+
+    const log = await this.prisma.employeeDailyLog.upsert({
+      where:  { userId_logDate: { userId, logDate: today } },
+      create: {
+        tenantId, userId, logDate: today,
+        checkOut:         now,
+        callsMade:        dto.callsMade        ?? 0,
+        visitsCompleted:  dto.visitsCompleted  ?? 0,
+        premiumCollected: dto.premiumCollected ?? 0,
+        nextDayPlan:      dto.nextDayPlan,
+        notes:            dto.notes,
+      },
+      update: {
+        checkOut:         now,
+        callsMade:        dto.callsMade,
+        visitsCompleted:  dto.visitsCompleted,
+        premiumCollected: dto.premiumCollected,
+        nextDayPlan:      dto.nextDayPlan,
+        notes:            dto.notes,
+      },
+    });
+
+    return { data: log, message: 'Checked out successfully' };
+  }
+
+  async getAttendanceReport(tenantId: string, startDate?: string, endDate?: string) {
+    const where: any = { tenantId };
+    if (startDate || endDate) {
+      where.logDate = {};
+      if (startDate) where.logDate.gte = new Date(startDate);
+      if (endDate)   where.logDate.lte = new Date(endDate);
+    }
 
     const logs = await this.prisma.employeeDailyLog.findMany({
       where,
       orderBy: { logDate: 'desc' },
     });
+
     return { data: logs };
-  }
-
-  async upsertDailyLog(tenantId: string, userId: string, dto: any) {
-    const dateVal = dto.date ?? dto.logDate;
-    let logDate: Date;
-    if (typeof dateVal === 'string') {
-      logDate = new Date(dateVal.slice(0, 10));
-    } else {
-      const dObj = new Date(dateVal);
-      const y = dObj.getFullYear();
-      const m = String(dObj.getMonth() + 1).padStart(2, '0');
-      const d = String(dObj.getDate()).padStart(2, '0');
-      logDate = new Date(`${y}-${m}-${d}`);
-    }
-
-    const data: any = {
-      callsMade: dto.callsMade !== undefined ? Number(dto.callsMade) : undefined,
-      visitsCompleted: (dto.visitsCompleted !== undefined ? Number(dto.visitsCompleted) : undefined) || (dto.meetingsDone !== undefined ? Number(dto.meetingsDone) : undefined),
-      premiumCollected: dto.premiumCollected !== undefined ? Number(dto.premiumCollected) : undefined,
-      notes: dto.notes || undefined,
-      nextDayPlan: dto.nextDayPlan || undefined,
-      isEditedByAdmin: dto.isEditedByAdmin !== undefined ? Boolean(dto.isEditedByAdmin) : undefined,
-      adminRemarks: dto.adminRemarks || undefined,
-    };
-
-    // Remove undefined values
-    Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
-
-    // Set default checkIn & checkOut times for manual entries so they count as present
-    if (dto.checkIn) data.checkIn = new Date(dto.checkIn);
-    else data.checkIn = new Date(logDate.getTime() + 9 * 60 * 60 * 1000); // 9:00 AM
-
-    if (dto.checkOut) data.checkOut = new Date(dto.checkOut);
-    else data.checkOut = new Date(logDate.getTime() + 18 * 60 * 60 * 1000); // 6:00 PM
-
-    const log = await this.prisma.employeeDailyLog.upsert({
-      where:  { userId_logDate: { userId, logDate } },
-      create: { tenantId, userId, ...data, logDate },
-      update: { ...data, logDate },
-    });
-    return { data: log, message: 'Daily log saved' };
-  }
-
-  /** Called from POST /employees/:id/log  (id = employeeProfile id) */
-  async logForEmployee(tenantId: string, employeeProfileId: string, dto: any) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee not found');
-    return this.upsertDailyLog(tenantId, profile.userId, {
-      ...dto,
-      isEditedByAdmin: true,
-      adminRemarks: dto.notes || dto.adminRemarks,
-    });
-  }
-
-  /** Called from GET /employees/:id/tasks */
-  async getTasksForEmployee(tenantId: string, employeeProfileId: string, query: any) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee not found');
-
-    const where: any = { tenantId, assignedToId: profile.userId };
-    if (query.status) where.status = query.status;
-
-    const tasks = await this.prisma.employeeTask.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
-    return { data: tasks };
-  }
-
-  /** Called from POST /employees/:id/tasks */
-  async addTaskForEmployee(tenantId: string, employeeProfileId: string, createdById: string, dto: any) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee not found');
-
-    const data: any = {
-      title: dto.title,
-      description: dto.description || null,
-      priority: dto.priority || 'MEDIUM',
-      tenantId,
-      assignedToId: profile.userId,
-      createdById,
-    };
-
-    if (dto.dueDate && dto.dueDate !== '') {
-      data.dueDate = new Date(dto.dueDate);
-    } else {
-      data.dueDate = null;
-    }
-
-    const task = await this.prisma.employeeTask.create({
-      data,
-    });
-
-    await this.notifEngine.notifyTaskAssigned(tenantId, profile.userId, task.id, dto.title);
-    return { data: task, message: 'Task created' };
-  }
-
-  async getStats(tenantId: string, employeeProfileId: string) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee not found');
-
-    const userId = profile.userId;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
-    const [
-      totalPolicies,
-      totalLeads,
-      policies,
-      todayLog,
-      monthlyLogs,
-      leadsMonthCount,
-      policiesMonthCount,
-    ] = await Promise.all([
-      this.prisma.policy.count({
-        where: { tenantId, assignedEmployeeId: userId, status: 'ACTIVE' },
-      }),
-      this.prisma.productInterest.count({
-        where: { tenantId, assignedEmployeeId: userId },
-      }),
-      this.prisma.policy.findMany({
-        where: { tenantId, assignedEmployeeId: userId, status: 'ACTIVE' },
-        select: { premiumAmount: true },
-      }),
-      this.prisma.employeeDailyLog.findFirst({
-        where: { userId, logDate: todayStart },
-      }),
-      this.prisma.employeeDailyLog.findMany({
-        where: {
-          userId,
-          logDate: { gte: startOfMonth, lte: endOfMonth },
-        },
-      }),
-      this.prisma.productInterest.count({
-        where: {
-          tenantId,
-          assignedEmployeeId: userId,
-          createdAt: { gte: startOfMonth, lte: endOfMonth },
-        },
-      }),
-      this.prisma.policy.count({
-        where: {
-          tenantId,
-          assignedEmployeeId: userId,
-          status: 'ACTIVE',
-          createdAt: { gte: startOfMonth, lte: endOfMonth },
-        },
-      }),
-    ]);
-
-    const totalRevenue = policies.reduce((sum, p) => sum + (p.premiumAmount ?? 0), 0);
-    const callsToday = todayLog?.callsMade ?? 0;
-    const meetingsToday = todayLog?.visitsCompleted ?? 0;
-    const premiumThisMonth = monthlyLogs.reduce((sum, log) => sum + (log.premiumCollected ?? 0), 0);
-
-    return {
-      data: {
-        totalPolicies,
-        totalLeads,
-        totalRevenue,
-        callsToday,
-        meetingsToday,
-        leadsThisMonth: leadsMonthCount,
-        policiesThisMonth: policiesMonthCount,
-        premiumThisMonth,
-      },
-    };
-  }
-
-  async getLogsForEmployee(tenantId: string, employeeProfileId: string, query: { startDate?: string; endDate?: string }) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee not found');
-    return this.getDailyLogs(tenantId, profile.userId, query);
-  }
-
-  async updateEmployeeRole(tenantId: string, employeeProfileId: string, role: string, permissions?: string[]) {
-    const profile = await this.prisma.employeeProfile.findFirst({
-      where: { id: employeeProfileId, tenantId },
-    });
-    if (!profile) throw new NotFoundException('Employee profile not found');
-
-    const updatedUser = await this.prisma.user.update({
-      where: { id: profile.userId },
-      data: {
-        role: role as any,
-        permissions: permissions ?? [],
-      },
-    });
-
-    return { data: updatedUser, message: 'Employee role updated successfully' };
   }
 }

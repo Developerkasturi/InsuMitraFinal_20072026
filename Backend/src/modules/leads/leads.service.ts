@@ -203,8 +203,6 @@ export class LeadsService {
             if (activeLeadType === 'RENEWAL') {
               throw new ForbiddenException(`An active Renewal lead already exists for this product.`);
             }
-          } else {
-            throw new ForbiddenException(`Product interest '${incomingProd}' already exists for this contact.`);
           }
         }
 

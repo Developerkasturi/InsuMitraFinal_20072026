@@ -789,6 +789,7 @@ model EmployeeProfile {
   bankIfscCode     String?   @map("bank_ifsc_code")
   bankBranch       String?   @map("bank_branch")
   bankAccountType  String?   @map("bank_account_type")
+  aadhaarNumber    String?   @map("aadhaar_number")
   avatarUrl        String?   @map("avatar_url")
   isActive         Boolean   @default(true) @map("is_active")
   deletedAt        DateTime? @map("deleted_at")
