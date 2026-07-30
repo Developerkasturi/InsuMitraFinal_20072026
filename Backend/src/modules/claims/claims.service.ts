@@ -34,25 +34,38 @@ export class ClaimsService {
     if (status)    where.status    = status;
     if (claimType) where.claimType = claimType;
     if (search) {
+      // MongoDB: cannot use { contact: { ... } } or { policy: { ... } } in WHERE; pre-fetch IDs
+      const [matchingContacts, matchingPolicies] = await Promise.all([
+        this.prisma.contact.findMany({
+          where: {
+            tenantId,
+            OR: [
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName:  { contains: search, mode: 'insensitive' } },
+              { phone:     { contains: search } },
+            ],
+          },
+          select: { id: true },
+        }),
+        this.prisma.policy.findMany({
+          where: { tenantId, policyNumber: { contains: search, mode: 'insensitive' } },
+          select: { id: true },
+        }),
+      ]);
+      const contactIds = matchingContacts.map(c => c.id);
+      const policyIds  = matchingPolicies.map(p => p.id);
       where.OR = [
         { claimNumber: { contains: search, mode: 'insensitive' } },
-        { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-        { contact: { phone: { contains: search } } },
-        { policy: { policyNumber: { contains: search, mode: 'insensitive' } } },
+        ...(contactIds.length > 0 ? [{ contactId: { in: contactIds } }] : []),
+        ...(policyIds.length  > 0 ? [{ policyId:  { in: policyIds  } }] : []),
       ];
     }
 
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
+    // MongoDB: orderBy through relations not supported — use scalar fields only
     let orderBy: any = { createdAt: orderDir };
-
-    if (sortBy) {
-      if (sortBy === 'policy.policyNumber') {
-        orderBy = { policy: { policyNumber: orderDir } };
-      } else if (sortBy === 'contact.firstName') {
-        orderBy = { contact: { firstName: orderDir } };
-      } else {
-        orderBy = { [sortBy]: orderDir };
-      }
+    if (sortBy && !sortBy.includes('.')) {
+      orderBy = { [sortBy]: orderDir };
     }
 
     const [data, total] = await Promise.all([

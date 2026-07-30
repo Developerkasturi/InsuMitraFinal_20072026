@@ -26,9 +26,7 @@ export class DashboardService {
 
       this.prisma.claim.count({ where: { tenantId, status: { notIn: ['SETTLED', 'REJECTED'] } } }),
 
-      this.prisma.productInterest.count({
-        where: { tenantId },
-      }),
+      this.prisma.productInterest.count({ where: { tenantId } }),
 
       this.prisma.contact.count({
         where: { tenantId, isActive: true, createdAt: { gte: startOfMonth } },
@@ -39,7 +37,9 @@ export class DashboardService {
         _sum: { amount: true },
       }),
 
-      this.prisma.employeeTask.count({ where: { tenantId, status: { in: ['PENDING', 'IN_PROGRESS'] } } }),
+      this.prisma.employeeTask.count({
+        where: { tenantId, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+      }),
 
       this.prisma.policy.count({
         where: {
@@ -72,15 +72,13 @@ export class DashboardService {
     const payments = await this.prisma.policyPayment.findMany({
       where: {
         isPaid:   true,
-        paidDate: {
-          gte: new Date(now.getFullYear(), now.getMonth() - (months - 1), 1),
-        },
+        paidDate: { gte: new Date(now.getFullYear(), now.getMonth() - (months - 1), 1) },
         policy:   { tenantId },
       },
       select: { paidDate: true, amount: true },
     });
 
-    // Group by month
+    // Group by month in-memory
     const map = new Map<string, number>();
     for (const p of payments) {
       if (!p.paidDate) continue;
@@ -97,15 +95,15 @@ export class DashboardService {
     return { data: results };
   }
 
-  // ─── Policy Portfolio (by product & insurance company) ───────────────────────────
+  // ─── Policy Portfolio (by product & insurance company) ─────────────────────
   async getPolicyPortfolio(tenantId: string) {
     const policies = await this.prisma.policy.findMany({
-      where: { tenantId, status: 'ACTIVE' },
+      where:  { tenantId, status: 'ACTIVE' },
       select: {
         plan: {
           select: {
             category: true,
-            company: { select: { name: true } },
+            company:  { select: { name: true } },
           },
         },
       },
@@ -115,10 +113,9 @@ export class DashboardService {
     const companyMap = new Map<string, number>();
 
     for (const p of policies) {
-      const cat = p.plan?.category || 'General';
-      productMap.set(cat, (productMap.get(cat) ?? 0) + 1);
-
+      const cat  = p.plan?.category  || 'General';
       const comp = p.plan?.company?.name || 'Unknown';
+      productMap.set(cat,  (productMap.get(cat)  ?? 0) + 1);
       companyMap.set(comp, (companyMap.get(comp) ?? 0) + 1);
     }
 
@@ -126,18 +123,25 @@ export class DashboardService {
       data: {
         byProduct: Array.from(productMap.entries()).map(([name, value]) => ({ name, value })),
         byCompany: Array.from(companyMap.entries()).map(([name, value]) => ({ name, value })),
-      }
+      },
     };
   }
 
-  // ─── Lead Pipeline ─────────────────────────────────────────────────────────
+  // ─── Lead Pipeline — groupBy not supported on MongoDB; use findMany + in-memory ─
   async getLeadPipeline(tenantId: string) {
-    const rows = await this.prisma.productInterest.groupBy({
-      by: ['stage'],
-      where: { tenantId },
-      _count: true,
+    const rows = await this.prisma.productInterest.findMany({
+      where:  { tenantId },
+      select: { stage: true },
     });
-    return { data: rows.map(r => ({ stage: r.stage, count: r._count })) };
+
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      counts.set(r.stage, (counts.get(r.stage) ?? 0) + 1);
+    }
+
+    return {
+      data: Array.from(counts.entries()).map(([stage, count]) => ({ stage, count })),
+    };
   }
 
   // ─── Upcoming Events (next 7 days) ─────────────────────────────────────────
@@ -152,64 +156,63 @@ export class DashboardService {
     return { data: events };
   }
 
-  // ─── Claim Summary ─────────────────────────────────────────────────────────
+  // ─── Claim Summary — groupBy not supported on MongoDB; use findMany + in-memory ─
   async getClaimSummary(tenantId: string) {
-    const rows = await this.prisma.claim.groupBy({
-      by: ['status'],
-      where: { tenantId },
-      _count: true,
-      _sum: { claimAmount: true },
+    const rows = await this.prisma.claim.findMany({
+      where:  { tenantId },
+      select: { status: true, claimAmount: true },
     });
+
+    const statusMap = new Map<string, { count: number; total: number }>();
+    for (const r of rows) {
+      const entry = statusMap.get(r.status) ?? { count: 0, total: 0 };
+      entry.count++;
+      entry.total += Number(r.claimAmount ?? 0);
+      statusMap.set(r.status, entry);
+    }
+
     return {
-      data: rows.map(r => ({
-        status:       r.status,
-        count:        r._count,
-        totalAmount:  Number(r._sum.claimAmount ?? 0),
+      data: Array.from(statusMap.entries()).map(([status, { count, total }]) => ({
+        status,
+        count,
+        totalAmount: total,
       })),
     };
   }
 
-  // ─── Database Summary ────────────────────────────────────────────────────────
+  // ─── Database Summary — groupBy not supported on MongoDB; use findMany + in-memory ─
   async getDbSummary(tenantId: string) {
-    const [
-      policiesGrouped,
-      contactsCount,
-      claimsGrouped,
-      leadsCount,
-      tasksGrouped
-    ] = await Promise.all([
-      this.prisma.policy.groupBy({
-        by: ['status'],
-        where: { tenantId, deletedAt: null },
-        _count: true,
+    const groupByStatus = <T extends { status: string }>(arr: T[]) => {
+      const map = new Map<string, number>();
+      for (const item of arr) map.set(item.status, (map.get(item.status) ?? 0) + 1);
+      return Array.from(map.entries()).map(([status, count]) => ({ status, count }));
+    };
+
+    const [policies, contacts, claims, leads, tasks] = await Promise.all([
+      this.prisma.policy.findMany({
+        where:  { tenantId, deletedAt: null },
+        select: { status: true },
       }),
-      this.prisma.contact.count({
-        where: { tenantId, deletedAt: null }
+      this.prisma.contact.count({ where: { tenantId, deletedAt: null } }),
+      this.prisma.claim.findMany({
+        where:  { tenantId, deletedAt: null },
+        select: { status: true },
       }),
-      this.prisma.claim.groupBy({
-        by: ['status'],
-        where: { tenantId, deletedAt: null },
-        _count: true,
+      this.prisma.productInterest.count({ where: { tenantId, deletedAt: null } }),
+      this.prisma.employeeTask.findMany({
+        where:  { tenantId, deletedAt: null },
+        select: { status: true },
       }),
-      this.prisma.productInterest.count({
-        where: { tenantId, deletedAt: null }
-      }),
-      this.prisma.employeeTask.groupBy({
-        by: ['status'],
-        where: { tenantId, deletedAt: null },
-        _count: true,
-      })
     ]);
 
     return {
       data: {
-        policies: policiesGrouped.map(p => ({ status: p.status, count: p._count })),
-        contacts: contactsCount,
-        claims: claimsGrouped.map(c => ({ status: c.status, count: c._count })),
-        leads: leadsCount,
-        tasks: tasksGrouped.map(t => ({ status: t.status, count: t._count })),
-      }
+        policies: groupByStatus(policies),
+        contacts,
+        claims:   groupByStatus(claims),
+        leads,
+        tasks:    groupByStatus(tasks),
+      },
     };
   }
 }
-

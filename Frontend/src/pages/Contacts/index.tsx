@@ -18,6 +18,7 @@ import { format, differenceInDays } from 'date-fns';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
+import { useGlobalSearchStore } from '@store/search.store';
 import ContactDetailModal from './ContactDetailModal';
 import * as XLSX from 'xlsx';
 
@@ -54,13 +55,14 @@ interface Contact {
 
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
+  const globalQuery = useGlobalSearchStore(s => s.globalQuery);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'contacts' | 'customers' | 'birthdays'>('contacts');
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -71,6 +73,8 @@ export default function Contacts() {
     if (searchParams.get('action') === 'add') {
       openCreate();
     }
+    const q = searchParams.get('search') || searchParams.get('q');
+    setSearch(q || '');
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Contact | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
@@ -115,7 +119,7 @@ export default function Contacts() {
   const [newRelPhone, setNewRelPhone] = useState('');
   const [newRelDob, setNewRelDob] = useState('');
   const [showAddRelForm, setShowAddRelForm] = useState(false);
-  
+
   // Phone Directory import states
   const [dirImportOpen, setDirImportOpen] = useState(false);
   const [dirText, setDirText] = useState('');
@@ -199,7 +203,7 @@ export default function Contacts() {
         res.dependentDetails = parsed.dependentDetails || '';
         res.descriptionDetails = parsed.descriptionDetails || '';
         return res;
-      } catch (e) {}
+      } catch (e) { }
     }
     const lines = notesText.split('\n');
     const cleanLines: string[] = [];
@@ -361,10 +365,10 @@ export default function Contacts() {
     const toastId = toast.loading(isExisting ? 'Updating product interest status...' : 'Saving product interest...');
     try {
       const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-      
+
       let stage = 'OPEN';
       if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
-      else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
+      else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'LOST';
       else stage = card.leadStage;
 
       const serializedNotes = serializeLeadNotes(card);
@@ -467,9 +471,8 @@ export default function Contacts() {
   const { employees, plans: dbPlans } = useLookupStore();
 
   const { data: contactsRes, isLoading: contactsLoading } = useContacts({
-    page,
-    limit: 50,
-    search: search || undefined
+    page: 1,
+    limit: 500,
   });
 
   const { data: birthdayRes, isLoading: birthdayLoading } = useUpcomingBirthdays(30, activeTab === 'birthdays');
@@ -739,7 +742,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -750,7 +753,7 @@ export default function Contacts() {
         const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
         let leadStage = 'TO_CONTACT';
         if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+        else if (lead.stage === 'LOST') leadStage = 'PROCESS_COMPLETED';
         else leadStage = lead.stage;
 
         return {
@@ -1021,10 +1024,10 @@ export default function Contacts() {
       for (const card of productInterests) {
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-        
+
         let stage = 'OPEN';
         if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
-        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
+        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'LOST';
         else stage = card.leadStage;
 
         const serializedNotes = serializeLeadNotes(card);
@@ -1283,7 +1286,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -1294,7 +1297,7 @@ export default function Contacts() {
         const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
         let leadStage = 'TO_CONTACT';
         if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+        else if (lead.stage === 'LOST') leadStage = 'PROCESS_COMPLETED';
         else leadStage = lead.stage;
 
         return {
@@ -1393,6 +1396,28 @@ export default function Contacts() {
         if (!ok) return false;
       }
 
+      // Client-side text search filter
+      if (search && search.trim()) {
+        const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const fullName = `${item.firstName || item.contact?.firstName || ''} ${item.lastName || item.contact?.lastName || ''}`.toLowerCase();
+        const phone = (item.phone || item.contact?.phone || '').toLowerCase();
+        const altPhone = (item.alternatePhone || item.contact?.alternatePhone || '').toLowerCase();
+        const email = (item.email || item.contact?.email || '').toLowerCase();
+        const aadhaar = (item.aadhaarNumber || '').toLowerCase();
+        const pan = (item.panNumber || '').toLowerCase();
+
+        const contactPolicies = policyMap[item.id] || item.policies || [];
+        const policyNoStr = contactPolicies.map((p: any) => `${p.policyNumber || ''} ${p.plan?.name || ''} ${p.plan?.company?.name || ''}`).join(' ').toLowerCase();
+
+        const contactClaims = claimMap[item.id] || item.claims || [];
+        const claimNoStr = contactClaims.map((c: any) => `${c.claimNumber || ''} ${c.policyNumber || ''}`).join(' ').toLowerCase();
+
+        const combinedText = `${fullName} ${phone} ${altPhone} ${email} ${aadhaar} ${pan} ${policyNoStr} ${claimNoStr}`;
+
+        const matchesAll = terms.every(t => combinedText.includes(t));
+        if (!matchesAll) return false;
+      }
+
       const tags = item.tags || item.contact?.tags || [];
       const hasTag = (tag: string) => tags.some((t: string) => t.toLowerCase() === tag.toLowerCase());
 
@@ -1401,7 +1426,7 @@ export default function Contacts() {
       if (activeTab === 'contacts') {
         if (hasTag('contact')) {
           // Keep in contacts tab if explicitly tagged as contact
-        } else if (isCustomer) {
+        } else if (isCustomer && !search.trim()) {
           return false;
         }
         if (selectedFilters.includes('Active') && !item.isActive) return false;
@@ -1884,7 +1909,7 @@ export default function Contacts() {
           <span className={clsx(
             "px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border shadow-2xs",
             diff === 0 ? "bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25 animate-pulse" :
-            diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
+              diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
           )}>
             {diff === 0 ? 'Today! 🎂' : `${diff} days`}
           </span>
@@ -1947,8 +1972,8 @@ export default function Contacts() {
     const cols = activeTab === 'birthdays'
       ? BIRTHDAY_COLS
       : activeTab === 'customers'
-      ? CUSTOMER_COLS
-      : CONTACT_COLS;
+        ? CUSTOMER_COLS
+        : CONTACT_COLS;
     return cols.filter(c => visibleColumns[String(c.key)] !== false);
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
@@ -2009,7 +2034,7 @@ export default function Contacts() {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
         {/* Single Row Layout */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          
+
           {/* Left Side: Search Bar ONLY */}
           <div className="flex items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
@@ -2068,8 +2093,8 @@ export default function Contacts() {
                   {filterProducts.length === 0
                     ? "All Products"
                     : filterProducts.length === 1
-                    ? `Product: ${filterProducts[0]}`
-                    : `${filterProducts.length} Products Selected`}
+                      ? `Product: ${filterProducts[0]}`
+                      : `${filterProducts.length} Products Selected`}
                 </span>
                 <ChevronDown size={14} className={clsx("text-slate-400 transition-transform duration-150", showProductDropdown && "rotate-180")} />
               </button>
@@ -2173,7 +2198,7 @@ export default function Contacts() {
 
             {/* Column Picker Dropdown */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowColPicker(!showColPicker)}
                 className={clsx(
                   "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2205,7 +2230,7 @@ export default function Contacts() {
             </div>
 
             {/* Advanced Filters Toggle Button */}
-            <button 
+            <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={clsx(
                 "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2449,7 +2474,7 @@ export default function Contacts() {
           {/* Right Column: Timelines and Comments History */}
           <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6 flex flex-col">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Consultation Comments Timeline</h3>
-            
+
             <div className="flex-1 max-h-[420px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
               {activityLoading ? (
                 <div className="py-12 flex justify-center items-center text-slate-400 text-xs">
@@ -2473,8 +2498,8 @@ export default function Contacts() {
                         <span className={clsx(
                           'px-1.5 py-0.25 rounded text-[9px] font-bold uppercase tracking-wider',
                           act.action === 'WHATSAPP' ? 'bg-green-100 text-green-700' :
-                          act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
-                          'bg-blue-100 text-blue-700'
+                            act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
                         )}>
                           {act.action}
                         </span>
@@ -2709,12 +2734,12 @@ export default function Contacts() {
                                 value={card.leadStage}
                                 onChange={e => updateProductInterest(card.id, 'leadStage', e.target.value)}
                               >
-                                <option value="TO_CONTACT">To Contact</option>
-                                <option value="CONTACTED">Contacted</option>
-                                <option value="PROPOSAL_SENT">Proposal Sent</option>
-                                <option value="LOGIN_PROGRESS">Login in Progress</option>
-                                <option value="PAYMENT_DONE">Payment Done</option>
-                                <option value="PROCESS_COMPLETED">Process Completed</option>
+                                <option value="TO_CONTACT">TO_CONTACT</option>
+                                <option value="CONTACTED">CONTACTED</option>
+                                <option value="PROPOSAL_SENT">PROPOSAL_SENT</option>
+                                <option value="LOGIN_PROGRESS">LOGIN_PROGRESS</option>
+                                <option value="PAYMENT_DONE">PAYMENT_DONE</option>
+                                <option value="PROCESS_COMPLETED">PROCESS_COMPLETED</option>
                               </select>
                             </div>
                             <div>
@@ -3565,14 +3590,14 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Company</option>
                                       {entry.company && ![
-                                         'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
-                                         'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
-                                         'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
-                                         'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
-                                         'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
-                                       ].includes(entry.company) && (
-                                         <option value={entry.company}>{entry.company}</option>
-                                       )}
+                                        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
+                                        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
+                                        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
+                                        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
+                                        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
+                                      ].includes(entry.company) && (
+                                          <option value={entry.company}>{entry.company}</option>
+                                        )}
                                       <option>Star Health</option>
                                       <option>HDFC Ergo</option>
                                       <option>ICICI Lombard</option>
@@ -3605,11 +3630,11 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Plan</option>
                                       {entry.planName && ![
-                                         'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
-                                         'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
-                                       ].includes(entry.planName) && (
-                                         <option value={entry.planName}>{entry.planName}</option>
-                                       )}
+                                        'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
+                                        'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
+                                      ].includes(entry.planName) && (
+                                          <option value={entry.planName}>{entry.planName}</option>
+                                        )}
                                       {isHealth ? (
                                         <>
                                           <option>Individual</option>
@@ -3827,7 +3852,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'} 
+                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'}
                           {(personalFields.email || loadedContact?.email) ? ` · ${personalFields.email || loadedContact?.email}` : ''}
                         </p>
                       </div>
@@ -3835,7 +3860,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'} 
+                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'}
                           {(personalFields.gender || loadedContact?.gender) ? ` · ${personalFields.gender || loadedContact?.gender}` : ''}
                         </p>
                       </div>
@@ -3843,7 +3868,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'} 
+                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'}
                           {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
                         </p>
                       </div>

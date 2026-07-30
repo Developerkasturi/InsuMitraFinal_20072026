@@ -30,6 +30,11 @@ export class CreateCalendarEventDto {
   isAllDay?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isRecurring?: boolean;
+
+  @IsOptional()
   @IsString()
   description?: string;
 
@@ -63,6 +68,11 @@ export class UpdateCalendarEventDto {
   @IsBoolean()
   @Type(() => Boolean)
   isAllDay?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isRecurring?: boolean;
 
   @IsOptional()
   @IsString()

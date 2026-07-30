@@ -78,25 +78,38 @@ export class LeadsService {
       if (followUpDateTo)   where.followUpDate.lte = new Date(followUpDateTo);
     }
     if (search) {
+      // MongoDB: cannot use { contact: { OR: [...] } } relation filter in WHERE
+      // Pre-fetch matching contactIds and filter by scalar contactId field
       const terms = search.trim().split(/\s+/).filter(Boolean);
+      const contactWhere: any = {
+        tenantId,
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName:  { contains: search, mode: 'insensitive' } },
+          { phone:     { contains: search } },
+        ],
+      };
+      // Multi-word: each word must match firstName or lastName
       if (terms.length > 1) {
-        where.AND = terms.map(term => ({
-          contact: {
-            OR: [
-              { firstName: { contains: term, mode: 'insensitive' } },
-              { lastName:  { contains: term, mode: 'insensitive' } },
-              { phone:     { contains: term } },
-            ],
-          },
-        }));
-      } else {
-        where.contact = {
+        contactWhere.AND = terms.map(term => ({
           OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName:  { contains: search, mode: 'insensitive' } },
-            { phone:     { contains: search } },
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName:  { contains: term, mode: 'insensitive' } },
+            { phone:     { contains: term } },
           ],
-        };
+        }));
+        delete contactWhere.OR;
+      }
+      const matchingContacts = await this.prisma.contact.findMany({
+        where:  contactWhere,
+        select: { id: true },
+      });
+      const contactIds = matchingContacts.map(c => c.id);
+      if (contactIds.length > 0) {
+        where.contactId = { in: contactIds };
+      } else {
+        // No contact match — return empty result
+        where.id = 'NOMATCH';
       }
     }
 

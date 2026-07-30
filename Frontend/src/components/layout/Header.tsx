@@ -1,21 +1,45 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera } from 'lucide-react';
-import { useState } from 'react';
+import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsService, searchService } from '@api/index';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@store/auth.store';
 import { authService } from '@api/auth.service';
 
 import { useDebounce } from '@hooks/useDebounce';
+import { useGlobalSearchStore } from '@store/search.store';
+
+const SECTION_ICONS: Record<string, React.ElementType> = {
+  contacts: Users,
+  policies: Shield,
+  claims: FileText,
+  leads: TrendingUp,
+};
 
 export default function Header({ title }: { title?: string }) {
-  const [query, setQuery]           = useState('');
+  const { globalQuery, setGlobalQuery, clearGlobalQuery } = useGlobalSearchStore();
+  const [query, setQuery]           = useState(globalQuery || '');
   const [showSearch, setShowSearch] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const user                        = useAuthStore(s => s.user);
   const navigate                    = useNavigate();
+  const location                    = useLocation();
+  const [searchParams]              = useSearchParams();
+  const inputRef                    = useRef<HTMLInputElement>(null);
+
+  // Sync header search bar with global store and URL params
+  useEffect(() => {
+    const urlQ = searchParams.get('search') || searchParams.get('q');
+    if (urlQ !== null && urlQ !== undefined) {
+      setQuery(urlQ);
+      setGlobalQuery(urlQ);
+    } else if (globalQuery !== query) {
+      setQuery(globalQuery);
+    }
+  }, [location.pathname, searchParams, globalQuery]);
 
   const debouncedQuery = useDebounce(query.trim(), 300);
+  const shouldSearch = debouncedQuery.length >= 1;
 
   const { data: notifs } = useQuery({
     queryKey: ['notifications', 'unread'],
@@ -25,8 +49,8 @@ export default function Header({ title }: { title?: string }) {
 
   const { data: searchResults, isLoading: isSearchLoading } = useQuery({
     queryKey: ['global-search', debouncedQuery],
-    queryFn:  () => searchService.search(debouncedQuery),
-    enabled:  debouncedQuery.length >= 2,
+    queryFn:  () => searchService.search(debouncedQuery, 'all', 50),
+    enabled:  shouldSearch,
   });
 
   const resultsObj = searchResults?.data?.contacts ? searchResults.data : (searchResults?.data ?? searchResults ?? {});
@@ -72,30 +96,76 @@ export default function Header({ title }: { title?: string }) {
         <div className="relative flex-1 max-w-[420px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors group-focus-within:text-blue-500" />
           <input
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-100 rounded-xl
+            ref={inputRef}
+            className="w-full pl-9 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-100 rounded-xl
                        placeholder-slate-400 outline-none transition-all duration-300
                        hover:bg-slate-100/70 hover:border-slate-200
                        focus:bg-white focus:border-blue-500/70 focus:ring-4 focus:ring-blue-500/5 focus:shadow-[0_0_15px_rgba(59,130,246,0.06)]"
-            placeholder="Search contacts, policies, claims…"
+            placeholder="Search contacts, policies, claims, leads…"
             value={query}
-            onChange={e => { setQuery(e.target.value); setShowSearch(true); }}
+            onChange={e => {
+              const val = e.target.value;
+              setQuery(val);
+              setGlobalQuery(val);
+              setShowSearch(true);
+            }}
             onFocus={() => setShowSearch(true)}
             onBlur={() => setTimeout(() => setShowSearch(false), 250)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && query.trim()) {
+                setShowSearch(false);
+                setGlobalQuery(query.trim());
+                (e.target as HTMLInputElement).blur();
+                const currentSec = location.pathname.split('/')[1];
+                const validSecs = ['contacts', 'policies', 'claims', 'leads'];
+                const targetSec = validSecs.includes(currentSec) ? currentSec : 'contacts';
+                navigate(`/${targetSec}?search=${encodeURIComponent(query.trim())}`);
+              }
+            }}
           />
+          {query && (
+            <button
+              type="button"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-0.5 rounded cursor-pointer"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setQuery('');
+                clearGlobalQuery();
+                setShowSearch(false);
+              }}
+            >
+              ✕
+            </button>
+          )}
 
           {/* Search dropdown */}
-          {showSearch && query.trim().length >= 2 && (
+          {showSearch && shouldSearch && (
             <div className="absolute top-full mt-2.5 w-full min-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
               {isSearchLoading ? (
-                <div className="p-4 text-center text-xs text-slate-400 font-medium">Searching…</div>
+                <div className="p-4 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  Searching…
+                </div>
               ) : hasResults ? (
                 (['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
                   const items = sectionMap[section] ?? [];
                   if (!items.length) return null;
+                  const SectionIcon = SECTION_ICONS[section] || Search;
                   return (
                     <div key={section} className="border-b border-slate-100 last:border-0">
-                      <div className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/70">
-                        {section} ({items.length})
+                      <div
+                        className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/70 flex items-center justify-between cursor-pointer hover:bg-slate-100/80 transition-colors"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setShowSearch(false);
+                          navigate(`/${section}?search=${encodeURIComponent(query)}`);
+                        }}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <SectionIcon size={12} className="text-slate-400" />
+                          <span>{section} ({items.length})</span>
+                        </span>
+                        <span className="text-[10px] text-blue-600 font-semibold normal-case hover:underline">View all →</span>
                       </div>
                       {items.map((item: any) => {
                         const titleText =
@@ -114,28 +184,31 @@ export default function Header({ title }: { title?: string }) {
                         ].filter(Boolean);
 
                         return (
-                          <button
+                          <div
                             key={item.id}
-                            type="button"
-                            className="w-full text-left px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center justify-between gap-3 cursor-pointer"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowSearch(false);
-                              navigate(`/${section}/${item.id}`);
-                            }}
+                            className="w-full px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center justify-between gap-3 group"
                           >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-slate-700 truncate">{titleText}</p>
+                            <button
+                              type="button"
+                              className="min-w-0 flex-1 text-left cursor-pointer focus:outline-none"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setShowSearch(false);
+                                setGlobalQuery(titleText);
+                                navigate(`/${section}?search=${encodeURIComponent(titleText)}`);
+                              }}
+                            >
+                              <p className="font-semibold text-slate-700 truncate group-hover:text-blue-600 transition-colors">{titleText}</p>
                               {subDetails.length > 0 && (
                                 <p className="text-[11px] text-slate-400 truncate">
                                   {subDetails.join(' · ')}
                                 </p>
                               )}
-                            </div>
+                            </button>
                             {item.phone && (
                               <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-1.5 py-0.5 rounded">{item.phone}</span>
                             )}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>

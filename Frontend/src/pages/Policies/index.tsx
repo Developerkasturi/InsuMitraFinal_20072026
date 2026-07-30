@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
+import { useGlobalSearchStore } from '@store/search.store';
 import clsx from 'clsx';
 
 
@@ -151,6 +152,7 @@ export default function Policies() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const globalQuery = useGlobalSearchStore(s => s.globalQuery);
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   const [page, setPage] = useState(1);
@@ -160,13 +162,15 @@ export default function Policies() {
     if (searchParams.get('action') === 'add') {
       setModalOpen(true);
     }
+    const q = searchParams.get('search') || searchParams.get('q');
+    setSearch(q || '');
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Policy | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Policy | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Search & Filter States
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('');
   const [filterProducts, setFilterProducts] = useState<string[]>([]);

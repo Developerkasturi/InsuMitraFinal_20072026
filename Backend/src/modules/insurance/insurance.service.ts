@@ -115,7 +115,7 @@ export class InsuranceService {
         where,
         skip,
         take:    limitNum,
-        orderBy: [{ company: { name: 'asc' } }, { name: 'asc' }],
+        orderBy: { name: 'asc' },
         include: { company: { select: { name: true, shortCode: true, logoUrl: true } } },
       }),
       this.prisma.insurancePlan.count({ where }),

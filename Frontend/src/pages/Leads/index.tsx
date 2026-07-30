@@ -13,53 +13,55 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { contactsService, policiesService, leadsService, employeesService } from '@api/index';
-import toast from 'react-hot-toast';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@store/auth.store';
 import { useLookupStore } from '@store/lookup.store';
+import { useGlobalSearchStore } from '@store/search.store';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 // ── Stage Mappings ────────────────────────────────────────────────────────────
 
 export const STAGE_LABELS: Record<string, string> = {
-  OPEN:           'New',
-  CONTACTED:      'Contacted',
-  PROPOSAL_SENT:  'Proposal Sent',
-  IN_DISCUSSION:  'In Discussion',
-  LOGIN_PROGRESS: 'Login Progress',
-  PAYMENT_DONE:   'Payment Done',
-  LOST:           'Lost',
+  OPEN:           'TO_CONTACT',
+  CONTACTED:      'CONTACTED',
+  PROPOSAL_SENT:  'PROPOSAL_SENT',
+  IN_DISCUSSION:  'IN_DISCUSSION',
+  LOGIN_PROGRESS: 'LOGIN_PROGRESS',
+  PAYMENT_DONE:   'PAYMENT_DONE',
+  LOST:           'PROCESS_COMPLETED',
 };
 
-const UI_STAGES = ['New', 'Contacted', 'Proposal Sent', 'In Discussion', 'Login Progress', 'Payment Done', 'Lost'];
+const UI_STAGES = ['TO_CONTACT', 'CONTACTED', 'PROPOSAL_SENT', 'IN_DISCUSSION', 'LOGIN_PROGRESS', 'PAYMENT_DONE', 'PROCESS_COMPLETED'];
 
 const STAGE_MAPPINGS: Record<string, string> = {
-  'New': 'OPEN',
-  'Contacted': 'CONTACTED',
-  'Proposal Sent': 'PROPOSAL_SENT',
-  'In Discussion': 'IN_DISCUSSION',
-  'Login Progress': 'LOGIN_PROGRESS',
-  'Payment Done': 'PAYMENT_DONE',
-  'Lost': 'LOST',
+  'TO_CONTACT': 'OPEN',
+  'CONTACTED': 'CONTACTED',
+  'PROPOSAL_SENT': 'PROPOSAL_SENT',
+  'IN_DISCUSSION': 'IN_DISCUSSION',
+  'LOGIN_PROGRESS': 'LOGIN_PROGRESS',
+  'PAYMENT_DONE': 'PAYMENT_DONE',
+  'PROCESS_COMPLETED': 'LOST',
 };
 
 const BACKEND_TO_UI: Record<string, string> = {
-  OPEN: 'New',
-  CONTACTED: 'Contacted',
-  PROPOSAL_SENT: 'Proposal Sent',
-  IN_DISCUSSION: 'In Discussion',
-  LOGIN_PROGRESS: 'Login Progress',
-  PAYMENT_DONE: 'Payment Done',
-  LOST: 'Lost',
+  OPEN: 'TO_CONTACT',
+  CONTACTED: 'CONTACTED',
+  PROPOSAL_SENT: 'PROPOSAL_SENT',
+  IN_DISCUSSION: 'IN_DISCUSSION',
+  LOGIN_PROGRESS: 'LOGIN_PROGRESS',
+  PAYMENT_DONE: 'PAYMENT_DONE',
+  LOST: 'PROCESS_COMPLETED',
 };
 
 const STAGE_COLORS: Record<string, string> = {
-  'New': 'bg-blue-50/20 border-blue-100',
-  'Contacted': 'bg-indigo-50/20 border-indigo-100',
-  'Proposal Sent': 'bg-purple-50/20 border-purple-100',
-  'In Discussion': 'bg-amber-50/20 border-amber-100',
-  'Login Progress': 'bg-orange-50/20 border-orange-100',
-  'Payment Done': 'bg-green-50/20 border-green-100',
-  'Lost': 'bg-rose-50/20 border-rose-100',
+  'TO_CONTACT': 'bg-blue-50/20 border-blue-100',
+  'CONTACTED': 'bg-indigo-50/20 border-indigo-100',
+  'PROPOSAL_SENT': 'bg-purple-50/20 border-purple-100',
+  'IN_DISCUSSION': 'bg-amber-50/20 border-amber-100',
+  'LOGIN_PROGRESS': 'bg-orange-50/20 border-orange-100',
+  'PAYMENT_DONE': 'bg-green-50/20 border-green-100',
+  'PROCESS_COMPLETED': 'bg-rose-50/20 border-rose-100',
 };
 
 const BADGE_STYLES: Record<string, string> = {
@@ -142,13 +144,13 @@ const PLAN_CATEGORIES = [
 ];
 
 const ALL_BACKEND_STAGES = [
-  { value: 'OPEN',           label: 'New' },
-  { value: 'CONTACTED',      label: 'Contacted' },
-  { value: 'PROPOSAL_SENT',  label: 'Proposal Sent' },
-  { value: 'IN_DISCUSSION',  label: 'In Discussion' },
-  { value: 'LOGIN_PROGRESS', label: 'Login Progress' },
-  { value: 'PAYMENT_DONE',   label: 'Payment Done' },
-  { value: 'LOST',           label: 'Lost' },
+  { value: 'OPEN',           label: 'TO_CONTACT' },
+  { value: 'CONTACTED',      label: 'CONTACTED' },
+  { value: 'PROPOSAL_SENT',  label: 'PROPOSAL_SENT' },
+  { value: 'IN_DISCUSSION',  label: 'IN_DISCUSSION' },
+  { value: 'LOGIN_PROGRESS', label: 'LOGIN_PROGRESS' },
+  { value: 'PAYMENT_DONE',   label: 'PAYMENT_DONE' },
+  { value: 'LOST',           label: 'PROCESS_COMPLETED' },
 ];
 
 const LEAD_STATUS_OPTIONS = [
@@ -159,11 +161,10 @@ const LEAD_STATUS_OPTIONS = [
   { value: 'VERY_HOT',       label: 'Very Hot' },
 ];
 
-import { useSearchParams } from 'react-router-dom';
-
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Leads() {
   const [searchParams] = useSearchParams();
+  const globalQuery = useGlobalSearchStore(s => s.globalQuery);
   const [viewMode, setViewMode] = useState<'board' | 'table'>('board');
   const [showFilters, setShowFilters] = useState(false);
   const [createInitialStage, setCreateInitialStage] = useState<string>('OPEN');
@@ -174,7 +175,7 @@ export default function Leads() {
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
-  const [search, setSearch]                 = useState('');
+  const [search, setSearch]                 = useState(searchParams.get('search') || searchParams.get('q') || '');
 
   const [planFilterOpen, setPlanFilterOpen]     = useState(false);
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
@@ -199,6 +200,8 @@ export default function Leads() {
     if (searchParams.get('action') === 'add') {
       openCreate();
     }
+    const q = searchParams.get('search') || searchParams.get('q');
+    setSearch(q || '');
   }, [searchParams]);
   const [editTarget, setEditTarget]     = useState<any | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -445,7 +448,7 @@ export default function Leads() {
     const flat: any[] = [];
     Object.keys(rawData).forEach(backendStage => {
       (rawData[backendStage] || []).forEach((card: any) => {
-        flat.push({ ...card, uiStage: BACKEND_TO_UI[card.stage] || 'New' });
+        flat.push({ ...card, uiStage: BACKEND_TO_UI[card.stage] || 'TO_CONTACT' });
       });
     });
     return flat;
@@ -453,10 +456,21 @@ export default function Leads() {
 
   // Client-side filter
   const filteredLeads = useMemo(() => {
-    const sTerm = search.toLowerCase();
+    const sTerm = search.toLowerCase().trim();
+    const terms = sTerm.split(/\s+/).filter(Boolean);
+
     return leadsFlat.filter(lead => {
-      const fullName = `${lead.contact?.firstName || ''} ${lead.contact?.lastName || ''}`.toLowerCase();
-      if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm)) return false;
+      if (terms.length > 0) {
+        const fullName = `${lead.contact?.firstName || lead.contactFirstName || ''} ${lead.contact?.lastName || lead.contactLastName || ''}`.toLowerCase();
+        const phone = (lead.contact?.phone || lead.contactPhone || '').toLowerCase();
+        const interests = (lead.interests || []).join(' ').toLowerCase();
+        const planName = (lead.plan?.name || lead.planName || '').toLowerCase();
+        const companyName = (lead.plan?.company?.name || lead.companyName || '').toLowerCase();
+        const combinedText = `${fullName} ${phone} ${interests} ${planName} ${companyName}`;
+
+        const matchesAll = terms.every(t => combinedText.includes(t));
+        if (!matchesAll) return false;
+      }
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
       if (filterEmployee && lead.assignedEmployeeId !== filterEmployee) return false;
       if (filterStatuses.length > 0) {
@@ -744,7 +758,7 @@ export default function Leads() {
         
         let stage = 'OPEN';
         if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
-        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
+        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'LOST';
         else stage = card.leadStage;
 
         const serializedNotes = serializeLeadNotes(card);
@@ -978,7 +992,7 @@ export default function Leads() {
         const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
         let leadStage = 'TO_CONTACT';
         if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+        else if (lead.stage === 'LOST') leadStage = 'PROCESS_COMPLETED';
         else leadStage = lead.stage;
 
         return {
@@ -1152,7 +1166,7 @@ export default function Leads() {
           const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
           let leadStage = 'TO_CONTACT';
           if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-          else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+          else if (lead.stage === 'LOST') leadStage = 'PROCESS_COMPLETED';
           else leadStage = lead.stage;
 
           return {
@@ -1576,13 +1590,13 @@ export default function Leads() {
                 <div className="flex items-center justify-between mb-3 px-2 py-1 select-none">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={clsx('h-2 w-2 rounded-full shrink-0',
-                      stage === 'New' && 'bg-blue-500',
-                      stage === 'Contacted' && 'bg-indigo-500',
-                      stage === 'Proposal Sent' && 'bg-purple-500',
-                      stage === 'In Discussion' && 'bg-amber-500',
-                      stage === 'Login Progress' && 'bg-orange-500',
-                      stage === 'Payment Done' && 'bg-emerald-500',
-                      stage === 'Lost' && 'bg-rose-500'
+                      stage === 'TO_CONTACT' && 'bg-blue-500',
+                      stage === 'CONTACTED' && 'bg-indigo-500',
+                      stage === 'PROPOSAL_SENT' && 'bg-purple-500',
+                      stage === 'IN_DISCUSSION' && 'bg-amber-500',
+                      stage === 'LOGIN_PROGRESS' && 'bg-orange-500',
+                      stage === 'PAYMENT_DONE' && 'bg-emerald-500',
+                      stage === 'PROCESS_COMPLETED' && 'bg-rose-500'
                     )} />
                     <span className="text-sm font-bold text-slate-800 truncate">{stage}</span>
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1.5 py-0.5 rounded-md shrink-0">{cards.length}</span>
@@ -1918,12 +1932,12 @@ export default function Leads() {
                                 value={card.leadStage}
                                 onChange={e => updateProductInterest(card.id, 'leadStage', e.target.value)}
                               >
-                                <option value="TO_CONTACT">To Contact</option>
-                                <option value="CONTACTED">Contacted</option>
-                                <option value="PROPOSAL_SENT">Proposal Sent</option>
-                                <option value="LOGIN_PROGRESS">Login in Progress</option>
-                                <option value="PAYMENT_DONE">Payment Done</option>
-                                <option value="PROCESS_COMPLETED">Process Completed</option>
+                                <option value="TO_CONTACT">TO_CONTACT</option>
+                                <option value="CONTACTED">CONTACTED</option>
+                                <option value="PROPOSAL_SENT">PROPOSAL_SENT</option>
+                                <option value="LOGIN_PROGRESS">LOGIN_PROGRESS</option>
+                                <option value="PAYMENT_DONE">PAYMENT_DONE</option>
+                                <option value="PROCESS_COMPLETED">PROCESS_COMPLETED</option>
                               </select>
                             </div>
                             <div>
@@ -3627,13 +3641,13 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit }:
           </div>
 
           <div className="border-t border-gray-100 pt-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Mark as Lost</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">PROCESS_COMPLETED</p>
             <button
               onClick={() => handleStageChange('LOST')}
               disabled={fullLead.stage === 'LOST' || moveStage.isPending}
               className="text-xs px-3 py-1.5 rounded-full font-medium border bg-red-50 text-red-600 border-red-200 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              Mark as Lost
+              PROCESS_COMPLETED
             </button>
           </div>
         </div>

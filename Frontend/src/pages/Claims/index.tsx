@@ -17,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useLookupStore } from '@store/lookup.store';
+import { useGlobalSearchStore } from '@store/search.store';
 import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -428,6 +429,7 @@ export default function Claims() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const globalQuery = useGlobalSearchStore(s => s.globalQuery);
   const qc = useQueryClient();
   const { user: authUser } = useAuthStore();
   const [page, setPage] = useState(1);
@@ -437,6 +439,8 @@ export default function Claims() {
     if (searchParams.get('action') === 'add') {
       setModalOpen(true);
     }
+    const q = searchParams.get('search') || searchParams.get('q');
+    setSearch(q || '');
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Claim | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Claim | null>(null);
@@ -453,7 +457,7 @@ export default function Claims() {
   const rawClaims = claimsRes?.data ?? [];
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'In Progress' | 'Approved' | 'Rejected' | 'Settled'>('All');
 
   // Advanced Filters

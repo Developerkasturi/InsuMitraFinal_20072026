@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { calendarService, contactsService, policiesService, leadsService } from '@api/index';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Tag, Cake, Users, RefreshCw, Zap, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Tag, Cake, Users, RefreshCw, CalendarDays } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -239,6 +239,7 @@ export default function Calendar() {
     editSetValue('title', ev.title);
     editSetValue('eventType', ev.eventType ?? 'OTHER');
     editSetValue('isAllDay', ev.isAllDay ?? false);
+    editSetValue('isRecurring', ev.isRecurring ?? false);
     editSetValue('startAt', (ev.startAt ?? ev.startTime)?.slice(0, 16));
     editSetValue('endAt',   (ev.endAt   ?? ev.endTime)?.slice(0, 16)   ?? '');
     editSetValue('description', ev.description ?? '');
@@ -271,29 +272,6 @@ export default function Calendar() {
     setSelectedDate(today);
   };
 
-  // Quick templates addition mutation
-  const quickAddMutation = useMutation({
-    mutationFn: calendarService.create,
-    onSuccess: () => { void invalidateAgendaQueries(); toast.success('Quick event added!'); },
-    onError: () => toast.error('Failed to add quick event'),
-  });
-
-  const handleQuickAdd = (template: string) => {
-    const startAt = new Date(selectedDate);
-    startAt.setHours(9, 0, 0, 0);
-    const endAt = new Date(selectedDate);
-    endAt.setHours(10, 0, 0, 0);
-
-    const body = {
-      title: template,
-      eventType: template === 'Monthly Rent Payment' ? 'PAYMENT_DUE' : (template === 'Client Review Session' ? 'MEETING' : 'FOLLOWUP'),
-      isAllDay: false,
-      startAt: startAt.toISOString(),
-      endAt: endAt.toISOString(),
-      description: `Quick added frequent event for ${template}`,
-    };
-    quickAddMutation.mutate(body);
-  };
 
   const EventFormFields = ({ reg }: { reg: any }) => (
     <div className="space-y-4">
@@ -310,10 +288,14 @@ export default function Calendar() {
             ))}
           </select>
         </div>
-        <div className="flex items-end pb-2">
+        <div className="flex items-end pb-2 gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input {...reg('isAllDay')} type="checkbox" className="rounded accent-blue-600" />
             <span className="text-sm text-gray-600 font-medium">All Day</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input {...reg('isRecurring')} type="checkbox" className="rounded accent-blue-600" />
+            <span className="text-sm text-gray-600 font-medium">Recurring</span>
           </label>
         </div>
         <div>
@@ -491,13 +473,16 @@ export default function Calendar() {
               });
               const today = isToday(day);
               const isSelected = isSameDay(day, selectedDate);
+              const isMonthView = viewMode === 'month';
+              const displayedEvents = isMonthView ? dayEvents.slice(0, 3) : dayEvents;
 
               return (
                 <div
                   key={day.toISOString()}
                   onClick={() => setSelectedDate(day)}
                   className={clsx(
-                    'min-h-[110px] border-b border-r border-slate-100 p-2 transition-all cursor-pointer group',
+                    isMonthView ? 'min-h-[110px]' : 'min-h-[120px]',
+                    'border-b border-r border-slate-100 p-2 transition-all cursor-pointer group',
                     today
                       ? 'bg-gradient-to-br from-blue-50/80 to-indigo-50/60'
                       : isSelected
@@ -508,7 +493,7 @@ export default function Calendar() {
                   )}
                 >
                   {/* Day number */}
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-1.5 flex items-center justify-between">
                     <span
                       className={clsx(
                         'inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-extrabold transition-all',
@@ -527,20 +512,26 @@ export default function Calendar() {
                   </div>
 
                   {/* Events */}
-                  <div className="space-y-0.5">
-                    {dayEvents.slice(0, 3).map(e => (
+                  <div className={clsx(
+                    'space-y-1',
+                    isMonthView ? 'space-y-0.5' : 'space-y-1'
+                  )}>
+                    {displayedEvents.map(e => (
                       <button
                         key={e.id}
                         onClick={(ev) => { ev.stopPropagation(); setViewTarget(e); }}
                         className={clsx(
-                          'w-full text-left flex items-center gap-1 rounded-md px-1.5 py-[3px] text-[9px] font-semibold text-white truncate transition-all hover:scale-[1.02] hover:shadow-sm',
+                          'w-full text-left flex items-center transition-all hover:scale-[1.01] hover:shadow-sm rounded-lg text-white font-semibold',
+                          isMonthView
+                            ? 'px-1.5 py-[3px] text-[9px] truncate'
+                            : 'px-2 py-1.5 text-[11px] truncate',
                           `bg-gradient-to-r ${EVENT_GRADIENT[e.eventType] ?? 'from-slate-400 to-slate-500'}`
                         )}
                       >
-                        <span className="truncate">{e.title}</span>
+                        <span className="truncate w-full">{e.title}</span>
                       </button>
                     ))}
-                    {dayEvents.length > 3 && (
+                    {isMonthView && dayEvents.length > 3 && (
                       <button
                         onClick={(ev) => { ev.stopPropagation(); setOverflowDay({ date: day, events: dayEvents }); }}
                         className="text-[8px] text-blue-500 font-bold px-1.5 py-0.5 hover:text-blue-700 hover:bg-blue-50 w-full text-left rounded transition-colors"
@@ -557,34 +548,6 @@ export default function Calendar() {
 
         {/* ── Right Sidebar ──────────────────────────────────────────────────── */}
         <div className="space-y-4">
-
-          {/* Quick Templates card */}
-          <div className="rounded-2xl border border-slate-100 shadow-sm bg-white overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-gradient-to-r from-slate-50 to-white">
-              <Zap size={13} className="text-amber-500" />
-              <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">Quick Templates</h3>
-            </div>
-            <div className="p-3 flex flex-col gap-2">
-              {[
-                { label: 'Monthly Rent Payment', badge: 'Bills', badgeCls: 'bg-red-100 text-red-700', icon: '💸' },
-                { label: 'Client Review Session', badge: 'Meeting', badgeCls: 'bg-violet-100 text-violet-700', icon: '🤝' },
-                { label: 'Utility Bill Payment', badge: 'Bills', badgeCls: 'bg-amber-100 text-amber-700', icon: '⚡' },
-              ].map(({ label, badge, badgeCls, icon }) => (
-                <button
-                  key={label}
-                  onClick={() => handleQuickAdd(label)}
-                  className="group w-full text-left py-2.5 px-3 text-xs bg-slate-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 text-slate-700 font-semibold border border-slate-200/80 hover:border-blue-200 rounded-xl transition-all flex items-center justify-between gap-2 shadow-sm hover:shadow-md hover:-translate-y-px"
-                >
-                  <span className="flex items-center gap-2">
-                    <span>{icon}</span>
-                    <span className="truncate">{label}</span>
-                  </span>
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold shrink-0 ${badgeCls}`}>{badge}</span>
-                </button>
-              ))}
-              <p className="text-[9px] text-slate-400 px-1 pt-1">Adds to selected date at 9:00 AM</p>
-            </div>
-          </div>
 
           {/* Agenda card */}
           <div className="rounded-2xl border border-slate-100 shadow-sm bg-white overflow-hidden">

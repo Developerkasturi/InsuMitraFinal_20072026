@@ -36,32 +36,33 @@ export class PoliciesService {
       if (nextDueDateTo)   where.nextDueDate.lte = new Date(nextDueDateTo);
     }
     if (search) {
+      // MongoDB: cannot filter through relations in WHERE; pre-fetch matching contactIds
+      const matchingContacts = await this.prisma.contact.findMany({
+        where: {
+          tenantId,
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName:  { contains: search, mode: 'insensitive' } },
+            { phone:     { contains: search } },
+          ],
+        },
+        select: { id: true },
+      });
+      const contactIds = matchingContacts.map(c => c.id);
       where.OR = [
         { policyNumber: { contains: search, mode: 'insensitive' } },
-        { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-        { contact: { lastName:  { contains: search, mode: 'insensitive' } } },
-        { contact: { phone:     { contains: search } } },
+        ...(contactIds.length > 0 ? [{ contactId: { in: contactIds } }] : []),
       ];
     }
 
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
+    // MongoDB: orderBy through relations (contact.firstName, plan.name) not supported
+    // Fall back to scalar fields only
     let orderBy: any = { createdAt: orderDir };
-
-    if (sortBy) {
-      if (sortBy === 'contact.firstName') {
-        orderBy = { contact: { firstName: orderDir } };
-      } else if (sortBy === 'plan.name') {
-        orderBy = { plan: { name: orderDir } };
-      } else if (sortBy === 'plan.company.name') {
-        orderBy = { plan: { company: { name: orderDir } } };
-      } else if (sortBy === 'plan.category') {
-        orderBy = { plan: { category: orderDir } };
-      } else if (sortBy === 'assignedEmployee.employeeProfile.firstName') {
-        orderBy = { assignedEmployee: { employeeProfile: { firstName: orderDir } } };
-      } else {
-        orderBy = { [sortBy]: orderDir };
-      }
+    if (sortBy && !sortBy.includes('.')) {
+      orderBy = { [sortBy]: orderDir };
     }
+    // relation-based sorts (contact.firstName, plan.name, etc.) silently fall back to createdAt
 
     const [data, total] = await Promise.all([
       this.prisma.policy.findMany({
@@ -84,10 +85,10 @@ export class PoliciesService {
   async listInsurancePlans(tenantId: string, search?: string) {
     const where: any = { tenantId, isActive: true };
     if (search) {
+      // MongoDB: cannot use { company: { name: ... } } relation filter; match on scalar fields only
       where.OR = [
         { name:     { contains: search, mode: 'insensitive' } },
         { planCode: { contains: search, mode: 'insensitive' } },
-        { company:  { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
     const plans = await this.prisma.insurancePlan.findMany({

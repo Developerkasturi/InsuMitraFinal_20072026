@@ -25,7 +25,7 @@ export class ContactsRepository {
     } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId, isActive, relatedTo: { none: {} } };
+    const where: any = { tenantId, isActive };
 
     if (search) {
       const terms = search.trim().split(/\s+/).filter(Boolean);
@@ -341,24 +341,26 @@ export class ContactsRepository {
   // ── Stats ──────────────────────────────────────────────────────────────────
 
   async countByTenant(tenantId: string) {
-    return this.prisma.contact.count({ where: { tenantId, isActive: true, relatedTo: { none: {} } } });
+    return this.prisma.contact.count({ where: { tenantId, isActive: true } });
   }
 
   async getStats(tenantId: string) {
     const today        = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const [total, addedThisMonth, byGender] = await Promise.all([
-      this.prisma.contact.count({ where: { tenantId, isActive: true, relatedTo: { none: {} } } }),
-      this.prisma.contact.count({
-        where: { tenantId, isActive: true, createdAt: { gte: startOfMonth }, relatedTo: { none: {} } },
-      }),
-      this.prisma.contact.groupBy({
-        by:     ['gender'],
-        where:  { tenantId, isActive: true, relatedTo: { none: {} } },
-        _count: true,
-      }),
-    ]);
+    const contacts = await this.prisma.contact.findMany({
+      where:  { tenantId, isActive: true },
+      select: { gender: true, createdAt: true },
+    });
+    const total = contacts.length;
+    const addedThisMonth = contacts.filter(c => c.createdAt >= startOfMonth).length;
+    // Group by gender in-memory (MongoDB Prisma does not support groupBy)
+    const genderMap = new Map<string, number>();
+    for (const c of contacts) {
+      const g = c.gender ?? 'UNKNOWN';
+      genderMap.set(g, (genderMap.get(g) ?? 0) + 1);
+    }
+    const byGender = Array.from(genderMap.entries()).map(([gender, _count]) => ({ gender, _count }));
 
     return { total, addedThisMonth, byGender };
   }
@@ -366,7 +368,7 @@ export class ContactsRepository {
   async upcomingBirthdays(tenantId: string, days = 30) {
     const today    = new Date();
     const contacts = await this.prisma.contact.findMany({
-      where:  { tenantId, isActive: true, dateOfBirth: { not: null }, relatedTo: { none: {} } },
+      where:  { tenantId, isActive: true, dateOfBirth: { not: null } },
       select: { id: true, firstName: true, lastName: true, phone: true, email: true, dateOfBirth: true },
     });
 
@@ -382,7 +384,7 @@ export class ContactsRepository {
 
   async recentContacts(tenantId: string, limit = 5) {
     return this.prisma.contact.findMany({
-      where:   { tenantId, isActive: true, relatedTo: { none: {} } },
+      where:   { tenantId, isActive: true },
       orderBy: { createdAt: 'desc' },
       take:    limit,
       select:  { id: true, firstName: true, lastName: true, phone: true, createdAt: true },

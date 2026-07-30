@@ -21,7 +21,6 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/policies',     label: 'Policies',     Icon: Shield,          feature: 'policies' },
   { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
   { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
-  { to: '/search',       label: 'Search',       Icon: Search },
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
   { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
@@ -32,7 +31,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
 ];
 
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
-const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/search', '/whatsapp', '/operations'];
+const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
 const MGMT_ROUTES     = ['/employees', '/commissions', '/deletion-requests', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {

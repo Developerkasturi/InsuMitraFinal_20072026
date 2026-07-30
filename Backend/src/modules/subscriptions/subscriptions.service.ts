@@ -26,34 +26,7 @@ export class SubscriptionsService {
       include: { plan: true },
       orderBy: { createdAt: 'desc' },
     });
-
-    // Return a Free plan stub instead of throwing — lets the frontend
-    // render without erroring when a tenant has no paid subscription yet.
-    if (!sub) {
-      return {
-        data: {
-          id:        null,
-          tenantId,
-          status:    SubscriptionStatus.TRIAL,
-          planId:    null,
-          startDate: null,
-          endDate:   null,
-          createdAt: null,
-          updatedAt: null,
-          plan: {
-            id:           null,
-            name:         'Free',
-            priceMonthly: 0,
-            priceYearly:  0,
-            maxContacts:  100,
-            maxUsers:     1,
-            features:     {},
-            isActive:     true,
-          },
-        },
-      };
-    }
-
+    if (!sub) throw new NotFoundException('No active subscription found');
     return { data: sub };
   }
 
