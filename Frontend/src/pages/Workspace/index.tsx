@@ -20,6 +20,7 @@ import {
   Filter, Check, AlertCircle, LayoutDashboard, ArrowRight, Lock, MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { DatePicker } from '@comps/common/DatePicker';
 import toast from 'react-hot-toast';
 
 function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
@@ -33,6 +34,17 @@ function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
 }
 
 type TabType = 'overview' | 'tasks' | 'daily_log' | 'targets';
+
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
+};
 
 export default function Workspace() {
   const user = useAuthStore(s => s.user);
@@ -532,7 +544,7 @@ export default function Workspace() {
                     <tbody className="divide-y divide-gray-100 text-xs">
                       {recentLogs.slice(0, 5).map((log: any, i: number) => (
                         <tr key={i} className="text-gray-700 hover:bg-gray-50/50">
-                          <td className="py-3 px-2 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd MMM yyyy')}</td>
+                          <td className="py-3 px-2 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd/MMM/yyyy')}</td>
                           <td className="py-3 px-2">
                             {log.checkIn ? (
                               <span className="text-green-600 font-medium">
@@ -794,19 +806,17 @@ export default function Workspace() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Start Date</label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={taskStartDate}
-                      onChange={(e) => setTaskStartDate(e.target.value)}
+                      onDateChange={setTaskStartDate}
                       className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Target Date</label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={taskDueDate}
-                      onChange={(e) => setTaskDueDate(e.target.value)}
+                      onDateChange={setTaskDueDate}
                       className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white"
                     />
                   </div>
@@ -931,12 +941,12 @@ export default function Workspace() {
                             </span>
                           </td>
                           <td className="py-4 px-3 text-gray-600">
-                            {task.startDate ? format(new Date(task.startDate), 'dd MMM yyyy') : '—'}
+                            {task.startDate ? format(new Date(task.startDate), 'dd/MMM/yyyy') : '—'}
                           </td>
                           <td className="py-4 px-3 text-gray-600">
                             {task.dueDate ? (
                               <span className="flex flex-col">
-                                <span>{format(new Date(task.dueDate), 'dd MMM yyyy')}</span>
+                                <span>{format(new Date(task.dueDate), 'dd/MMM/yyyy')}</span>
                                 {task.targetTime && <span className="text-[10px] text-gray-400">{task.targetTime}</span>}
                               </span>
                             ) : (
@@ -1144,7 +1154,7 @@ export default function Workspace() {
                   <tbody className="divide-y divide-gray-100 text-xs">
                     {recentLogs.map((log: any, i: number) => (
                       <tr key={i} className="text-gray-700 hover:bg-gray-50/50">
-                        <td className="py-3 px-3 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd MMM yyyy')}</td>
+                        <td className="py-3 px-3 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd/MMM/yyyy')}</td>
                         <td className="py-3 px-3">
                           {log.checkIn ? (
                             <span className="text-green-600 font-medium">
@@ -1345,7 +1355,7 @@ export default function Workspace() {
                               </span>
                             </td>
                             <td className="py-3 px-3 text-gray-500">
-                              {c.paidAt ? format(new Date(c.paidAt), 'dd MMM yyyy') : '—'}
+                              {c.paidAt ? format(new Date(c.paidAt), 'dd/MMM/yyyy') : '—'}
                             </td>
                           </tr>
                         ))}

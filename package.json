@@ -1,0 +1,14 @@
+{
+  "name": "insumitra-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run --prefix Frontend dev",
+    "dev:frontend": "npm run --prefix Frontend dev",
+    "dev:backend": "npm run --prefix Backend start:dev",
+    "start": "powershell -File start-project.ps1"
+  },
+  "dependencies": {
+    "react-phone-input-2": "^2.15.1"
+  }
+}

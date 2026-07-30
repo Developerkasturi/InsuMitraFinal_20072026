@@ -76,7 +76,7 @@ export class LeadsService {
               planId: pol.planId,
               assignedEmployeeId: pol.assignedEmployeeId,
               source: 'Renewal',
-              stage: 'OPEN',
+              stage: 'TO_CONTACT',
               interests: [interestName],
               premiumBudget: pol.premiumAmount,
               sumAssuredRequired: pol.sumAssured,
@@ -117,14 +117,11 @@ export class LeadsService {
     // Group stage → leads for the Kanban board
     const board: Record<LeadStage, typeof leads> = {
       TO_CONTACT:        [],
-      OPEN:              [],
       CONTACTED:         [],
       PROPOSAL_SENT:     [],
-      IN_DISCUSSION:     [],
       LOGIN_PROGRESS:    [],
       PAYMENT_DONE:      [],
       PROCESS_COMPLETED: [],
-      LOST:              [],
     };
 
     leads.forEach((lead) => {
@@ -269,7 +266,7 @@ export class LeadsService {
         }
 
         const activeLead = existingLeads.find(l => {
-          if (l.stage === 'LOST' || l.stage === 'PAYMENT_DONE') return false;
+          if (l.stage === 'PROCESS_COMPLETED' || l.stage === 'PAYMENT_DONE') return false;
 
           let leadStatus = 'INTERESTED';
           const lNotes = l.notes || '';
@@ -630,7 +627,7 @@ export class LeadsService {
             tenantId,
             contactId: contact.id,
             planId,
-            stage: (row.stage || 'OPEN') as any,
+            stage: (row.stage || 'TO_CONTACT') as any,
             notes: row.notes || '',
             // Auto-assign to the importing employee so the lead appears in their list
             ...(role === UserRole.EMPLOYEE ? { assignedEmployeeId: createdById } : {}),

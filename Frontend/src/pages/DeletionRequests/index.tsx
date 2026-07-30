@@ -107,7 +107,7 @@ export default function DeletionRequests() {
       render: (row: any) => (
         <div className="text-sm text-gray-600 flex items-center gap-1.5">
           <CalendarIcon size={14} className="text-gray-400" />
-          {format(new Date(row.createdAt), 'dd MMM yyyy, HH:mm')}
+          {format(new Date(row.createdAt), 'dd/MMM/yyyy, HH:mm')}
         </div>
       )
     },

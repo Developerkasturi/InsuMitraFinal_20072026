@@ -28,7 +28,8 @@ export class ContactsRepository {
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { tenantId, isActive, relatedTo: { none: {} } };
+    const isActiveBool = isActive === false || (isActive as any) === 'false' ? false : true;
+    const where: any = { tenantId, isActive: isActiveBool, relatedTo: { none: {} } };
 
     if (search) {
       where.OR = [

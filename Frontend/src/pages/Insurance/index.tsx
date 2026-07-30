@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
+import { DatePicker } from '@comps/common/DatePicker';
 import { useUiSettingsStore, FONT_SIZE_MAP, type FontSizeLevel } from '@store/ui-settings.store';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -43,11 +44,17 @@ type PlanForm = z.infer<typeof planSchema>;
 const CATEGORIES = ['LIFE', 'HEALTH', 'MOTOR', 'TRAVEL', 'HOME', 'FIRE', 'MARINE', 'TERM', 'ULIP', 'PENSION', 'OTHER'];
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
-/** Format a date string to DD/MM/YYYY, or return '' if empty. */
 function fmtDate(v: any): string {
   if (!v) return '';
-  try { return new Date(v).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-  catch { return String(v); }
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day}/${months[d.getMonth()]}/${d.getFullYear()}`;
+  } catch {
+    return String(v);
+  }
 }
 /** Format a number as Indian currency string (no ₹ symbol — plain number for Excel). */
 function fmtNum(v: any): string {
@@ -271,11 +278,11 @@ function BulkExportPanel() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Date From</label>
-            <input type="date" className="input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            <DatePicker className="input" value={dateFrom} onChange={setDateFrom} />
           </div>
           <div>
             <label className="label">Date To</label>
-            <input type="date" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            <DatePicker className="input" value={dateTo} onChange={setDateTo} />
           </div>
           {entity !== 'contacts' && (
             <div className="col-span-2">

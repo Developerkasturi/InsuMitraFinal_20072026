@@ -42,14 +42,11 @@ enum RelationshipType {
 
 enum LeadStage {
   TO_CONTACT
-  OPEN
   CONTACTED
   PROPOSAL_SENT
-  IN_DISCUSSION
   LOGIN_PROGRESS
   PAYMENT_DONE
   PROCESS_COMPLETED
-  LOST
 }
 
 enum TaskPriority {
@@ -534,7 +531,7 @@ model ProductInterest {
   assignedEmployeeId String?   @map("assigned_employee_id") @db.ObjectId
   source String?
   interests String[] @default([])
-  stage                LeadStage @default(OPEN)
+  stage                LeadStage @default(TO_CONTACT)
   sumAssuredRequired   Float?  @map("sum_assured_required")
   premiumBudget        Float?  @map("premium_budget")
   followUpDate         DateTime? @map("follow_up_date")

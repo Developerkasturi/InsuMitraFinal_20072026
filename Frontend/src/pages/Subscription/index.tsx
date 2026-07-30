@@ -176,6 +176,19 @@ function FeedbackForm() {
 }
 
 /* ─── Main Subscription Page ─────────────────────────────────────────────────── */
+const fmtDate = (v: any) => {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day}/${months[d.getMonth()]}/${d.getFullYear()}`;
+  } catch {
+    return '';
+  }
+};
+
 export default function Subscription() {
   const qc       = useQueryClient();
   const user     = useAuthStore(s => s.user);
@@ -231,7 +244,7 @@ export default function Subscription() {
             <p className="text-sm text-gray-500 mt-0.5">
               Current plan: <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${PLAN_BADGE_COLORS[currentPlanName] ?? 'bg-gray-100 text-gray-700'}`}>{currentPlanName}</span>
               {' '}· Status: <span className="capitalize">{current.status?.toLowerCase()}</span>
-              {current.endDate && <span className="text-gray-400"> · Renews {new Date(current.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>}
+               {current.endDate && <span className="text-gray-400"> · Renews {fmtDate(current.endDate)}</span>}
             </p>
           )}
         </div>
@@ -385,7 +398,7 @@ export default function Subscription() {
               <tbody className="divide-y divide-gray-100">
                 {billing.map((b: any) => (
                   <tr key={b.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-700">{new Date(b.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                     <td className="px-4 py-3 text-gray-700">{fmtDate(b.createdAt)}</td>
                     <td className="px-4 py-3 text-gray-700">{b.subscription?.plan?.name ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-700 font-medium">₹{Number(b.amount ?? 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3">

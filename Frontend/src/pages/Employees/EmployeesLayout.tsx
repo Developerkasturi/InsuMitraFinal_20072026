@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import clsx from 'clsx';
+import { DatePicker } from '@comps/common/DatePicker';
 
 // ─── Shared Employee type (re-exported so sub-pages can import it) ────────────
 export interface Employee {
@@ -366,11 +367,11 @@ export default function EmployeesLayout() {
             </div>
             <div>
               <label className="label">Date of Joining</label>
-              <input {...register('dateOfJoining')} type="date" className="input" />
+              <DatePicker {...register('dateOfJoining')} className="input" />
             </div>
             <div>
               <label className="label">Date of Birth</label>
-              <input {...register('dateOfBirth')} type="date" className="input" />
+              <DatePicker {...register('dateOfBirth')} className="input" />
             </div>
             <div>
               <label className="label">Base Salary (₹)</label>
