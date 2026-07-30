@@ -19,6 +19,19 @@ function StatCard({
   );
 }
 
+const fmtDate = (v: any) => {
+  if (!v) return '';
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day}/${months[d.getMonth()]}/${d.getFullYear()}`;
+  } catch {
+    return '';
+  }
+};
+
 export default function SuperAdminDashboard() {
   const admin = useSuperAdminStore(s => s.admin);
 
@@ -141,7 +154,7 @@ export default function SuperAdminDashboard() {
                     <p className="text-sm text-gray-700 leading-relaxed">{fb.message}</p>
                   </div>
                   <span className="text-[10px] text-gray-400 shrink-0 mt-1">
-                    {new Date(fb.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {fmtDate(fb.createdAt)}
                   </span>
                 </div>
               </div>

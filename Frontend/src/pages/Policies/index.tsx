@@ -11,6 +11,18 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
+import { DatePicker } from '@comps/common/DatePicker';
+
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
+};
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import clsx from 'clsx';
@@ -465,8 +477,12 @@ export default function Policies() {
   });
   const watchEditEmiCase = watchEdit('emiCase');
   const watchEditPhcRequired = watchEdit('phcRequired');
+  const watchEditEndDate = watchEdit('endDate');
+  const watchEditNextDueDate = watchEdit('nextDueDate');
+  const watchEditMaturityDate = watchEdit('maturityDate');
 
   const watchStartDate = watch('startDate');
+  const watchEndDate = watch('endDate');
   const watchEmiCase = watch('emiCase');
   const watchPhcRequired = watch('phcRequired');
   const [durationYears, setDurationYears] = useState<number>(1);
@@ -1039,38 +1055,36 @@ export default function Policies() {
           {/* Policy Duration Date range */}
           <div>
             <label className="label">Duration Start Date</label>
-            <input
-              type="date"
+            <DatePicker
               className="input text-xs"
               value={durationFrom}
-              onChange={e => { setDurationFrom(e.target.value); setPage(1); }}
+              onChange={val => { setDurationFrom(val); setPage(1); }}
             />
           </div>
           <div>
             <label className="label">Duration End Date</label>
-            <input
-              type="date"
+            <DatePicker
               className="input text-xs"
               value={durationTo}
-              onChange={e => { setDurationTo(e.target.value); setPage(1); }}
+              onChange={val => { setDurationTo(val); setPage(1); }}
             />
           </div>
 
-          <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-4">
+          <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Renewal Due</label>
               <div className="flex items-center gap-2">
-                <input type="date" className="input text-xs" value={renewalFrom} onChange={e => { setRenewalFrom(e.target.value); setPage(1); }} title="From" />
-                <span className="text-gray-400">-</span>
-                <input type="date" className="input text-xs" value={renewalTo} onChange={e => { setRenewalTo(e.target.value); setPage(1); }} title="To" />
+                <DatePicker className="input text-xs min-w-[130px]" value={renewalFrom} onChange={val => { setRenewalFrom(val); setPage(1); }} title="From" />
+                <span className="text-gray-400 shrink-0">-</span>
+                <DatePicker className="input text-xs min-w-[130px]" value={renewalTo} onChange={val => { setRenewalTo(val); setPage(1); }} title="To" />
               </div>
             </div>
             <div>
               <label className="label">Payment Due</label>
               <div className="flex items-center gap-2">
-                <input type="date" className="input text-xs" value={paymentDueFrom} onChange={e => { setPaymentDueFrom(e.target.value); setPage(1); }} title="From" />
-                <span className="text-gray-400">-</span>
-                <input type="date" className="input text-xs" value={paymentDueTo} onChange={e => { setPaymentDueTo(e.target.value); setPage(1); }} title="To" />
+                <DatePicker className="input text-xs min-w-[130px]" value={paymentDueFrom} onChange={val => { setPaymentDueFrom(val); setPage(1); }} title="From" />
+                <span className="text-gray-400 shrink-0">-</span>
+                <DatePicker className="input text-xs min-w-[130px]" value={paymentDueTo} onChange={val => { setPaymentDueTo(val); setPage(1); }} title="To" />
               </div>
             </div>
           </div>
@@ -1219,7 +1233,7 @@ export default function Policies() {
             <div className="col-span-2 grid grid-cols-3 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="label">Start Date *</label>
-                <input {...register('startDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+                <DatePicker {...register('startDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="label">Policy Term (Years)</label>
@@ -1239,7 +1253,7 @@ export default function Policies() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="label">End Date</label>
-                <input {...register('endDate')} type="date" className="input h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
+                <DatePicker {...register('endDate')} className="input h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
               </div>
             </div>
 
@@ -1356,8 +1370,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">First Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...register('firstPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1375,8 +1388,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">Last Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...register('lastPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1581,17 +1593,17 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">End / Expiry Date *</label>
-              <input {...regEdit('endDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('endDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="label">Next Due Date</label>
-              <input {...regEdit('nextDueDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('nextDueDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="label">Maturity Date</label>
-              <input {...regEdit('maturityDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('maturityDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1654,8 +1666,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">First Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...regEdit('firstPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1672,8 +1683,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">Last Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...regEdit('lastPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />

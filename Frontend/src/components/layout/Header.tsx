@@ -1,4 +1,4 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera } from 'lucide-react';
+import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsService, searchService } from '@api/index';
@@ -8,57 +8,68 @@ import { authService } from '@api/auth.service';
 
 import { useDebounce } from '@hooks/useDebounce';
 
+const SECTION_META: Record<string, { label: string; Icon: React.ElementType; color: string; iconBg: string }> = {
+  contacts: { label: 'Contacts', Icon: Users, color: 'text-blue-600', iconBg: 'bg-blue-50' },
+  policies: { label: 'Policies', Icon: Shield, color: 'text-emerald-600', iconBg: 'bg-emerald-50' },
+  claims: { label: 'Claims', Icon: FileText, color: 'text-amber-600', iconBg: 'bg-amber-50' },
+  leads: { label: 'Leads', Icon: TrendingUp, color: 'text-purple-600', iconBg: 'bg-purple-50' },
+};
+
 export default function Header({ title }: { title?: string }) {
-  const [query, setQuery]           = useState('');
+  const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const user                        = useAuthStore(s => s.user);
-  const navigate                    = useNavigate();
+  const user = useAuthStore(s => s.user);
+  const navigate = useNavigate();
 
   const debouncedQuery = useDebounce(query.trim(), 300);
 
   const { data: notifs } = useQuery({
     queryKey: ['notifications', 'unread'],
-    queryFn:  () => notificationsService.list({ unreadOnly: true, limit: 1 }),
+    queryFn: () => notificationsService.list({ unreadOnly: true, limit: 1 }),
     refetchInterval: 60_000,
   });
 
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+  const { data: searchResults, isLoading: isSearchLoading, isError: isSearchError } = useQuery({
     queryKey: ['global-search', debouncedQuery],
-    queryFn:  () => searchService.search(debouncedQuery),
-    enabled:  debouncedQuery.length >= 2,
+    queryFn: () => searchService.search(debouncedQuery),
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 0,
+    retry: false,
   });
 
-  const resultsObj = searchResults?.data?.contacts ? searchResults.data : (searchResults?.data ?? searchResults ?? {});
+  const resultsObj = searchResults?.data?.contacts !== undefined
+    ? searchResults.data
+    : (searchResults?.data ?? searchResults ?? {});
   const sectionMap: Record<string, any[]> = {
-    contacts: resultsObj.contacts ?? [],
-    policies: resultsObj.policies ?? [],
-    claims:   resultsObj.claims ?? [],
-    leads:    resultsObj.leads ?? [],
+    contacts: resultsObj?.contacts ?? [],
+    policies: resultsObj?.policies ?? [],
+    claims: resultsObj?.claims ?? [],
+    leads: resultsObj?.leads ?? [],
   };
   const totalCount = Object.values(sectionMap).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
   const hasResults = totalCount > 0;
 
   const unreadCount = notifs?.meta?.unreadCount ?? 0;
-  const initials    = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
 
   const handleLogout = async () => {
     try {
       await authService.logout();
-    } catch (e) {}
+    } catch (e) { }
     navigate('/login');
   };
 
   return (
     <header className="h-16 bg-white/75 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0 transition-all duration-200"
-            style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+      style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
 
       {/* Page title / breadcrumb */}
       {title && (
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">InsuMitra</span>
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
-            <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <h1 className="text-sm font-bold text-slate-800 tracking-tight">{title}</h1>
         </div>
@@ -80,70 +91,117 @@ export default function Header({ title }: { title?: string }) {
             value={query}
             onChange={e => { setQuery(e.target.value); setShowSearch(true); }}
             onFocus={() => setShowSearch(true)}
-            onBlur={() => setTimeout(() => setShowSearch(false), 250)}
+            onBlur={() => setTimeout(() => setShowSearch(false), 400)}
           />
 
           {/* Search dropdown */}
           {showSearch && query.trim().length >= 2 && (
-            <div className="absolute top-full mt-2.5 w-full min-w-[390px] bg-white/95 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
+            <div className="absolute top-full mt-2.5 w-full min-w-[420px] bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
               {isSearchLoading ? (
-                <div className="p-4 text-center text-xs text-slate-400 font-medium">Searching…</div>
+                <div className="p-5 flex flex-col items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-slate-400 font-medium">Searching…</p>
+                </div>
+              ) : isSearchError ? (
+                <div className="p-5 text-center">
+                  <p className="text-xs text-red-500 font-semibold">Search failed. Please try again.</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Check your connection or contact support.</p>
+                </div>
               ) : hasResults ? (
-                (['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
-                  const items = sectionMap[section] ?? [];
-                  if (!items.length) return null;
-                  return (
-                    <div key={section} className="border-b border-slate-100 last:border-0">
-                      <div className="px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 bg-slate-50/70">
-                        {section} ({items.length})
-                      </div>
-                      {items.map((item: any) => {
-                        const titleText =
-                          item.contactName ||
-                          (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : null) ||
-                          item.policyNumber ||
-                          item.claimNumber ||
-                          'Result';
+                <div>
+                  {(['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
+                    const items = sectionMap[section] ?? [];
+                    if (!items.length) return null;
+                    const { label, Icon, color, iconBg } = SECTION_META[section];
+                    return (
+                      <div key={section} className="border-b border-slate-100 last:border-0">
+                        {/* Section header */}
+                        <div className={`px-4 py-1.5 flex items-center gap-1.5 bg-slate-50/80`}>
+                          <span className={`p-0.5 rounded ${iconBg}`}>
+                            <Icon size={10} className={color} />
+                          </span>
+                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
+                            {label}
+                          </span>
+                          <span className="ml-auto text-[9px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded-full">
+                            {items.length}
+                          </span>
+                        </div>
+                        {/* Items */}
+                        {items.map((item: any) => {
+                          const titleText =
+                            item.contactName ||
+                            (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : null) ||
+                            item.policyNumber ||
+                            item.claimNumber ||
+                            'Result';
 
-                        const subDetails = [
-                          section !== 'contacts' && item.policyNumber,
-                          section !== 'contacts' && item.claimNumber,
-                          item.planName,
-                          item.claimType,
-                          item.stage,
-                        ].filter(Boolean);
+                          const subParts = [
+                            section !== 'contacts' && item.policyNumber,
+                            section !== 'contacts' && item.claimNumber,
+                            item.planName,
+                            item.claimType,
+                            item.stage,
+                            item.status,
+                          ].filter(Boolean);
 
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="w-full text-left px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center justify-between gap-3 cursor-pointer"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowSearch(false);
-                              navigate(`/${section}/${item.id}`);
-                            }}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-slate-700 truncate">{titleText}</p>
-                              {subDetails.length > 0 && (
-                                <p className="text-[11px] text-slate-400 truncate">
-                                  {subDetails.join(' · ')}
-                                </p>
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className="w-full text-left px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center gap-3 cursor-pointer group"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setShowSearch(false);
+                                setQuery('');
+                                navigate(`/${section}/${item.id}`);
+                              }}
+                            >
+                              {/* Section icon dot */}
+                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                                <Icon size={11} className={color} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-slate-700 truncate">{titleText}</p>
+                                {subParts.length > 0 && (
+                                  <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                                    {subParts.join(' · ')}
+                                  </p>
+                                )}
+                              </div>
+                              {item.phone && (
+                                <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {item.phone}
+                                </span>
                               )}
-                            </div>
-                            {item.phone && (
-                              <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-1.5 py-0.5 rounded">{item.phone}</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })
+                              <span className={`text-[10px] font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${color}`}>→</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  {/* View all results link */}
+                  <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-medium">{totalCount} result{totalCount !== 1 ? 's' : ''} for &ldquo;{debouncedQuery}&rdquo;</span>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setShowSearch(false);
+                        navigate('/search');
+                      }}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                    >
+                      View all →
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <div className="p-4 text-center text-xs text-slate-400 font-medium">
-                  No results found for &ldquo;{debouncedQuery}&rdquo;
+                <div className="p-5 text-center">
+                  <Search size={20} className="mx-auto mb-2 text-slate-200" />
+                  <p className="text-xs text-slate-400 font-medium">No results for &ldquo;{debouncedQuery}&rdquo;</p>
+                  <p className="text-[10px] text-slate-300 mt-1">Try a different name, phone, or policy number</p>
                 </div>
               )}
             </div>
@@ -210,7 +268,7 @@ export default function Header({ title }: { title?: string }) {
             <>
               {/* Click outside to close backdrop */}
               <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-              
+
               {/* Dropdown Menu */}
               <div className="absolute right-0 top-full mt-2 w-[280px] bg-white rounded-2xl border border-slate-150 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.1),0_2px_10px_-2px_rgba(0,0,0,0.05)] p-5 z-50 flex flex-col items-center animate-fade-in">
                 {/* Avatar details */}

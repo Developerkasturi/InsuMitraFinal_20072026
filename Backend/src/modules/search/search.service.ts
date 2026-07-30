@@ -54,7 +54,7 @@ interface LeadRow {
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async search(
     tenantId: string,
@@ -94,8 +94,8 @@ export class SearchService {
       data: {
         contacts: contacts.map(this.mapContact),
         policies: policies.map(this.mapPolicy),
-        claims:   claims.map(this.mapClaim),
-        leads:    leads.map(this.mapLead),
+        claims: claims.map(this.mapClaim),
+        leads: leads.map(this.mapLead),
       },
     };
   }
@@ -143,11 +143,11 @@ export class SearchService {
     const OR: any[] = [
       { firstName: { contains: term, mode: 'insensitive' } },
       { lastName: { contains: term, mode: 'insensitive' } },
-      { phone: { contains: term, mode: 'insensitive' } },
-      { alternatePhone: { contains: term, mode: 'insensitive' } },
+      { phone: { contains: term } },
+      { alternatePhone: { contains: term } },
       { email: { contains: term, mode: 'insensitive' } },
       { panNumber: { contains: term, mode: 'insensitive' } },
-      { aadhaarNumber: { contains: term, mode: 'insensitive' } },
+      { aadhaarNumber: { contains: term } },
       { notes: { contains: term, mode: 'insensitive' } },
     ];
 
@@ -170,15 +170,28 @@ export class SearchService {
       );
     }
 
+    const where: any = {
+      tenantId,
+      deletedAt: null,
+      OR,
+    };
+
+    // Mirror the same employee scope used by the contacts list page
+    if (!isOwner && userId) {
+      where.AND = [
+        {
+          OR: [
+            { assignedEmployeeId: userId },
+            { policies: { some: { assignedEmployeeId: userId } } },
+            { productInterests: { some: { assignedEmployeeId: userId } } },
+            { claims: { some: { assignedEmployeeId: userId } } },
+          ],
+        },
+      ];
+    }
+
     return this.prisma.contact.findMany({
-      where: {
-        tenantId,
-        isActive: true,
-        deletedAt: null,
-        relatedTo: { none: {} },
-        ...(isOwner ? {} : { assignedEmployeeId: userId }),
-        OR,
-      },
+      where,
       take: limit,
       select: {
         id: true,
@@ -390,23 +403,23 @@ export class SearchService {
   private mapContact(r: ContactRow) {
     const contactName = `${r.first_name || ''} ${r.last_name || ''}`.trim();
     return {
-      id:             r.id,
-      entityType:     'contact' as const,
-      firstName:      r.first_name,
-      lastName:       r.last_name,
+      id: r.id,
+      entityType: 'contact' as const,
+      firstName: r.first_name,
+      lastName: r.last_name,
       contactName,
-      phone:          r.phone,
+      phone: r.phone,
       alternatePhone: r.alternate_phone,
-      email:          r.email,
-      aadhaarNumber:  r.aadhaar_number,
-      panNumber:      r.pan_number,
-      avatarUrl:      r.avatar_url,
+      email: r.email,
+      aadhaarNumber: r.aadhaar_number,
+      panNumber: r.pan_number,
+      avatarUrl: r.avatar_url,
       contact: {
-        id:        r.id,
+        id: r.id,
         firstName: r.first_name,
-        lastName:  r.last_name,
-        phone:     r.phone,
-        email:     r.email,
+        lastName: r.last_name,
+        phone: r.phone,
+        email: r.email,
       },
     };
   }
@@ -414,19 +427,19 @@ export class SearchService {
   private mapPolicy(r: PolicyRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
     return {
-      id:           r.id,
-      entityType:   'policy' as const,
+      id: r.id,
+      entityType: 'policy' as const,
       policyNumber: r.policy_number,
-      status:       r.status,
+      status: r.status,
       contactName,
-      phone:        r.contact_phone,
-      planName:     r.plan_name,
-      companyName:  r.company_name,
+      phone: r.contact_phone,
+      planName: r.plan_name,
+      companyName: r.company_name,
       contact: {
-        id:        r.contact_id,
+        id: r.contact_id,
         firstName: r.contact_first,
-        lastName:  r.contact_last,
-        phone:     r.contact_phone,
+        lastName: r.contact_last,
+        phone: r.contact_phone,
       },
       plan: {
         name: r.plan_name,
@@ -438,22 +451,22 @@ export class SearchService {
   private mapClaim(r: ClaimRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
     return {
-      id:           r.id,
-      entityType:   'claim' as const,
-      claimNumber:  r.claim_number,
-      status:       r.status,
-      claimType:    r.claim_type,
+      id: r.id,
+      entityType: 'claim' as const,
+      claimNumber: r.claim_number,
+      status: r.status,
+      claimType: r.claim_type,
       contactName,
-      phone:        r.contact_phone,
+      phone: r.contact_phone,
       policyNumber: r.policy_number,
       contact: {
-        id:        r.contact_id,
+        id: r.contact_id,
         firstName: r.contact_first,
-        lastName:  r.contact_last,
-        phone:     r.contact_phone,
+        lastName: r.contact_last,
+        phone: r.contact_phone,
       },
       policy: {
-        id:           r.policy_id,
+        id: r.policy_id,
         policyNumber: r.policy_number,
       },
     };
@@ -462,20 +475,20 @@ export class SearchService {
   private mapLead(r: LeadRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
     return {
-      id:          r.id,
-      entityType:  'lead' as const,
-      stage:       r.stage,
-      firstName:   r.contact_first,
-      lastName:    r.contact_last,
+      id: r.id,
+      entityType: 'lead' as const,
+      stage: r.stage,
+      firstName: r.contact_first,
+      lastName: r.contact_last,
       contactName,
-      phone:       r.contact_phone,
-      planName:    r.plan_name,
-      interests:   r.interests,
+      phone: r.contact_phone,
+      planName: r.plan_name,
+      interests: r.interests,
       contact: {
-        id:        r.contact_id,
+        id: r.contact_id,
         firstName: r.contact_first,
-        lastName:  r.contact_last,
-        phone:     r.contact_phone,
+        lastName: r.contact_last,
+        phone: r.contact_phone,
       },
       plan: {
         name: r.plan_name,

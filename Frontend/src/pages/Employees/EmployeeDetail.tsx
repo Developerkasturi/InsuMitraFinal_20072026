@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { DatePicker } from '@comps/common/DatePicker';
 import { useAuthStore } from '@store/auth.store';
 
 const taskSchema = z.object({
@@ -63,6 +64,17 @@ const AVAILABLE_PERMISSIONS = [
   { key: 'manage_employees',   label: 'Employees Module Access' },
 ];
 
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
+};
+
 export default function EmployeeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate  = useNavigate();
@@ -110,6 +122,7 @@ export default function EmployeeDetail() {
     resolver: zodResolver(taskSchema),
     defaultValues: { priority: 'MEDIUM', dueDate: '' },
   });
+  const watchDueDate = taskForm.watch('dueDate');
 
   const logForm = useForm<LogForm>({
     resolver: zodResolver(logSchema),
@@ -455,18 +468,16 @@ export default function EmployeeDetail() {
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
                   <Calendar size={13} className="text-slate-400" /> Filter:
                 </div>
-                <input
-                  type="date"
+                <DatePicker
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={setStartDate}
                   className="input py-1 px-2.5 text-xs w-32 bg-white border border-gray-200"
                   placeholder="Start date"
                 />
                 <span className="text-gray-400 text-xs">—</span>
-                <input
-                  type="date"
+                <DatePicker
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                   className="input py-1 px-2.5 text-xs w-32 bg-white border border-gray-200"
                   placeholder="End date"
                 />
@@ -572,7 +583,7 @@ export default function EmployeeDetail() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Due Date</label>
-              <input {...taskForm.register('dueDate')} type="date" className="input" />
+              <DatePicker {...taskForm.register('dueDate')} className="input mt-1" />
             </div>
             <div>
               <label className="label">Priority</label>
@@ -597,7 +608,7 @@ export default function EmployeeDetail() {
         <form onSubmit={logForm.handleSubmit(d => addLog.mutate(d))} className="space-y-3">
           <div>
             <label className="label">Date *</label>
-            <input {...logForm.register('date')} type="date" className="input" />
+            <DatePicker {...logForm.register('date')} className="input" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
