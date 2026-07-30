@@ -159,6 +159,65 @@ const LEAD_STATUS_OPTIONS = [
   { value: 'VERY_HOT',       label: 'Very Hot' },
 ];
 
+function parseLeadNotes(notesText?: string | null) {
+  const res = {
+    leadStatus: 'INTERESTED',
+    leadType: 'FRESH',
+    cleanNotes: '',
+    dependencyType: 'SELF',
+    dependentDetails: '',
+    descriptionDetails: '',
+    policyId: '',
+    policyNumber: '',
+    companyName: '',
+    planName: '',
+    sumAssured: undefined as number | undefined,
+    premiumAmount: undefined as number | undefined,
+    startDate: '',
+    endDate: '',
+  };
+  if (!notesText) return res;
+  if (notesText.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(notesText);
+      res.leadStatus = parsed.leadStatus || 'INTERESTED';
+      res.leadType = parsed.leadType || 'FRESH';
+      res.cleanNotes = parsed.cleanNotes || '';
+      res.dependencyType = parsed.dependencyType || 'SELF';
+      res.dependentDetails = parsed.dependentDetails || '';
+      res.descriptionDetails = parsed.descriptionDetails || '';
+      res.policyId = parsed.policyId || '';
+      res.policyNumber = parsed.policyNumber || '';
+      res.companyName = parsed.companyName || '';
+      res.planName = parsed.planName || '';
+      res.sumAssured = parsed.sumAssured;
+      res.premiumAmount = parsed.premiumAmount;
+      res.startDate = parsed.startDate || '';
+      res.endDate = parsed.endDate || '';
+      return res;
+    } catch (e) {}
+  }
+  const lines = notesText.split('\n');
+  const cleanLines: string[] = [];
+  lines.forEach(line => {
+    if (line.startsWith('Status: ')) {
+      res.leadStatus = line.replace('Status: ', '').trim();
+    } else if (line.startsWith('Type: ')) {
+      res.leadType = line.replace('Type: ', '').trim();
+    } else if (line.startsWith('Dependency: ')) {
+      res.dependencyType = line.replace('Dependency: ', '').trim();
+    } else if (line.startsWith('Dependent Details: ')) {
+      res.dependentDetails = line.replace('Dependent Details: ', '').trim();
+    } else if (line.startsWith('Description Details: ')) {
+      res.descriptionDetails = line.replace('Description Details: ', '').trim();
+    } else {
+      cleanLines.push(line);
+    }
+  });
+  res.cleanNotes = cleanLines.join('\n').trim();
+  return res;
+}
+
 import { useSearchParams } from 'react-router-dom';
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -277,49 +336,6 @@ export default function Leads() {
     newComment: string;
     showAllComments?: boolean;
   };
-
-  function parseLeadNotes(notesText?: string | null) {
-    const res = {
-      leadStatus: 'INTERESTED',
-      leadType: 'FRESH',
-      cleanNotes: '',
-      dependencyType: 'SELF',
-      dependentDetails: '',
-      descriptionDetails: '',
-    };
-    if (!notesText) return res;
-    if (notesText.trim().startsWith('{')) {
-      try {
-        const parsed = JSON.parse(notesText);
-        res.leadStatus = parsed.leadStatus || 'INTERESTED';
-        res.leadType = parsed.leadType || 'FRESH';
-        res.cleanNotes = parsed.cleanNotes || '';
-        res.dependencyType = parsed.dependencyType || 'SELF';
-        res.dependentDetails = parsed.dependentDetails || '';
-        res.descriptionDetails = parsed.descriptionDetails || '';
-        return res;
-      } catch (e) {}
-    }
-    const lines = notesText.split('\n');
-    const cleanLines: string[] = [];
-    lines.forEach(line => {
-      if (line.startsWith('Status: ')) {
-        res.leadStatus = line.replace('Status: ', '').trim();
-      } else if (line.startsWith('Type: ')) {
-        res.leadType = line.replace('Type: ', '').trim();
-      } else if (line.startsWith('Dependency: ')) {
-        res.dependencyType = line.replace('Dependency: ', '').trim();
-      } else if (line.startsWith('Dependent Details: ')) {
-        res.dependentDetails = line.replace('Dependent Details: ', '').trim();
-      } else if (line.startsWith('Description Details: ')) {
-        res.descriptionDetails = line.replace('Description Details: ', '').trim();
-      } else {
-        cleanLines.push(line);
-      }
-    });
-    res.cleanNotes = cleanLines.join('\n').trim();
-    return res;
-  }
 
   function serializeLeadNotes(card: ProductInterestCard) {
     return JSON.stringify({
@@ -3468,9 +3484,77 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit }:
         ))}
       </div>
 
-      {/* Overview */}
+      {/* Fixed height tab content container so popup size remains constant when switching tabs */}
+      <div className="h-[400px] min-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+        {/* Overview */}
       {tab === 'overview' && (
         <div className="space-y-4">
+          {(() => {
+            const parsedLeadNotes = parseLeadNotes(fullLead.notes);
+            const connectedPolicyData = fullLead.connectedPolicy;
+            const isRenewalLead = parsedLeadNotes.leadType === 'RENEWAL' || fullLead.source === 'Renewal';
+            if (!isRenewalLead) return null;
+
+            const policyType = connectedPolicyData?.plan?.category || fullLead.plan?.category || (fullLead.interests && fullLead.interests.length > 0 ? fullLead.interests.join(', ') : '—');
+
+            return (
+              <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                      <Shield size={16} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 block">Renewal Created Against</span>
+                      <h4 className="text-sm font-extrabold text-slate-800">
+                        Policy #{connectedPolicyData?.policyNumber || parsedLeadNotes.policyNumber || 'N/A'}
+                      </h4>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-700 border border-purple-200">
+                    Renewal Lead
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Type</span>
+                    <p className="font-bold text-slate-700 mt-0.5 uppercase tracking-wide">
+                      {policyType}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry / End Date</span>
+                    <p className="font-bold text-rose-600 mt-0.5 flex items-center gap-1">
+                      <Calendar size={12} />
+                      {connectedPolicyData?.endDate ? new Date(connectedPolicyData.endDate).toLocaleDateString('en-IN') : (parsedLeadNotes.endDate ? new Date(parsedLeadNotes.endDate).toLocaleDateString('en-IN') : '—')}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Company & Plan Name</span>
+                    <p className="font-bold text-slate-700 mt-0.5 truncate">
+                      {connectedPolicyData?.plan?.company?.name || parsedLeadNotes.companyName || '—'}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-500 truncate">
+                      {connectedPolicyData?.plan?.name || parsedLeadNotes.planName || '—'}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Premium & Sum Insured</span>
+                    <p className="font-bold text-emerald-700 mt-0.5">
+                      Premium: ₹{Number(connectedPolicyData?.premiumAmount || parsedLeadNotes.premiumAmount || fullLead.premiumBudget || 0).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-600">
+                      Sum Insured: ₹{Number(connectedPolicyData?.sumAssured || parsedLeadNotes.sumAssured || fullLead.sumAssuredRequired || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white border border-slate-100 rounded-xl p-3 space-y-2">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contact</p>
@@ -3584,19 +3668,30 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit }:
                 <p className="text-xs">No comments yet. Add one above.</p>
               </div>
             ) : (
-              [...consultations].reverse().map((c: any) => (
-                <div key={c.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                  <p className="text-[13px] text-gray-800">{c.notes}</p>
-                  {c.scheduledAt && (
-                    <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {c.createdAt ? format(new Date(c.createdAt), 'dd MMM yyyy, hh:mm a') : ''}
-                  </p>
-                </div>
-              ))
+              [...consultations].reverse().map((c: any) => {
+                const authorName = c.author?.employeeProfile
+                  ? `${c.author.employeeProfile.firstName} ${c.author.employeeProfile.lastName}`
+                  : c.author?.email || c.authorName || 'System';
+
+                return (
+                  <div key={c.id || Math.random()} className="bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md">
+                        {authorName}
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {c.createdAt ? format(new Date(c.createdAt), 'dd MMM yyyy, hh:mm a') : ''}
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-gray-800 pt-0.5">{c.notes}</p>
+                    {c.scheduledAt && (
+                      <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                        <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -3638,6 +3733,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit }:
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

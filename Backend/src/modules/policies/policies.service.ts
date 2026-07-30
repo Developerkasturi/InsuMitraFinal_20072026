@@ -9,10 +9,15 @@ import {
 } from './dto/policy.dto';
 import { UserRole } from '@prisma/client';
 
+import { LeadsService } from '../leads/leads.service';
+
 @Injectable()
 export class PoliciesService {
   private readonly logger = new Logger(PoliciesService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly leadsService: LeadsService,
+  ) {}
 
   async findAll(tenantId: string, userId: string, role: UserRole, query: PolicyQueryDto) {
     const { status, search, contactId, planId, sortBy, sortOrder, endDateFrom, endDateTo, nextDueDateFrom, nextDueDateTo } = query as any;
@@ -177,6 +182,9 @@ export class PoliciesService {
 
     await this.logActivity(tenantId, createdById, dto.contactId, policy.id, 'CREATE', `Policy ${dto.policyNumber} created`);
 
+    // Auto-create renewal leads immediately for expiring policies
+    this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
+
     return { data: policy, message: 'Policy created successfully' };
   }
 
@@ -199,6 +207,10 @@ export class PoliciesService {
       } as any,
     });
     await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Policy updated');
+
+    // Auto-create renewal leads immediately for expiring policies
+    this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
+
     return { data: updated, message: 'Policy updated' };
   }
 

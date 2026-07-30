@@ -155,10 +155,31 @@ export default function Policies() {
   const user = useAuthStore(s => s.user);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [keepCreateOpen, setKeepCreateOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') {
+      const contactId = searchParams.get('contactId');
+      const keepOpen = searchParams.get('keepOpen') === '1';
+      setKeepCreateOpen(keepOpen);
       setModalOpen(true);
+
+      if (contactId) {
+        contactsService.get(contactId)
+          .then((res: any) => {
+            const contact = res?.data ?? res;
+            if (!contact?.id) return;
+            setSelectedContact({
+              id: contact.id,
+              firstName: contact.firstName || '',
+              lastName: contact.lastName || '',
+              phone: contact.phone || '',
+            });
+            setValue('contactId', contact.id, { shouldValidate: true });
+            setContactSearch('');
+          })
+          .catch((err: any) => console.error('Failed to preload contact for policy create', err));
+      }
     }
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Policy | null>(null);
@@ -239,6 +260,7 @@ export default function Policies() {
       setSelectedContact(null);
       setContactSearch('');
       setSelectedPlan(null);
+      setKeepCreateOpen(params.get('keepOpen') === '1');
       setModalOpen(true);
       navigate('/policies', { replace: true });
     }
@@ -484,6 +506,9 @@ export default function Policies() {
   }, [watchStartDate, durationYears, setValue]);
 
   const closeModal = () => {
+    const returnState = location.state as any;
+    const returnRoute = returnState?.returnRoute;
+    const returnPayload = returnState?.returnPayload;
     setModalOpen(false);
     reset();
     setSelectedContact(null);
@@ -492,6 +517,13 @@ export default function Policies() {
     setSelectedCompany('');
     setSelectedPlan(null);
     setPolicyFile(null);
+    setKeepCreateOpen(false);
+    if (returnRoute) {
+      navigate(returnRoute, {
+        replace: true,
+        state: returnPayload,
+      });
+    }
   };
 
   const openEdit = (p: Policy) => {
@@ -680,8 +712,11 @@ export default function Policies() {
     };
 
     try {
-      await updatePolicy.mutateAsync({ id: editTarget.id, body: cleanedBody });
-      setEditTarget(null);
+      const res = await updatePolicy.mutateAsync({ id: editTarget.id, body: cleanedBody });
+      const updatedPolicy = res?.data ?? res;
+      if (updatedPolicy?.id) {
+        setEditTarget(prev => prev ? { ...prev, ...updatedPolicy } : prev);
+      }
     } catch (e) {
       // error already shown by useUpdatePolicy onError
     }
@@ -747,7 +782,26 @@ export default function Policies() {
           console.error('[Document Upload Error]', uploadErr);
         }
       }
-      closeModal();
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      if (createdPolicy?.id) {
+        if (keepCreateOpen) {
+          reset({
+            contactId: body.contactId,
+            paymentFrequency: 'YEARLY',
+          } as any);
+          setSelectedPlan(null);
+          setSelectedType('');
+          setSelectedCompany('');
+          setPolicyFile(null);
+          setDurationYears(1);
+          return;
+        }
+        closeModal();
+        if (!(location.state as any)?.returnRoute) {
+          openEdit(createdPolicy as Policy);
+        }
+      }
     } catch (e: any) {
       const errs: string[] = e?.response?.data?.errors ?? [];
       const msg = errs.length ? errs.join(' | ') : (e?.response?.data?.message ?? 'Error creating policy');
@@ -878,7 +932,7 @@ export default function Policies() {
           >
             All Types
           </button>
-          {['HEALTH', 'LIFE', 'ACCIDENT', 'MOTOR', 'TRAVEL', 'GENERAL'].map(cat => {
+          {['HEALTH', 'LIFE', 'ACCIDENT', 'TRAVEL'].map(cat => {
             const isSel = selectedQuickFilter === cat;
             return (
               <button
@@ -1433,56 +1487,60 @@ export default function Policies() {
             )}
 
             {/* ── Preventive Health Checkup Details Subheader ── */}
-            <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
-            </div>
-
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="label">Preventive Health Checkup?</label>
-              <select
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                onChange={e => setValue('phcRequired', e.target.value === 'yes')}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* ── Conditional PHC Details ── */}
-            {watchPhcRequired && (
-              <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Amount (₹)</label>
-                  <input
-                    type="number"
-                    {...register('phcAmount')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    placeholder="Amount"
-                  />
+            {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') && (
+              <>
+                <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Status</label>
-                  <select
-                    {...register('phcStatus')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  >
-                    <option value="">Select Status</option>
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Claim Settled?</label>
+
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="label">Preventive Health Checkup?</label>
                   <select
                     className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
+                    onChange={e => setValue('phcRequired', e.target.value === 'yes')}
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
-              </div>
+
+                {/* ── Conditional PHC Details ── */}
+                {watchPhcRequired && (
+                  <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Amount (₹)</label>
+                      <input
+                        type="number"
+                        {...register('phcAmount')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        placeholder="Amount"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Status</label>
+                      <select
+                        {...register('phcStatus')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Claim Settled?</label>
+                      <select
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* ── Policy Document Subheader ── */}
@@ -1729,58 +1787,61 @@ export default function Policies() {
               </div>
             )}
 
-            {/* ── Preventive Health Checkup Details Subheader ── */}
-            <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
-            </div>
-
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="label">Preventive Health Checkup?</label>
-              <select
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                value={watchEditPhcRequired ? 'yes' : 'no'}
-                onChange={e => setEditValue('phcRequired', e.target.value === 'yes')}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* ── Conditional PHC Details ── */}
-            {watchEditPhcRequired && (
-              <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Amount (₹)</label>
-                  <input
-                    type="number"
-                    {...regEdit('phcAmount')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  />
+            {editTarget?.plan?.category?.toUpperCase() === 'HEALTH' && (
+              <>
+                <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Status</label>
-                  <select
-                    {...regEdit('phcStatus')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  >
-                    <option value="">Select Status</option>
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Claim Settled?</label>
+
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="label">Preventive Health Checkup?</label>
                   <select
                     className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    value={watchEdit('phcClaimSettled') ? 'yes' : 'no'}
-                    onChange={e => setEditValue('phcClaimSettled', e.target.value === 'yes')}
+                    value={watchEditPhcRequired ? 'yes' : 'no'}
+                    onChange={e => setEditValue('phcRequired', e.target.value === 'yes')}
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
-              </div>
+
+                {/* ── Conditional PHC Details ── */}
+                {watchEditPhcRequired && (
+                  <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Amount (₹)</label>
+                      <input
+                        type="number"
+                        {...regEdit('phcAmount')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Status</label>
+                      <select
+                        {...regEdit('phcStatus')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Claim Settled?</label>
+                      <select
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        value={watchEdit('phcClaimSettled') ? 'yes' : 'no'}
+                        onChange={e => setEditValue('phcClaimSettled', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">

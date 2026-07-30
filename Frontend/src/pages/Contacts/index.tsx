@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
   Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History
@@ -55,6 +55,7 @@ interface Contact {
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,7 +116,7 @@ export default function Contacts() {
   const [newRelPhone, setNewRelPhone] = useState('');
   const [newRelDob, setNewRelDob] = useState('');
   const [showAddRelForm, setShowAddRelForm] = useState(false);
-  
+
   // Phone Directory import states
   const [dirImportOpen, setDirImportOpen] = useState(false);
   const [dirText, setDirText] = useState('');
@@ -149,7 +150,7 @@ export default function Contacts() {
     profileType: 'Lead Profile', // 'Lead Profile' | 'Client Profile'
     leadStatus: 'OPEN',
     interestedIn: ['Health'], // Health, Term, Mutual Funds, Pooling, Other
-    leadSource: 'By Agent',
+    leadSource: 'Walk-in',
     assignedEmployeeId: '',
     followUpDate: '',
   });
@@ -199,7 +200,7 @@ export default function Contacts() {
         res.dependentDetails = parsed.dependentDetails || '';
         res.descriptionDetails = parsed.descriptionDetails || '';
         return res;
-      } catch (e) {}
+      } catch (e) { }
     }
     const lines = notesText.split('\n');
     const cleanLines: string[] = [];
@@ -244,7 +245,7 @@ export default function Contacts() {
     dependencyType: 'SELF',
     dependentDetails: '',
     leadType: 'FRESH',
-    leadSource: 'Social Media',
+    leadSource: 'Walk-in',
     assignedEmployeeId: '',
     followUpDate: '',
     expectedPremium: '',
@@ -361,7 +362,7 @@ export default function Contacts() {
     const toastId = toast.loading(isExisting ? 'Updating product interest status...' : 'Saving product interest...');
     try {
       const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-      
+
       let stage = 'OPEN';
       if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
       else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
@@ -611,7 +612,7 @@ export default function Contacts() {
       profileType: 'Client Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'By Agent',
+      leadSource: 'Walk-in',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -665,7 +666,7 @@ export default function Contacts() {
         profileType: activeTab === 'customers' ? 'Client Profile' : 'Lead Profile',
         leadStatus: lead?.stage || 'OPEN',
         interestedIn: lead?.interests || ['Health'],
-        leadSource: lead?.source || 'By Agent',
+        leadSource: lead?.source || 'Walk-in',
         assignedEmployeeId: lead?.assignedEmployeeId || '',
         followUpDate: lead?.followUpDate ? lead.followUpDate.split('T')[0] : '',
       });
@@ -739,7 +740,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -764,7 +765,7 @@ export default function Contacts() {
           dependencyType: extra.dependencyType || 'SELF',
           dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
-          leadSource: lead.source || 'Social Media',
+          leadSource: lead.source || 'Walk-in',
           assignedEmployeeId: lead.assignedEmployeeId || '',
           followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
           expectedPremium,
@@ -832,11 +833,7 @@ export default function Contacts() {
           setActiveLeadTab('Product Interest');
           return;
         }
-        if (card.dependencyType === 'DEPENDENT' && !card.dependentDetails?.trim()) {
-          toast.error(`Product Interest #${i + 1}: Please enter dependent details`);
-          setActiveLeadTab('Product Interest');
-          return;
-        }
+
         if (!card.leadSource?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please select or enter a Lead Source`);
           setActiveLeadTab('Product Interest');
@@ -964,6 +961,7 @@ export default function Contacts() {
       }
 
       const subResourcePromises: Promise<any>[] = [];
+      const createdPolicies: any[] = [];
 
       // Save Family Members if any
       for (const fam of familyMembers) {
@@ -1002,18 +1000,22 @@ export default function Contacts() {
 
         for (const entry of portfolio.entries) {
           if (!entry.policyNo.trim()) continue;
-          subResourcePromises.push(
-            policiesService.create({
-              policyNumber: entry.policyNo,
-              contactId: contactId!,
-              planId: matchedPlan?.id || '6a3d0584d431b55e6b6e74fe', // fallback ID if plans empty
-              sumAssured: Number(entry.sumAssured || entry.sumInsured || 100000),
-              premiumAmount: Number(entry.premium || 1000),
-              paymentFrequency: 'YEARLY',
-              startDate: entry.startDate?.trim() ? new Date(entry.startDate).toISOString() : new Date().toISOString(),
-              endDate: entry.endDate?.trim() ? new Date(entry.endDate).toISOString() : new Date(Date.now() + 365 * 86400000).toISOString(),
-            }).catch(polErr => console.error('Failed to save policy:', polErr))
-          );
+            subResourcePromises.push(
+              policiesService.create({
+                policyNumber: entry.policyNo,
+                contactId: contactId!,
+                planId: matchedPlan?.id || '6a3d0584d431b55e6b6e74fe', // fallback ID if plans empty
+                sumAssured: Number(entry.sumAssured || entry.sumInsured || 100000),
+                premiumAmount: Number(entry.premium || 1000),
+                paymentFrequency: 'YEARLY',
+                startDate: entry.startDate?.trim() ? new Date(entry.startDate).toISOString() : new Date().toISOString(),
+                endDate: entry.endDate?.trim() ? new Date(entry.endDate).toISOString() : new Date(Date.now() + 365 * 86400000).toISOString(),
+              }).then((res: any) => {
+                const savedPolicy = res?.data ?? res;
+                if (savedPolicy) createdPolicies.push(savedPolicy);
+                return res;
+              }).catch(polErr => console.error('Failed to save policy:', polErr))
+            );
         }
       }
 
@@ -1021,7 +1023,7 @@ export default function Contacts() {
       for (const card of productInterests) {
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-        
+
         let stage = 'OPEN';
         if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
         else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
@@ -1062,13 +1064,25 @@ export default function Contacts() {
       // Await all sub-resource updates concurrently
       await Promise.all(subResourcePromises);
 
-      toast.success(editContactId ? 'Customer successfully updated!' : 'Customer successfully created!', { id: toastId });
+      if (createdPolicies.length > 0) {
+        setLoadedContact((prev: any) => prev ? {
+          ...prev,
+          policies: [...(prev.policies || []), ...createdPolicies],
+        } : prev);
+      }
+
+      toast.success(
+        shouldClose
+          ? (editContactId ? 'Customer successfully updated!' : 'Customer successfully created!')
+          : 'Draft saved successfully!',
+        { id: toastId }
+      );
       qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
 
       if (shouldClose) {
         setLeadModalOpen(false);
-      } else {
-        openCustomerCreate();
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Failed to save customer', { id: toastId });
@@ -1119,7 +1133,7 @@ export default function Contacts() {
       profileType: 'Contact Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'By Agent',
+      leadSource: 'Walk-in',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -1170,7 +1184,7 @@ export default function Contacts() {
         profileType: activeTab === 'customers' ? 'Client Profile' : 'Contact Profile',
         leadStatus: 'OPEN',
         interestedIn: ['Health'],
-        leadSource: contact.source || 'By Agent',
+        leadSource: contact.source || 'Walk-in',
         assignedEmployeeId: contact.assignedEmployeeId || '',
         followUpDate: '',
       });
@@ -1283,7 +1297,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -1308,7 +1322,7 @@ export default function Contacts() {
           dependencyType: extra.dependencyType || 'SELF',
           dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
-          leadSource: lead.source || 'Social Media',
+          leadSource: lead.source || 'Walk-in',
           assignedEmployeeId: lead.assignedEmployeeId || '',
           followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
           expectedPremium,
@@ -1326,6 +1340,15 @@ export default function Contacts() {
       toast.error('Failed to load contact details', { id: toastId });
     }
   };
+
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.reopenContactId) {
+      openLeadEdit({ contactId: state.reopenContactId }).then(() => {
+        setActiveLeadTab(state.reopenTab || 'Policy');
+      });
+    }
+  }, [location.state]);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -1884,7 +1907,7 @@ export default function Contacts() {
           <span className={clsx(
             "px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border shadow-2xs",
             diff === 0 ? "bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25 animate-pulse" :
-            diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
+              diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
           )}>
             {diff === 0 ? 'Today! 🎂' : `${diff} days`}
           </span>
@@ -1947,8 +1970,8 @@ export default function Contacts() {
     const cols = activeTab === 'birthdays'
       ? BIRTHDAY_COLS
       : activeTab === 'customers'
-      ? CUSTOMER_COLS
-      : CONTACT_COLS;
+        ? CUSTOMER_COLS
+        : CONTACT_COLS;
     return cols.filter(c => visibleColumns[String(c.key)] !== false);
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
@@ -2009,7 +2032,7 @@ export default function Contacts() {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
         {/* Single Row Layout */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          
+
           {/* Left Side: Search Bar ONLY */}
           <div className="flex items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
@@ -2068,8 +2091,8 @@ export default function Contacts() {
                   {filterProducts.length === 0
                     ? "All Products"
                     : filterProducts.length === 1
-                    ? `Product: ${filterProducts[0]}`
-                    : `${filterProducts.length} Products Selected`}
+                      ? `Product: ${filterProducts[0]}`
+                      : `${filterProducts.length} Products Selected`}
                 </span>
                 <ChevronDown size={14} className={clsx("text-slate-400 transition-transform duration-150", showProductDropdown && "rotate-180")} />
               </button>
@@ -2173,7 +2196,7 @@ export default function Contacts() {
 
             {/* Column Picker Dropdown */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowColPicker(!showColPicker)}
                 className={clsx(
                   "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2205,7 +2228,7 @@ export default function Contacts() {
             </div>
 
             {/* Advanced Filters Toggle Button */}
-            <button 
+            <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={clsx(
                 "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2449,7 +2472,7 @@ export default function Contacts() {
           {/* Right Column: Timelines and Comments History */}
           <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6 flex flex-col">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Consultation Comments Timeline</h3>
-            
+
             <div className="flex-1 max-h-[420px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
               {activityLoading ? (
                 <div className="py-12 flex justify-center items-center text-slate-400 text-xs">
@@ -2473,8 +2496,8 @@ export default function Contacts() {
                         <span className={clsx(
                           'px-1.5 py-0.25 rounded text-[9px] font-bold uppercase tracking-wider',
                           act.action === 'WHATSAPP' ? 'bg-green-100 text-green-700' :
-                          act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
-                          'bg-blue-100 text-blue-700'
+                            act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
                         )}>
                           {act.action}
                         </span>
@@ -2509,9 +2532,9 @@ export default function Contacts() {
               <button
                 type="button"
                 className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                onClick={(e) => handleLeadSubmit(e, true)}
+                onClick={(e) => handleLeadSubmit(e, false)}
               >
-                Update Profile
+                Save
               </button>
             ) : (
               <>
@@ -2525,9 +2548,9 @@ export default function Contacts() {
                 <button
                   type="button"
                   className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                  onClick={(e) => handleLeadSubmit(e, true)}
+                  onClick={(e) => handleLeadSubmit(e, false)}
                 >
-                  Save & Close
+                  Save
                 </button>
               </>
             )}
@@ -2700,6 +2723,25 @@ export default function Contacts() {
                             )}
                           </div>
 
+                          {/* Description Details Box */}
+                          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <FileText size={13} />
+                              </div>
+                              <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                Description Details
+                              </h4>
+                            </div>
+                            <textarea
+                              rows={2}
+                              className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
+                              placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
+                              value={card.descriptionDetails || ''}
+                              onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
+                            />
+                          </div>
+
                           {/* Row 1: Stage, Status, Dependency, Type */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                             <div>
@@ -2733,18 +2775,7 @@ export default function Contacts() {
                                 <option value="LEAD_LOST">Lead Lost</option>
                               </select>
                             </div>
-                            <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dependency *</label>
-                              <select
-                                disabled={isExisting}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
-                                value={card.dependencyType || 'SELF'}
-                                onChange={e => updateProductInterest(card.id, 'dependencyType', e.target.value)}
-                              >
-                                <option value="SELF">Self</option>
-                                <option value="DEPENDENT">Depend</option>
-                              </select>
-                            </div>
+
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
                               <select
@@ -2760,94 +2791,7 @@ export default function Contacts() {
                             </div>
                           </div>
 
-                          {/* Members Included Multi-Select Box */}
-                          <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <Users size={12} className="text-blue-600 shrink-0" />
-                                Members Included in Policy / Product *
-                              </label>
-                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                {((card as any).membersIncluded || []).length} Selected
-                              </span>
-                            </div>
 
-                            <div className="flex flex-wrap gap-2">
-                              {/* Self Option */}
-                              {(() => {
-                                const isSelfSel = ((card as any).membersIncluded || []).includes('Self');
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const prev: string[] = (card as any).membersIncluded || [];
-                                      const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
-                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
-                                    }}
-                                    className={clsx(
-                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                      isSelfSel
-                                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    )}
-                                  >
-                                    <span>Self (Primary Contact)</span>
-                                    {isSelfSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
-                                  </button>
-                                );
-                              })()}
-
-                              {/* Family Member Options */}
-                              {familyMembers.map((fam, famIdx) => {
-                                const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
-                                const isSel = ((card as any).membersIncluded || []).includes(memberLabel);
-                                return (
-                                  <button
-                                    key={famIdx}
-                                    type="button"
-                                    onClick={() => {
-                                      const prev: string[] = (card as any).membersIncluded || [];
-                                      const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
-                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
-                                    }}
-                                    className={clsx(
-                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                      isSel
-                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
-                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    )}
-                                  >
-                                    <span>{memberLabel}</span>
-                                    {isSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {familyMembers.length === 0 && (
-                              <p className="text-[10px] text-slate-400 font-medium italic">
-                                💡 Add family members in the Family Members section above to select them here.
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Prominent Dependent Details Textbox when Depend is selected */}
-                          {card.dependencyType === 'DEPENDENT' && (
-                            <div className="bg-blue-50/80 border-2 border-blue-200 rounded-xl p-3 space-y-1.5 animate-fadeIn">
-                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                                Dependent Details / Name / Relation *
-                              </label>
-                              <input
-                                type="text"
-                                disabled={isExisting}
-                                className={`w-full text-xs px-3.5 py-2.5 bg-white border border-blue-300 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
-                                placeholder="Enter dependent details (e.g. Spouse - Anita Sharma, Age 32)..."
-                                value={card.dependentDetails || ''}
-                                onChange={e => updateProductInterest(card.id, 'dependentDetails', e.target.value)}
-                              />
-                            </div>
-                          )}
 
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3009,25 +2953,6 @@ export default function Contacts() {
                                   Save Call Summary
                                 </button>
                               </div>
-                            </div>
-
-                            {/* Description Details Box */}
-                            <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                                  <FileText size={13} />
-                                </div>
-                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
-                                  Description Details
-                                </h4>
-                              </div>
-                              <textarea
-                                rows={2}
-                                className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
-                                placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
-                                value={card.descriptionDetails || ''}
-                                onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
-                              />
                             </div>
                           </div>
 
@@ -3466,21 +3391,108 @@ export default function Contacts() {
             {activeLeadTab === 'Policy' && (
               <div className="h-full flex flex-col">
                 {/* Action buttons */}
-                <div className="grid grid-cols-2 gap-3 mb-3 flex-shrink-0">
+                <div className="flex items-center justify-between gap-3 mb-3 flex-shrink-0">
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Policies are created in the main policy form and will appear here after saving.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => addPolicy('Health')}
+                    onClick={() => {
+                      if (!editContactId) {
+                        toast.error('Please save the contact details first before adding a policy.');
+                        return;
+                      }
+                      navigate(`/policies?action=add&contactId=${editContactId}&keepOpen=1`, {
+                        state: {
+                          returnRoute: '/contacts',
+                          returnPayload: {
+                            reopenContactId: editContactId,
+                            reopenTab: 'Policy',
+                          },
+                        },
+                      });
+                    }}
                     className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-blue-400 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
                   >
-                    + Add Health Policy
+                    + Add New Policy
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => addPolicy('Life')}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-pink-400 text-pink-600 text-xs font-semibold rounded-lg hover:bg-pink-50 cursor-pointer transition-colors"
-                  >
-                    + Add Life Policy
-                  </button>
+                </div>
+
+                <div className="grid gap-3 mb-3">
+                  {((loadedContact?.policies || []).length === 0) ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[180px]">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                        <FileText size={18} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">No policies linked yet</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                        Add a policy from the main policy form and it will show up here as a summary card.
+                      </p>
+                    </div>
+                  ) : (
+                    (loadedContact?.policies || []).map((policy: any) => {
+                      const type = (policy.plan?.category || 'OTHER').toUpperCase();
+                      const typeLabel = type === 'HEALTH' ? 'Health' : type === 'LIFE' ? 'Life' : type.charAt(0) + type.slice(1).toLowerCase();
+                      const isActive = !policy.status || policy.status === 'ACTIVE';
+                      const borderTone = type === 'HEALTH' ? 'border-emerald-200' : type === 'LIFE' ? 'border-blue-200' : 'border-slate-200';
+                      const headerTone = type === 'HEALTH' ? 'from-emerald-500 to-teal-600' : type === 'LIFE' ? 'from-blue-500 to-indigo-600' : 'from-slate-600 to-slate-700';
+                      const statusTone = isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100';
+                      return (
+                        <div key={policy.id} className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md transition-all`}>
+                          <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/80">{typeLabel}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusTone}`}>{policy.status || 'ACTIVE'}</span>
+                              </div>
+                              <p className="text-white font-extrabold text-sm truncate mt-1">{policy.policyNumber || 'Policy Number'}</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white">
+                              <Shield size={18} />
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.company?.name || '—'}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.name || '—'}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Premium</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.premiumAmount || 0).toLocaleString('en-IN')}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sum Assured</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.sumAssured || 0).toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                                <Calendar size={13} className="text-slate-400 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start</p>
+                                  <p className="text-xs font-semibold text-slate-700">{policy.startDate ? new Date(policy.startDate).toLocaleDateString('en-IN') : '—'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                                <Calendar size={13} className="text-slate-400 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End</p>
+                                  <p className="text-xs font-semibold text-slate-700">{policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
 
                 {/* Portfolio cards */}
@@ -3565,14 +3577,14 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Company</option>
                                       {entry.company && ![
-                                         'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
-                                         'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
-                                         'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
-                                         'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
-                                         'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
-                                       ].includes(entry.company) && (
-                                         <option value={entry.company}>{entry.company}</option>
-                                       )}
+                                        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
+                                        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
+                                        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
+                                        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
+                                        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
+                                      ].includes(entry.company) && (
+                                          <option value={entry.company}>{entry.company}</option>
+                                        )}
                                       <option>Star Health</option>
                                       <option>HDFC Ergo</option>
                                       <option>ICICI Lombard</option>
@@ -3605,11 +3617,11 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Plan</option>
                                       {entry.planName && ![
-                                         'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
-                                         'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
-                                       ].includes(entry.planName) && (
-                                         <option value={entry.planName}>{entry.planName}</option>
-                                       )}
+                                        'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
+                                        'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
+                                      ].includes(entry.planName) && (
+                                          <option value={entry.planName}>{entry.planName}</option>
+                                        )}
                                       {isHealth ? (
                                         <>
                                           <option>Individual</option>
@@ -3827,7 +3839,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'} 
+                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'}
                           {(personalFields.email || loadedContact?.email) ? ` · ${personalFields.email || loadedContact?.email}` : ''}
                         </p>
                       </div>
@@ -3835,7 +3847,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'} 
+                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'}
                           {(personalFields.gender || loadedContact?.gender) ? ` · ${personalFields.gender || loadedContact?.gender}` : ''}
                         </p>
                       </div>
@@ -3843,7 +3855,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'} 
+                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'}
                           {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
                         </p>
                       </div>
