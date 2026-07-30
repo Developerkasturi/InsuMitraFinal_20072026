@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { DatePicker } from '@comps/common/DatePicker';
 import type { Employee } from './EmployeesLayout';
 
 const editSchema = z.object({
@@ -201,11 +202,11 @@ export default function Employees() {
             </div>
             <div>
               <label className="label">Date of Joining</label>
-              <input {...regEdit('dateOfJoining')} type="date" className="input" />
+              <DatePicker {...regEdit('dateOfJoining')} className="input" />
             </div>
             <div>
               <label className="label">Date of Birth</label>
-              <input {...regEdit('dateOfBirth')} type="date" className="input" />
+              <DatePicker {...regEdit('dateOfBirth')} className="input" />
             </div>
             <div>
               <label className="label">Base Salary (₹)</label>

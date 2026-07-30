@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAddClaimExpense, useRemoveClaimExpense } from '@hooks/useClaims';
 import { useAuthStore } from '@store/auth.store';
+import { DatePicker } from '@comps/common/DatePicker';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 
 const STATUS_BADGE: Record<string, string> = {
@@ -370,7 +371,7 @@ export default function ClaimDetail() {
           </div>
           <div>
             <label className="label">Date *</label>
-            <input {...expenseForm.register('date')} type="date" className="input" />
+            <DatePicker {...expenseForm.register('date')} className="input" />
             {expenseForm.formState.errors.date && <p className="text-xs text-red-500 mt-0.5">{expenseForm.formState.errors.date.message}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">

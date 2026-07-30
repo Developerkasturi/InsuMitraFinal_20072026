@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { DatePicker } from '@comps/common/DatePicker';
 
 const addressSchema = z.object({
   line1: z.string().min(1, 'Required'),
@@ -372,11 +373,10 @@ export default function ContactDetail() {
 
                 <div>
                   <label className="label text-[10px] font-bold text-gray-500">Date of Birth</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="input w-full p-1"
                     value={fields.dateOfBirth}
-                    onChange={e => setFields(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                    onDateChange={val => setFields(prev => ({ ...prev, dateOfBirth: val }))}
                   />
                 </div>
 
@@ -685,7 +685,7 @@ export default function ContactDetail() {
                     <span className="font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
                       {log.action}
                     </span>
-                    <span>{format(new Date(log.createdAt), 'dd MMM yyyy HH:mm')}</span>
+                    <span>{format(new Date(log.createdAt), 'dd/MMM/yyyy HH:mm')}</span>
                   </div>
                   <p className="text-gray-700 font-semibold">{log.description}</p>
                 </div>
@@ -830,7 +830,7 @@ export default function ContactDetail() {
             </div>
             <div className="mt-2">
               <label className="label">Date of Birth</label>
-              <input {...relForm.register('dateOfBirth')} type="date" className="input" />
+              <DatePicker {...relForm.register('dateOfBirth')} className="input" />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

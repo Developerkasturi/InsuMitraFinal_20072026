@@ -16,10 +16,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInDays } from 'date-fns';
 import clsx from 'clsx';
+import { DatePicker } from '@comps/common/DatePicker';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import ContactDetailModal from './ContactDetailModal';
 import * as XLSX from 'xlsx';
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -115,7 +118,7 @@ export default function Contacts() {
   const [newRelPhone, setNewRelPhone] = useState('');
   const [newRelDob, setNewRelDob] = useState('');
   const [showAddRelForm, setShowAddRelForm] = useState(false);
-  
+
   // Phone Directory import states
   const [dirImportOpen, setDirImportOpen] = useState(false);
   const [dirText, setDirText] = useState('');
@@ -124,11 +127,24 @@ export default function Contacts() {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [activeLeadTab, setActiveLeadTab] = useState('Personal');
 
-  const [personalFields, setPersonalFields] = useState({
+  type PersonalFields = Record<string, any>;
+
+  const [personalFields, setPersonalFields] = useState<PersonalFields>({
+    firstName: '',
+    middleName: '',
+    lastName: '',
     fullName: '',
     gender: '',
     maritalStatus: '',
     dateOfBirth: '',
+    age: '',
+    height: '',
+    weight: '',
+    pan: '',
+    panNumber: '',
+    declaredMedicalHistory: [] as string[],
+    notDeclaredMedicalHistory: [] as string[],
+    medicalHistoryDetails: "",
     email: '',
     aadhaarNumber: '',
     whatsappNumber: '',
@@ -199,7 +215,7 @@ export default function Contacts() {
         res.dependentDetails = parsed.dependentDetails || '';
         res.descriptionDetails = parsed.descriptionDetails || '';
         return res;
-      } catch (e) {}
+      } catch (e) { }
     }
     const lines = notesText.split('\n');
     const cleanLines: string[] = [];
@@ -361,7 +377,7 @@ export default function Contacts() {
     const toastId = toast.loading(isExisting ? 'Updating product interest status...' : 'Saving product interest...');
     try {
       const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-      
+
       let stage = 'OPEN';
       if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
       else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
@@ -400,20 +416,37 @@ export default function Contacts() {
 
   // Family members state
   const [familyMembers, setFamilyMembers] = useState<Array<{
-    name: string; dob: string; relation: string;
-    whatsapp: string; occupation: string; education: string;
+    name: string; firstName: string; middleName: string; lastName: string;
+    dob: string; relation: string;
+    whatsapp: string; callingNumber?: string; occupation: string; education: string;
     medicalHistory: string[];
+    declaredMedicalHistory?: string[];
+    notDeclaredMedicalHistory?: string[];
+    medicalHistoryDetails?: string;
   }>>([]);
 
   const addFamilyMember = () =>
     setFamilyMembers(prev => [...prev, {
-      name: '', dob: '', relation: '',
-      whatsapp: '', occupation: '', education: '',
-      medicalHistory: []
+      name: '', firstName: '', middleName: '', lastName: '',
+      dob: '', relation: '',
+      whatsapp: '', callingNumber: '', occupation: '', education: '',
+      medicalHistory: [],
+      declaredMedicalHistory: [],
+      notDeclaredMedicalHistory: [],
+      medicalHistoryDetails: ''
     }]);
 
   const updateFamilyMember = (idx: number, field: string, value: any) =>
     setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
+
+  const updateFamilyMemberName = (idx: number, firstName: string, middleName: string, lastName: string) =>
+    setFamilyMembers(prev => prev.map((m, i) => i === idx ? {
+      ...m,
+      firstName,
+      middleName,
+      lastName,
+      name: [firstName, middleName, lastName].filter(Boolean).join(' '),
+    } : m));
 
   const toggleMedicalHistory = (idx: number, condition: string) =>
     setFamilyMembers(prev => prev.map((m, i) => {
@@ -584,10 +617,16 @@ export default function Contacts() {
 
   const openCustomerCreate = () => {
     setPersonalFields({
-      fullName: '',
+      firstName: '',
+      middleName: '',
+      lastName: '',
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
+      age: '',
+      declaredMedicalHistory: [],
+      notDeclaredMedicalHistory: [],
+      medicalHistoryDetails: '',
       email: '',
       aadhaarNumber: '',
       whatsappNumber: '',
@@ -640,10 +679,16 @@ export default function Contacts() {
       const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
       setPersonalFields({
-        fullName: `${contact.firstName} ${contact.lastName}`.trim(),
+        firstName: contact.firstName || '',
+        middleName: contact.middleName || '',
+        lastName: contact.lastName || '',
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
         dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        age: contact.dateOfBirth ? String(calculateAge(contact.dateOfBirth)) : '',
+        declaredMedicalHistory: [],
+        notDeclaredMedicalHistory: [],
+        medicalHistoryDetails: '',
         email: contact.email || '',
         aadhaarNumber: contact.aadhaarNumber || '',
         whatsappNumber: contact.phone || '',
@@ -739,7 +784,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -790,10 +835,35 @@ export default function Contacts() {
     setLoadedContact(null);
   };
 
+  const calculateAge = (dob: string): number => {
+    if (!dob) return 0;
+    try {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age > 0 ? age : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const handleDOBChange = (val: string) => {
+    const age = calculateAge(val);
+    setPersonalFields(p => ({ ...p, dateOfBirth: val, age: String(age) }));
+  };
+
   const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean) => {
     e.preventDefault();
-    if (!personalFields.fullName.trim()) {
-      toast.error('Full Name is required');
+    if (!personalFields.firstName.trim()) {
+      toast.error('First Name is required');
+      return;
+    }
+    if (!personalFields.lastName.trim()) {
+      toast.error('Last Name is required');
       return;
     }
     if (!personalFields.whatsappNumber.trim()) {
@@ -862,9 +932,8 @@ export default function Contacts() {
 
     const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
     try {
-      const parts = personalFields.fullName.trim().split(/\s+/);
-      const firstName = parts[0] || '';
-      const lastName = parts.slice(1).join(' ') || '';
+      const firstName = personalFields.firstName.trim();
+      const lastName = personalFields.lastName.trim();
 
       const mergedTags = [...selectedCampaigns];
       const isCustomerTarget = activeTab === 'customers' || leadInfoFields.profileType === 'Client Profile' || leadInfoFields.profileType === 'Customer Profile';
@@ -886,16 +955,22 @@ export default function Contacts() {
       if (editContactId) {
         await contactsService.update(editContactId, {
           firstName,
+          middleName: personalFields.middleName || undefined,
           lastName,
           phone: personalFields.whatsappNumber,
           alternatePhone: personalFields.callingNumber || undefined,
           email: personalFields.email || undefined,
           gender: personalFields.gender || undefined,
+          maritalStatus: personalFields.maritalStatus || undefined,
           dateOfBirth: personalFields.dateOfBirth?.trim() ? new Date(personalFields.dateOfBirth).toISOString() : undefined,
+          height: personalFields.height ? Number(personalFields.height) : undefined,
+          weight: personalFields.weight ? Number(personalFields.weight) : undefined,
+          panNumber: personalFields.panNumber || personalFields.pan || undefined,
           aadhaarNumber: personalFields.aadhaarNumber || undefined,
+          education: personalFields.education || undefined,
+          annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
           tags: mergedTags,
           notes: personalFields.streetAddress || undefined,
-          annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
         });
 
         // Update Address: clean up old addresses, then create the new primary address
@@ -935,13 +1010,20 @@ export default function Contacts() {
         const contactRes = await contactsService.createFull({
           contact: {
             firstName,
+            middleName: personalFields.middleName || undefined,
             lastName,
             phone: personalFields.whatsappNumber,
             alternatePhone: personalFields.callingNumber || undefined,
             email: personalFields.email || undefined,
             gender: personalFields.gender || undefined,
+            maritalStatus: personalFields.maritalStatus || undefined,
             dateOfBirth: personalFields.dateOfBirth?.trim() ? new Date(personalFields.dateOfBirth).toISOString() : undefined,
+            height: personalFields.height ? Number(personalFields.height) : undefined,
+            weight: personalFields.weight ? Number(personalFields.weight) : undefined,
+            panNumber: personalFields.panNumber || personalFields.pan || undefined,
             aadhaarNumber: personalFields.aadhaarNumber || undefined,
+            education: personalFields.education || undefined,
+            annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
             tags: mergedTags,
             notes: personalFields.streetAddress || undefined,
           },
@@ -1021,7 +1103,7 @@ export default function Contacts() {
       for (const card of productInterests) {
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
-        
+
         let stage = 'OPEN';
         if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
         else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
@@ -1096,6 +1178,9 @@ export default function Contacts() {
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
+      declaredMedicalHistory: [],
+      notDeclaredMedicalHistory: [],
+      medicalHistoryDetails: '',
       email: '',
       aadhaarNumber: '',
       whatsappNumber: '',
@@ -1150,6 +1235,9 @@ export default function Contacts() {
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
         dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        declaredMedicalHistory: [],
+        notDeclaredMedicalHistory: [],
+        medicalHistoryDetails: '',
         email: contact.email || '',
         aadhaarNumber: contact.aadhaarNumber || '',
         whatsappNumber: contact.phone || '',
@@ -1283,7 +1371,7 @@ export default function Contacts() {
         const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
         const standardInterests = interestsList.filter((p: string) => isStandard(p));
         const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-        
+
         const interestedIn = [...standardInterests];
         let otherProduct = '';
         if (otherInterests.length > 0) {
@@ -1363,7 +1451,13 @@ export default function Contacts() {
         toDate.setHours(23, 59, 59, 999);
         if (itemDate > toDate) return false;
       }
-
+      const medicalOptions = [
+        "BP",
+        "Sugar",
+        "Heart",
+        "Thyroid",
+        "Others",
+      ];
       // Product Category Quick & Advanced Multi-Select Filter
       if (filterProducts.length > 0) {
         const contactPolicies = (policyMap[item.id] && policyMap[item.id].length > 0)
@@ -1577,7 +1671,7 @@ export default function Contacts() {
       key: 'followUpDate',
       label: 'NEXT FOLLOW-UP',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MMM/yyyy') : '—'}</span>
     },
     {
       key: 'assignedTo',
@@ -1884,7 +1978,7 @@ export default function Contacts() {
           <span className={clsx(
             "px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border shadow-2xs",
             diff === 0 ? "bg-gradient-to-r from-rose-600 to-red-600 text-white border-rose-600 shadow-rose-500/25 animate-pulse" :
-            diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
+              diff <= 7 ? "bg-amber-50 text-amber-700 border-amber-200/80" : "bg-blue-50 text-blue-700 border-blue-200/80"
           )}>
             {diff === 0 ? 'Today! 🎂' : `${diff} days`}
           </span>
@@ -1947,8 +2041,8 @@ export default function Contacts() {
     const cols = activeTab === 'birthdays'
       ? BIRTHDAY_COLS
       : activeTab === 'customers'
-      ? CUSTOMER_COLS
-      : CONTACT_COLS;
+        ? CUSTOMER_COLS
+        : CONTACT_COLS;
     return cols.filter(c => visibleColumns[String(c.key)] !== false);
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
@@ -2009,7 +2103,7 @@ export default function Contacts() {
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
         {/* Single Row Layout */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          
+
           {/* Left Side: Search Bar ONLY */}
           <div className="flex items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
@@ -2068,8 +2162,8 @@ export default function Contacts() {
                   {filterProducts.length === 0
                     ? "All Products"
                     : filterProducts.length === 1
-                    ? `Product: ${filterProducts[0]}`
-                    : `${filterProducts.length} Products Selected`}
+                      ? `Product: ${filterProducts[0]}`
+                      : `${filterProducts.length} Products Selected`}
                 </span>
                 <ChevronDown size={14} className={clsx("text-slate-400 transition-transform duration-150", showProductDropdown && "rotate-180")} />
               </button>
@@ -2154,18 +2248,16 @@ export default function Contacts() {
             {/* Date Range Selector */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
               <Calendar size={14} className="text-slate-400 shrink-0" />
-              <input
-                type="date"
+              <DatePicker
                 value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                onChange={val => { setDateFrom(val); setPage(1); }}
                 className="bg-transparent border-0 outline-none text-[11px] font-semibold text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
                 title="From Date"
               />
               <span className="text-slate-300 font-bold">-</span>
-              <input
-                type="date"
+              <DatePicker
                 value={dateTo}
-                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                onChange={val => { setDateTo(val); setPage(1); }}
                 className="bg-transparent border-0 outline-none text-[11px] font-semibold text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
                 title="To Date"
               />
@@ -2173,7 +2265,7 @@ export default function Contacts() {
 
             {/* Column Picker Dropdown */}
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowColPicker(!showColPicker)}
                 className={clsx(
                   "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2205,7 +2297,7 @@ export default function Contacts() {
             </div>
 
             {/* Advanced Filters Toggle Button */}
-            <button 
+            <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={clsx(
                 "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
@@ -2408,10 +2500,9 @@ export default function Contacts() {
 
               <div>
                 <label className="label">Next Follow-up Date</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={interactionFields.nextFollowUp}
-                  onChange={(e) => setInteractionFields(prev => ({ ...prev, nextFollowUp: e.target.value }))}
+                  onChange={val => setInteractionFields(prev => ({ ...prev, nextFollowUp: val }))}
                   className="input text-xs"
                 />
               </div>
@@ -2449,7 +2540,7 @@ export default function Contacts() {
           {/* Right Column: Timelines and Comments History */}
           <div className="border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6 flex flex-col">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Consultation Comments Timeline</h3>
-            
+
             <div className="flex-1 max-h-[420px] overflow-y-auto pr-1 space-y-3 custom-scrollbar">
               {activityLoading ? (
                 <div className="py-12 flex justify-center items-center text-slate-400 text-xs">
@@ -2466,15 +2557,15 @@ export default function Contacts() {
                   return (
                     <div key={act.id || idx} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-100 rounded-xl p-3 space-y-1.5 transition-all text-xs">
                       <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-                        <span>{format(new Date(act.createdAt), 'dd/MM/yyyy hh:mm a')}</span>
+                        <span>{format(new Date(act.createdAt), 'dd/MMM/yyyy hh:mm a')}</span>
                         <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">{creatorName}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className={clsx(
                           'px-1.5 py-0.25 rounded text-[9px] font-bold uppercase tracking-wider',
                           act.action === 'WHATSAPP' ? 'bg-green-100 text-green-700' :
-                          act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
-                          'bg-blue-100 text-blue-700'
+                            act.action === 'MEETING' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
                         )}>
                           {act.action}
                         </span>
@@ -2700,8 +2791,27 @@ export default function Contacts() {
                             )}
                           </div>
 
-                          {/* Row 1: Stage, Status, Dependency, Type */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          {/* Description Details Box */}
+                          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <FileText size={13} />
+                              </div>
+                              <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                Description Details
+                              </h4>
+                            </div>
+                            <textarea
+                              rows={2}
+                              className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
+                              placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
+                              value={card.descriptionDetails || ''}
+                              onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
+                            />
+                          </div>
+
+                          {/* Row 1: Stage, Status, Type */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage *</label>
                               <select
@@ -2734,18 +2844,6 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Dependency *</label>
-                              <select
-                                disabled={isExisting}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
-                                value={card.dependencyType || 'SELF'}
-                                onChange={e => updateProductInterest(card.id, 'dependencyType', e.target.value)}
-                              >
-                                <option value="SELF">Self</option>
-                                <option value="DEPENDENT">Depend</option>
-                              </select>
-                            </div>
-                            <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
                               <select
                                 disabled={isExisting}
@@ -2758,77 +2856,6 @@ export default function Contacts() {
                                 <option value="PORTING">Porting</option>
                               </select>
                             </div>
-                          </div>
-
-                          {/* Members Included Multi-Select Box */}
-                          <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                <Users size={12} className="text-blue-600 shrink-0" />
-                                Members Included in Policy / Product *
-                              </label>
-                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                                {((card as any).membersIncluded || []).length} Selected
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                              {/* Self Option */}
-                              {(() => {
-                                const isSelfSel = ((card as any).membersIncluded || []).includes('Self');
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const prev: string[] = (card as any).membersIncluded || [];
-                                      const next = isSelfSel ? prev.filter(m => m !== 'Self') : [...prev, 'Self'];
-                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
-                                    }}
-                                    className={clsx(
-                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                      isSelfSel
-                                        ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    )}
-                                  >
-                                    <span>Self (Primary Contact)</span>
-                                    {isSelfSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
-                                  </button>
-                                );
-                              })()}
-
-                              {/* Family Member Options */}
-                              {familyMembers.map((fam, famIdx) => {
-                                const memberLabel = fam.name ? `${fam.name}${fam.relation ? ` (${fam.relation})` : ''}` : `Family Member #${famIdx + 1}`;
-                                const isSel = ((card as any).membersIncluded || []).includes(memberLabel);
-                                return (
-                                  <button
-                                    key={famIdx}
-                                    type="button"
-                                    onClick={() => {
-                                      const prev: string[] = (card as any).membersIncluded || [];
-                                      const next = isSel ? prev.filter(m => m !== memberLabel) : [...prev, memberLabel];
-                                      updateProductInterest(card.id, 'membersIncluded' as any, next);
-                                    }}
-                                    className={clsx(
-                                      "px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                      isSel
-                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
-                                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    )}
-                                  >
-                                    <span>{memberLabel}</span>
-                                    {isSel ? <span className="font-bold text-[10px]">✓</span> : <span className="text-slate-400 text-[10px]">+</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {familyMembers.length === 0 && (
-                              <p className="text-[10px] text-slate-400 font-medium italic">
-                                💡 Add family members in the Family Members section above to select them here.
-                              </p>
-                            )}
                           </div>
 
                           {/* Prominent Dependent Details Textbox when Depend is selected */}
@@ -2878,7 +2905,7 @@ export default function Contacts() {
                                 value={card.assignedEmployeeId}
                                 onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
                               >
-                                <option value="">Select Employee</option>
+                                <option value="">Unassigned</option>
                                 {employees?.map((emp: any) => (
                                   <option key={emp.id} value={emp.userId || emp.id}>
                                     {emp.firstName} {emp.lastName}
@@ -2888,12 +2915,11 @@ export default function Contacts() {
                             </div>
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date *</label>
-                              <input
-                                type="date"
+                              <DatePicker
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.followUpDate}
-                                onChange={e => updateProductInterest(card.id, 'followUpDate', e.target.value)}
+                                onDateChange={date => updateProductInterest(card.id, 'followUpDate', date)}
                               />
                             </div>
                             <div>
@@ -3011,24 +3037,6 @@ export default function Contacts() {
                               </div>
                             </div>
 
-                            {/* Description Details Box */}
-                            <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                                  <FileText size={13} />
-                                </div>
-                                <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
-                                  Description Details
-                                </h4>
-                              </div>
-                              <textarea
-                                rows={2}
-                                className="w-full text-xs p-3 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded-xl text-slate-800 placeholder-slate-400 font-medium outline-none resize-y transition-all shadow-2xs"
-                                placeholder="Enter details for whom they are interested, specific coverage requirements, family member preferences, or notes..."
-                                value={card.descriptionDetails || ''}
-                                onChange={e => updateProductInterest(card.id, 'descriptionDetails', e.target.value)}
-                              />
-                            </div>
                           </div>
 
                         </div>
@@ -3052,13 +3060,33 @@ export default function Contacts() {
             {activeLeadTab === 'Personal' && (
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Full Name *</label>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
                   <input
                     type="text"
                     className="input w-full"
-                    placeholder="e.g. Rahul Sharma"
-                    value={personalFields.fullName}
-                    onChange={e => setPersonalFields(p => ({ ...p, fullName: e.target.value }))}
+                    placeholder="e.g. Rahul"
+                    value={personalFields.firstName}
+                    onChange={e => setPersonalFields(p => ({ ...p, firstName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Middle Name</label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="e.g. Kumar"
+                    value={personalFields.middleName}
+                    onChange={e => setPersonalFields(p => ({ ...p, middleName: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    placeholder="e.g. Sharma"
+                    value={personalFields.lastName}
+                    onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -3090,13 +3118,72 @@ export default function Contacts() {
                 </div>
                 <div>
                   <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     className="input w-full"
                     value={personalFields.dateOfBirth}
-                    onChange={e => setPersonalFields(p => ({ ...p, dateOfBirth: e.target.value }))}
+                    onDateChange={handleDOBChange}
                   />
                 </div>
+                <div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Age</label>
+                  <input
+                    type="text"
+                    className="input w-full bg-gray-50 cursor-not-allowed"
+                    value={personalFields.age}
+                    disabled
+                    placeholder="Auto-calculated"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Height (cm)
+                  </label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    placeholder="e.g. 170"
+                    value={personalFields.height}
+                    onChange={(e) =>
+                      setPersonalFields((p) => ({
+                        ...p,
+                        height: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    placeholder="e.g. 65"
+                    value={personalFields.weight}
+                    onChange={(e) =>
+                      setPersonalFields((p) => ({
+                        ...p,
+                        weight: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="label">PAN</label>
+                  <input
+                    type="text"
+                    placeholder="ABCDE1234F"
+                    className="input"
+                    value={personalFields.pan}
+                    onChange={(e) =>
+                      setPersonalFields(p => ({
+                        ...p,
+                        pan: e.target.value.toUpperCase(),
+                      }))
+                    }
+                  />
+                </div>
+
                 <div>
                   <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
                   <input
@@ -3156,18 +3243,39 @@ export default function Contacts() {
                   </div>
                 </div>
                 <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Calling Number</label>
-                  <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all">
-                    <span className="bg-slate-50 px-2.5 py-1.5 text-xs border-r border-slate-200 text-slate-500 font-bold">+91</span>
-                    <input
-                      type="tel"
-                      className="px-3 py-1.5 text-xs w-full outline-none bg-transparent disabled:bg-slate-50"
-                      placeholder="Mobile Number"
-                      disabled={personalFields.sameAsWhatsapp}
-                      value={personalFields.callingNumber}
-                      onChange={e => setPersonalFields(p => ({ ...p, callingNumber: e.target.value }))}
-                    />
-                  </div>
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Calling Number
+                  </label>
+
+                  <PhoneInput
+                    country={"in"}
+                    enableSearch
+                    countryCodeEditable={false}
+                    disabled={personalFields.sameAsWhatsapp}
+                    value={personalFields.callingNumber}
+                    onChange={(value: any) =>
+                      setPersonalFields((p) => ({
+                        ...p,
+                        callingNumber: value,
+                      }))
+                    }
+                    inputStyle={{
+                      width: "100%",
+                      height: "34px",
+                      fontSize: "12px",
+                      borderRadius: "12px",
+                      border: "1px solid #e2e8f0",
+                      paddingLeft: "48px",
+                    }}
+                    buttonStyle={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "12px 0 0 12px",
+                      background: "#fff",
+                    }}
+                    containerStyle={{
+                      width: "100%",
+                    }}
+                  />
                 </div>
                 <div>
                   <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
@@ -3256,6 +3364,7 @@ export default function Contacts() {
                     onChange={e => setPersonalFields(p => ({ ...p, city: e.target.value }))}
                   />
                 </div>
+
                 <div>
                   <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Pincode</label>
                   <input
@@ -3274,6 +3383,158 @@ export default function Contacts() {
                     placeholder="Flat No, Street, Landmark..."
                     value={personalFields.streetAddress}
                     onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
+                  />
+                </div>
+
+                {/* Declared Medical History */}
+                <div className="col-span-3">
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Declared Medical History</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                      const isOthers = condition === 'Others';
+                      const current = personalFields.declaredMedicalHistory as string[];
+                      const isSelected = isOthers
+                        ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                        : current.includes(condition);
+                      return (
+                        <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="accent-blue-600 w-3.5 h-3.5"
+                            checked={isSelected}
+                            onChange={() => {
+                              setPersonalFields(p => {
+                                const list = p.declaredMedicalHistory as string[];
+                                if (isOthers) {
+                                  if (isSelected) {
+                                    return {
+                                      ...p,
+                                      declaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                    };
+                                  } else {
+                                    return {
+                                      ...p,
+                                      declaredMedicalHistory: [...list, '']
+                                    };
+                                  }
+                                } else {
+                                  return {
+                                    ...p,
+                                    declaredMedicalHistory: isSelected
+                                      ? list.filter(c => c !== condition)
+                                      : [...list, condition]
+                                  };
+                                }
+                              });
+                            }}
+                          />
+                          <span className="text-xs text-slate-600 font-medium">{condition}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(personalFields.declaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                    <div className="mt-2 animate-fadeIn">
+                      <input
+                        type="text"
+                        className="input w-full text-xs py-1 px-2.5"
+                        placeholder="Type medical conditions..."
+                        value={(personalFields.declaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setPersonalFields(p => {
+                            const current = p.declaredMedicalHistory as string[];
+                            const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                            return {
+                              ...p,
+                              declaredMedicalHistory: [...baseVal, val]
+                            };
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+               
+                {/* NOT Declared Medical History */}
+                <div className="col-span-3">
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">NOT Declared Medical History</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                      const isOthers = condition === 'Others';
+                      const current = personalFields.notDeclaredMedicalHistory as string[];
+                      const isSelected = isOthers
+                        ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                        : current.includes(condition);
+                      return (
+                        <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="accent-orange-500 w-3.5 h-3.5"
+                            checked={isSelected}
+                            onChange={() => {
+                              setPersonalFields(p => {
+                                const list = p.notDeclaredMedicalHistory as string[];
+                                if (isOthers) {
+                                  if (isSelected) {
+                                    return {
+                                      ...p,
+                                      notDeclaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                    };
+                                  } else {
+                                    return {
+                                      ...p,
+                                      notDeclaredMedicalHistory: [...list, '']
+                                    };
+                                  }
+                                } else {
+                                  return {
+                                    ...p,
+                                    notDeclaredMedicalHistory: isSelected
+                                      ? list.filter(c => c !== condition)
+                                      : [...list, condition]
+                                  };
+                                }
+                              });
+                            }}
+                          />
+                          <span className="text-xs text-slate-600 font-medium">{condition}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(personalFields.notDeclaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                    <div className="mt-2 animate-fadeIn">
+                      <input
+                        type="text"
+                        className="input w-full text-xs py-1 px-2.5"
+                        placeholder="Type medical conditions..."
+                        value={(personalFields.notDeclaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setPersonalFields(p => {
+                            const current = p.notDeclaredMedicalHistory as string[];
+                            const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                            return {
+                              ...p,
+                              notDeclaredMedicalHistory: [...baseVal, val]
+                            };
+                          });
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Details of Medical History */}
+                <div className="col-span-3">
+                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
+                  <textarea
+                    className="input w-full resize-none"
+                    rows={2}
+                    placeholder="Add any additional medical history details..."
+                    value={personalFields.medicalHistoryDetails}
+                    onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
                   />
                 </div>
               </div>
@@ -3315,25 +3576,60 @@ export default function Contacts() {
                           </button>
                         </div>
 
-                        {/* Row 1: Name | DOB | Relation */}
+                        {/* Row 1: First Name | Middle Name | Last Name | DOB | Relation */}
                         <div className="grid grid-cols-3 gap-3 px-4 pt-3">
                           <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Name</label>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
                             <input
                               type="text"
                               className="input w-full mt-1"
-                              placeholder="Full name"
-                              value={member.name}
-                              onChange={e => updateFamilyMember(idx, 'name', e.target.value)}
+                              placeholder="First name"
+                              value={member.firstName}
+                              onChange={e => {
+                                const val = e.target.value;
+                                updateFamilyMember(idx, 'firstName', val);
+                                updateFamilyMember(idx, 'name', [val, member.middleName, member.lastName].filter(Boolean).join(' '));
+                              }}
                             />
                           </div>
                           <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">DOB</label>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Middle Name</label>
                             <input
-                              type="date"
+                              type="text"
+                              className="input w-full mt-1"
+                              placeholder="Middle name"
+                              value={member.middleName}
+                              onChange={e => {
+                                const val = e.target.value;
+                                updateFamilyMember(idx, 'middleName', val);
+                                updateFamilyMember(idx, 'name', [member.firstName, val, member.lastName].filter(Boolean).join(' '));
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name <span className="text-red-500">*</span></label>
+                            <input
+                              type="text"
+                              className="input w-full mt-1"
+                              placeholder="Last name"
+                              value={member.lastName}
+                              onChange={e => {
+                                const val = e.target.value;
+                                updateFamilyMember(idx, 'lastName', val);
+                                updateFamilyMember(idx, 'name', [member.firstName, member.middleName, val].filter(Boolean).join(' '));
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Row 2: DOB | Relation | Occupation */}
+                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">DOB</label>
+                            <DatePicker
                               className="input w-full mt-1"
                               value={member.dob}
-                              onChange={e => updateFamilyMember(idx, 'dob', e.target.value)}
+                              onChange={val => updateFamilyMember(idx, 'dob', val)}
                             />
                           </div>
                           <div>
@@ -3355,23 +3651,6 @@ export default function Contacts() {
                               <option>Other</option>
                             </select>
                           </div>
-                        </div>
-
-                        {/* Row 2: WhatsApp | Occupation | Education */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">WhatsApp</label>
-                            <div className="flex mt-1">
-                              <span className="inline-flex items-center px-2.5 text-xs text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg font-medium">+91</span>
-                              <input
-                                type="tel"
-                                className="input rounded-l-none flex-1 min-w-0"
-                                placeholder="Number"
-                                value={member.whatsapp}
-                                onChange={e => updateFamilyMember(idx, 'whatsapp', e.target.value)}
-                              />
-                            </div>
-                          </div>
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Occupation</label>
                             <select
@@ -3388,6 +3667,51 @@ export default function Contacts() {
                               <option>Retired</option>
                               <option>Other</option>
                             </select>
+                          </div>
+                        </div>
+
+                        {/* Row 3: WhatsApp | Calling Number | Education */}
+                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">WhatsApp</label>
+                            <div className="flex mt-1">
+                              <span className="inline-flex items-center px-2.5 text-xs text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg font-medium">+91</span>
+                              <input
+                                type="tel"
+                                className="input rounded-l-none flex-1 min-w-0"
+                                placeholder="Number"
+                                value={member.whatsapp}
+                                onChange={e => updateFamilyMember(idx, 'whatsapp', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Calling Number</label>
+                            <div className="mt-1">
+                              <PhoneInput
+                                country={"in"}
+                                enableSearch
+                                countryCodeEditable={false}
+                                value={member.callingNumber || ''}
+                                onChange={(value: any) => updateFamilyMember(idx, 'callingNumber', value)}
+                                inputStyle={{
+                                  width: "100%",
+                                  height: "34px",
+                                  fontSize: "12px",
+                                  borderRadius: "12px",
+                                  border: "1px solid #e2e8f0",
+                                  paddingLeft: "48px",
+                                }}
+                                buttonStyle={{
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "12px 0 0 12px",
+                                  background: "#fff",
+                                }}
+                                containerStyle={{
+                                  width: "100%",
+                                }}
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Education</label>
@@ -3407,54 +3731,235 @@ export default function Contacts() {
                           </div>
                         </div>
 
-                        {/* Row 3: Medical History */}
-                        <div className="px-4 pt-3 pb-3">
-                          <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-2">Medical History (Select if applicable)</label>
-                          <div className="flex flex-wrap gap-3">
-                            {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map(condition => (
-                              <label key={condition} className="flex items-center gap-1.5 cursor-pointer">
+                        {/* Row 4: Medical History */}
+                        <div className="grid grid-cols-3 gap-3 px-4 pt-3 pb-3">
+                          {/* Generic Medical History */}
+                          <div className="col-span-3">
+                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Medical History (Select if applicable)</label>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                                const isOthers = condition === 'Others';
+                                const current = member.medicalHistory || [];
+                                const isSelected = isOthers
+                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                  : current.includes(condition);
+                                return (
+                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      className="accent-blue-600 w-3.5 h-3.5"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setFamilyMembers(prev => prev.map((m, i) => {
+                                          if (i !== idx) return m;
+                                          const list: string[] = m.medicalHistory || [];
+                                          if (isOthers) {
+                                            if (isSelected) {
+                                              return {
+                                                ...m,
+                                                medicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                              };
+                                            } else {
+                                              return {
+                                                ...m,
+                                                medicalHistory: [...list, '']
+                                              };
+                                            }
+                                          } else {
+                                            return {
+                                              ...m,
+                                              medicalHistory: isSelected
+                                                ? list.filter((c: string) => c !== condition)
+                                                : [...list, condition]
+                                            };
+                                          }
+                                        }));
+                                      }}
+                                    />
+                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            {(member.medicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                              <div className="mt-2 animate-fadeIn">
                                 <input
-                                  type="checkbox"
-                                  checked={
-                                    condition === 'Others'
-                                      ? member.medicalHistory.some(h => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h))
-                                      : member.medicalHistory.includes(condition)
-                                  }
-                                  onChange={() => {
-                                    if (condition === 'Others') {
-                                      const customActive = member.medicalHistory.some(h => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h));
-                                      if (customActive) {
-                                        const cleared = member.medicalHistory.filter(h => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h));
-                                        updateFamilyMember(idx, 'medicalHistory', cleared);
-                                      } else {
-                                        updateFamilyMember(idx, 'medicalHistory', [...member.medicalHistory, '']);
-                                      }
-                                    } else {
-                                      toggleMedicalHistory(idx, condition);
-                                    }
+                                  type="text"
+                                  className="input w-full text-xs py-1 px-2.5"
+                                  placeholder="Type medical conditions..."
+                                  value={(member.medicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setFamilyMembers(prev => prev.map((m, i) => {
+                                      if (i !== idx) return m;
+                                      const current: string[] = m.medicalHistory || [];
+                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                                      return {
+                                        ...m,
+                                        medicalHistory: [...baseVal, val]
+                                      };
+                                    }));
                                   }}
-                                  className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
                                 />
-                                <span className="text-xs text-gray-600">{condition}</span>
-                              </label>
-                            ))}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Option to type if Others is checked */}
-                          {member.medicalHistory.some(h => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h)) && (
-                            <div className="mt-2 animate-fadeIn">
-                              <input
-                                type="text"
-                                className="input w-full text-xs py-1 px-2.5"
-                                placeholder="Type medical conditions..."
-                                value={member.medicalHistory.find(h => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h)) || ''}
-                                onChange={e => {
-                                  const baseVal = member.medicalHistory.filter(h => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(h));
-                                  updateFamilyMember(idx, 'medicalHistory', [...baseVal, e.target.value]);
-                                }}
-                              />
+                          {/* Declared Medical History */}
+                          <div className="col-span-3">
+                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Declared Medical History</label>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                                const isOthers = condition === 'Others';
+                                const current = member.declaredMedicalHistory || [];
+                                const isSelected = isOthers
+                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                  : current.includes(condition);
+                                return (
+                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      className="accent-blue-600 w-3.5 h-3.5"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setFamilyMembers(prev => prev.map((m, i) => {
+                                          if (i !== idx) return m;
+                                          const list: string[] = m.declaredMedicalHistory || [];
+                                          if (isOthers) {
+                                            if (isSelected) {
+                                              return {
+                                                ...m,
+                                                declaredMedicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                              };
+                                            } else {
+                                              return {
+                                                ...m,
+                                                declaredMedicalHistory: [...list, '']
+                                              };
+                                            }
+                                          } else {
+                                            return {
+                                              ...m,
+                                              declaredMedicalHistory: isSelected
+                                                ? list.filter((c: string) => c !== condition)
+                                                : [...list, condition]
+                                            };
+                                          }
+                                        }));
+                                      }}
+                                    />
+                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
+                                  </label>
+                                );
+                              })}
                             </div>
-                          )}
+                            {(member.declaredMedicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                              <div className="mt-2 animate-fadeIn">
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs py-1 px-2.5"
+                                  placeholder="Type medical conditions..."
+                                  value={(member.declaredMedicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setFamilyMembers(prev => prev.map((m, i) => {
+                                      if (i !== idx) return m;
+                                      const current: string[] = m.declaredMedicalHistory || [];
+                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                                      return {
+                                        ...m,
+                                        declaredMedicalHistory: [...baseVal, val]
+                                      };
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* NOT Declared Medical History */}
+                          <div className="col-span-3">
+                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">NOT Declared Medical History</label>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2">
+                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                                const isOthers = condition === 'Others';
+                                const current = member.notDeclaredMedicalHistory || [];
+                                const isSelected = isOthers
+                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                  : current.includes(condition);
+                                return (
+                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      className="accent-orange-500 w-3.5 h-3.5"
+                                      checked={isSelected}
+                                      onChange={() => {
+                                        setFamilyMembers(prev => prev.map((m, i) => {
+                                          if (i !== idx) return m;
+                                          const list: string[] = m.notDeclaredMedicalHistory || [];
+                                          if (isOthers) {
+                                            if (isSelected) {
+                                              return {
+                                                ...m,
+                                                notDeclaredMedicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                              };
+                                            } else {
+                                              return {
+                                                ...m,
+                                                notDeclaredMedicalHistory: [...list, '']
+                                              };
+                                            }
+                                          } else {
+                                            return {
+                                              ...m,
+                                              notDeclaredMedicalHistory: isSelected
+                                                ? list.filter((c: string) => c !== condition)
+                                                : [...list, condition]
+                                            };
+                                          }
+                                        }));
+                                      }}
+                                    />
+                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            {(member.notDeclaredMedicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                              <div className="mt-2 animate-fadeIn">
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs py-1 px-2.5"
+                                  placeholder="Type medical conditions..."
+                                  value={(member.notDeclaredMedicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setFamilyMembers(prev => prev.map((m, i) => {
+                                      if (i !== idx) return m;
+                                      const current: string[] = m.notDeclaredMedicalHistory || [];
+                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                                      return {
+                                        ...m,
+                                        notDeclaredMedicalHistory: [...baseVal, val]
+                                      };
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Details of Medical History */}
+                          <div className="col-span-3">
+                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
+                            <textarea
+                              className="input w-full resize-none"
+                              rows={2}
+                              placeholder="Add any additional medical history details..."
+                              value={member.medicalHistoryDetails || ''}
+                              onChange={e => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, medicalHistoryDetails: e.target.value } : m))}
+                            />
+                          </div>
                         </div>
                       </div>
                     ))
@@ -3565,14 +4070,14 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Company</option>
                                       {entry.company && ![
-                                         'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
-                                         'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
-                                         'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
-                                         'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
-                                         'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
-                                       ].includes(entry.company) && (
-                                         <option value={entry.company}>{entry.company}</option>
-                                       )}
+                                        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
+                                        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
+                                        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
+                                        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
+                                        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
+                                      ].includes(entry.company) && (
+                                          <option value={entry.company}>{entry.company}</option>
+                                        )}
                                       <option>Star Health</option>
                                       <option>HDFC Ergo</option>
                                       <option>ICICI Lombard</option>
@@ -3605,11 +4110,11 @@ export default function Contacts() {
                                     >
                                       <option value="">Select Plan</option>
                                       {entry.planName && ![
-                                         'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
-                                         'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
-                                       ].includes(entry.planName) && (
-                                         <option value={entry.planName}>{entry.planName}</option>
-                                       )}
+                                        'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
+                                        'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
+                                      ].includes(entry.planName) && (
+                                          <option value={entry.planName}>{entry.planName}</option>
+                                        )}
                                       {isHealth ? (
                                         <>
                                           <option>Individual</option>
@@ -3650,11 +4155,10 @@ export default function Contacts() {
                                 <div className="grid grid-cols-3 gap-3 mb-2">
                                   <div>
                                     <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Date</label>
-                                    <input
-                                      type="date"
+                                    <DatePicker
                                       className="input w-full mt-1"
                                       value={entry.startDate}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'startDate', e.target.value)}
+                                      onChange={val => updatePolicyItem(pIdx, eIdx, 'startDate', val)}
                                     />
                                   </div>
                                   <div>
@@ -3677,11 +4181,10 @@ export default function Contacts() {
                                   </div>
                                   <div>
                                     <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">End Date</label>
-                                    <input
-                                      type="date"
+                                    <DatePicker
                                       className="input w-full mt-1"
                                       value={entry.endDate}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'endDate', e.target.value)}
+                                      onChange={val => updatePolicyItem(pIdx, eIdx, 'endDate', val)}
                                     />
                                   </div>
                                 </div>
@@ -3818,16 +4321,16 @@ export default function Contacts() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Full Name</span>
+                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Name</span>
                         <p className="font-bold text-slate-800">
-                          {personalFields.fullName ? personalFields.fullName.trim() : (loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.lastName || ''}`.trim() : 'Not provided')}
+                          {(personalFields.firstName || personalFields.middleName || personalFields.lastName) ? `${personalFields.firstName} ${personalFields.middleName} ${personalFields.lastName}`.trim() : (loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.middleName || ''} ${loadedContact.lastName || ''}`.trim() : 'Not provided')}
                         </p>
                       </div>
 
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'} 
+                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'}
                           {(personalFields.email || loadedContact?.email) ? ` · ${personalFields.email || loadedContact?.email}` : ''}
                         </p>
                       </div>
@@ -3835,7 +4338,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'} 
+                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'}
                           {(personalFields.gender || loadedContact?.gender) ? ` · ${personalFields.gender || loadedContact?.gender}` : ''}
                         </p>
                       </div>
@@ -3843,7 +4346,7 @@ export default function Contacts() {
                       <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
                         <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
                         <p className="font-semibold text-slate-700">
-                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'} 
+                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'}
                           {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
                         </p>
                       </div>

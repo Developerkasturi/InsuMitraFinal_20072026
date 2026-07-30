@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { DatePicker } from '@comps/common/DatePicker';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 
@@ -430,7 +431,7 @@ export default function PolicyDetail() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Paid Date *</label>
-              <input {...paymentForm.register('paidDate')} type="date" className="input" />
+              <DatePicker {...paymentForm.register('paidDate')} className="input" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -499,7 +500,7 @@ export default function PolicyDetail() {
           <div className="grid grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Date of Birth</label>
-              <input {...memberForm.register('dateOfBirth')} type="date" className="input" />
+              <DatePicker {...memberForm.register('dateOfBirth')} className="input" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Sum Assured (₹)</label>
@@ -538,7 +539,7 @@ export default function PolicyDetail() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Date of Birth</label>
-              <input {...nomineeForm.register('dateOfBirth')} type="date" className="input" />
+              <DatePicker {...nomineeForm.register('dateOfBirth')} className="input" />
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

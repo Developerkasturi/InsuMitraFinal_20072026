@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { DatePicker } from '@comps/common/DatePicker';
 import { useLookupStore } from '@store/lookup.store';
 import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
@@ -121,6 +122,17 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 // Aligned edit form with automatic calculations
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
+};
+
 function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   initial: Claim; isPending: boolean;
   onSave: (body: any, files?: any) => void; onCancel: () => void;
@@ -309,11 +321,11 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <label className="label">Admission Date</label>
-          <input type="date" className="input" value={admissionAt} onChange={e => setAdmissionAt(e.target.value)} />
+          <DatePicker className="input mt-1" value={admissionAt} onDateChange={setAdmissionAt} />
         </div>
         <div>
           <label className="label">Discharge Date</label>
-          <input type="date" className="input" value={dischargeAt} onChange={e => setDischargeAt(e.target.value)} />
+          <DatePicker className="input mt-1" value={dischargeAt} onDateChange={setDischargeAt} />
         </div>
       </div>
 
@@ -699,6 +711,9 @@ export default function Claims() {
 
   const watchClaimNumber = watch('claimNumber');
   const watchPolicyId = watch('policyId');
+  const watchAdmissionAt = watch('admissionAt');
+  const watchDischargeAt = watch('dischargeAt');
+  const watchIntimatedAt = watch('intimatedAt');
 
   useEffect(() => {
     const tot = Number(amtHospital || 0) + Number(amtMedicine || 0) + Number(amtLab || 0) + Number(amtPreHosp || 0) + Number(amtPostHosp || 0) + Number(amtOthers || 0);
@@ -978,19 +993,17 @@ export default function Claims() {
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
-              <input
-                type="date"
+              <DatePicker
                 value={filterStartDate}
-                onChange={e => setFilterStartDate(e.target.value)}
+                onDateChange={setFilterStartDate}
                 className="input h-8 text-xs py-0 px-2 rounded-lg bg-slate-50 border border-slate-200 w-full"
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End Date</label>
-              <input
-                type="date"
+              <DatePicker
                 value={filterEndDate}
-                onChange={e => setFilterEndDate(e.target.value)}
+                onDateChange={setFilterEndDate}
                 className="input h-8 text-xs py-0 px-2 rounded-lg bg-slate-50 border border-slate-200 w-full"
               />
             </div>
@@ -1602,11 +1615,11 @@ export default function Claims() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Date of Admission</label>
-              <input {...register('admissionAt')} type="date" className="input mt-1" />
+              <DatePicker {...register('admissionAt')} className="input mt-1" />
             </div>
             <div>
               <label className="label">Date of Discharge</label>
-              <input {...register('dischargeAt')} type="date" className="input mt-1" />
+              <DatePicker {...register('dischargeAt')} className="input mt-1" />
             </div>
           </div>
 
@@ -1618,7 +1631,7 @@ export default function Claims() {
             </div>
             <div>
               <label className="label">Intimation Date *</label>
-              <input {...register('intimatedAt')} type="date" className="input mt-1" />
+              <DatePicker {...register('intimatedAt')} className="input mt-1" />
             </div>
           </div>
 

@@ -262,7 +262,8 @@ export class EmployeesService {
 
   async createTask(tenantId: string, createdById: string, dto: {
     assignedToId: string; title: string; description?: string;
-    dueDate?: string | Date; priority?: any;
+    dueDate?: string | Date; startDate?: string | Date; priority?: any;
+    targetTime?: string; timeRequired?: string; comments?: string;
   }) {
     const task = await this.prisma.employeeTask.create({
       data: {
@@ -272,7 +273,11 @@ export class EmployeesService {
         title:        dto.title,
         description:  dto.description,
         dueDate:      dto.dueDate ? new Date(dto.dueDate) : new Date(),
+        startDate:    dto.startDate ? new Date(dto.startDate) : undefined,
         priority:     dto.priority || 'MEDIUM',
+        targetTime:   dto.targetTime,
+        timeRequired: dto.timeRequired,
+        comments:     dto.comments,
       },
     });
 
