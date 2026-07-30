@@ -28,15 +28,30 @@ export class ContactsRepository {
     const where: any = { tenantId, isActive, relatedTo: { none: {} } };
 
     if (search) {
-      where.OR = [
-        { firstName:      { contains: search, mode: 'insensitive' } },
-        { lastName:       { contains: search, mode: 'insensitive' } },
-        { email:          { contains: search, mode: 'insensitive' } },
-        { phone:          { contains: search } },
-        { alternatePhone: { contains: search } },
-        { aadhaarNumber:  { contains: search } },
-        { panNumber:      { contains: search, mode: 'insensitive' } },
-      ];
+      const terms = search.trim().split(/\s+/).filter(Boolean);
+      if (terms.length > 1) {
+        where.AND = terms.map(term => ({
+          OR: [
+            { firstName:      { contains: term, mode: 'insensitive' } },
+            { lastName:       { contains: term, mode: 'insensitive' } },
+            { email:          { contains: term, mode: 'insensitive' } },
+            { phone:          { contains: term } },
+            { alternatePhone: { contains: term } },
+            { aadhaarNumber:  { contains: term } },
+            { panNumber:      { contains: term, mode: 'insensitive' } },
+          ],
+        }));
+      } else {
+        where.OR = [
+          { firstName:      { contains: search, mode: 'insensitive' } },
+          { lastName:       { contains: search, mode: 'insensitive' } },
+          { email:          { contains: search, mode: 'insensitive' } },
+          { phone:          { contains: search } },
+          { alternatePhone: { contains: search } },
+          { aadhaarNumber:  { contains: search } },
+          { panNumber:      { contains: search, mode: 'insensitive' } },
+        ];
+      }
     }
 
     if (role === UserRole.EMPLOYEE && userId) {

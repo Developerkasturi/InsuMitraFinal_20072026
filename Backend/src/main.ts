@@ -1,6 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // InsuMitra Backend — Application Entry Point
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Allow self-signed / unverified TLS certs for local MongoDB Atlas connections.
+// The Prisma Rust driver uses its own CA bundle and rejects Atlas certs on some
+// networks. This env var tells Node's TLS layer to skip verification locally.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

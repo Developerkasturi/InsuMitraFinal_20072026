@@ -217,7 +217,7 @@ export default function App() {
         <Route path="contacts"     element={<Suspense fallback={<Loader />}><Contacts /></Suspense>} />
         <Route path="contacts/:id" element={<Suspense fallback={<Loader />}><ContactDetail /></Suspense>} />
         <Route path="leads"        element={<PlanProtectedRoute feature="leads"><Suspense fallback={<Loader />}><Leads /></Suspense></PlanProtectedRoute>} />
-        <Route path="leads/:id"    element={<PlanProtectedRoute feature="leads"><Suspense fallback={<Loader />}><LeadDetail /></Suspense></PlanProtectedRoute>} />
+        <Route path="leads/:id"    element={<Suspense fallback={<Loader />}><LeadDetail /></Suspense>} />
         <Route path="policies"     element={<Suspense fallback={<Loader />}><Policies /></Suspense>} />
         <Route path="policies/:id" element={<Suspense fallback={<Loader />}><PolicyDetail /></Suspense>} />
         <Route path="claims"       element={<Suspense fallback={<Loader />}><Claims /></Suspense>} />
@@ -247,7 +247,7 @@ export default function App() {
         <Route path="subscription" element={<OwnerRoute><Suspense fallback={<Loader />}><Subscription /></Suspense></OwnerRoute>} />
         <Route path="operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="documents"    element={<OwnerRoute><PlanProtectedRoute feature="documents"><Suspense fallback={<Loader />}><Documents /></Suspense></PlanProtectedRoute></OwnerRoute>} />
-        <Route path="search"       element={<OwnerRoute><Suspense fallback={<Loader />}><GlobalSearch /></Suspense></OwnerRoute>} />
+        <Route path="search"       element={<Suspense fallback={<Loader />}><GlobalSearch /></Suspense>} />
         <Route path="deletion-requests" element={<OwnerRoute><Suspense fallback={<Loader />}><DeletionRequests /></Suspense></OwnerRoute>} />
       </Route>
 

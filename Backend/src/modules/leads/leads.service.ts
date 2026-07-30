@@ -38,16 +38,22 @@ export class LeadsService {
     // Group stage → leads for the Kanban board
     const board: Record<LeadStage, typeof leads> = {
       OPEN:            [],
+      TO_CONTACT:      [],
       CONTACTED:       [],
       PROPOSAL_SENT:   [],
       IN_DISCUSSION:   [],
       LOGIN_PROGRESS:  [],
       PAYMENT_DONE:    [],
       LOST:            [],
+      PROCESS_COMPLETED: [],
     };
 
     leads.forEach((lead) => {
-      board[lead.stage].push(lead);
+      if (board[lead.stage]) {
+        board[lead.stage].push(lead);
+      } else {
+        board.OPEN.push(lead);
+      }
     });
 
     return { data: board };
@@ -72,13 +78,26 @@ export class LeadsService {
       if (followUpDateTo)   where.followUpDate.lte = new Date(followUpDateTo);
     }
     if (search) {
-      where.contact = {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName:  { contains: search, mode: 'insensitive' } },
-          { phone:     { contains: search } },
-        ],
-      };
+      const terms = search.trim().split(/\s+/).filter(Boolean);
+      if (terms.length > 1) {
+        where.AND = terms.map(term => ({
+          contact: {
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' } },
+              { lastName:  { contains: term, mode: 'insensitive' } },
+              { phone:     { contains: term } },
+            ],
+          },
+        }));
+      } else {
+        where.contact = {
+          OR: [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName:  { contains: search, mode: 'insensitive' } },
+            { phone:     { contains: search } },
+          ],
+        };
+      }
     }
 
     const [data, total] = await Promise.all([

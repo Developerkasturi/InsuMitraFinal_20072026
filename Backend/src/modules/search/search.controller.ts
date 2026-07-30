@@ -27,13 +27,16 @@ export class SearchController {
     @Query('type')  type?:  SearchType,
     @Query('limit') limit?: string,
   ) {
+    const userId = user?.userId ?? user?.id ?? user?.sub;
+    const limitNum = limit ? Number(limit) : 0;
+
     return this.svc.search(
       user.tenantId,
-      user.userId,
+      userId,
       user.role,
       q,
       type as any,
-      Number(limit)
+      Number.isInteger(limitNum) && limitNum > 0 ? limitNum : undefined,
     );
   }
 

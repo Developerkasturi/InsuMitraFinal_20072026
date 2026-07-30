@@ -42,12 +42,14 @@ enum RelationshipType {
 
 enum LeadStage {
   OPEN
+  TO_CONTACT
   CONTACTED
   PROPOSAL_SENT
   IN_DISCUSSION
   LOGIN_PROGRESS
   PAYMENT_DONE
   LOST
+  PROCESS_COMPLETED
 }
 
 enum TaskPriority {
@@ -1052,6 +1054,7 @@ model CalendarEvent {
   startAt     DateTime  @map("start_at")
   endAt       DateTime? @map("end_at")
   isAllDay    Boolean   @default(false) @map("is_all_day")
+  isRecurring Boolean   @default(false) @map("is_recurring")
   isAutomatic Boolean   @default(false) @map("is_automatic")
   relatedId String?   @map("related_id") @db.ObjectId  // policyId | leadId (polymorphic)
   deletedAt   DateTime? @map("deleted_at")

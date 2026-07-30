@@ -204,7 +204,7 @@ export const documentsService = {
 
 /* ─── Search ─────────────────────────────────────────────────────────────── */
 export const searchService = {
-  search: (q: string) => api.get('/search', { params: { q } }).then(r => r.data),
+  search: (q: string, type?: string, limit?: number) => api.get('/search', { params: { q, type, limit } }).then(r => r.data),
 };
 
 /* ─── Insurance Companies & Plans ────────────────────────────────────────── */
