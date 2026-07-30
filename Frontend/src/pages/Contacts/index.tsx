@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
   Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History
@@ -58,6 +58,7 @@ interface Contact {
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -165,7 +166,7 @@ export default function Contacts() {
     profileType: 'Lead Profile', // 'Lead Profile' | 'Client Profile'
     leadStatus: 'OPEN',
     interestedIn: ['Health'], // Health, Term, Mutual Funds, Pooling, Other
-    leadSource: 'By Agent',
+    leadSource: 'Walk-in',
     assignedEmployeeId: '',
     followUpDate: '',
   });
@@ -260,7 +261,7 @@ export default function Contacts() {
     dependencyType: 'SELF',
     dependentDetails: '',
     leadType: 'FRESH',
-    leadSource: 'Social Media',
+    leadSource: 'Walk-in',
     assignedEmployeeId: '',
     followUpDate: '',
     expectedPremium: '',
@@ -650,7 +651,7 @@ export default function Contacts() {
       profileType: 'Client Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'By Agent',
+      leadSource: 'Walk-in',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -710,7 +711,7 @@ export default function Contacts() {
         profileType: activeTab === 'customers' ? 'Client Profile' : 'Lead Profile',
         leadStatus: lead?.stage || 'OPEN',
         interestedIn: lead?.interests || ['Health'],
-        leadSource: lead?.source || 'By Agent',
+        leadSource: lead?.source || 'Walk-in',
         assignedEmployeeId: lead?.assignedEmployeeId || '',
         followUpDate: lead?.followUpDate ? lead.followUpDate.split('T')[0] : '',
       });
@@ -809,7 +810,7 @@ export default function Contacts() {
           dependencyType: extra.dependencyType || 'SELF',
           dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
-          leadSource: lead.source || 'Social Media',
+          leadSource: lead.source || 'Walk-in',
           assignedEmployeeId: lead.assignedEmployeeId || '',
           followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
           expectedPremium,
@@ -902,11 +903,7 @@ export default function Contacts() {
           setActiveLeadTab('Product Interest');
           return;
         }
-        if (card.dependencyType === 'DEPENDENT' && !card.dependentDetails?.trim()) {
-          toast.error(`Product Interest #${i + 1}: Please enter dependent details`);
-          setActiveLeadTab('Product Interest');
-          return;
-        }
+
         if (!card.leadSource?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please select or enter a Lead Source`);
           setActiveLeadTab('Product Interest');
@@ -1046,6 +1043,7 @@ export default function Contacts() {
       }
 
       const subResourcePromises: Promise<any>[] = [];
+      const createdPolicies: any[] = [];
 
       // Save Family Members if any
       for (const fam of familyMembers) {
@@ -1084,18 +1082,22 @@ export default function Contacts() {
 
         for (const entry of portfolio.entries) {
           if (!entry.policyNo.trim()) continue;
-          subResourcePromises.push(
-            policiesService.create({
-              policyNumber: entry.policyNo,
-              contactId: contactId!,
-              planId: matchedPlan?.id || '6a3d0584d431b55e6b6e74fe', // fallback ID if plans empty
-              sumAssured: Number(entry.sumAssured || entry.sumInsured || 100000),
-              premiumAmount: Number(entry.premium || 1000),
-              paymentFrequency: 'YEARLY',
-              startDate: entry.startDate?.trim() ? new Date(entry.startDate).toISOString() : new Date().toISOString(),
-              endDate: entry.endDate?.trim() ? new Date(entry.endDate).toISOString() : new Date(Date.now() + 365 * 86400000).toISOString(),
-            }).catch(polErr => console.error('Failed to save policy:', polErr))
-          );
+            subResourcePromises.push(
+              policiesService.create({
+                policyNumber: entry.policyNo,
+                contactId: contactId!,
+                planId: matchedPlan?.id || '6a3d0584d431b55e6b6e74fe', // fallback ID if plans empty
+                sumAssured: Number(entry.sumAssured || entry.sumInsured || 100000),
+                premiumAmount: Number(entry.premium || 1000),
+                paymentFrequency: 'YEARLY',
+                startDate: entry.startDate?.trim() ? new Date(entry.startDate).toISOString() : new Date().toISOString(),
+                endDate: entry.endDate?.trim() ? new Date(entry.endDate).toISOString() : new Date(Date.now() + 365 * 86400000).toISOString(),
+              }).then((res: any) => {
+                const savedPolicy = res?.data ?? res;
+                if (savedPolicy) createdPolicies.push(savedPolicy);
+                return res;
+              }).catch(polErr => console.error('Failed to save policy:', polErr))
+            );
         }
       }
 
@@ -1144,13 +1146,25 @@ export default function Contacts() {
       // Await all sub-resource updates concurrently
       await Promise.all(subResourcePromises);
 
-      toast.success(editContactId ? 'Customer successfully updated!' : 'Customer successfully created!', { id: toastId });
+      if (createdPolicies.length > 0) {
+        setLoadedContact((prev: any) => prev ? {
+          ...prev,
+          policies: [...(prev.policies || []), ...createdPolicies],
+        } : prev);
+      }
+
+      toast.success(
+        shouldClose
+          ? (editContactId ? 'Customer successfully updated!' : 'Customer successfully created!')
+          : 'Draft saved successfully!',
+        { id: toastId }
+      );
       qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
 
       if (shouldClose) {
         setLeadModalOpen(false);
-      } else {
-        openCustomerCreate();
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Failed to save customer', { id: toastId });
@@ -1204,7 +1218,7 @@ export default function Contacts() {
       profileType: 'Contact Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'By Agent',
+      leadSource: 'Walk-in',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -1258,7 +1272,7 @@ export default function Contacts() {
         profileType: activeTab === 'customers' ? 'Client Profile' : 'Contact Profile',
         leadStatus: 'OPEN',
         interestedIn: ['Health'],
-        leadSource: contact.source || 'By Agent',
+        leadSource: contact.source || 'Walk-in',
         assignedEmployeeId: contact.assignedEmployeeId || '',
         followUpDate: '',
       });
@@ -1396,7 +1410,7 @@ export default function Contacts() {
           dependencyType: extra.dependencyType || 'SELF',
           dependentDetails: extra.dependentDetails || '',
           leadType: extra.leadType,
-          leadSource: lead.source || 'Social Media',
+          leadSource: lead.source || 'Walk-in',
           assignedEmployeeId: lead.assignedEmployeeId || '',
           followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
           expectedPremium,
@@ -1414,6 +1428,15 @@ export default function Contacts() {
       toast.error('Failed to load contact details', { id: toastId });
     }
   };
+
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.reopenContactId) {
+      openLeadEdit({ contactId: state.reopenContactId }).then(() => {
+        setActiveLeadTab(state.reopenTab || 'Policy');
+      });
+    }
+  }, [location.state]);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
@@ -2600,9 +2623,9 @@ export default function Contacts() {
               <button
                 type="button"
                 className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                onClick={(e) => handleLeadSubmit(e, true)}
+                onClick={(e) => handleLeadSubmit(e, false)}
               >
-                Update Profile
+                Save
               </button>
             ) : (
               <>
@@ -2616,9 +2639,9 @@ export default function Contacts() {
                 <button
                   type="button"
                   className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                  onClick={(e) => handleLeadSubmit(e, true)}
+                  onClick={(e) => handleLeadSubmit(e, false)}
                 >
-                  Save & Close
+                  Save
                 </button>
               </>
             )}
@@ -3971,21 +3994,108 @@ export default function Contacts() {
             {activeLeadTab === 'Policy' && (
               <div className="h-full flex flex-col">
                 {/* Action buttons */}
-                <div className="grid grid-cols-2 gap-3 mb-3 flex-shrink-0">
+                <div className="flex items-center justify-between gap-3 mb-3 flex-shrink-0">
+                  <p className="text-[11px] text-slate-500 font-semibold">
+                    Policies are created in the main policy form and will appear here after saving.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => addPolicy('Health')}
+                    onClick={() => {
+                      if (!editContactId) {
+                        toast.error('Please save the contact details first before adding a policy.');
+                        return;
+                      }
+                      navigate(`/policies?action=add&contactId=${editContactId}&keepOpen=1`, {
+                        state: {
+                          returnRoute: '/contacts',
+                          returnPayload: {
+                            reopenContactId: editContactId,
+                            reopenTab: 'Policy',
+                          },
+                        },
+                      });
+                    }}
                     className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-blue-400 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
                   >
-                    + Add Health Policy
+                    + Add New Policy
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => addPolicy('Life')}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-pink-400 text-pink-600 text-xs font-semibold rounded-lg hover:bg-pink-50 cursor-pointer transition-colors"
-                  >
-                    + Add Life Policy
-                  </button>
+                </div>
+
+                <div className="grid gap-3 mb-3">
+                  {((loadedContact?.policies || []).length === 0) ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[180px]">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                        <FileText size={18} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">No policies linked yet</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                        Add a policy from the main policy form and it will show up here as a summary card.
+                      </p>
+                    </div>
+                  ) : (
+                    (loadedContact?.policies || []).map((policy: any) => {
+                      const type = (policy.plan?.category || 'OTHER').toUpperCase();
+                      const typeLabel = type === 'HEALTH' ? 'Health' : type === 'LIFE' ? 'Life' : type.charAt(0) + type.slice(1).toLowerCase();
+                      const isActive = !policy.status || policy.status === 'ACTIVE';
+                      const borderTone = type === 'HEALTH' ? 'border-emerald-200' : type === 'LIFE' ? 'border-blue-200' : 'border-slate-200';
+                      const headerTone = type === 'HEALTH' ? 'from-emerald-500 to-teal-600' : type === 'LIFE' ? 'from-blue-500 to-indigo-600' : 'from-slate-600 to-slate-700';
+                      const statusTone = isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100';
+                      return (
+                        <div key={policy.id} className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md transition-all`}>
+                          <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/80">{typeLabel}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusTone}`}>{policy.status || 'ACTIVE'}</span>
+                              </div>
+                              <p className="text-white font-extrabold text-sm truncate mt-1">{policy.policyNumber || 'Policy Number'}</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white">
+                              <Shield size={18} />
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.company?.name || '—'}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.name || '—'}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Premium</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.premiumAmount || 0).toLocaleString('en-IN')}</p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sum Assured</p>
+                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.sumAssured || 0).toLocaleString('en-IN')}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                                <Calendar size={13} className="text-slate-400 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start</p>
+                                  <p className="text-xs font-semibold text-slate-700">{policy.startDate ? new Date(policy.startDate).toLocaleDateString('en-IN') : '—'}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                                <Calendar size={13} className="text-slate-400 shrink-0" />
+                                <div>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End</p>
+                                  <p className="text-xs font-semibold text-slate-700">{policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
 
                 {/* Portfolio cards */}

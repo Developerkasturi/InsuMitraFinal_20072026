@@ -16,7 +16,12 @@ export function useCreatePolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: policiesService.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['policies'] }); toast.success('Policy created'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Policy created');
+    },
     onError: (e: any) => {
       const errs: string[] = e?.response?.data?.errors ?? [];
       const msg = errs.length ? errs.join(' · ') : (e?.response?.data?.message ?? 'Error creating policy');
@@ -29,7 +34,12 @@ export function useUpdatePolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => policiesService.update(id, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['policies'] }); toast.success('Policy updated'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Policy updated');
+    },
     onError: (e: any) => {
       const errs: string[] = e?.response?.data?.errors ?? [];
       const msg = errs.length ? errs.join(' · ') : (e?.response?.data?.message ?? 'Error updating policy');

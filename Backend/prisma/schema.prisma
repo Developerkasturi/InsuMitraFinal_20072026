@@ -300,6 +300,7 @@ model User {
   assignedTasks              EmployeeTask[]    @relation("TaskAssignee")
   dailyLogs                  EmployeeDailyLog[]
   commissionsBeneficiary     Commission[]
+  consultations              ProductInterestConsultation[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -560,8 +561,11 @@ model ProductInterestConsultation {
   scheduledAt       DateTime? @map("scheduled_at")
   completedAt       DateTime? @map("completed_at")
   createdAt         DateTime @default(now()) @map("created_at")
+  authorId          String?  @map("author_id") @db.ObjectId
+  authorName        String?  @map("author_name")
 
   productInterest   ProductInterest @relation(fields: [productInterestId], references: [id], onDelete: Cascade)
+  author            User?           @relation(fields: [authorId], references: [id])
 
   @@index([productInterestId])
   @@map("product_interest_consultations")

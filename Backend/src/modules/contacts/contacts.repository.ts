@@ -23,9 +23,13 @@ export class ContactsRepository {
       search, sortBy = 'createdAt', sortOrder = 'desc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
-    const skip = (page - 1) * limit;
 
-    const where: any = { tenantId, isActive, relatedTo: { none: {} } };
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const isActiveBool = isActive === false || (isActive as any) === 'false' ? false : true;
+    const where: any = { tenantId, isActive: isActiveBool, relatedTo: { none: {} } };
 
     if (search) {
       where.OR = [
@@ -65,7 +69,7 @@ export class ContactsRepository {
       this.prisma.contact.findMany({
         where,
         skip,
-        take:    limit,
+        take:    limitNum,
         orderBy: { [sortBy]: sortOrder },
         include: {
           addresses:   { where: { isPrimary: true }, take: 1 },
@@ -78,7 +82,7 @@ export class ContactsRepository {
       this.prisma.contact.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    return { data, total, page: pageNum, limit: limitNum };
   }
 
   // ── Find single contact (with full relations) ───────────────────────────

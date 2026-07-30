@@ -105,6 +105,16 @@ function HotnessIcon({ level }: { level: HotnessLevel }) {
   return <Snowflake size={10} />;
 }
 
+function parseLeadNotes(notes?: string | null): Record<string, any> {
+  if (!notes) return {};
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 // ── Form schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -4419,9 +4429,77 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
         ))}
       </div>
 
-      {/* Overview */}
+      {/* Fixed height tab content container so popup size remains constant when switching tabs */}
+      <div className="h-[400px] min-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+        {/* Overview */}
       {tab === 'overview' && (
         <div className="space-y-4">
+          {(() => {
+            const parsedLeadNotes = parseLeadNotes(fullLead.notes);
+            const connectedPolicyData = fullLead.connectedPolicy;
+            const isRenewalLead = parsedLeadNotes.leadType === 'RENEWAL' || fullLead.source === 'Renewal';
+            if (!isRenewalLead) return null;
+
+            const policyType = connectedPolicyData?.plan?.category || fullLead.plan?.category || (fullLead.interests && fullLead.interests.length > 0 ? fullLead.interests.join(', ') : '—');
+
+            return (
+              <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                      <Shield size={16} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 block">Renewal Created Against</span>
+                      <h4 className="text-sm font-extrabold text-slate-800">
+                        Policy #{connectedPolicyData?.policyNumber || parsedLeadNotes.policyNumber || 'N/A'}
+                      </h4>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-700 border border-purple-200">
+                    Renewal Lead
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Type</span>
+                    <p className="font-bold text-slate-700 mt-0.5 uppercase tracking-wide">
+                      {policyType}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry / End Date</span>
+                    <p className="font-bold text-rose-600 mt-0.5 flex items-center gap-1">
+                      <Calendar size={12} />
+                      {connectedPolicyData?.endDate ? new Date(connectedPolicyData.endDate).toLocaleDateString('en-IN') : (parsedLeadNotes.endDate ? new Date(parsedLeadNotes.endDate).toLocaleDateString('en-IN') : '—')}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Company & Plan Name</span>
+                    <p className="font-bold text-slate-700 mt-0.5 truncate">
+                      {connectedPolicyData?.plan?.company?.name || parsedLeadNotes.companyName || '—'}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-500 truncate">
+                      {connectedPolicyData?.plan?.name || parsedLeadNotes.planName || '—'}
+                    </p>
+                  </div>
+
+                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Premium & Sum Insured</span>
+                    <p className="font-bold text-emerald-700 mt-0.5">
+                      Premium: ₹{Number(connectedPolicyData?.premiumAmount || parsedLeadNotes.premiumAmount || fullLead.premiumBudget || 0).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-600">
+                      Sum Insured: ₹{Number(connectedPolicyData?.sumAssured || parsedLeadNotes.sumAssured || fullLead.sumAssuredRequired || 0).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white border border-slate-100 rounded-xl p-3 space-y-2">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contact</p>
@@ -4589,6 +4667,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
