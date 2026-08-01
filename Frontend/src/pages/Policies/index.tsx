@@ -11,6 +11,18 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
+import { DatePicker } from '@comps/common/DatePicker';
+
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
+};
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import { useGlobalSearchStore } from '@store/search.store';
@@ -157,10 +169,31 @@ export default function Policies() {
   const user = useAuthStore(s => s.user);
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [keepCreateOpen, setKeepCreateOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') {
+      const contactId = searchParams.get('contactId');
+      const keepOpen = searchParams.get('keepOpen') === '1';
+      setKeepCreateOpen(keepOpen);
       setModalOpen(true);
+
+      if (contactId) {
+        contactsService.get(contactId)
+          .then((res: any) => {
+            const contact = res?.data ?? res;
+            if (!contact?.id) return;
+            setSelectedContact({
+              id: contact.id,
+              firstName: contact.firstName || '',
+              lastName: contact.lastName || '',
+              phone: contact.phone || '',
+            });
+            setValue('contactId', contact.id, { shouldValidate: true });
+            setContactSearch('');
+          })
+          .catch((err: any) => console.error('Failed to preload contact for policy create', err));
+      }
     }
     const q = searchParams.get('search') || searchParams.get('q');
     setSearch(q || '');
@@ -243,6 +276,7 @@ export default function Policies() {
       setSelectedContact(null);
       setContactSearch('');
       setSelectedPlan(null);
+      setKeepCreateOpen(params.get('keepOpen') === '1');
       setModalOpen(true);
       navigate('/policies', { replace: true });
     }
@@ -469,8 +503,12 @@ export default function Policies() {
   });
   const watchEditEmiCase = watchEdit('emiCase');
   const watchEditPhcRequired = watchEdit('phcRequired');
+  const watchEditEndDate = watchEdit('endDate');
+  const watchEditNextDueDate = watchEdit('nextDueDate');
+  const watchEditMaturityDate = watchEdit('maturityDate');
 
   const watchStartDate = watch('startDate');
+  const watchEndDate = watch('endDate');
   const watchEmiCase = watch('emiCase');
   const watchPhcRequired = watch('phcRequired');
   const [durationYears, setDurationYears] = useState<number>(1);
@@ -488,6 +526,9 @@ export default function Policies() {
   }, [watchStartDate, durationYears, setValue]);
 
   const closeModal = () => {
+    const returnState = location.state as any;
+    const returnRoute = returnState?.returnRoute;
+    const returnPayload = returnState?.returnPayload;
     setModalOpen(false);
     reset();
     setSelectedContact(null);
@@ -496,6 +537,13 @@ export default function Policies() {
     setSelectedCompany('');
     setSelectedPlan(null);
     setPolicyFile(null);
+    setKeepCreateOpen(false);
+    if (returnRoute) {
+      navigate(returnRoute, {
+        replace: true,
+        state: returnPayload,
+      });
+    }
   };
 
   const openEdit = (p: Policy) => {
@@ -684,8 +732,11 @@ export default function Policies() {
     };
 
     try {
-      await updatePolicy.mutateAsync({ id: editTarget.id, body: cleanedBody });
-      setEditTarget(null);
+      const res = await updatePolicy.mutateAsync({ id: editTarget.id, body: cleanedBody });
+      const updatedPolicy = res?.data ?? res;
+      if (updatedPolicy?.id) {
+        setEditTarget(prev => prev ? { ...prev, ...updatedPolicy } : prev);
+      }
     } catch (e) {
       // error already shown by useUpdatePolicy onError
     }
@@ -751,7 +802,26 @@ export default function Policies() {
           console.error('[Document Upload Error]', uploadErr);
         }
       }
-      closeModal();
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['policies'] });
+      if (createdPolicy?.id) {
+        if (keepCreateOpen) {
+          reset({
+            contactId: body.contactId,
+            paymentFrequency: 'YEARLY',
+          } as any);
+          setSelectedPlan(null);
+          setSelectedType('');
+          setSelectedCompany('');
+          setPolicyFile(null);
+          setDurationYears(1);
+          return;
+        }
+        closeModal();
+        if (!(location.state as any)?.returnRoute) {
+          openEdit(createdPolicy as Policy);
+        }
+      }
     } catch (e: any) {
       const errs: string[] = e?.response?.data?.errors ?? [];
       const msg = errs.length ? errs.join(' | ') : (e?.response?.data?.message ?? 'Error creating policy');
@@ -882,7 +952,7 @@ export default function Policies() {
           >
             All Types
           </button>
-          {['HEALTH', 'LIFE', 'ACCIDENT', 'MOTOR', 'TRAVEL', 'GENERAL'].map(cat => {
+          {['HEALTH', 'LIFE', 'ACCIDENT', 'TRAVEL'].map(cat => {
             const isSel = selectedQuickFilter === cat;
             return (
               <button
@@ -1043,38 +1113,36 @@ export default function Policies() {
           {/* Policy Duration Date range */}
           <div>
             <label className="label">Duration Start Date</label>
-            <input
-              type="date"
+            <DatePicker
               className="input text-xs"
               value={durationFrom}
-              onChange={e => { setDurationFrom(e.target.value); setPage(1); }}
+              onChange={val => { setDurationFrom(val); setPage(1); }}
             />
           </div>
           <div>
             <label className="label">Duration End Date</label>
-            <input
-              type="date"
+            <DatePicker
               className="input text-xs"
               value={durationTo}
-              onChange={e => { setDurationTo(e.target.value); setPage(1); }}
+              onChange={val => { setDurationTo(val); setPage(1); }}
             />
           </div>
 
-          <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-4">
+          <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Renewal Due</label>
               <div className="flex items-center gap-2">
-                <input type="date" className="input text-xs" value={renewalFrom} onChange={e => { setRenewalFrom(e.target.value); setPage(1); }} title="From" />
-                <span className="text-gray-400">-</span>
-                <input type="date" className="input text-xs" value={renewalTo} onChange={e => { setRenewalTo(e.target.value); setPage(1); }} title="To" />
+                <DatePicker className="input text-xs min-w-[130px]" value={renewalFrom} onChange={val => { setRenewalFrom(val); setPage(1); }} title="From" />
+                <span className="text-gray-400 shrink-0">-</span>
+                <DatePicker className="input text-xs min-w-[130px]" value={renewalTo} onChange={val => { setRenewalTo(val); setPage(1); }} title="To" />
               </div>
             </div>
             <div>
               <label className="label">Payment Due</label>
               <div className="flex items-center gap-2">
-                <input type="date" className="input text-xs" value={paymentDueFrom} onChange={e => { setPaymentDueFrom(e.target.value); setPage(1); }} title="From" />
-                <span className="text-gray-400">-</span>
-                <input type="date" className="input text-xs" value={paymentDueTo} onChange={e => { setPaymentDueTo(e.target.value); setPage(1); }} title="To" />
+                <DatePicker className="input text-xs min-w-[130px]" value={paymentDueFrom} onChange={val => { setPaymentDueFrom(val); setPage(1); }} title="From" />
+                <span className="text-gray-400 shrink-0">-</span>
+                <DatePicker className="input text-xs min-w-[130px]" value={paymentDueTo} onChange={val => { setPaymentDueTo(val); setPage(1); }} title="To" />
               </div>
             </div>
           </div>
@@ -1223,7 +1291,7 @@ export default function Policies() {
             <div className="col-span-2 grid grid-cols-3 gap-4">
               <div className="flex flex-col gap-1">
                 <label className="label">Start Date *</label>
-                <input {...register('startDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+                <DatePicker {...register('startDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="label">Policy Term (Years)</label>
@@ -1243,7 +1311,7 @@ export default function Policies() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="label">End Date</label>
-                <input {...register('endDate')} type="date" className="input h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
+                <DatePicker {...register('endDate')} className="input h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
               </div>
             </div>
 
@@ -1360,8 +1428,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">First Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...register('firstPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1379,8 +1446,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">Last Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...register('lastPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1437,56 +1503,60 @@ export default function Policies() {
             )}
 
             {/* ── Preventive Health Checkup Details Subheader ── */}
-            <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
-            </div>
-
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="label">Preventive Health Checkup?</label>
-              <select
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                onChange={e => setValue('phcRequired', e.target.value === 'yes')}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* ── Conditional PHC Details ── */}
-            {watchPhcRequired && (
-              <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Amount (₹)</label>
-                  <input
-                    type="number"
-                    {...register('phcAmount')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    placeholder="Amount"
-                  />
+            {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') && (
+              <>
+                <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Status</label>
-                  <select
-                    {...register('phcStatus')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  >
-                    <option value="">Select Status</option>
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Claim Settled?</label>
+
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="label">Preventive Health Checkup?</label>
                   <select
                     className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
+                    onChange={e => setValue('phcRequired', e.target.value === 'yes')}
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
-              </div>
+
+                {/* ── Conditional PHC Details ── */}
+                {watchPhcRequired && (
+                  <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Amount (₹)</label>
+                      <input
+                        type="number"
+                        {...register('phcAmount')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        placeholder="Amount"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Status</label>
+                      <select
+                        {...register('phcStatus')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Claim Settled?</label>
+                      <select
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* ── Policy Document Subheader ── */}
@@ -1585,17 +1655,17 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">End / Expiry Date *</label>
-              <input {...regEdit('endDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('endDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="label">Next Due Date</label>
-              <input {...regEdit('nextDueDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('nextDueDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="label">Maturity Date</label>
-              <input {...regEdit('maturityDate')} type="date" className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
+              <DatePicker {...regEdit('maturityDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -1658,8 +1728,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">First Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...regEdit('firstPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1676,8 +1745,7 @@ export default function Policies() {
 
             <div className="flex flex-col gap-1">
               <label className="label">Last Premium Date</label>
-              <input
-                type="date"
+              <DatePicker
                 {...regEdit('lastPremiumDate')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
               />
@@ -1733,58 +1801,61 @@ export default function Policies() {
               </div>
             )}
 
-            {/* ── Preventive Health Checkup Details Subheader ── */}
-            <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
-            </div>
-
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="label">Preventive Health Checkup?</label>
-              <select
-                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                value={watchEditPhcRequired ? 'yes' : 'no'}
-                onChange={e => setEditValue('phcRequired', e.target.value === 'yes')}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* ── Conditional PHC Details ── */}
-            {watchEditPhcRequired && (
-              <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Amount (₹)</label>
-                  <input
-                    type="number"
-                    {...regEdit('phcAmount')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  />
+            {editTarget?.plan?.category?.toUpperCase() === 'HEALTH' && (
+              <>
+                <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Preventive Health Checkup Details</h3>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Status</label>
-                  <select
-                    {...regEdit('phcStatus')}
-                    className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                  >
-                    <option value="">Select Status</option>
-                    <option value="SCHEDULED">Scheduled</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="label">PHC Claim Settled?</label>
+
+                <div className="col-span-2 flex flex-col gap-1">
+                  <label className="label">Preventive Health Checkup?</label>
                   <select
                     className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
-                    value={watchEdit('phcClaimSettled') ? 'yes' : 'no'}
-                    onChange={e => setEditValue('phcClaimSettled', e.target.value === 'yes')}
+                    value={watchEditPhcRequired ? 'yes' : 'no'}
+                    onChange={e => setEditValue('phcRequired', e.target.value === 'yes')}
                   >
                     <option value="no">No</option>
                     <option value="yes">Yes</option>
                   </select>
                 </div>
-              </div>
+
+                {/* ── Conditional PHC Details ── */}
+                {watchEditPhcRequired && (
+                  <div className="col-span-2 grid grid-cols-3 gap-4 p-4 bg-emerald-50/20 rounded-xl border border-emerald-100/50 mt-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Amount (₹)</label>
+                      <input
+                        type="number"
+                        {...regEdit('phcAmount')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Status</label>
+                      <select
+                        {...regEdit('phcStatus')}
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="SCHEDULED">Scheduled</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="label">PHC Claim Settled?</label>
+                      <select
+                        className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        value={watchEdit('phcClaimSettled') ? 'yes' : 'no'}
+                        onChange={e => setEditValue('phcClaimSettled', e.target.value === 'yes')}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="col-span-2 mt-4 border-t border-slate-100 pt-4">

@@ -50,7 +50,7 @@ export class CalendarService {
       end.setUTCHours(23, 59, 59, 999);
       where.startAt = { ...where.startAt, lte: end };
     }
-    if (eventType) where.eventType = eventType;
+    if (eventType && eventType !== 'TASK') where.eventType = eventType;
 
     if (role === UserRole.EMPLOYEE) {
       const allowedContactIds = await this.getEmployeeAllowedContactIds(tenantId, userId);
@@ -62,13 +62,69 @@ export class CalendarService {
       ];
     }
 
+    // Fetch tasks if eventType is not set or is 'TASK'
+    let taskEvents: any[] = [];
+    if (!eventType || eventType === 'TASK') {
+      const taskWhere: any = {
+        tenantId,
+        OR: [
+          { deletedAt: null },
+          { deletedAt: { isSet: false } }
+        ]
+      };
+      if (role === UserRole.EMPLOYEE) {
+        taskWhere.assignedToId = userId;
+      }
+      if (startDate) {
+        taskWhere.dueDate = { gte: new Date(startDate) };
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        taskWhere.dueDate = { ...taskWhere.dueDate, lte: end };
+      }
+
+      const tasks = await this.prisma.employeeTask.findMany({
+        where: taskWhere,
+      });
+
+      taskEvents = tasks.map(t => ({
+        id: t.id,
+        tenantId: t.tenantId,
+        title: t.title,
+        description: t.description,
+        eventType: 'TASK',
+        startAt: t.dueDate || t.startDate || t.createdAt,
+        endAt: t.dueDate || t.startDate || t.createdAt,
+        isAllDay: true,
+        isAutomatic: false,
+        relatedId: t.relatedPolicyId || t.relatedContactId || null,
+        status: t.status,
+        priority: t.priority,
+        isTask: true,
+      }));
+    }
+
+    if (eventType === 'TASK') {
+      return { data: taskEvents };
+    }
+
     const events = await this.prisma.calendarEvent.findMany({
       where,
       include: { contact: { select: { firstName: true, lastName: true, phone: true } } },
       orderBy: { startAt: 'asc' },
     });
 
-    return { data: events };
+    let combined = events;
+    if (!eventType) {
+      combined = [...events, ...taskEvents].sort((a, b) => {
+        const da = new Date(a.startAt).getTime();
+        const db = new Date(b.startAt).getTime();
+        return da - db;
+      });
+    }
+
+    return { data: combined };
   }
 
   async createEvent(tenantId: string, dto: any) {
@@ -106,11 +162,52 @@ export class CalendarService {
       ];
     }
 
-    return this.prisma.calendarEvent.findMany({
+    const events = await this.prisma.calendarEvent.findMany({
       where,
       include: { contact: { select: { firstName: true, lastName: true } } },
       orderBy: { startAt: 'asc' },
       take:    20,
     });
+
+    const taskWhere: any = {
+      tenantId,
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } }
+      ],
+      dueDate: { gte: now, lte: cutoff },
+    };
+    if (role === UserRole.EMPLOYEE && userId) {
+      taskWhere.assignedToId = userId;
+    }
+    const tasks = await this.prisma.employeeTask.findMany({
+      where: taskWhere,
+      orderBy: { dueDate: 'asc' },
+      take: 20,
+    });
+
+    const taskEvents = tasks.map(t => ({
+      id: t.id,
+      tenantId: t.tenantId,
+      title: t.title,
+      description: t.description,
+      eventType: 'TASK',
+      startAt: t.dueDate || t.startDate || t.createdAt,
+      endAt: t.dueDate || t.startDate || t.createdAt,
+      isAllDay: true,
+      isAutomatic: false,
+      relatedId: t.relatedPolicyId || t.relatedContactId || null,
+      status: t.status,
+      priority: t.priority,
+      isTask: true,
+    }));
+
+    const combined = [...events, ...taskEvents].sort((a, b) => {
+      const da = new Date(a.startAt).getTime();
+      const db = new Date(b.startAt).getTime();
+      return da - db;
+    }).slice(0, 20);
+
+    return combined;
   }
 }

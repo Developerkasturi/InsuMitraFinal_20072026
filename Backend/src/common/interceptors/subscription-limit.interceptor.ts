@@ -59,7 +59,9 @@ export class SubscriptionLimitInterceptor implements NestInterceptor {
       // Check employees/users limit.
       // Only EMPLOYEE-role users count against the seat limit.
       // The OWNER account is always present and does NOT consume an employee seat.
-      if (path.includes('/employees')) {
+      const urlObj = new URL(request.url, 'http://localhost');
+      const pathname = urlObj.pathname.replace(/\/$/, '');
+      if (pathname.endsWith('/employees')) {
         const count = await this.prisma.user.count({
           where: {
             tenantId,

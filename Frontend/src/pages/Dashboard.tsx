@@ -105,22 +105,22 @@ function PremiumKpiCard({ label, value, trend, trendUp = true, icon, color, onCl
 
 // ── Leads Progress Indicator Card ────────────────────────────────────────────
 function LeadsProgressIndicator({ pipelineData }: { pipelineData: any[] }) {
-  const stagesOrder = ['OPEN', 'CONTACTED', 'PROPOSAL_SENT', 'IN_DISCUSSION', 'LOGIN_PROGRESS', 'PAYMENT_DONE'];
+  const stagesOrder = ['TO_CONTACT', 'CONTACTED', 'PROPOSAL_SENT', 'LOGIN_PROGRESS', 'PAYMENT_DONE', 'PROCESS_COMPLETED'];
   const stageColors: Record<string, string> = {
-    OPEN: 'bg-blue-500',
+    TO_CONTACT: 'bg-blue-500',
     CONTACTED: 'bg-indigo-500',
-    PROPOSAL_SENT: 'bg-amber-500',
-    IN_DISCUSSION: 'bg-orange-500',
-    LOGIN_PROGRESS: 'bg-purple-500',
-    PAYMENT_DONE: 'bg-emerald-500',
+    PROPOSAL_SENT: 'bg-purple-500',
+    LOGIN_PROGRESS: 'bg-orange-500',
+    PAYMENT_DONE: 'bg-green-500',
+    PROCESS_COMPLETED: 'bg-emerald-500',
   };
   const stageLabels: Record<string, string> = {
-    OPEN: 'Open',
+    TO_CONTACT: 'To Contact',
     CONTACTED: 'Contacted',
     PROPOSAL_SENT: 'Proposal Sent',
-    IN_DISCUSSION: 'In Discussion',
     LOGIN_PROGRESS: 'Login Progress',
-    PAYMENT_DONE: 'Won / Payment Done',
+    PAYMENT_DONE: 'Payment Done',
+    PROCESS_COMPLETED: 'Process Completed',
   };
 
   const totalActiveLeads = pipelineData

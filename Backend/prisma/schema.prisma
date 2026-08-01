@@ -41,14 +41,11 @@ enum RelationshipType {
 }
 
 enum LeadStage {
-  OPEN
   TO_CONTACT
   CONTACTED
   PROPOSAL_SENT
-  IN_DISCUSSION
   LOGIN_PROGRESS
   PAYMENT_DONE
-  LOST
   PROCESS_COMPLETED
 }
 
@@ -303,6 +300,7 @@ model User {
   assignedTasks              EmployeeTask[]    @relation("TaskAssignee")
   dailyLogs                  EmployeeDailyLog[]
   commissionsBeneficiary     Commission[]
+  consultations              ProductInterestConsultation[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -533,7 +531,7 @@ model ProductInterest {
   assignedEmployeeId String?   @map("assigned_employee_id") @db.ObjectId
   source String?
   interests String[] @default([])
-  stage                LeadStage @default(OPEN)
+  stage                LeadStage @default(TO_CONTACT)
   sumAssuredRequired   Float?  @map("sum_assured_required")
   premiumBudget        Float?  @map("premium_budget")
   followUpDate         DateTime? @map("follow_up_date")
@@ -563,8 +561,11 @@ model ProductInterestConsultation {
   scheduledAt       DateTime? @map("scheduled_at")
   completedAt       DateTime? @map("completed_at")
   createdAt         DateTime @default(now()) @map("created_at")
+  authorId          String?  @map("author_id") @db.ObjectId
+  authorName        String?  @map("author_name")
 
   productInterest   ProductInterest @relation(fields: [productInterestId], references: [id], onDelete: Cascade)
+  author            User?           @relation(fields: [authorId], references: [id])
 
   @@index([productInterestId])
   @@map("product_interest_consultations")

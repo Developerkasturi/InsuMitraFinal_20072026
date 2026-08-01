@@ -18,14 +18,14 @@ const SECTION_ICONS: Record<string, React.ElementType> = {
 
 export default function Header({ title }: { title?: string }) {
   const { globalQuery, setGlobalQuery, clearGlobalQuery } = useGlobalSearchStore();
-  const [query, setQuery]           = useState(globalQuery || '');
+  const [query, setQuery] = useState(globalQuery || '');
   const [showSearch, setShowSearch] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const user                        = useAuthStore(s => s.user);
-  const navigate                    = useNavigate();
-  const location                    = useLocation();
-  const [searchParams]              = useSearchParams();
-  const inputRef                    = useRef<HTMLInputElement>(null);
+  const user = useAuthStore(s => s.user);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync header search bar with global store and URL params
   useEffect(() => {
@@ -43,46 +43,48 @@ export default function Header({ title }: { title?: string }) {
 
   const { data: notifs } = useQuery({
     queryKey: ['notifications', 'unread'],
-    queryFn:  () => notificationsService.list({ unreadOnly: true, limit: 1 }),
+    queryFn: () => notificationsService.list({ unreadOnly: true, limit: 1 }),
     refetchInterval: 60_000,
   });
 
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+  const { data: searchResults, isLoading: isSearchLoading, isError: isSearchError } = useQuery({
     queryKey: ['global-search', debouncedQuery],
-    queryFn:  () => searchService.search(debouncedQuery, 'all', 50),
-    enabled:  shouldSearch,
+    queryFn: () => searchService.search(debouncedQuery, 'all', 50),
+    enabled: shouldSearch,
   });
 
-  const resultsObj = searchResults?.data?.contacts ? searchResults.data : (searchResults?.data ?? searchResults ?? {});
+  const resultsObj = searchResults?.data?.contacts !== undefined
+    ? searchResults.data
+    : (searchResults?.data ?? searchResults ?? {});
   const sectionMap: Record<string, any[]> = {
-    contacts: resultsObj.contacts ?? [],
-    policies: resultsObj.policies ?? [],
-    claims:   resultsObj.claims ?? [],
-    leads:    resultsObj.leads ?? [],
+    contacts: resultsObj?.contacts ?? [],
+    policies: resultsObj?.policies ?? [],
+    claims: resultsObj?.claims ?? [],
+    leads: resultsObj?.leads ?? [],
   };
   const totalCount = Object.values(sectionMap).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
   const hasResults = totalCount > 0;
 
   const unreadCount = notifs?.meta?.unreadCount ?? 0;
-  const initials    = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
+  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
 
   const handleLogout = async () => {
     try {
       await authService.logout();
-    } catch (e) {}
+    } catch (e) { }
     navigate('/login');
   };
 
   return (
     <header className="h-16 bg-white/75 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0 transition-all duration-200"
-            style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+      style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
 
       {/* Page title / breadcrumb */}
       {title && (
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">InsuMitra</span>
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
-            <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <h1 className="text-sm font-bold text-slate-800 tracking-tight">{title}</h1>
         </div>
@@ -175,12 +177,13 @@ export default function Header({ title }: { title?: string }) {
                           item.claimNumber ||
                           'Result';
 
-                        const subDetails = [
+                        const subParts = [
                           section !== 'contacts' && item.policyNumber,
                           section !== 'contacts' && item.claimNumber,
                           item.planName,
                           item.claimType,
                           item.stage,
+                          item.status,
                         ].filter(Boolean);
 
                         return (
@@ -199,9 +202,9 @@ export default function Header({ title }: { title?: string }) {
                               }}
                             >
                               <p className="font-semibold text-slate-700 truncate group-hover:text-blue-600 transition-colors">{titleText}</p>
-                              {subDetails.length > 0 && (
+                              {subParts.length > 0 && (
                                 <p className="text-[11px] text-slate-400 truncate">
-                                  {subDetails.join(' · ')}
+                                  {subParts.join(' · ')}
                                 </p>
                               )}
                             </button>
@@ -283,7 +286,7 @@ export default function Header({ title }: { title?: string }) {
             <>
               {/* Click outside to close backdrop */}
               <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-              
+
               {/* Dropdown Menu */}
               <div className="absolute right-0 top-full mt-2 w-[280px] bg-white rounded-2xl border border-slate-150 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.1),0_2px_10px_-2px_rgba(0,0,0,0.05)] p-5 z-50 flex flex-col items-center animate-fade-in">
                 {/* Avatar details */}

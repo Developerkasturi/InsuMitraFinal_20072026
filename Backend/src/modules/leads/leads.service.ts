@@ -12,11 +12,90 @@ import { LeadStage, UserRole } from '@prisma/client';
 @Injectable()
 export class LeadsService {
   private readonly logger = new Logger(LeadsService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  /** Auto-create renewal leads for active policies ending within 45 days */
+  async autoCreateRenewalLeads(tenantId: string): Promise<void> {
+    try {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const in45Days = new Date(startOfToday.getTime() + 45 * 24 * 60 * 60 * 1000);
+      in45Days.setHours(23, 59, 59, 999);
+
+      const expiringPolicies = await this.prisma.policy.findMany({
+        where: {
+          tenantId,
+          status: 'ACTIVE',
+          endDate: {
+            gte: startOfToday,
+            lte: in45Days,
+          },
+        },
+        include: {
+          plan: { include: { company: true } },
+          contact: true,
+        },
+      });
+
+      if (expiringPolicies.length === 0) return;
+
+      const existingLeads = await this.prisma.productInterest.findMany({
+        where: { tenantId, deletedAt: null },
+        select: { id: true, contactId: true, notes: true },
+      });
+
+      for (const pol of expiringPolicies) {
+        const alreadyExists = existingLeads.some(l => {
+          if (l.contactId !== pol.contactId) return false;
+          if (!l.notes) return false;
+          return l.notes.includes(pol.id) || l.notes.includes(pol.policyNumber);
+        });
+
+        if (!alreadyExists) {
+          const category = pol.plan?.category || 'Health';
+          const interestName = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          const notesObj = {
+            leadStatus: 'INTERESTED',
+            leadType: 'RENEWAL',
+            policyId: pol.id,
+            policyNumber: pol.policyNumber,
+            companyName: pol.plan?.company?.name || '',
+            planName: pol.plan?.name || '',
+            sumAssured: pol.sumAssured,
+            premiumAmount: pol.premiumAmount,
+            startDate: pol.startDate,
+            endDate: pol.endDate,
+            cleanNotes: `Auto-generated Renewal Lead for Policy #${pol.policyNumber}`,
+          };
+
+          await this.prisma.productInterest.create({
+            data: {
+              tenantId: pol.tenantId,
+              contactId: pol.contactId,
+              planId: pol.planId,
+              assignedEmployeeId: pol.assignedEmployeeId,
+              source: 'Renewal',
+              stage: 'TO_CONTACT',
+              interests: [interestName],
+              premiumBudget: pol.premiumAmount,
+              sumAssuredRequired: pol.sumAssured,
+              notes: JSON.stringify(notesObj),
+            },
+          });
+          this.logger.log(`Created automatic Renewal lead for policy #${pol.policyNumber}`);
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Auto-create renewal leads check error: ${err.message}`);
+    }
+  }
 
   // ── Kanban board — group leads by stage ──────────────────────────────────
 
   async getKanbanBoard(tenantId: string, userId: string, role: UserRole) {
+    await this.autoCreateRenewalLeads(tenantId);
+
     const where: any = { tenantId };
 
     // Employees only see their assigned leads
@@ -27,24 +106,21 @@ export class LeadsService {
     const leads = await this.prisma.productInterest.findMany({
       where,
       include: {
-        contact:          { select: { id: true, firstName: true, lastName: true, phone: true } },
-        plan:             { include: { company: { select: { name: true } } } },
+        contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
+        plan: { include: { company: { select: { name: true } } } },
         assignedEmployee: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
-        consultations:    { orderBy: { createdAt: 'desc' }, take: 1 },
+        consultations: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { updatedAt: 'desc' },
     });
 
     // Group stage → leads for the Kanban board
     const board: Record<LeadStage, typeof leads> = {
-      OPEN:            [],
-      TO_CONTACT:      [],
-      CONTACTED:       [],
-      PROPOSAL_SENT:   [],
-      IN_DISCUSSION:   [],
-      LOGIN_PROGRESS:  [],
-      PAYMENT_DONE:    [],
-      LOST:            [],
+      TO_CONTACT: [],
+      CONTACTED: [],
+      PROPOSAL_SENT: [],
+      LOGIN_PROGRESS: [],
+      PAYMENT_DONE: [],
       PROCESS_COMPLETED: [],
     };
 
@@ -52,30 +128,30 @@ export class LeadsService {
       if (board[lead.stage]) {
         board[lead.stage].push(lead);
       } else {
-        board.OPEN.push(lead);
+        (board as any)[lead.stage] = [lead];
       }
     });
 
     return { data: board };
   }
 
-  // ── List leads ───────────────────────────────────────────────────────────
-
   async findAll(tenantId: string, userId: string, role: UserRole, query: LeadQueryDto) {
-    const page  = Math.max(1, parseInt(String((query as any).page  ?? 1), 10) || 1);
+    await this.autoCreateRenewalLeads(tenantId);
+
+    const page = Math.max(1, parseInt(String((query as any).page ?? 1), 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
     const { stage, search, assignedEmployeeId, contactId, followUpDateFrom, followUpDateTo } = query as any;
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
     if (role === UserRole.EMPLOYEE) where.assignedEmployeeId = userId;
-    if (stage)                      where.stage              = stage;
-    if (assignedEmployeeId)         where.assignedEmployeeId = assignedEmployeeId;
-    if (contactId)                  where.contactId          = contactId;
+    if (stage) where.stage = stage;
+    if (assignedEmployeeId) where.assignedEmployeeId = assignedEmployeeId;
+    if (contactId) where.contactId = contactId;
     if (followUpDateFrom || followUpDateTo) {
       where.followUpDate = {};
       if (followUpDateFrom) where.followUpDate.gte = new Date(followUpDateFrom);
-      if (followUpDateTo)   where.followUpDate.lte = new Date(followUpDateTo);
+      if (followUpDateTo) where.followUpDate.lte = new Date(followUpDateTo);
     }
     if (search) {
       // MongoDB: cannot use { contact: { OR: [...] } } relation filter in WHERE
@@ -85,8 +161,8 @@ export class LeadsService {
         tenantId,
         OR: [
           { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName:  { contains: search, mode: 'insensitive' } },
-          { phone:     { contains: search } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } },
         ],
       };
       // Multi-word: each word must match firstName or lastName
@@ -94,14 +170,14 @@ export class LeadsService {
         contactWhere.AND = terms.map(term => ({
           OR: [
             { firstName: { contains: term, mode: 'insensitive' } },
-            { lastName:  { contains: term, mode: 'insensitive' } },
-            { phone:     { contains: term } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { phone: { contains: term } },
           ],
         }));
         delete contactWhere.OR;
       }
       const matchingContacts = await this.prisma.contact.findMany({
-        where:  contactWhere,
+        where: contactWhere,
         select: { id: true },
       });
       const contactIds = matchingContacts.map(c => c.id);
@@ -117,10 +193,10 @@ export class LeadsService {
       this.prisma.productInterest.findMany({
         where,
         skip,
-        take:    limit,
+        take: limit,
         include: {
           contact: { select: { firstName: true, lastName: true, phone: true, tags: true } },
-          plan:    { include: { company: { select: { name: true } } } },
+          plan: { include: { company: { select: { name: true } } } },
         },
         orderBy: { updatedAt: 'desc' },
       }),
@@ -134,11 +210,21 @@ export class LeadsService {
 
   async findOne(tenantId: string, id: string, userId: string, role: UserRole) {
     const lead = await this.prisma.productInterest.findFirst({
-      where:   { id, tenantId },
+      where: { id, tenantId },
       include: {
-        contact:       true,
-        plan:          { include: { company: true } },
-        consultations: { orderBy: { createdAt: 'desc' } },
+        contact: true,
+        plan: { include: { company: true } },
+        consultations: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            author: {
+              select: {
+                employeeProfile: { select: { firstName: true, lastName: true } },
+                email: true,
+              },
+            },
+          },
+        },
         assignedEmployee: {
           include: { employeeProfile: { select: { firstName: true, lastName: true } } },
         },
@@ -152,7 +238,20 @@ export class LeadsService {
       throw new ForbiddenException('Access denied');
     }
 
-    return { data: lead };
+    let connectedPolicy: any = null;
+    if (lead.notes) {
+      try {
+        const parsed = JSON.parse(lead.notes);
+        if (parsed.policyId) {
+          connectedPolicy = await this.prisma.policy.findFirst({
+            where: { id: parsed.policyId, tenantId },
+            include: { plan: { include: { company: true } } },
+          });
+        }
+      } catch (e) { }
+    }
+
+    return { data: { ...lead, connectedPolicy } };
   }
 
   // ── Create lead ──────────────────────────────────────────────────────────
@@ -184,7 +283,7 @@ export class LeadsService {
           try {
             const parsed = JSON.parse(notesText);
             incomingLeadType = parsed.leadType || 'FRESH';
-          } catch (e) {}
+          } catch (e) { }
         } else {
           const matchType = notesText.match(/Type:\s*(\w+)/i);
           if (matchType && matchType[1]) {
@@ -193,7 +292,7 @@ export class LeadsService {
         }
 
         const activeLead = existingLeads.find(l => {
-          if (l.stage === 'LOST' || l.stage === 'PAYMENT_DONE') return false;
+          if (l.stage === 'PROCESS_COMPLETED' || l.stage === 'PAYMENT_DONE') return false;
 
           let leadStatus = 'INTERESTED';
           const lNotes = l.notes || '';
@@ -201,7 +300,7 @@ export class LeadsService {
             try {
               const parsed = JSON.parse(lNotes);
               leadStatus = parsed.leadStatus || 'INTERESTED';
-            } catch (e) {}
+            } catch (e) { }
           } else {
             const matchStatus = lNotes.match(/Status:\s*(\w+)/i);
             if (matchStatus && matchStatus[1]) {
@@ -223,7 +322,7 @@ export class LeadsService {
             try {
               const parsed = JSON.parse(lNotes);
               activeLeadType = parsed.leadType || 'FRESH';
-            } catch (e) {}
+            } catch (e) { }
           } else {
             const matchType = lNotes.match(/Type:\s*(\w+)/i);
             if (matchType && matchType[1]) {
@@ -256,7 +355,7 @@ export class LeadsService {
             try {
               const parsed = JSON.parse(notesText);
               incomingLeadType = parsed.leadType || 'FRESH';
-            } catch (e) {}
+            } catch (e) { }
           } else {
             const matchType = notesText.match(/Type:\s*(\w+)/i);
             if (matchType && matchType[1]) {
@@ -274,7 +373,7 @@ export class LeadsService {
             expiryDate.setHours(0, 0, 0, 0);
             now.setHours(0, 0, 0, 0);
             const diffDays = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             const config = await this.getRenewalWindow();
             const maxWindow = config.data.maxWindow;
 
@@ -303,12 +402,12 @@ export class LeadsService {
       await this.prisma.calendarEvent.create({
         data: {
           tenantId,
-          contactId:  dto.contactId,
-          title:      'Lead Follow-up',
-          eventType:  'FOLLOWUP',
-          startAt:    new Date(dto.followUpDate),
+          contactId: dto.contactId,
+          title: 'Lead Follow-up',
+          eventType: 'FOLLOWUP',
+          startAt: new Date(dto.followUpDate),
           isAutomatic: true,
-          relatedId:  lead.id,
+          relatedId: lead.id,
         },
       });
     }
@@ -327,7 +426,7 @@ export class LeadsService {
 
     const updated = await this.prisma.productInterest.update({
       where: { id },
-      data:  dto as any,
+      data: dto as any,
     });
 
     await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Lead updated');
@@ -345,9 +444,9 @@ export class LeadsService {
 
     const updated = await this.prisma.productInterest.update({
       where: { id },
-      data:  {
-        stage:      dto.stage,
-        notes:      dto.notes ?? lead.notes,
+      data: {
+        stage: dto.stage,
+        notes: dto.notes ?? lead.notes,
         lostReason: dto.lostReason,
       },
     });
@@ -370,8 +469,38 @@ export class LeadsService {
       throw new ForbiddenException('Access denied');
     }
 
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId },
+      include: { employeeProfile: true, tenant: true },
+    });
+
+    let authorName = '';
+    const profName = `${user?.employeeProfile?.firstName || ''} ${user?.employeeProfile?.lastName || ''}`.trim();
+    if (profName) {
+      authorName = profName;
+    } else if (user?.role === 'OWNER') {
+      authorName = user.tenant?.name ? `${user.tenant.name}` : 'Owner';
+    } else if (user?.email) {
+      authorName = user.email.split('@')[0];
+    } else {
+      authorName = 'Admin';
+    }
+
     const consultation = await this.prisma.productInterestConsultation.create({
-      data: { productInterestId: leadId, ...dto },
+      data: {
+        productInterestId: leadId,
+        authorId: userId,
+        authorName,
+        ...dto,
+      },
+      include: {
+        author: {
+          select: {
+            employeeProfile: { select: { firstName: true, lastName: true } },
+            email: true,
+          },
+        },
+      },
     });
 
     await this.logActivity(tenantId, userId, lead.contactId, leadId, 'UPDATE', 'Consultation added');
@@ -524,7 +653,7 @@ export class LeadsService {
             tenantId,
             contactId: contact.id,
             planId,
-            stage: (row.stage || 'OPEN') as any,
+            stage: (row.stage || 'TO_CONTACT') as any,
             notes: row.notes || '',
             // Auto-assign to the importing employee so the lead appears in their list
             ...(role === UserRole.EMPLOYEE ? { assignedEmployeeId: createdById } : {}),

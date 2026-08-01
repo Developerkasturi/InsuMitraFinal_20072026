@@ -31,7 +31,7 @@ export class CreateLeadDto {
   @IsString({ each: true })
   interests?: string[];
 
-  @ApiPropertyOptional({ enum: LeadStage, default: LeadStage.CONTACTED })
+  @ApiPropertyOptional({ enum: LeadStage, default: LeadStage.TO_CONTACT })
   @IsOptional()
   @IsEnum(LeadStage)
   stage?: LeadStage;

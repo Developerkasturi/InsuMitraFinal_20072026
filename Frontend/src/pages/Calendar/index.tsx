@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { calendarService, contactsService, policiesService, leadsService } from '@api/index';
+import { calendarService, contactsService, policiesService, leadsService, employeesService } from '@api/index';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Clock, Tag, Cake, Users, RefreshCw, CalendarDays } from 'lucide-react';
@@ -8,85 +8,128 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
+import { DatePicker } from '@comps/common/DatePicker';
 import { deleteOrRequestEntity } from '@utils/deleteAction';
+import { useCreateTask, useUpdateTaskStatus } from '@hooks/useWorkspace';
 
 // ── Event type colours ─────────────────────────────────────────────────────────
 const EVENT_COLORS: Record<string, string> = {
-  FOLLOWUP:    'bg-blue-500',
-  MEETING:     'bg-violet-500',
-  RENEWAL:     'bg-amber-500',
+  FOLLOWUP: 'bg-blue-500',
+  MEETING: 'bg-violet-500',
+  RENEWAL: 'bg-amber-500',
   PAYMENT_DUE: 'bg-red-500',
-  BIRTHDAY:    'bg-pink-500',
-  OTHER:       'bg-gray-400',
+  BIRTHDAY: 'bg-pink-500',
+  OTHER: 'bg-gray-400',
+  TASK: 'bg-emerald-500',
 };
 
 const EVENT_GRADIENT: Record<string, string> = {
-  FOLLOWUP:    'from-blue-500 to-blue-600',
-  MEETING:     'from-violet-500 to-violet-600',
-  RENEWAL:     'from-amber-500 to-orange-500',
+  FOLLOWUP: 'from-blue-500 to-blue-600',
+  MEETING: 'from-violet-500 to-violet-600',
+  RENEWAL: 'from-amber-500 to-orange-500',
   PAYMENT_DUE: 'from-red-500 to-rose-600',
-  BIRTHDAY:    'from-pink-500 to-rose-500',
-  OTHER:       'from-slate-400 to-slate-500',
+  BIRTHDAY: 'from-pink-500 to-rose-500',
+  OTHER: 'from-slate-400 to-slate-500',
+  TASK: 'from-emerald-500 to-teal-600',
 };
 
 const EVENT_BADGE: Record<string, string> = {
-  FOLLOWUP:    'bg-blue-50   text-blue-700   border-blue-200',
-  MEETING:     'bg-violet-50 text-violet-700 border-violet-200',
-  RENEWAL:     'bg-amber-50  text-amber-700  border-amber-200',
+  FOLLOWUP: 'bg-blue-50   text-blue-700   border-blue-200',
+  MEETING: 'bg-violet-50 text-violet-700 border-violet-200',
+  RENEWAL: 'bg-amber-50  text-amber-700  border-amber-200',
   PAYMENT_DUE: 'bg-red-50    text-red-700    border-red-200',
-  BIRTHDAY:    'bg-pink-50   text-pink-700   border-pink-200',
-  OTHER:       'bg-gray-50   text-gray-600   border-gray-200',
+  BIRTHDAY: 'bg-pink-50   text-pink-700   border-pink-200',
+  OTHER: 'bg-gray-50   text-gray-600   border-gray-200',
+  TASK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   FOLLOWUP: 'Follow Up', MEETING: 'Meeting', RENEWAL: 'Renewal',
   PAYMENT_DUE: 'Payment Due', BIRTHDAY: 'Birthday', OTHER: 'Other',
+  TASK: 'Task',
 };
 
 const EVENT_DOT_COLOR: Record<string, string> = {
-  FOLLOWUP:    'bg-blue-400',
-  MEETING:     'bg-violet-400',
-  RENEWAL:     'bg-amber-400',
+  FOLLOWUP: 'bg-blue-400',
+  MEETING: 'bg-violet-400',
+  RENEWAL: 'bg-amber-400',
   PAYMENT_DUE: 'bg-red-400',
-  BIRTHDAY:    'bg-pink-400',
-  OTHER:       'bg-slate-400',
+  BIRTHDAY: 'bg-pink-400',
+  OTHER: 'bg-slate-400',
+  TASK: 'bg-emerald-400',
 };
 
 // Active pill colours per event type (checked state)
 const FILTER_ACTIVE: Record<string, string> = {
-  FOLLOWUP:    'bg-blue-100   text-blue-700   border-blue-300',
-  MEETING:     'bg-violet-100 text-violet-700 border-violet-300',
-  RENEWAL:     'bg-amber-100  text-amber-700  border-amber-300',
+  FOLLOWUP: 'bg-blue-100   text-blue-700   border-blue-300',
+  MEETING: 'bg-violet-100 text-violet-700 border-violet-300',
+  RENEWAL: 'bg-amber-100  text-amber-700  border-amber-300',
   PAYMENT_DUE: 'bg-red-100    text-red-700    border-red-300',
-  BIRTHDAY:    'bg-pink-100   text-pink-700   border-pink-300',
-  OTHER:       'bg-slate-100  text-slate-600  border-slate-300',
+  BIRTHDAY: 'bg-pink-100   text-pink-700   border-pink-300',
+  OTHER: 'bg-slate-100  text-slate-600  border-slate-300',
+  TASK: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+};
+
+const formatPreview = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return format(d, 'dd/MMM/yyyy');
+  } catch {
+    return '';
+  }
 };
 
 export default function Calendar() {
-  const qc          = useQueryClient();
+  const qc = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'threeDays'>('month');
   const [visibleCategories, setVisibleCategories] = useState<string[]>([
-    'FOLLOWUP', 'MEETING', 'RENEWAL', 'PAYMENT_DUE', 'BIRTHDAY', 'OTHER'
+    'FOLLOWUP', 'MEETING', 'RENEWAL', 'PAYMENT_DUE', 'BIRTHDAY', 'OTHER', 'TASK'
   ]);
 
-  const [modalOpen,   setModalOpen]   = useState(false);
-  const [editTarget,  setEditTarget]  = useState<any | null>(null);
-  const [deleteTarget,setDeleteTarget]= useState<any | null>(null);
-  const [viewTarget,  setViewTarget]  = useState<any | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [viewTarget, setViewTarget] = useState<any | null>(null);
   const [overflowDay, setOverflowDay] = useState<{ date: Date; events: any[] } | null>(null);
   const role = useAuthStore(s => s.user?.role);
+  const user = useAuthStore(s => s.user);
+
+  // Task Creation States
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDesc, setTaskDesc] = useState('');
+  const [taskStartDate, setTaskStartDate] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskTargetTime, setTaskTargetTime] = useState('');
+  const [taskTimeRequired, setTaskTimeRequired] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+  const [assignedToId, setAssignedToId] = useState('');
+  const [taskComments, setTaskComments] = useState('');
+
+  const createTaskMutation = useCreateTask();
+  const updateTaskStatusMutation = useUpdateTaskStatus();
+
+  // Employee list lookup for Task assignments
+  const { data: employeesRes } = useQuery({
+    queryKey: ['employees-lookup-calendar'],
+    queryFn: () => employeesService.list({ limit: 100 }),
+    enabled: taskModalOpen,
+  });
+  const employeesList = (employeesRes?.data as any[]) || [];
 
   // Queries for calendar events
   const start = startOfMonth(currentDate);
-  const end   = endOfMonth(currentDate);
+  const end = endOfMonth(currentDate);
 
   const { data } = useQuery({
     queryKey: ['calendar', format(currentDate, 'yyyy-MM')],
-    queryFn:  () => calendarService.list({
+    queryFn: () => calendarService.list({
       startDate: start.toISOString(),
-      endDate:   end.toISOString(),
+      endDate: end.toISOString(),
     }),
   });
   const events: any[] = data?.data ?? [];
@@ -167,17 +210,17 @@ export default function Calendar() {
     // Contacts whose birthday falls on the selected date
     const contactBirthdays = isBirthdayVisible
       ? (contactsRes?.data ?? []).filter((c: any) => {
-          if (!c.birthday) return false;
-          const bDate = new Date(c.birthday);
-          return bDate.getDate() === selectedDate.getDate() && bDate.getMonth() === selectedDate.getMonth();
-        }).map((c: any) => ({ _type: 'contact', id: c.id, label: `${c.firstName} ${c.lastName}`, event: null }))
+        if (!c.birthday) return false;
+        const bDate = new Date(c.birthday);
+        return bDate.getDate() === selectedDate.getDate() && bDate.getMonth() === selectedDate.getMonth();
+      }).map((c: any) => ({ _type: 'contact', id: c.id, label: `${c.firstName} ${c.lastName}`, event: null }))
       : [];
 
     // Calendar events of type BIRTHDAY on the selected date
     const eventBirthdays = isBirthdayVisible
       ? selectedDayEvents
-          .filter(e => e.eventType === 'BIRTHDAY' && isSameDay(new Date(e.startAt ?? e.startTime), selectedDate))
-          .map(e => ({ _type: 'event', id: e.id, label: e.title, event: e }))
+        .filter(e => e.eventType === 'BIRTHDAY' && isSameDay(new Date(e.startAt ?? e.startTime), selectedDate))
+        .map(e => ({ _type: 'event', id: e.id, label: e.title, event: e }))
       : [];
 
     return [...contactBirthdays, ...eventBirthdays];
@@ -204,13 +247,13 @@ export default function Calendar() {
   const createEvent = useMutation({
     mutationFn: calendarService.create,
     onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event created'); setModalOpen(false); },
-    onError:   () => toast.error('Failed to create event'),
+    onError: () => toast.error('Failed to create event'),
   });
 
   const updateEvent = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => calendarService.update(id, body),
     onSuccess: () => { void invalidateAgendaQueries(); toast.success('Event updated'); setEditTarget(null); },
-    onError:   () => toast.error('Failed to update event'),
+    onError: () => toast.error('Failed to update event'),
   });
 
   const deleteEvent = useMutation({
@@ -227,22 +270,54 @@ export default function Calendar() {
       setDeleteTarget(null);
       setViewTarget(null);
     },
-    onError:   () => toast.error('Failed to delete event'),
+    onError: () => toast.error('Failed to delete event'),
   });
 
-  const { register, handleSubmit, reset } = useForm<any>();
-  const { register: regEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue: editSetValue } = useForm<any>();
+  const { register, handleSubmit, reset, watch } = useForm<any>();
+  const { register: regEdit, handleSubmit: handleEditSubmit, reset: resetEdit, setValue: editSetValue, watch: watchEdit } = useForm<any>();
 
   const openEdit = (ev: any) => {
     setViewTarget(null);
     setEditTarget(ev);
-    editSetValue('title', ev.title);
-    editSetValue('eventType', ev.eventType ?? 'OTHER');
-    editSetValue('isAllDay', ev.isAllDay ?? false);
-    editSetValue('isRecurring', ev.isRecurring ?? false);
-    editSetValue('startAt', (ev.startAt ?? ev.startTime)?.slice(0, 16));
-    editSetValue('endAt',   (ev.endAt   ?? ev.endTime)?.slice(0, 16)   ?? '');
-    editSetValue('description', ev.description ?? '');
+
+    const startStr = ev.startAt ?? ev.startTime;
+    let startDate = '';
+    let startTime = '';
+    if (startStr) {
+      const d = new Date(startStr);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      startDate = `${yyyy}-${mm}-${dd}`;
+      startTime = `${hh}:${min}`;
+    }
+
+    const endStr = ev.endAt ?? ev.endTime;
+    let endDate = '';
+    let endTime = '';
+    if (endStr) {
+      const d = new Date(endStr);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      endDate = `${yyyy}-${mm}-${dd}`;
+      endTime = `${hh}:${min}`;
+    }
+
+    resetEdit({
+      title: ev.title,
+      eventType: ev.eventType ?? 'OTHER',
+      isAllDay: ev.isAllDay ?? false,
+      startDate,
+      startTime,
+      endDate,
+      endTime,
+      description: ev.description ?? ''
+    });
   };
 
   // Date Navigation based on viewMode
@@ -272,47 +347,82 @@ export default function Calendar() {
     setSelectedDate(today);
   };
 
+  const handleAddTaskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim()) return;
+    createTaskMutation.mutate({
+      title: taskTitle,
+      description: taskDesc || undefined,
+      assignedToId: assignedToId || user?.id,
+      comments: taskComments || undefined,
+      startDate: taskStartDate ? new Date(taskStartDate).toISOString() : undefined,
+      dueDate: taskDueDate ? new Date(taskDueDate).toISOString() : new Date(Date.now() + 86400000).toISOString(),
+      targetTime: taskTargetTime || undefined,
+      timeRequired: taskTimeRequired || undefined,
+      priority: taskPriority,
+    }, {
+      onSuccess: () => {
+        setTaskTitle('');
+        setTaskDesc('');
+        setTaskComments('');
+        setTaskStartDate('');
+        setTaskDueDate('');
+        setTaskTargetTime('');
+        setTaskTimeRequired('');
+        setTaskPriority('MEDIUM');
+        setAssignedToId('');
+        setTaskModalOpen(false);
+        void invalidateAgendaQueries();
+      }
+    });
+  };
 
-  const EventFormFields = ({ reg }: { reg: any }) => (
-    <div className="space-y-4">
-      <div>
-        <label className="label">Title *</label>
-        <input {...reg('title')} className="input" placeholder="Event title" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
+  const EventFormFields = ({ reg, watch }: { reg: any; watch: any }) => {
+    const isAllDay = watch('isAllDay');
+    return (
+      <div className="space-y-4">
         <div>
-          <label className="label">Event Type</label>
-          <select {...reg('eventType')} className="input">
-            {Object.entries(EVENT_TYPE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
+          <label className="label">Title *</label>
+          <input {...reg('title')} className="input" placeholder="Event title" required />
         </div>
-        <div className="flex items-end pb-2 gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input {...reg('isAllDay')} type="checkbox" className="rounded accent-blue-600" />
-            <span className="text-sm text-gray-600 font-medium">All Day</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input {...reg('isRecurring')} type="checkbox" className="rounded accent-blue-600" />
-            <span className="text-sm text-gray-600 font-medium">Recurring</span>
-          </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Event Type</label>
+            <select {...reg('eventType')} className="input">
+              {Object.entries(EVENT_TYPE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end pb-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input {...reg('isAllDay')} type="checkbox" className="rounded accent-blue-600" />
+              <span className="text-sm text-gray-600 font-medium">All Day</span>
+            </label>
+          </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Start Date *</label>
+            <DatePicker {...reg('startDate')} className="input w-full" />
+          </div>
+
+
+          <div>
+            <label className="label">End Date</label>
+            <DatePicker {...reg('endDate')} className="input w-full" />
+          </div>
+
+        </div>
+
         <div>
-          <label className="label">Start *</label>
-          <input {...reg('startAt')} type="datetime-local" className="input" />
-        </div>
-        <div>
-          <label className="label">End</label>
-          <input {...reg('endAt')} type="datetime-local" className="input" />
+          <label className="label">Description</label>
+          <textarea {...reg('description')} className="input" rows={2} placeholder="Optional description…" />
         </div>
       </div>
-      <div>
-        <label className="label">Description</label>
-        <textarea {...reg('description')} className="input" rows={2} placeholder="Optional description…" />
-      </div>
-    </div>
-  );
+    );
+  };
 
   // ── Day-of-week labels
   const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -342,10 +452,10 @@ export default function Calendar() {
               <h2 className="text-lg font-extrabold text-white tracking-tight leading-none">
                 {viewMode === 'month'
                   ? format(currentDate, 'MMMM yyyy')
-                  : `${format(days[0], 'dd MMM')} – ${format(days[days.length - 1], 'dd/MMM/yyyy')}`}
+                  : `${format(days[0], 'dd/MMM/yyyy')} – ${format(days[days.length - 1], 'dd/MMM/yyyy')}`}
               </h2>
               <p className="text-white/60 text-[11px] mt-0.5 font-medium">
-                {format(new Date(), 'EEEE, dd MMMM yyyy')}
+                {format(new Date(), 'EEEE, dd/MMM/yyyy')}
               </p>
             </div>
 
@@ -384,14 +494,41 @@ export default function Calendar() {
             ))}
           </div>
 
-          {/* Right: New event button */}
-          <button
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20 shrink-0"
-            onClick={() => setModalOpen(true)}
-          >
-            <Plus size={15} />
-            New Event
-          </button>
+          {/* Right: New event & Add Task buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
+              onClick={() => {
+                const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                reset({
+                  title: '',
+                  eventType: 'OTHER',
+                  isAllDay: false,
+                  startDate: dateStr,
+                  startTime: '09:00',
+                  endDate: dateStr,
+                  endTime: '10:00',
+                  description: ''
+                });
+                setModalOpen(true);
+              }}
+            >
+              <Plus size={15} />
+              New Event
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
+              onClick={() => {
+                const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                setTaskStartDate(dateStr);
+                setTaskDueDate(dateStr);
+                setTaskModalOpen(true);
+              }}
+            >
+              <Plus size={15} />
+              Add Task
+            </button>
+          </div>
         </div>
       </div>
 
@@ -481,7 +618,9 @@ export default function Calendar() {
                   key={day.toISOString()}
                   onClick={() => setSelectedDate(day)}
                   className={clsx(
-                    isMonthView ? 'min-h-[110px]' : 'min-h-[120px]',
+                    viewMode === 'week' || viewMode === 'threeDays'
+                      ? 'min-h-[400px]'
+                      : 'min-h-[110px]',
                     'border-b border-r border-slate-100 p-2 transition-all cursor-pointer group',
                     today
                       ? 'bg-gradient-to-br from-blue-50/80 to-indigo-50/60'
@@ -512,11 +651,8 @@ export default function Calendar() {
                   </div>
 
                   {/* Events */}
-                  <div className={clsx(
-                    'space-y-1',
-                    isMonthView ? 'space-y-0.5' : 'space-y-1'
-                  )}>
-                    {displayedEvents.map(e => (
+                  <div className="space-y-0.5">
+                    {(viewMode === 'week' || viewMode === 'threeDays' ? dayEvents : dayEvents.slice(0, 3)).map((e: any) => (
                       <button
                         key={e.id}
                         onClick={(ev) => { ev.stopPropagation(); setViewTarget(e); }}
@@ -531,7 +667,7 @@ export default function Calendar() {
                         <span className="truncate w-full">{e.title}</span>
                       </button>
                     ))}
-                    {isMonthView && dayEvents.length > 3 && (
+                    {viewMode !== 'week' && viewMode !== 'threeDays' && dayEvents.length > 3 && (
                       <button
                         onClick={(ev) => { ev.stopPropagation(); setOverflowDay({ date: day, events: dayEvents }); }}
                         className="text-[8px] text-blue-500 font-bold px-1.5 py-0.5 hover:text-blue-700 hover:bg-blue-50 w-full text-left rounded transition-colors"
@@ -555,7 +691,7 @@ export default function Calendar() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-gradient-to-r from-slate-50 to-white">
               <CalendarDays size={13} className="text-blue-500" />
               <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">
-                Agenda — {format(selectedDate, 'dd MMM')}
+                Agenda — {format(selectedDate, 'dd/MMM/yyyy')}
               </h3>
             </div>
 
@@ -642,15 +778,157 @@ export default function Calendar() {
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); reset(); }} title="New Event">
         <form onSubmit={handleSubmit((d: any) => {
           const payload = { ...d };
-          if (payload.startAt) payload.startAt = new Date(payload.startAt).toISOString();
-          if (payload.endAt)   payload.endAt   = new Date(payload.endAt).toISOString();
+          if (payload.startDate) {
+            const datePart = payload.startDate;
+            const timePart = payload.isAllDay ? '00:00' : (payload.startTime || '00:00');
+            payload.startAt = new Date(`${datePart}T${timePart}`).toISOString();
+          }
+          if (payload.endDate) {
+            const datePart = payload.endDate;
+            const timePart = payload.isAllDay ? '23:59' : (payload.endTime || '00:00');
+            payload.endAt = new Date(`${datePart}T${timePart}`).toISOString();
+          }
+          delete payload.startDate;
+          delete payload.startTime;
+          delete payload.endDate;
+          delete payload.endTime;
           createEvent.mutate(payload);
         })} className="space-y-4">
-          <EventFormFields reg={register} />
+          <EventFormFields reg={register} watch={watch} />
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" className="btn-secondary" onClick={() => { setModalOpen(false); reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createEvent.isPending}>
               {createEvent.isPending ? 'Creating…' : 'Create Event'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Create Task Modal ───────────────────────────────────────────────── */}
+      <Modal open={taskModalOpen} onClose={() => { setTaskModalOpen(false); }} title="Add Task">
+        <form onSubmit={handleAddTaskSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Title *</label>
+              <input
+                type="text"
+                placeholder="Task title..."
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                className="input w-full"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Priority</label>
+              <select
+                value={taskPriority}
+                onChange={(e: any) => setTaskPriority(e.target.value)}
+                className="input w-full"
+              >
+                <option value="LOW">Low Priority</option>
+                <option value="MEDIUM">Medium Priority</option>
+                <option value="HIGH">High Priority</option>
+                <option value="URGENT">Urgent Priority</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              placeholder="Task details and scope..."
+              value={taskDesc}
+              onChange={(e) => setTaskDesc(e.target.value)}
+              className="input w-full min-h-[60px]"
+              rows={2}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Start Date</label>
+              <DatePicker
+                value={taskStartDate}
+                onDateChange={setTaskStartDate}
+                className="input w-full"
+              />
+            </div>
+            <div>
+              <label className="label">Target Date</label>
+              <DatePicker
+                value={taskDueDate}
+                onDateChange={setTaskDueDate}
+                className="input w-full"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Target Time</label>
+              <input
+                type="time"
+                value={taskTargetTime}
+                onChange={(e) => setTaskTargetTime(e.target.value)}
+                className="input w-full"
+              />
+            </div>
+            <div>
+              <label className="label">Time Required</label>
+              <input
+                type="text"
+                placeholder="e.g. 3 hours"
+                value={taskTimeRequired}
+                onChange={(e) => setTaskTimeRequired(e.target.value)}
+                className="input w-full"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Assigned To</label>
+            <select
+              value={assignedToId}
+              onChange={(e) => setAssignedToId(e.target.value)}
+              className="input w-full"
+            >
+              <option value="">Self ({user?.firstName} {user?.lastName})</option>
+              {employeesList.map((emp: any) => (
+                <option key={emp.userId || emp.id} value={emp.userId || emp.id}>
+                  {emp.firstName} {emp.lastName} ({emp.designation || 'Employee'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Comments / Instructions</label>
+            <input
+              type="text"
+              placeholder="Additional instructions or notes..."
+              value={taskComments}
+              onChange={(e) => setTaskComments(e.target.value)}
+              className="input w-full"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setTaskModalOpen(false);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createTaskMutation.isPending}
+              className="btn-primary"
+            >
+              {createTaskMutation.isPending ? 'Creating Task...' : 'Save Task'}
             </button>
           </div>
         </form>
@@ -664,19 +942,42 @@ export default function Calendar() {
               <span className={clsx('badge border text-xs', EVENT_BADGE[viewTarget.eventType] ?? 'bg-gray-50 text-gray-600 border-gray-200')}>
                 <Tag size={10} /> {EVENT_TYPE_LABELS[viewTarget.eventType] ?? viewTarget.eventType}
               </span>
+              {viewTarget.isTask && (
+                <span className={clsx('badge border text-xs', viewTarget.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200')}>
+                  {viewTarget.status}
+                </span>
+              )}
+              {viewTarget.isTask && (
+                <span className={clsx('badge border text-xs', viewTarget.priority === 'URGENT' ? 'bg-red-50 text-red-700 border-red-200' : viewTarget.priority === 'HIGH' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200')}>
+                  {viewTarget.priority}
+                </span>
+              )}
             </div>
             <div className="space-y-2 text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100">
-              {(viewTarget.startAt ?? viewTarget.startTime) && (
-                <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-gray-400 shrink-0" />
-                  <span><span className="font-medium">Start:</span> {format(new Date(viewTarget.startAt ?? viewTarget.startTime), 'dd MMM yyyy, HH:mm')}</span>
-                </div>
-              )}
-              {(viewTarget.endAt ?? viewTarget.endTime) && (
-                <div className="flex items-center gap-2">
-                  <Clock size={14} className="text-gray-400 shrink-0" />
-                  <span><span className="font-medium">End:</span> {format(new Date(viewTarget.endAt ?? viewTarget.endTime), 'dd MMM yyyy, HH:mm')}</span>
-                </div>
+              {viewTarget.isTask ? (
+                <>
+                  {viewTarget.startAt && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-gray-400 shrink-0" />
+                      <span><span className="font-medium">Due Date:</span> {format(new Date(viewTarget.startAt), 'dd/MMM/yyyy')}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {(viewTarget.startAt ?? viewTarget.startTime) && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-gray-400 shrink-0" />
+                      <span><span className="font-medium">Start:</span> {format(new Date(viewTarget.startAt ?? viewTarget.startTime), 'dd/MMM/yyyy, HH:mm')}</span>
+                    </div>
+                  )}
+                  {(viewTarget.endAt ?? viewTarget.endTime) && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-gray-400 shrink-0" />
+                      <span><span className="font-medium">End:</span> {format(new Date(viewTarget.endAt ?? viewTarget.endTime), 'dd/MMM/yyyy, HH:mm')}</span>
+                    </div>
+                  )}
+                </>
               )}
               {viewTarget.description && (
                 <p className="text-gray-600 mt-2 pt-2 border-t border-gray-200">{viewTarget.description}</p>
@@ -684,12 +985,32 @@ export default function Calendar() {
             </div>
           </div>
           <div className="flex justify-between items-center mt-5 pt-4 border-t border-gray-100">
-            <button className="btn-secondary gap-1.5" onClick={() => openEdit(viewTarget)}>
-              <Pencil size={13} /> Edit
-            </button>
-            <button className="btn-danger gap-1.5" onClick={() => { setViewTarget(null); setDeleteTarget(viewTarget); }}>
-              <Trash2 size={13} /> Delete
-            </button>
+            {viewTarget.isTask ? (
+              <button
+                className="btn-primary gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={() => {
+                  const nextStatus = viewTarget.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+                  updateTaskStatusMutation.mutate({ taskId: viewTarget.id, status: nextStatus }, {
+                    onSuccess: () => {
+                      setViewTarget(null);
+                      void invalidateAgendaQueries();
+                    }
+                  });
+                }}
+                disabled={updateTaskStatusMutation.isPending}
+              >
+                {viewTarget.status === 'COMPLETED' ? 'Mark Pending' : 'Mark Completed'}
+              </button>
+            ) : (
+              <>
+                <button className="btn-secondary gap-1.5" onClick={() => openEdit(viewTarget)}>
+                  <Pencil size={13} /> Edit
+                </button>
+                <button className="btn-danger gap-1.5" onClick={() => { setViewTarget(null); setDeleteTarget(viewTarget); }}>
+                  <Trash2 size={13} /> Delete
+                </button>
+              </>
+            )}
           </div>
         </Modal>
       )}
@@ -699,11 +1020,23 @@ export default function Calendar() {
         <Modal open onClose={() => { setEditTarget(null); resetEdit(); }} title="Edit Event">
           <form onSubmit={handleEditSubmit((d: any) => {
             const payload = { ...d };
-            if (payload.startAt) payload.startAt = new Date(payload.startAt).toISOString();
-            if (payload.endAt)   payload.endAt   = new Date(payload.endAt).toISOString();
+            if (payload.startDate) {
+              const datePart = payload.startDate;
+              const timePart = payload.isAllDay ? '00:00' : (payload.startTime || '00:00');
+              payload.startAt = new Date(`${datePart}T${timePart}`).toISOString();
+            }
+            if (payload.endDate) {
+              const datePart = payload.endDate;
+              const timePart = payload.isAllDay ? '23:59' : (payload.endTime || '00:00');
+              payload.endAt = new Date(`${datePart}T${timePart}`).toISOString();
+            }
+            delete payload.startDate;
+            delete payload.startTime;
+            delete payload.endDate;
+            delete payload.endTime;
             updateEvent.mutate({ id: editTarget.id, body: payload });
           })} className="space-y-4">
-            <EventFormFields reg={regEdit} />
+            <EventFormFields reg={regEdit} watch={watchEdit} />
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
               <button type="button" className="btn-secondary" onClick={() => { setEditTarget(null); resetEdit(); }}>Cancel</button>
               <button type="submit" className="btn-primary" disabled={updateEvent.isPending}>

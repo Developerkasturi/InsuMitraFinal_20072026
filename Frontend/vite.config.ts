@@ -8,8 +8,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@':      r('src'),
-      '@api':   r('src/services'),
+      '@': r('src'),
+      '@api': r('src/services'),
       '@hooks': r('src/hooks'),
       '@pages': r('src/pages'),
       '@comps': r('src/components'),
@@ -21,7 +21,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target:       'http://localhost:3000',
+        target: 'http://localhost:3000/',
         changeOrigin: true,
       },
     },

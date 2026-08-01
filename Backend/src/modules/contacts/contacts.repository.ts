@@ -13,7 +13,7 @@ import {
 
 @Injectable()
 export class ContactsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // ── List contacts with search + pagination ─────────────────────────────
 
@@ -23,7 +23,10 @@ export class ContactsRepository {
       search, sortBy = 'createdAt', sortOrder = 'desc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
-    const skip = (page - 1) * limit;
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = { tenantId, isActive };
 
@@ -32,24 +35,24 @@ export class ContactsRepository {
       if (terms.length > 1) {
         where.AND = terms.map(term => ({
           OR: [
-            { firstName:      { contains: term, mode: 'insensitive' } },
-            { lastName:       { contains: term, mode: 'insensitive' } },
-            { email:          { contains: term, mode: 'insensitive' } },
-            { phone:          { contains: term } },
+            { firstName: { contains: term, mode: 'insensitive' } },
+            { lastName: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+            { phone: { contains: term } },
             { alternatePhone: { contains: term } },
-            { aadhaarNumber:  { contains: term } },
-            { panNumber:      { contains: term, mode: 'insensitive' } },
+            { aadhaarNumber: { contains: term } },
+            { panNumber: { contains: term, mode: 'insensitive' } },
           ],
         }));
       } else {
         where.OR = [
-          { firstName:      { contains: search, mode: 'insensitive' } },
-          { lastName:       { contains: search, mode: 'insensitive' } },
-          { email:          { contains: search, mode: 'insensitive' } },
-          { phone:          { contains: search } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } },
           { alternatePhone: { contains: search } },
-          { aadhaarNumber:  { contains: search } },
-          { panNumber:      { contains: search, mode: 'insensitive' } },
+          { aadhaarNumber: { contains: search } },
+          { panNumber: { contains: search, mode: 'insensitive' } },
         ];
       }
     }
@@ -72,7 +75,7 @@ export class ContactsRepository {
     if (dobFrom || dobTo) {
       where.dateOfBirth = {};
       if (dobFrom) where.dateOfBirth.gte = new Date(dobFrom);
-      if (dobTo)   where.dateOfBirth.lte = new Date(dobTo);
+      if (dobTo) where.dateOfBirth.lte = new Date(dobTo);
     }
     if (occupationType) where.occupations = { some: { type: occupationType } };
 
@@ -80,30 +83,30 @@ export class ContactsRepository {
       this.prisma.contact.findMany({
         where,
         skip,
-        take:    limit,
+        take: limitNum,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          addresses:   { where: { isPrimary: true }, take: 1 },
+          addresses: { where: { isPrimary: true }, take: 1 },
           occupations: { where: { isPrimary: true }, take: 1 },
           productInterests: { select: { id: true, stage: true } },
           policies: { select: { id: true, status: true } },
-          _count:      { select: { policies: true, documents: true } },
+          _count: { select: { policies: true, documents: true } },
         },
       }),
       this.prisma.contact.count({ where }),
     ]);
 
-    return { data, total, page, limit };
+    return { data, total, page: pageNum, limit: limitNum };
   }
 
   // ── Find single contact (with full relations) ───────────────────────────
 
   async findOne(tenantId: string, id: string) {
     return this.prisma.contact.findFirst({
-      where:   { id, tenantId },
+      where: { id, tenantId },
       include: {
-        addresses:     true,
-        occupations:   true,
+        addresses: true,
+        occupations: true,
         relationships: {
           include: {
             relatedContact: {
@@ -118,10 +121,10 @@ export class ContactsRepository {
             },
           },
         },
-        documents:    { orderBy: { createdAt: 'desc' }, take: 10 },
+        documents: { orderBy: { createdAt: 'desc' }, take: 10 },
         activityLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
         policies: {
-          where:   { status: 'ACTIVE' },
+          where: { status: 'ACTIVE' },
           include: { plan: { include: { company: true } } },
         },
         productInterests: {
@@ -137,7 +140,7 @@ export class ContactsRepository {
 
   async findByPhone(tenantId: string, phone: string) {
     return this.prisma.contact.findFirst({
-      where:  { tenantId, phone },
+      where: { tenantId, phone },
       select: { id: true, firstName: true, lastName: true, phone: true, isActive: true },
     });
   }
@@ -183,7 +186,7 @@ export class ContactsRepository {
       // Get policy + claim IDs for this contact
       const policies = await tx.policy.findMany({ where: { contactId: id, tenantId }, select: { id: true } });
       const policyIds = policies.map(p => p.id);
-      const claims   = await tx.claim.findMany({ where: { contactId: id, tenantId }, select: { id: true } });
+      const claims = await tx.claim.findMany({ where: { contactId: id, tenantId }, select: { id: true } });
       const claimIds = claims.map(c => c.id);
 
       // Delete claim children, then claims
@@ -300,14 +303,14 @@ export class ContactsRepository {
 
   async bulkAddTags(tenantId: string, contactIds: string[], tags: string[]) {
     const contacts = await this.prisma.contact.findMany({
-      where:  { id: { in: contactIds }, tenantId },
+      where: { id: { in: contactIds }, tenantId },
       select: { id: true, tags: true },
     });
     await Promise.all(
       contacts.map(c =>
         this.prisma.contact.update({
           where: { id: c.id },
-          data:  { tags: Array.from(new Set([...c.tags, ...tags])) },
+          data: { tags: Array.from(new Set([...c.tags, ...tags])) },
         }),
       ),
     );
@@ -316,14 +319,14 @@ export class ContactsRepository {
 
   async bulkRemoveTags(tenantId: string, contactIds: string[], tags: string[]) {
     const contacts = await this.prisma.contact.findMany({
-      where:  { id: { in: contactIds }, tenantId },
+      where: { id: { in: contactIds }, tenantId },
       select: { id: true, tags: true },
     });
     await Promise.all(
       contacts.map(c =>
         this.prisma.contact.update({
           where: { id: c.id },
-          data:  { tags: c.tags.filter(t => !tags.includes(t)) },
+          data: { tags: c.tags.filter(t => !tags.includes(t)) },
         }),
       ),
     );
@@ -333,7 +336,7 @@ export class ContactsRepository {
   async bulkDelete(tenantId: string, contactIds: string[]) {
     const result = await this.prisma.contact.updateMany({
       where: { id: { in: contactIds }, tenantId },
-      data:  { isActive: false },
+      data: { isActive: false },
     });
     return result.count;
   }
@@ -345,11 +348,11 @@ export class ContactsRepository {
   }
 
   async getStats(tenantId: string) {
-    const today        = new Date();
+    const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     const contacts = await this.prisma.contact.findMany({
-      where:  { tenantId, isActive: true },
+      where: { tenantId, isActive: true },
       select: { gender: true, createdAt: true },
     });
     const total = contacts.length;
@@ -366,15 +369,15 @@ export class ContactsRepository {
   }
 
   async upcomingBirthdays(tenantId: string, days = 30) {
-    const today    = new Date();
+    const today = new Date();
     const contacts = await this.prisma.contact.findMany({
-      where:  { tenantId, isActive: true, dateOfBirth: { not: null } },
+      where: { tenantId, isActive: true, dateOfBirth: { not: null } },
       select: { id: true, firstName: true, lastName: true, phone: true, email: true, dateOfBirth: true },
     });
 
     return contacts.filter(c => {
       if (!c.dateOfBirth) return false;
-      const dob  = new Date(c.dateOfBirth);
+      const dob = new Date(c.dateOfBirth);
       const next = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
       if (next < today) next.setFullYear(today.getFullYear() + 1);
       const diff = (next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
@@ -384,10 +387,10 @@ export class ContactsRepository {
 
   async recentContacts(tenantId: string, limit = 5) {
     return this.prisma.contact.findMany({
-      where:   { tenantId, isActive: true },
+      where: { tenantId, isActive: true },
       orderBy: { createdAt: 'desc' },
-      take:    limit,
-      select:  { id: true, firstName: true, lastName: true, phone: true, createdAt: true },
+      take: limit,
+      select: { id: true, firstName: true, lastName: true, phone: true, createdAt: true },
     });
   }
 
@@ -395,10 +398,10 @@ export class ContactsRepository {
 
   async findAllForExport(tenantId: string) {
     return this.prisma.contact.findMany({
-      where:   { tenantId, isActive: true },
+      where: { tenantId, isActive: true },
       orderBy: { firstName: 'asc' },
       include: {
-        addresses:   { where: { isPrimary: true }, take: 1 },
+        addresses: { where: { isPrimary: true }, take: 1 },
         occupations: { where: { isPrimary: true }, take: 1 },
       },
     });

@@ -18,7 +18,7 @@ const notDeleted = {
 export class SearchService {
   private readonly logger = new Logger(SearchService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // ─── Main search entry ────────────────────────────────────────────────────
   async search(
@@ -33,10 +33,10 @@ export class SearchService {
       return { success: true, data: { contacts: [], policies: [], claims: [], leads: [] }, message: 'OK' };
     }
 
-    const take     = Math.min(50, Math.max(1, isNaN(Number(limit)) ? 10 : Number(limit) || 10));
-    const term     = q.trim();
+    const take = Math.min(50, Math.max(1, isNaN(Number(limit)) ? 10 : Number(limit) || 10));
+    const term = q.trim();
     const roleUpper = (role || '').toUpperCase();
-    const isOwner  = roleUpper === 'OWNER' || roleUpper === 'SUPERADMIN' || roleUpper === 'ADMIN';
+    const isOwner = roleUpper === 'OWNER' || roleUpper === 'SUPERADMIN' || roleUpper === 'ADMIN';
 
     this.logger.log(`SEARCH: term="${term}" tenantId=${tenantId} userId=${userId} role=${role} isOwner=${isOwner}`);
 
@@ -67,10 +67,10 @@ export class SearchService {
         ? run('policies', () => this.searchPolicies(tenantId, userId, term, take, isOwner, matchingContactIds))
         : Promise.resolve([]),
       type === 'all' || type === 'claims'
-        ? run('claims',   () => this.searchClaims(tenantId, userId, term, take, isOwner, matchingContactIds))
+        ? run('claims', () => this.searchClaims(tenantId, userId, term, take, isOwner, matchingContactIds))
         : Promise.resolve([]),
       type === 'all' || type === 'leads'
-        ? run('leads',    () => this.searchLeads(tenantId, userId, term, take, isOwner, matchingContactIds))
+        ? run('leads', () => this.searchLeads(tenantId, userId, term, take, isOwner, matchingContactIds))
         : Promise.resolve([]),
     ]);
 
@@ -80,8 +80,8 @@ export class SearchService {
       data: {
         contacts: contacts.map(r => this.mapContact(r)),
         policies: policies.map(r => this.mapPolicy(r)),
-        claims:   claims.map(r => this.mapClaim(r)),
-        leads:    leads.map(r => this.mapLead(r)),
+        claims: claims.map(r => this.mapClaim(r)),
+        leads: leads.map(r => this.mapLead(r)),
       },
     };
   }
@@ -91,7 +91,7 @@ export class SearchService {
     if (!q || q.trim().length < 1) return { data: [] };
     const rows = await this.prisma.contact.findMany({
       where: { tenantId, ...notDeleted, OR: this.buildContactOR(q.trim()) } as any,
-      take:  Math.min(10, Math.max(1, limit)),
+      take: Math.min(10, Math.max(1, limit)),
       select: { id: true, firstName: true, lastName: true, phone: true },
     });
     return {
@@ -117,13 +117,13 @@ export class SearchService {
   // ─── Contact OR filter (name / phone / email / PAN / Aadhaar) ─────────────
   private buildContactOR(term: string): any[] {
     const OR: any[] = [
-      { firstName:      { contains: term, mode: 'insensitive' } },
-      { lastName:       { contains: term, mode: 'insensitive' } },
-      { phone:          { contains: term } },
+      { firstName: { contains: term, mode: 'insensitive' } },
+      { lastName: { contains: term, mode: 'insensitive' } },
+      { phone: { contains: term } },
       { alternatePhone: { contains: term } },
-      { email:          { contains: term, mode: 'insensitive' } },
-      { panNumber:      { contains: term, mode: 'insensitive' } },
-      { aadhaarNumber:  { contains: term } },
+      { email: { contains: term, mode: 'insensitive' } },
+      { panNumber: { contains: term, mode: 'insensitive' } },
+      { aadhaarNumber: { contains: term } },
     ];
     const tokens = term.split(/\s+/).filter(Boolean);
     if (tokens.length >= 2) {
@@ -160,7 +160,7 @@ export class SearchService {
   ) {
     const OR: any[] = [
       { policyNumber: { contains: term, mode: 'insensitive' } },
-      { agentCode:    { contains: term, mode: 'insensitive' } },
+      { agentCode: { contains: term, mode: 'insensitive' } },
     ];
     if (contactIds.length > 0) OR.push({ contactId: { in: contactIds } });
 
@@ -172,7 +172,7 @@ export class SearchService {
       take,
       include: {
         contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-        plan:    { select: { name: true, company: { select: { name: true } } } },
+        plan: { select: { name: true, company: { select: { name: true } } } },
       },
     });
   }
@@ -192,7 +192,7 @@ export class SearchService {
       take,
       include: {
         contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-        policy:  { select: { id: true, policyNumber: true } },
+        policy: { select: { id: true, policyNumber: true } },
       },
     });
   }
@@ -215,7 +215,7 @@ export class SearchService {
         take,
         include: {
           contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-          plan:    { select: { name: true } },
+          plan: { select: { name: true } },
         },
       });
     }
@@ -227,7 +227,7 @@ export class SearchService {
     const interestMatchIds = new Set(
       allLeads.filter(l => (l.interests || []).some(i => i.toLowerCase().includes(termLower))).map(l => l.id),
     );
-    const seenIds  = new Set(rows.map((r: any) => r.id));
+    const seenIds = new Set(rows.map((r: any) => r.id));
     const extraIds = [...interestMatchIds].filter(id => !seenIds.has(id));
 
     let extraRows: any[] = [];
@@ -237,7 +237,7 @@ export class SearchService {
         take,
         include: {
           contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-          plan:    { select: { name: true } },
+          plan: { select: { name: true } },
         },
       });
     }
