@@ -32,6 +32,7 @@ export const contactsService = {
     return api.post('/contacts/import', f, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
   logInteraction:    (id: string, body: any) => api.post(`/contacts/${id}/interaction`, body).then(r => r.data),
+  pickContact:       (id: string) => api.patch(`/contacts/${id}/pick`).then(r => r.data),
 };
 
 /* ─── Leads ──────────────────────────────────────────────────────────────── */

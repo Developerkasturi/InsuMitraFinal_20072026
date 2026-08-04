@@ -338,7 +338,7 @@ export class LeadsService {
           }
 
           if (incomingLeadType !== 'RENEWAL') {
-            throw new ForbiddenException(`An active policy already exists for this product. Only a Renewal lead can be created.`);
+            this.logger.log(`Manual lead created for contact with existing policy for ${incomingProd}`);
           }
 
           if (matchedActivePolicy.endDate) {
@@ -352,7 +352,7 @@ export class LeadsService {
             const maxWindow = config.data.maxWindow;
 
             if (diffDays > maxWindow) {
-              throw new ForbiddenException(`Renewal cannot be created yet. The policy is outside the renewal period.`);
+              this.logger.log(`Manual lead created outside max renewal window (${diffDays} days)`);
             }
           }
         }

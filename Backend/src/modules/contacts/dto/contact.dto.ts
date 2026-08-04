@@ -88,6 +88,12 @@ export class CreateContactDto {
   @IsString()
   firstName: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  middleName?: string;
+
   @ApiProperty()
   @IsString()
   lastName: string;
@@ -99,31 +105,59 @@ export class CreateContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsEmail()
   email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   alternatePhone?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsDateString()
   dateOfBirth?: string;
 
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsEnum(Gender)
   gender?: Gender;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  maritalStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  height?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  weight?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  education?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   panNumber?: string;
 
   @ApiPropertyOptional({ description: 'Aadhaar number — must be exactly 12 digits when provided', example: '123456789012' })
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   @Matches(/^\d{12}$/, { message: 'Aadhaar number must be exactly 12 digits' })
   aadhaarNumber?: string;
@@ -136,6 +170,7 @@ export class CreateContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   notes?: string;
 
@@ -147,36 +182,43 @@ export class CreateContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   source?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsMongoId()
   assignedEmployeeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   city?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   leadStage?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   leadStatus?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   leadType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   followUpDate?: string;
 
@@ -275,7 +317,7 @@ export class CreateRelationshipDto {
   @IsMongoId()
   relatedContactId: string;
 
-  @ApiProperty({ enum: RelationshipType, example: 'SPOUSE' })
+  @ApiProperty({ example: 'SPOUSE', enum: RelationshipType })
   @IsEnum(RelationshipType)
   relationshipType: RelationshipType;
 }

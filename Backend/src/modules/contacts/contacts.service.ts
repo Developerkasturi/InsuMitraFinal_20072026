@@ -38,33 +38,6 @@ export class ContactsService {
     };
   }
 
-  // ── Auto-assign contact to employee by creating an OPEN lead ─────────────
-  // Called after contact creation when the creator is an EMPLOYEE.
-  // The existing findAll filter surfaces contacts via their linked ProductInterest
-  // (leads), Policy, or Claim rows — this ensures a freshly created contact is
-  // immediately visible to the employee who created it.
-  private async assignContactToEmployee(
-    tenantId: string,
-    contactId: string,
-    employeeId: string,
-  ): Promise<void> {
-    try {
-      await this.prisma.productInterest.create({
-        data: {
-          tenantId,
-          contactId,
-          assignedEmployeeId: employeeId,
-          // stage defaults to OPEN via the Prisma schema default
-        },
-      });
-    } catch (err: any) {
-      // Non-fatal: log and continue — contact was already saved successfully
-      this.logger.warn(
-        `Auto-assign lead creation failed for contact ${contactId}, employee ${employeeId}: ${err.message}`,
-      );
-    }
-  }
-
   async findOne(tenantId: string, id: string, userId?: string, role?: UserRole) {
     if (role === UserRole.EMPLOYEE && userId) {
       await this.checkContactAccess(tenantId, id, userId, role);
@@ -329,10 +302,6 @@ export class ContactsService {
         notes:        row.notes,
       });
 
-      // Auto-assign imported contact to the importing employee
-      if (role === UserRole.EMPLOYEE) {
-        await this.assignContactToEmployee(tenantId, contact.id, createdById);
-      }
 
       try {
         await this.prisma.activityLog.create({
@@ -413,7 +382,14 @@ export class ContactsService {
     if (role !== UserRole.EMPLOYEE) return;
 
     const contact = await this.prisma.contact.findFirst({
-      where: { id: contactId, tenantId, assignedEmployeeId: userId }
+      where: {
+        id: contactId,
+        tenantId,
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: userId },
+        ],
+      }
     });
     if (contact) return;
 
@@ -432,6 +408,58 @@ export class ContactsService {
     if (policyCount === 0 && leadCount === 0 && claimCount === 0) {
       throw new ForbiddenException('Access denied to this contact profile');
     }
+  }
+
+  async pickContact(tenantId: string, contactId: string, userId: string, role?: UserRole) {
+    const contact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId },
+    });
+
+    if (!contact) {
+      throw new NotFoundException('Contact not found');
+    }
+
+    if (role === UserRole.EMPLOYEE && contact.assignedEmployeeId && contact.assignedEmployeeId !== userId) {
+      throw new ConflictException('This contact has already been assigned to another employee.');
+    }
+
+    const updated = await this.prisma.contact.updateMany({
+      where: {
+        id: contactId,
+        tenantId,
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: userId },
+          ...(role !== UserRole.EMPLOYEE ? [{}] : []),
+        ],
+      },
+      data: {
+        assignedEmployeeId: userId,
+      },
+    });
+
+    if (updated.count === 0) {
+      throw new ConflictException('This contact has already been assigned to another employee.');
+    }
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId,
+          entityType: 'Contact',
+          entityId: contactId,
+          action: 'UPDATE',
+          description: `Contact picked/assigned to employee ${userId}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed: ${err.message}`);
+    }
+
+    const fresh = await this.repo.findOne(tenantId, contactId);
+    return { data: fresh, message: 'Contact assigned successfully' };
   }
 
   async createContactFull(
@@ -608,10 +636,6 @@ export class ContactsService {
 
       const contact = await this.repo.create(tenantId, c);
 
-      // Auto-assign imported contact to the importing employee
-      if (role === UserRole.EMPLOYEE) {
-        await this.assignContactToEmployee(tenantId, contact.id, createdById);
-      }
 
       try {
         await this.prisma.activityLog.create({
@@ -638,3 +662,4 @@ export class ContactsService {
     };
   }
 }
+

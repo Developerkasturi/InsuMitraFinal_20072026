@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -21,8 +21,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import ContactDetailModal from './ContactDetailModal';
 import * as XLSX from 'xlsx';
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
+import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -55,6 +54,135 @@ interface Contact {
   notes?: string; tags?: string[]; isActive: boolean;
 }
 
+const MEDICAL_CONDITIONS_LIST = [
+  'Diabetes Mellitus',
+  'High BP / Cholesterol',
+  'Heart Disease',
+  'Tuberculosis',
+  'Asthma',
+  'Other Respiratory Infection',
+  'Disease of bones/joints',
+  'Slip disc',
+  'Spinal Disorder',
+  'Ligament Injury',
+  'Cancer',
+  'Gynecological disorder (DUB, Fibroid Uterus, Ovarian cyst)',
+  'Undergone Cesarean / Hysterectomy',
+  'Disease of Stomach / Intestine',
+  'Liver / Gall Bladder / Pancreas',
+  'Kidney / Urinary Bladder / Urinary Tract Disease',
+  'Disease of Prostate / Fistula / Piles / Genital Disease',
+  'Cataract or Other Disease of Eye and ENT',
+  'Thyroid',
+  'Others'
+];
+
+function MultiSelectBox({
+  label,
+  selectedValues,
+  onChange,
+  badgeColor = 'blue',
+  placeholder = 'Select Conditions...'
+}: {
+  label: string;
+  selectedValues: string[];
+  onChange: (vals: string[]) => void;
+  badgeColor?: 'blue' | 'orange';
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredOptions = MEDICAL_CONDITIONS_LIST.filter(opt =>
+    opt.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleOption = (opt: string) => {
+    if (selectedValues.includes(opt)) {
+      onChange(selectedValues.filter(o => o !== opt));
+    } else {
+      onChange([...selectedValues, opt]);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">{label}</label>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="input min-h-[40px] w-full cursor-pointer flex items-center justify-between gap-2 flex-wrap py-1.5 px-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all"
+      >
+        {selectedValues.length === 0 ? (
+          <span className="text-slate-400 text-xs font-normal">{placeholder}</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {selectedValues.map((val, idx) => (
+              <span
+                key={idx}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                  badgeColor === 'orange'
+                    ? 'bg-orange-50 text-orange-700 border-orange-200'
+                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                }`}
+              >
+                {val}
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(selectedValues.filter(v => v !== val));
+                  }}
+                  className="hover:text-red-600 font-bold cursor-pointer ml-0.5"
+                >
+                  ×
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <span className="text-slate-400 text-[10px] ml-auto">▼</span>
+      </div>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 max-h-60 overflow-y-auto">
+            <input
+              type="text"
+              className="input w-full text-xs py-1.5 px-2.5 mb-2 border border-slate-200 rounded-lg"
+              placeholder="Type to search condition..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="space-y-0.5">
+              {filteredOptions.map((opt) => {
+                const isChecked = selectedValues.includes(opt);
+                return (
+                  <label
+                    key={opt}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className={`w-3.5 h-3.5 rounded cursor-pointer ${badgeColor === 'orange' ? 'accent-orange-500' : 'accent-blue-600'}`}
+                      checked={isChecked}
+                      onChange={() => toggleOption(opt)}
+                    />
+                    <span className={`font-medium ${isChecked ? 'text-slate-900 font-bold' : 'text-slate-600'}`}>
+                      {opt}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
@@ -73,7 +201,7 @@ export default function Contacts() {
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') {
-      openCreate();
+      openCustomerCreate();
     }
   }, [searchParams]);
   const [editTarget, setEditTarget] = useState<Contact | null>(null);
@@ -159,7 +287,16 @@ export default function Contacts() {
     district: '',
     city: '',
     pincode: '',
-    streetAddress: ''
+    streetAddress: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    bankBranch: '',
+    chewTobacco: false,
+    smoke: false,
+    consumeAlcohol: false,
+    surgeryDetails: '',
+    prescriptionDetails: ''
   });
 
   const [leadInfoFields, setLeadInfoFields] = useState({
@@ -334,7 +471,7 @@ export default function Contacts() {
 
   const saveProductInterestCard = async (cardId: string) => {
     if (!editContactId) {
-      toast.error('Please save the contact details first using "Save Draft" or "Save & Close"');
+      toast.error('Please save the contact details first');
       return;
     }
     const card = productInterests.find(c => c.id === cardId);
@@ -360,10 +497,6 @@ export default function Contacts() {
         toast.error('Please select or enter a Lead Source');
         return;
       }
-      if (!card.assignedEmployeeId) {
-        toast.error('Please select an Assigned Employee');
-        return;
-      }
       if (!card.followUpDate?.trim()) {
         toast.error('Please select a Follow-up Date');
         return;
@@ -379,19 +512,17 @@ export default function Contacts() {
     try {
       const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
 
-      let stage = 'OPEN';
-      if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
-      else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
-      else stage = card.leadStage;
+      let stage = card.leadStage && card.leadStage !== 'OPEN' ? card.leadStage : 'TO_CONTACT';
 
       const serializedNotes = serializeLeadNotes(card);
 
+      const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
       const body = {
         contactId: editContactId,
         interests,
         stage,
         source: card.leadSource,
-        assignedEmployeeId: card.assignedEmployeeId || undefined,
+        assignedEmployeeId: validEmpId(card.assignedEmployeeId),
         followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
         premiumBudget: Number(card.expectedPremium) || undefined,
         notes: serializedNotes,
@@ -500,7 +631,7 @@ export default function Contacts() {
   // Fetch employees lookup to map assignee name
   const { employees, plans: dbPlans } = useLookupStore();
 
-  const { data: contactsRes, isLoading: contactsLoading } = useContacts({
+  const { data: contactsRes, isLoading: contactsLoading, refetch: refetchContacts } = useContacts({
     page,
     limit: 50,
     search: search || undefined
@@ -625,6 +756,10 @@ export default function Contacts() {
       maritalStatus: '',
       dateOfBirth: '',
       age: '',
+      height: '',
+      weight: '',
+      pan: '',
+      panNumber: '',
       declaredMedicalHistory: [],
       notDeclaredMedicalHistory: [],
       medicalHistoryDetails: '',
@@ -666,170 +801,275 @@ export default function Contacts() {
     setLeadModalOpen(true);
   };
 
+  const extractNameFields = (primary: any, secondary?: any) => {
+    let fn = primary?.firstName || primary?.contact?.firstName || secondary?.firstName || secondary?.contact?.firstName || '';
+    let mn = primary?.middleName || primary?.contact?.middleName || secondary?.middleName || secondary?.contact?.middleName || '';
+    let ln = primary?.lastName || primary?.contact?.lastName || secondary?.lastName || secondary?.contact?.lastName || '';
+
+    if (!fn) {
+      const nameStr = primary?.fullName || primary?.name || primary?.contact?.fullName || primary?.contact?.name ||
+                      secondary?.fullName || secondary?.name || secondary?.contact?.fullName || secondary?.contact?.name || '';
+      if (nameStr) {
+        const parts = nameStr.trim().split(/\s+/);
+        fn = parts[0] || '';
+        if (parts.length === 2) {
+          ln = parts[1] || '';
+        } else if (parts.length > 2) {
+          mn = parts.slice(1, -1).join(' ');
+          ln = parts[parts.length - 1] || '';
+        }
+      }
+    }
+    return { firstName: fn, middleName: mn, lastName: ln };
+  };
+
   const openLeadEdit = async (leadOrContact: any) => {
     const contactId = leadOrContact.contactId || leadOrContact.id;
-    const leadId = leadOrContact.contactId ? leadOrContact.id : (leadOrContact.productInterests?.[0]?.id || null);
+    if (!contactId) {
+      toast.error('Invalid contact selected');
+      return;
+    }
 
-    const toastId = toast.loading('Loading lead data...');
+    setEditContactId(contactId);
+    setEditLeadId(leadOrContact.contactId ? leadOrContact.id : (leadOrContact.productInterests?.[0]?.id || null));
+
+    // Fallback initial values from leadOrContact row
+    const fallbackContact = leadOrContact;
+    setLoadedContact(fallbackContact);
+
+    const initialNames = extractNameFields(fallbackContact);
+
+    setPersonalFields({
+      firstName: initialNames.firstName,
+      middleName: initialNames.middleName,
+      lastName: initialNames.lastName,
+      gender: fallbackContact.gender || fallbackContact.contact?.gender || '',
+      maritalStatus: fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
+      dateOfBirth: fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : (fallbackContact.contact?.dateOfBirth ? fallbackContact.contact.dateOfBirth.split('T')[0] : ''),
+      age: (fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth) ? String(calculateAge(fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth)) : '',
+      height: fallbackContact.height ? String(fallbackContact.height) : '',
+      weight: fallbackContact.weight ? String(fallbackContact.weight) : '',
+      pan: fallbackContact.panNumber || fallbackContact.pan || '',
+      panNumber: fallbackContact.panNumber || fallbackContact.pan || '',
+      declaredMedicalHistory: [],
+      notDeclaredMedicalHistory: [],
+      medicalHistoryDetails: '',
+      email: fallbackContact.email || fallbackContact.contact?.email || '',
+      aadhaarNumber: fallbackContact.aadhaarNumber || fallbackContact.contact?.aadhaarNumber || '',
+      whatsappNumber: fallbackContact.phone || fallbackContact.whatsappNumber || fallbackContact.contact?.phone || '',
+      sameAsWhatsapp: (fallbackContact.phone || fallbackContact.whatsappNumber || fallbackContact.contact?.phone) === (fallbackContact.alternatePhone || fallbackContact.contact?.alternatePhone),
+      callingNumber: fallbackContact.alternatePhone || fallbackContact.contact?.alternatePhone || '',
+      education: fallbackContact.education || fallbackContact.contact?.education || '',
+      annualIncome: (fallbackContact.annualIncome || fallbackContact.contact?.annualIncome) ? String(fallbackContact.annualIncome || fallbackContact.contact?.annualIncome) : '',
+      occupationType: '',
+      companyName: '',
+      state: '',
+      district: '',
+      city: '',
+      pincode: '',
+      streetAddress: fallbackContact.notes || fallbackContact.contact?.notes || ''
+    });
+
+    setActiveLeadTab('Personal');
+    setLeadModalOpen(true);
+
+    const toastId = toast.loading('Loading contact details...');
     try {
       const res = await contactsService.get(contactId);
-      const contact = res.data;
-      setLoadedContact(contact);
+      const contact = res?.data?.data || res?.data || res;
+      if (contact && contact.id) {
+        setLoadedContact(contact);
 
-      const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
-      const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
+        const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
+        const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
-      setPersonalFields({
-        firstName: contact.firstName || '',
-        middleName: contact.middleName || '',
-        lastName: contact.lastName || '',
-        gender: contact.gender || '',
-        maritalStatus: contact.maritalStatus || '',
-        dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
-        age: contact.dateOfBirth ? String(calculateAge(contact.dateOfBirth)) : '',
-        declaredMedicalHistory: [],
-        notDeclaredMedicalHistory: [],
-        medicalHistoryDetails: '',
-        email: contact.email || '',
-        aadhaarNumber: contact.aadhaarNumber || '',
-        whatsappNumber: contact.phone || '',
-        sameAsWhatsapp: contact.phone === contact.alternatePhone,
-        callingNumber: contact.alternatePhone || '',
-        education: contact.education || '',
-        annualIncome: contact.annualIncome ? String(contact.annualIncome) : '',
-        occupationType: primaryOcc?.type || '',
-        companyName: primaryOcc?.companyName || '',
-        state: primaryAddr?.state || '',
-        district: primaryAddr?.district || '',
-        city: primaryAddr?.city || '',
-        pincode: primaryAddr?.pincode || '',
-        streetAddress: primaryAddr?.line1 || contact.notes || ''
-      });
+        const updatedNames = extractNameFields(contact, fallbackContact);
 
-      const lead = contact.productInterests?.[0] || (leadOrContact.contactId ? leadOrContact : null);
-      setLeadInfoFields({
-        profileType: activeTab === 'customers' ? 'Client Profile' : 'Lead Profile',
-        leadStatus: lead?.stage || 'OPEN',
-        interestedIn: lead?.interests || ['Health'],
-        leadSource: lead?.source || 'Walk-in',
-        assignedEmployeeId: lead?.assignedEmployeeId || '',
-        followUpDate: lead?.followUpDate ? lead.followUpDate.split('T')[0] : '',
-      });
+        setPersonalFields({
+          firstName: updatedNames.firstName,
+          middleName: updatedNames.middleName,
+          lastName: updatedNames.lastName,
+          gender: contact.gender || fallbackContact.gender || fallbackContact.contact?.gender || '',
+          maritalStatus: contact.maritalStatus || fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
+          dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : (fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : ''),
+          age: contact.dateOfBirth ? String(calculateAge(contact.dateOfBirth)) : (fallbackContact.dateOfBirth ? String(calculateAge(fallbackContact.dateOfBirth)) : ''),
+          height: contact.height ? String(contact.height) : (fallbackContact.height ? String(fallbackContact.height) : ''),
+          weight: contact.weight ? String(contact.weight) : (fallbackContact.weight ? String(fallbackContact.weight) : ''),
+          pan: contact.panNumber || fallbackContact.panNumber || fallbackContact.pan || '',
+          panNumber: contact.panNumber || fallbackContact.panNumber || fallbackContact.pan || '',
+          declaredMedicalHistory: [],
+          notDeclaredMedicalHistory: [],
+          medicalHistoryDetails: '',
+          email: contact.email || fallbackContact.email || fallbackContact.contact?.email || '',
+          aadhaarNumber: contact.aadhaarNumber || fallbackContact.aadhaarNumber || fallbackContact.contact?.aadhaarNumber || '',
+          whatsappNumber: contact.phone || fallbackContact.phone || fallbackContact.contact?.phone || '',
+          sameAsWhatsapp: (contact.phone || fallbackContact.phone) === (contact.alternatePhone || fallbackContact.alternatePhone),
+          callingNumber: contact.alternatePhone || fallbackContact.alternatePhone || '',
+          education: contact.education || fallbackContact.education || '',
+          annualIncome: contact.annualIncome ? String(contact.annualIncome) : (fallbackContact.annualIncome ? String(fallbackContact.annualIncome) : ''),
+          occupationType: primaryOcc?.type || '',
+          companyName: primaryOcc?.companyName || '',
+          state: primaryAddr?.state || '',
+          district: primaryAddr?.district || '',
+          city: primaryAddr?.city || '',
+          pincode: primaryAddr?.pincode || '',
+          streetAddress: primaryAddr?.line1 || contact.notes || fallbackContact.notes || ''
+        });
 
-      const comments = lead?.notes ? lead.notes.split('\n') : [];
-      setLeadComments(comments);
-      setNewComment('');
+        const lead = contact.productInterests?.[0] || (leadOrContact.contactId ? leadOrContact : null);
+        setLeadInfoFields({
+          profileType: activeTab === 'customers' ? 'Client Profile' : 'Lead Profile',
+          leadStatus: lead?.stage || 'OPEN',
+          interestedIn: lead?.interests || ['Health'],
+          leadSource: lead?.source || 'Walk-in',
+          assignedEmployeeId: lead?.assignedEmployeeId || '',
+          followUpDate: lead?.followUpDate ? lead.followUpDate.split('T')[0] : '',
+        });
 
-      const campaignsList = [
-        'Health Awareness', 'New Year Offer', 'Pension Plan',
-        'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
-      ];
-      const campaigns = contact.tags?.filter((t: string) => campaignsList.includes(t)) || [];
-      setSelectedCampaigns(campaigns);
+        const comments = lead?.notes ? lead.notes.split('\n') : [];
+        setLeadComments(comments);
+        setNewComment('');
 
-      const fams = (contact.relationships || []).map((r: any) => {
-        const c = r.relatedContact;
-        return {
-          name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
-          dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
-          relation: r.relationshipType,
-          whatsapp: c?.phone || '',
-          occupation: '',
-          education: '',
-          medicalHistory: []
-        };
-      });
-      setFamilyMembers(fams);
+        const campaignsList = [
+          'Health Awareness', 'New Year Offer', 'Pension Plan',
+          'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
+        ];
+        const campaigns = contact.tags?.filter((t: string) => campaignsList.includes(t)) || [];
+        setSelectedCampaigns(campaigns);
 
-      const healthEntries: any[] = [];
-      const lifeEntries: any[] = [];
-      (contact.policies || []).forEach((p: any) => {
-        const entry = {
-          company: p.plan?.company?.name || 'Other',
-          planName: p.plan?.name || 'Other',
-          policyNo: p.policyNumber,
-          startDate: p.startDate ? p.startDate.split('T')[0] : '',
-          duration: '1 Year',
-          endDate: p.endDate ? p.endDate.split('T')[0] : '',
-          premium: String(p.premiumAmount),
-          sumInsured: String(p.sumAssured),
-          deductible: '',
-          sumAssured: String(p.sumAssured),
-          maturityDate: p.maturityDate ? p.maturityDate.split('T')[0] : '',
-          paymentTerm: '',
-          entryType: p.status === 'ACTIVE' ? 'New' : 'Renewal'
-        };
-        if (p.plan?.category === 'HEALTH') {
-          healthEntries.push(entry);
-        } else {
-          lifeEntries.push(entry);
-        }
-      });
+        const rels1 = (contact.relationships || []).map((r: any) => {
+          const c = r.relatedContact || r.contact || {};
+          const parsedNames = extractNameFields(c);
+          return {
+            id: r.id,
+            contactId: c.id,
+            name: `${parsedNames.firstName} ${parsedNames.middleName} ${parsedNames.lastName}`.replace(/\s+/g, ' ').trim(),
+            firstName: parsedNames.firstName,
+            middleName: parsedNames.middleName,
+            lastName: parsedNames.lastName,
+            dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
+            relation: r.relationshipType || 'OTHER',
+            whatsapp: c?.phone || '',
+            occupation: '',
+            education: '',
+            medicalHistory: []
+          };
+        });
+        setFamilyMembers(rels1);
 
-      const parsedPolicies: any[] = [];
-      if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
-      if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
-      setPolicies(parsedPolicies);
+        const healthEntries: any[] = [];
+        const lifeEntries: any[] = [];
+        (contact.policies || []).forEach((p: any) => {
+          const entry = {
+            company: p.plan?.company?.name || 'Other',
+            planName: p.plan?.name || 'Other',
+            policyNo: p.policyNumber,
+            startDate: p.startDate ? p.startDate.split('T')[0] : '',
+            duration: '1 Year',
+            endDate: p.endDate ? p.endDate.split('T')[0] : '',
+            premium: String(p.premiumAmount),
+            sumInsured: String(p.sumAssured),
+            deductible: '',
+            sumAssured: String(p.sumAssured),
+            maturityDate: p.maturityDate ? p.maturityDate.split('T')[0] : '',
+            paymentTerm: '',
+            entryType: p.status === 'ACTIVE' ? 'New' : 'Renewal'
+          };
+          if (p.plan?.category === 'HEALTH') {
+            healthEntries.push(entry);
+          } else {
+            lifeEntries.push(entry);
+          }
+        });
 
-      // Load & map product interests/leads
-      const backendInterests = contact.productInterests || [];
-      const mappedInterests: ProductInterestCard[] = backendInterests.map((lead: any) => {
-        const extra = parseLeadNotes(lead.notes);
-        const comments = (lead.consultations || []).map((c: any) => ({
-          text: c.notes || '',
-          author: c.author || 'System',
-          datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-        }));
+        const parsedPolicies: any[] = [];
+        if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
+        if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
+        setPolicies(parsedPolicies);
 
-        const interestsList = lead.interests || [];
-        const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
-        const standardInterests = interestsList.filter((p: string) => isStandard(p));
-        const otherInterests = interestsList.filter((p: string) => !isStandard(p));
+        const backendInterests = contact.productInterests || [];
+        const mappedInterests: ProductInterestCard[] = backendInterests.map((lead: any) => {
+          const extra = parseLeadNotes(lead.notes);
+          const comments = (lead.consultations || []).map((c: any) => ({
+            text: c.notes || '',
+            author: c.author || 'System',
+            datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
+          }));
 
-        const interestedIn = [...standardInterests];
-        let otherProduct = '';
-        if (otherInterests.length > 0) {
-          interestedIn.push('Other');
-          otherProduct = otherInterests.join(', ');
-        }
+          const parseBackendInterests = (list: string[] = []): { interestedIn: string[]; otherProduct: string } => {
+            const STANDARD_PRODUCTS = ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'];
+            const interestedIn: string[] = [];
+            const otherParts: string[] = [];
+            for (const raw of list) {
+              if (!raw || !raw.trim()) continue;
+              const trimmed = raw.trim();
+              const lower = trimmed.toLowerCase();
+              if (lower.includes('health')) {
+                if (!interestedIn.includes('Health')) interestedIn.push('Health');
+              } else if (lower.includes('life') && !lower.includes('term')) {
+                if (!interestedIn.includes('Life')) interestedIn.push('Life');
+              } else if (lower.includes('term')) {
+                if (!interestedIn.includes('Term')) interestedIn.push('Term');
+              } else if (lower.includes('accident')) {
+                if (!interestedIn.includes('Accident Policy')) interestedIn.push('Accident Policy');
+              } else if (lower.includes('motor') || lower.includes('car') || lower.includes('vehicle') || lower.includes('bike')) {
+                if (!interestedIn.includes('Motor')) interestedIn.push('Motor');
+              } else if (lower.includes('mutual') || lower.includes('fund')) {
+                if (!interestedIn.includes('Mutual Funds')) interestedIn.push('Mutual Funds');
+              } else if (lower.includes('port')) {
+                if (!interestedIn.includes('Porting')) interestedIn.push('Porting');
+              } else if (STANDARD_PRODUCTS.includes(trimmed)) {
+                if (!interestedIn.includes(trimmed)) interestedIn.push(trimmed);
+              } else {
+                otherParts.push(trimmed);
+              }
+            }
+            if (otherParts.length > 0 && !interestedIn.includes('Other')) {
+              interestedIn.push('Other');
+            }
+            if (interestedIn.length === 0) {
+              interestedIn.push('Health');
+            }
+            return { interestedIn, otherProduct: otherParts.join(', ') };
+          };
 
-        const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
-        let leadStage = 'TO_CONTACT';
-        if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
-        else leadStage = lead.stage;
+          const { interestedIn, otherProduct } = parseBackendInterests(lead.interests || []);
 
-        return {
-          id: lead.id,
-          collapsed: true,
-          interestedIn,
-          otherProduct,
-          descriptionDetails: extra.descriptionDetails || '',
-          leadStage,
-          leadStatus: extra.leadStatus,
-          dependencyType: extra.dependencyType || 'SELF',
-          dependentDetails: extra.dependentDetails || '',
-          leadType: extra.leadType,
-          leadSource: lead.source || 'Walk-in',
-          assignedEmployeeId: lead.assignedEmployeeId || '',
-          followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
-          expectedPremium,
-          comments,
-          newComment: '',
-          showAllComments: false,
-        };
-      });
-      setProductInterests(mappedInterests);
+          const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
+          let leadStage = 'TO_CONTACT';
+          if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
+          else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
+          else leadStage = lead.stage;
 
-      setEditLeadId(lead?.id || null);
-      setEditContactId(contactId);
-      setActiveLeadTab('Product Interest');
-      setLeadModalOpen(true);
+          return {
+            id: lead.id,
+            collapsed: true,
+            interestedIn,
+            otherProduct,
+            descriptionDetails: extra.descriptionDetails || '',
+            leadStage,
+            leadStatus: extra.leadStatus,
+            dependencyType: extra.dependencyType || 'SELF',
+            dependentDetails: extra.dependentDetails || '',
+            leadType: extra.leadType,
+            leadSource: lead.source || 'Walk-in',
+            assignedEmployeeId: lead.assignedEmployeeId || '',
+            followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
+            expectedPremium,
+            comments,
+            newComment: '',
+          };
+        });
+
+        setProductInterests(mappedInterests);
+      }
       toast.dismiss(toastId);
     } catch (err) {
-      toast.error('Failed to load lead details', { id: toastId });
+      toast.dismiss(toastId);
     }
   };
+
+  const openEdit = openLeadEdit;
 
   const closeLeadModal = () => {
     setLeadModalOpen(false);
@@ -859,31 +1099,32 @@ export default function Contacts() {
 
   const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean) => {
     e.preventDefault();
-    if (!personalFields.firstName.trim()) {
+    const firstName = (personalFields?.firstName || '').trim();
+    const lastName = (personalFields?.lastName || '').trim();
+    const whatsappNumber = (personalFields?.whatsappNumber || '').trim();
+
+    if (!firstName) {
       toast.error('First Name is required');
       return;
     }
-    if (!personalFields.lastName.trim()) {
+    if (!lastName) {
       toast.error('Last Name is required');
       return;
     }
-    if (!personalFields.whatsappNumber.trim()) {
+    if (!whatsappNumber) {
       toast.error('Whatsapp Number is required');
       return;
     }
 
-    const cleanPhone = personalFields.whatsappNumber.replace(/\D/g, '');
+    const rawPhoneDigits = whatsappNumber.replace(/\D/g, '');
+    const cleanPhone = rawPhoneDigits.length > 10 ? rawPhoneDigits.slice(-10) : rawPhoneDigits;
     if (cleanPhone.length !== 10) {
       toast.error('Whatsapp/Mobile Number must be exactly 10 digits');
       return;
     }
 
-    const cleanAadhaar = personalFields.aadhaarNumber.replace(/\D/g, '');
-    if (!cleanAadhaar) {
-      toast.error('Aadhaar Number is required');
-      return;
-    }
-    if (cleanAadhaar.length !== 12) {
+    const cleanAadhaar = (personalFields?.aadhaarNumber || '').replace(/\D/g, '');
+    if (cleanAadhaar && cleanAadhaar.length !== 12) {
       toast.error('Aadhaar Number must be exactly 12 digits');
       return;
     }
@@ -909,11 +1150,6 @@ export default function Contacts() {
           setActiveLeadTab('Product Interest');
           return;
         }
-        if (!card.assignedEmployeeId) {
-          toast.error(`Product Interest #${i + 1}: Please select an Assigned Employee`);
-          setActiveLeadTab('Product Interest');
-          return;
-        }
         if (!card.followUpDate?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please select a Follow-up Date`);
           setActiveLeadTab('Product Interest');
@@ -929,9 +1165,6 @@ export default function Contacts() {
 
     const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
     try {
-      const firstName = personalFields.firstName.trim();
-      const lastName = personalFields.lastName.trim();
-
       const mergedTags = [...selectedCampaigns];
       const isCustomerTarget = activeTab === 'customers' || leadInfoFields.profileType === 'Client Profile' || leadInfoFields.profileType === 'Customer Profile';
       if (isCustomerTarget) {
@@ -948,27 +1181,32 @@ export default function Contacts() {
         }
       }
 
+      const rawAltDigits = personalFields.callingNumber ? personalFields.callingNumber.replace(/\D/g, '') : '';
+      const cleanAltPhone = rawAltDigits.length > 10 ? rawAltDigits.slice(-10) : rawAltDigits;
+
       let contactId = editContactId;
       if (editContactId) {
-        await contactsService.update(editContactId, {
+        const updateBody: any = {
           firstName,
-          middleName: personalFields.middleName || undefined,
           lastName,
-          phone: personalFields.whatsappNumber,
-          alternatePhone: personalFields.callingNumber || undefined,
-          email: personalFields.email || undefined,
-          gender: personalFields.gender || undefined,
-          maritalStatus: personalFields.maritalStatus || undefined,
-          dateOfBirth: personalFields.dateOfBirth?.trim() ? new Date(personalFields.dateOfBirth).toISOString() : undefined,
-          height: personalFields.height ? Number(personalFields.height) : undefined,
-          weight: personalFields.weight ? Number(personalFields.weight) : undefined,
-          panNumber: personalFields.panNumber || personalFields.pan || undefined,
-          aadhaarNumber: personalFields.aadhaarNumber || undefined,
-          education: personalFields.education || undefined,
-          annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
-          tags: mergedTags,
-          notes: personalFields.streetAddress || undefined,
-        });
+          phone: cleanPhone,
+        };
+        if (personalFields.middleName?.trim()) updateBody.middleName = personalFields.middleName.trim();
+        if (cleanAltPhone) updateBody.alternatePhone = cleanAltPhone;
+        if (personalFields.email?.trim()) updateBody.email = personalFields.email.trim();
+        if (personalFields.gender) updateBody.gender = personalFields.gender;
+        if (personalFields.maritalStatus) updateBody.maritalStatus = personalFields.maritalStatus;
+        if (personalFields.dateOfBirth?.trim()) updateBody.dateOfBirth = new Date(personalFields.dateOfBirth).toISOString();
+        if (personalFields.height) updateBody.height = Number(personalFields.height);
+        if (personalFields.weight) updateBody.weight = Number(personalFields.weight);
+        if (personalFields.panNumber || personalFields.pan) updateBody.panNumber = personalFields.panNumber || personalFields.pan;
+        if (cleanAadhaar) updateBody.aadhaarNumber = cleanAadhaar;
+        if (personalFields.education) updateBody.education = personalFields.education;
+        if (personalFields.annualIncome) updateBody.annualIncome = Number(personalFields.annualIncome);
+        if (mergedTags && mergedTags.length > 0) updateBody.tags = mergedTags;
+        if (personalFields.streetAddress?.trim()) updateBody.notes = personalFields.streetAddress.trim();
+
+        await contactsService.update(editContactId, updateBody);
 
         // Update Address: clean up old addresses, then create the new primary address
         if (loadedContact) {
@@ -1004,26 +1242,28 @@ export default function Contacts() {
           }).catch(err => console.error('Failed to add new occupation:', err));
         }
       } else {
+        const contactBody: any = {
+          firstName,
+          lastName,
+          phone: cleanPhone,
+        };
+        if (personalFields.middleName?.trim()) contactBody.middleName = personalFields.middleName.trim();
+        if (cleanAltPhone) contactBody.alternatePhone = cleanAltPhone;
+        if (personalFields.email?.trim()) contactBody.email = personalFields.email.trim();
+        if (personalFields.gender) contactBody.gender = personalFields.gender;
+        if (personalFields.maritalStatus) contactBody.maritalStatus = personalFields.maritalStatus;
+        if (personalFields.dateOfBirth?.trim()) contactBody.dateOfBirth = new Date(personalFields.dateOfBirth).toISOString();
+        if (personalFields.height) contactBody.height = Number(personalFields.height);
+        if (personalFields.weight) contactBody.weight = Number(personalFields.weight);
+        if (personalFields.panNumber || personalFields.pan) contactBody.panNumber = personalFields.panNumber || personalFields.pan;
+        if (cleanAadhaar) contactBody.aadhaarNumber = cleanAadhaar;
+        if (personalFields.education) contactBody.education = personalFields.education;
+        if (personalFields.annualIncome) contactBody.annualIncome = Number(personalFields.annualIncome);
+        if (mergedTags && mergedTags.length > 0) contactBody.tags = mergedTags;
+        if (personalFields.streetAddress?.trim()) contactBody.notes = personalFields.streetAddress.trim();
+
         const contactRes = await contactsService.createFull({
-          contact: {
-            firstName,
-            middleName: personalFields.middleName || undefined,
-            lastName,
-            phone: personalFields.whatsappNumber,
-            alternatePhone: personalFields.callingNumber || undefined,
-            email: personalFields.email || undefined,
-            gender: personalFields.gender || undefined,
-            maritalStatus: personalFields.maritalStatus || undefined,
-            dateOfBirth: personalFields.dateOfBirth?.trim() ? new Date(personalFields.dateOfBirth).toISOString() : undefined,
-            height: personalFields.height ? Number(personalFields.height) : undefined,
-            weight: personalFields.weight ? Number(personalFields.weight) : undefined,
-            panNumber: personalFields.panNumber || personalFields.pan || undefined,
-            aadhaarNumber: personalFields.aadhaarNumber || undefined,
-            education: personalFields.education || undefined,
-            annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
-            tags: mergedTags,
-            notes: personalFields.streetAddress || undefined,
-          },
+          contact: contactBody,
           address: (personalFields.state || personalFields.city || personalFields.pincode || personalFields.streetAddress) ? {
             type: 'HOME',
             line1: personalFields.streetAddress || 'N/A',
@@ -1039,33 +1279,67 @@ export default function Contacts() {
             isPrimary: true,
           } : undefined,
         });
-        contactId = contactRes.data.contact.id;
+        const createdContactObj = contactRes?.data?.contact || contactRes?.data?.data || contactRes?.data || contactRes;
+        contactId = createdContactObj?.id || createdContactObj?._id;
+        if (contactId) {
+          setEditContactId(contactId);
+          if (createdContactObj && typeof createdContactObj === 'object') {
+            setLoadedContact(createdContactObj);
+          }
+        }
       }
 
       const subResourcePromises: Promise<any>[] = [];
       const createdPolicies: any[] = [];
 
       // Save Family Members if any
-      for (const fam of familyMembers) {
-        if (!fam.name.trim()) continue;
-        const famParts = fam.name.trim().split(/\s+/);
-        const famFirst = famParts[0] || '';
-        const famLast = famParts.slice(1).join(' ') || '';
+      const currentUser = useAuthStore.getState().user;
+      const curEmpId = currentUser?.id;
+
+      for (let i = 0; i < familyMembers.length; i++) {
+        const fam = familyMembers[i];
+        const famFirst = (fam.firstName || '').trim() || (fam.name || '').trim().split(/\s+/)[0] || '';
+        const famMiddle = (fam.middleName || '').trim();
+        const famLast = (fam.lastName || '').trim() || (fam.name || '').trim().split(/\s+/).slice(1).join(' ') || '';
+        const fullFamName = `${famFirst} ${famMiddle} ${famLast}`.replace(/\s+/g, ' ').trim();
+        if (!fullFamName) continue;
+
+        const rawFamPhone = (fam.whatsapp || '').replace(/\D/g, '');
+        const cleanFamPhone = rawFamPhone.length === 10 ? rawFamPhone : `9${String(Date.now() + i).slice(-9)}`;
+        const relType = fam.relation ? fam.relation.toUpperCase().replace(/\s+/g, '_') : 'OTHER';
 
         const saveFamilyFlow = async () => {
           try {
-            const famContactRes = await contactsService.create({
-              firstName: famFirst,
-              lastName: famLast,
-              phone: fam.whatsapp || '0000000000',
-              dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
-            });
-            const famContactId = famContactRes.id || famContactRes.data?.id;
+            let targetFamContactId = fam.contactId;
+            if (targetFamContactId) {
+              await contactsService.update(targetFamContactId, {
+                firstName: famFirst,
+                middleName: famMiddle || undefined,
+                lastName: famLast,
+                phone: cleanFamPhone,
+                dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
+                assignedEmployeeId: curEmpId || undefined,
+              });
+            } else {
+              const famContactRes = await contactsService.create({
+                firstName: famFirst,
+                middleName: famMiddle || undefined,
+                lastName: famLast,
+                phone: cleanFamPhone,
+                dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
+                assignedEmployeeId: curEmpId || undefined,
+                tags: ['contact', 'customer', 'family'],
+              });
+              const famObj = famContactRes?.data?.data || famContactRes?.data || famContactRes;
+              targetFamContactId = typeof famObj === 'string' ? famObj : (famObj?.id || famObj?._id);
+            }
 
-            await contactsService.addRelationship(contactId!, {
-              relatedContactId: famContactId,
-              relationshipType: fam.relation || 'OTHER',
-            });
+            if (targetFamContactId && typeof targetFamContactId === 'string') {
+              await contactsService.addRelationship(contactId!, {
+                relatedContactId: targetFamContactId,
+                relationshipType: relType,
+              });
+            }
           } catch (famErr) {
             console.error('Failed to save family member:', famErr);
           }
@@ -1103,22 +1377,34 @@ export default function Contacts() {
 
       // Save Product Interests (Leads)
       for (const card of productInterests) {
-        const product = card.interestedIn[0];
-        const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
+        const isUntouchedDefaultPlaceholder = card.id.startsWith('temp-') &&
+          (card.interestedIn.length === 1 && card.interestedIn[0] === 'Health') &&
+          !card.expectedPremium &&
+          !card.followUpDate &&
+          !card.descriptionDetails &&
+          !card.otherProduct;
 
-        let stage = 'OPEN';
-        if (card.leadStage === 'TO_CONTACT') stage = 'OPEN';
-        else if (card.leadStage === 'PROCESS_COMPLETED') stage = 'PAYMENT_DONE';
-        else stage = card.leadStage;
+        if (isUntouchedDefaultPlaceholder) {
+          continue;
+        }
+
+        const rawInterests = (card.interestedIn || [])
+          .map((p: string) => (p === 'Other' && card.otherProduct ? card.otherProduct : p))
+          .filter(Boolean);
+
+        const interests = rawInterests.length > 0 ? rawInterests : ['Health'];
+
+        let stage = card.leadStage && card.leadStage !== 'OPEN' ? card.leadStage : 'TO_CONTACT';
 
         const serializedNotes = serializeLeadNotes(card);
 
+        const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
         const body = {
           contactId: contactId!,
           interests,
           stage,
-          source: card.leadSource,
-          assignedEmployeeId: card.assignedEmployeeId || undefined,
+          source: card.leadSource || 'Walk-in',
+          assignedEmployeeId: validEmpId(card.assignedEmployeeId) || validEmpId(curEmpId),
           followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
           premiumBudget: Number(card.expectedPremium) || undefined,
           notes: serializedNotes,
@@ -1136,8 +1422,9 @@ export default function Contacts() {
                 await leadsService.addConsultation(savedLead.id, { notes: cmt.text });
               }
             }
-          } catch (leadErr) {
+          } catch (leadErr: any) {
             console.error('Failed to save product interest:', leadErr);
+            toast.error(`Failed to save Product Interest (${interests.join(', ')}): ${leadErr.response?.data?.message || 'Error occurred'}`);
           }
         };
         subResourcePromises.push(saveLeadFlow());
@@ -1153,13 +1440,16 @@ export default function Contacts() {
         } : prev);
       }
 
+      const targetLabel = activeTab === 'customers' ? 'Customer' : 'Contact';
       toast.success(
-        shouldClose
-          ? (editContactId ? 'Customer successfully updated!' : 'Customer successfully created!')
-          : 'Draft saved successfully!',
+        editContactId
+          ? `${targetLabel} updated successfully!`
+          : (shouldClose ? `${targetLabel} created successfully!` : 'Draft saved successfully!'),
         { id: toastId }
       );
       qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.refetchQueries({ queryKey: ['contacts'] });
+      refetchContacts();
       qc.invalidateQueries({ queryKey: ['policies'] });
       qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
 
@@ -1173,11 +1463,16 @@ export default function Contacts() {
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) });
 
-  const getEmployeeName = (id?: string | null) => {
-    if (!id) return '—';
+  const getEmployeeName = (id?: string | null, assignedEmpObj?: any) => {
+    if (assignedEmpObj) {
+      const prof = assignedEmpObj.employeeProfile;
+      const name = prof ? `${prof.firstName || ''} ${prof.lastName || ''}`.trim() : (assignedEmpObj.email || '');
+      if (name) return name;
+    }
+    if (!id) return 'Unassigned';
     const emp = employees.find(e => e.id === id || e.userId === id);
-    if (!emp) return id;
-    return `${emp.firstName ?? ''} ${emp.lastName ?? ''}`.trim() || emp.name || id;
+    if (!emp) return 'Unassigned';
+    return `${emp.firstName ?? ''} ${emp.lastName ?? ''}`.trim() || emp.name || emp.email || 'Unassigned';
   };
 
   const toggleFilter = (filter: string) => {
@@ -1233,201 +1528,7 @@ export default function Contacts() {
     setLeadModalOpen(true);
   };
 
-  const openEdit = async (contactOrId: any) => {
-    const contactId = typeof contactOrId === 'string' ? contactOrId : (contactOrId.contactId || contactOrId.id);
-    const toastId = toast.loading('Loading contact details...');
-    try {
-      const res = await contactsService.get(contactId);
-      const contact = res.data;
-      setLoadedContact(contact);
 
-      const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
-      const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
-
-      setPersonalFields({
-        fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
-        gender: contact.gender || '',
-        maritalStatus: contact.maritalStatus || '',
-        dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
-        declaredMedicalHistory: [],
-        notDeclaredMedicalHistory: [],
-        medicalHistoryDetails: '',
-        email: contact.email || '',
-        aadhaarNumber: contact.aadhaarNumber || '',
-        whatsappNumber: contact.phone || '',
-        sameAsWhatsapp: contact.phone === contact.alternatePhone,
-        callingNumber: contact.alternatePhone || '',
-        education: contact.education || '',
-        annualIncome: contact.annualIncome ? String(contact.annualIncome) : '',
-        occupationType: primaryOcc?.type || '',
-        companyName: primaryOcc?.companyName || '',
-        state: primaryAddr?.state || '',
-        district: primaryAddr?.district || '',
-        city: primaryAddr?.city || '',
-        pincode: primaryAddr?.pincode || '',
-        streetAddress: primaryAddr?.line1 || contact.notes || ''
-      });
-
-      setLeadInfoFields({
-        profileType: activeTab === 'customers' ? 'Client Profile' : 'Contact Profile',
-        leadStatus: 'OPEN',
-        interestedIn: ['Health'],
-        leadSource: contact.source || 'Walk-in',
-        assignedEmployeeId: contact.assignedEmployeeId || '',
-        followUpDate: '',
-      });
-
-      const campaignsList = [
-        'Health Awareness', 'New Year Offer', 'Pension Plan',
-        'Monsoon Safety', 'Term Insurance Promo', 'Family Health Package'
-      ];
-      const campaigns = contact.tags?.filter((t: string) => campaignsList.includes(t)) || [];
-      setSelectedCampaigns(campaigns);
-
-      const fams = (contact.relationships || []).map((r: any) => {
-        const c = r.relatedContact || r.contact || {};
-        const primaryOcc = c?.occupations?.find((o: any) => o.isPrimary) || c?.occupations?.[0];
-        const medTags = (c?.tags || [])
-          .filter((t: string) => t.startsWith('med:'))
-          .map((t: string) => t.replace('med:', ''));
-
-        const relRaw = r.relationshipType || '';
-        const relLower = relRaw.toLowerCase();
-        let formattedRel = relRaw ? relRaw.charAt(0).toUpperCase() + relRaw.slice(1).toLowerCase() : 'Other';
-        if (relLower === 'spouse') formattedRel = 'Spouse';
-        else if (relLower === 'son') formattedRel = 'Son';
-        else if (relLower === 'daughter') formattedRel = 'Daughter';
-        else if (relLower === 'father') formattedRel = 'Father';
-        else if (relLower === 'mother') formattedRel = 'Mother';
-        else if (relLower === 'brother') formattedRel = 'Brother';
-        else if (relLower === 'sister') formattedRel = 'Sister';
-        else if (relLower === 'child') formattedRel = 'Child';
-
-        return {
-          name: `${c?.firstName || ''} ${c?.lastName || ''}`.trim(),
-          dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
-          relation: formattedRel,
-          whatsapp: c?.phone || '',
-          occupation: primaryOcc?.type || '',
-          education: c?.education || '',
-          medicalHistory: medTags
-        };
-      });
-      setFamilyMembers(fams);
-
-      const companyOptionsList = [
-        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
-        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
-        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
-        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
-        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
-      ];
-      const healthPlanOptions = ['Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up', 'Other'];
-      const lifePlanOptions = ['Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'];
-
-      const healthEntries: any[] = [];
-      const lifeEntries: any[] = [];
-      (contact.policies || []).forEach((p: any) => {
-        const rawComp = (p.plan?.company?.name || p.companyName || '').trim();
-        const rawPlan = (p.plan?.name || p.planName || '').trim();
-
-        const matchedComp = companyOptionsList.find(c =>
-          c.toLowerCase() === rawComp.toLowerCase() ||
-          rawComp.toLowerCase().includes(c.toLowerCase()) ||
-          c.toLowerCase().includes(rawComp.toLowerCase())
-        ) || rawComp || 'Other';
-
-        const planList = p.plan?.category === 'HEALTH' ? healthPlanOptions : lifePlanOptions;
-        const matchedPlan = planList.find(pl =>
-          pl.toLowerCase() === rawPlan.toLowerCase() ||
-          rawPlan.toLowerCase().includes(pl.toLowerCase()) ||
-          pl.toLowerCase().includes(rawPlan.toLowerCase())
-        ) || rawPlan || 'Other';
-
-        const entry = {
-          company: matchedComp,
-          planName: matchedPlan,
-          policyNo: p.policyNumber,
-          startDate: p.startDate ? p.startDate.split('T')[0] : '',
-          duration: '1 Year',
-          endDate: p.endDate ? p.endDate.split('T')[0] : '',
-          premium: String(p.premiumAmount),
-          sumInsured: String(p.sumAssured),
-          deductible: '',
-          sumAssured: String(p.sumAssured),
-          maturityDate: p.maturityDate ? p.maturityDate.split('T')[0] : '',
-          paymentTerm: '',
-          entryType: p.status === 'ACTIVE' ? 'New' : 'Renewal'
-        };
-        if (p.plan?.category === 'HEALTH') {
-          healthEntries.push(entry);
-        } else {
-          lifeEntries.push(entry);
-        }
-      });
-
-      const parsedPolicies: any[] = [];
-      if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
-      if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
-      setPolicies(parsedPolicies);
-
-      // Load & map product interests/leads
-      const backendInterests = contact.productInterests || [];
-      const mappedInterests = backendInterests.map((lead: any) => {
-        const extra = parseLeadNotes(lead.notes);
-        const comments = (lead.consultations || []).map((c: any) => ({
-          text: c.notes || '',
-          author: c.author || 'System',
-          datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
-        }));
-
-        const interestsList = lead.interests || [];
-        const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
-        const standardInterests = interestsList.filter((p: string) => isStandard(p));
-        const otherInterests = interestsList.filter((p: string) => !isStandard(p));
-
-        const interestedIn = [...standardInterests];
-        let otherProduct = '';
-        if (otherInterests.length > 0) {
-          interestedIn.push('Other');
-          otherProduct = otherInterests.join(', ');
-        }
-
-        const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
-        let leadStage = 'TO_CONTACT';
-        if (lead.stage === 'OPEN') leadStage = 'TO_CONTACT';
-        else if (lead.stage === 'PAYMENT_DONE') leadStage = 'PROCESS_COMPLETED';
-        else leadStage = lead.stage;
-
-        return {
-          id: lead.id,
-          collapsed: true,
-          interestedIn,
-          otherProduct,
-          descriptionDetails: extra.descriptionDetails || '',
-          leadStage,
-          leadStatus: extra.leadStatus,
-          dependencyType: extra.dependencyType || 'SELF',
-          dependentDetails: extra.dependentDetails || '',
-          leadType: extra.leadType,
-          leadSource: lead.source || 'Walk-in',
-          assignedEmployeeId: lead.assignedEmployeeId || '',
-          followUpDate: lead.followUpDate ? lead.followUpDate.split('T')[0] : '',
-          expectedPremium,
-          comments,
-          newComment: '',
-        };
-      });
-      setProductInterests(mappedInterests);
-
-      setEditContactId(contactId);
-      setActiveLeadTab('Personal');
-      setLeadModalOpen(true);
-      toast.dismiss(toastId);
-    } catch (err) {
-      toast.error('Failed to load contact details', { id: toastId });
-    }
-  };
 
   useEffect(() => {
     const state = location.state as any;
@@ -1601,6 +1702,20 @@ export default function Contacts() {
     return result;
   }, [filteredData, sortKey, sortDir, policyMap]);
 
+  const handlePickContact = async (contactId: string) => {
+    const toastId = toast.loading('Assigning contact to you...');
+    try {
+      await contactsService.pickContact(contactId);
+      toast.success('Contact assigned to you successfully!', { id: toastId });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['leads'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to pick contact', { id: toastId });
+    }
+  };
+
+
+
   // Contact Table Columns
   const CONTACT_COLS: Column<any>[] = [
     {
@@ -1637,17 +1752,10 @@ export default function Contacts() {
             </div>
             <div>
               <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
-              <div className="text-[11px] font-medium text-slate-400">{r.phone || '—'}</div>
             </div>
           </div>
         );
       }
-    },
-    {
-      key: 'phone',
-      label: 'PHONE',
-      sortable: true,
-      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone || '—'}</span>
     },
     {
       key: 'leadStage',
@@ -1700,7 +1808,17 @@ export default function Contacts() {
       key: 'assignedTo',
       label: 'ASSIGNED EMPLOYEE',
       sortable: true,
-      render: r => <span className="text-slate-700 text-xs font-bold">{getEmployeeName(r.assignedEmployeeId)}</span>
+      render: r => {
+        const empName = getEmployeeName(r.assignedEmployeeId, r.assignedEmployee);
+        if (!r.assignedEmployeeId || empName === 'Unassigned') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+              Unassigned
+            </span>
+          );
+        }
+        return <span className="text-slate-700 text-xs font-bold">{empName}</span>;
+      }
     },
     {
       key: 'source',
@@ -1712,8 +1830,20 @@ export default function Contacts() {
       key: 'actions',
       label: 'ACTIONS',
       render: r => {
+        const isEmployee = authUser?.role === 'EMPLOYEE';
+        const showPickButton = isEmployee && !r.assignedEmployeeId;
         return (
           <div className="flex gap-1.5 justify-start items-center" onClick={e => e.stopPropagation()}>
+            {showPickButton && (
+              <button
+                onClick={() => handlePickContact(r.id)}
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs shadow-xs hover:from-blue-700 hover:to-indigo-700 transition-all hover:scale-105 cursor-pointer flex items-center gap-1 shrink-0"
+                title="Pick and assign this contact to yourself"
+              >
+                <UserCheck size={13} />
+                Pick Contact
+              </button>
+            )}
             <a
               href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
               target="_blank"
@@ -1785,7 +1915,6 @@ export default function Contacts() {
             </div>
             <div>
               <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
-              <div className="text-[11px] font-medium text-slate-400">{r.phone}</div>
             </div>
           </div>
         );
@@ -2619,32 +2748,13 @@ export default function Contacts() {
         size="2xl"
         actions={
           <div className="flex gap-2.5 mr-1">
-            {editContactId ? (
-              <button
-                type="button"
-                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                onClick={(e) => handleLeadSubmit(e, false)}
-              >
-                Save
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-xs font-extrabold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all"
-                  onClick={(e) => handleLeadSubmit(e, false)}
-                >
-                  Save Draft
-                </button>
-                <button
-                  type="button"
-                  className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                  onClick={(e) => handleLeadSubmit(e, false)}
-                >
-                  Save
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              onClick={(e) => handleLeadSubmit(e, false)}
+            >
+              Save
+            </button>
           </div>
         }
       >
@@ -2921,7 +3031,7 @@ export default function Contacts() {
                               </datalist>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
                               <select
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -3074,491 +3184,538 @@ export default function Contacts() {
                   onClick={addProductInterest}
                   className="w-full mt-1 py-3 rounded-2xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50 text-blue-600 hover:text-blue-700 text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer group"
                 >
-                  <Plus size={15} className="group-hover:scale-110 transition-transform" />
                   + Add Product Interest
                 </button>
 
               </div>
             )}
             {activeLeadTab === 'Personal' && (
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Rahul"
-                    value={personalFields.firstName}
-                    onChange={e => setPersonalFields(p => ({ ...p, firstName: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Middle Name</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Kumar"
-                    value={personalFields.middleName}
-                    onChange={e => setPersonalFields(p => ({ ...p, middleName: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Sharma"
-                    value={personalFields.lastName}
-                    onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Gender</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.gender}
-                    onChange={e => setPersonalFields(p => ({ ...p, gender: e.target.value }))}
-                  >
-                    <option value="">SelectType</option>
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                    <option value="OTHER">Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Marital Status</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.maritalStatus}
-                    onChange={e => setPersonalFields(p => ({ ...p, maritalStatus: e.target.value }))}
-                  >
-                    <option value="">SelectType</option>
-                    <option value="SINGLE">Single</option>
-                    <option value="MARRIED">Married</option>
-                    <option value="DIVORCED">Divorced</option>
-                    <option value="WIDOWED">Widowed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
-                  <DatePicker
-                    className="input w-full"
-                    value={personalFields.dateOfBirth}
-                    onDateChange={handleDOBChange}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Age</label>
-                  <input
-                    type="text"
-                    className="input w-full bg-gray-50 cursor-not-allowed"
-                    value={personalFields.age}
-                    disabled
-                    placeholder="Auto-calculated"
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Height (cm)
-                  </label>
-                  <input
-                    type="number"
-                    className="input w-full"
-                    placeholder="e.g. 170"
-                    value={personalFields.height}
-                    onChange={(e) =>
-                      setPersonalFields((p) => ({
-                        ...p,
-                        height: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Weight (kg)
-                  </label>
-                  <input
-                    type="number"
-                    className="input w-full"
-                    placeholder="e.g. 65"
-                    value={personalFields.weight}
-                    onChange={(e) =>
-                      setPersonalFields((p) => ({
-                        ...p,
-                        weight: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="label">PAN</label>
-                  <input
-                    type="text"
-                    placeholder="ABCDE1234F"
-                    className="input"
-                    value={personalFields.pan}
-                    onChange={(e) =>
-                      setPersonalFields(p => ({
-                        ...p,
-                        pan: e.target.value.toUpperCase(),
-                      }))
-                    }
-                  />
+              <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
+                {/* 1. Personal Details */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                      Personal Details
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Rahul"
+                        value={personalFields.firstName}
+                        onChange={e => setPersonalFields(p => ({ ...p, firstName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Middle Name</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Kumar"
+                        value={personalFields.middleName}
+                        onChange={e => setPersonalFields(p => ({ ...p, middleName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Sharma"
+                        value={personalFields.lastName}
+                        onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Mother's Name</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Sunita Sharma"
+                        value={personalFields.motherName || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, motherName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Gender</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.gender}
+                        onChange={e => setPersonalFields(p => ({ ...p, gender: e.target.value }))}
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Marital Status</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.maritalStatus}
+                        onChange={e => setPersonalFields(p => ({ ...p, maritalStatus: e.target.value }))}
+                      >
+                        <option value="">Select Status</option>
+                        <option value="SINGLE">Single</option>
+                        <option value="MARRIED">Married</option>
+                        <option value="DIVORCED">Divorced</option>
+                        <option value="WIDOWED">Widowed</option>
+                      </select>
+                    </div>
+                    {personalFields.maritalStatus === 'MARRIED' && (
+                      <div className="animate-fadeIn">
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Wedding Anniversary Date</label>
+                        <DatePicker
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.weddingAnniversaryDate || ''}
+                          onDateChange={(val) => setPersonalFields(p => ({ ...p, weddingAnniversaryDate: val }))}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
+                      <DatePicker
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.dateOfBirth}
+                        onDateChange={handleDOBChange}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Age</label>
+                      <input
+                        type="text"
+                        className="input w-full bg-slate-50 font-semibold text-slate-600 cursor-not-allowed rounded-xl"
+                        value={personalFields.age}
+                        disabled
+                        placeholder="Auto-calculated"
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Height (cm)</label>
+                      <input
+                        type="number"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. 170"
+                        value={personalFields.height}
+                        onChange={(e) => setPersonalFields((p) => ({ ...p, height: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Weight (kg)</label>
+                      <input
+                        type="number"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. 65"
+                        value={personalFields.weight}
+                        onChange={(e) => setPersonalFields((p) => ({ ...p, weight: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number</label>
+                      <input
+                        type="text"
+                        placeholder="ABCDE1234F"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
+                        value={personalFields.pan || personalFields.panNumber || ''}
+                        onChange={(e) => setPersonalFields(p => ({ ...p, pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    className="input w-full"
-                    placeholder="client@example.com"
-                    value={personalFields.email}
-                    onChange={e => setPersonalFields(p => ({ ...p, email: e.target.value }))}
-                  />
+                {/* 2. Contact Details */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                      Contact Details
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="client@example.com"
+                        value={personalFields.email}
+                        onChange={e => setPersonalFields(p => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="12-digit Aadhaar No"
+                        maxLength={12}
+                        value={personalFields.aadhaarNumber}
+                        onChange={e => setPersonalFields(p => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
+                      <CountryPhoneInput
+                        value={personalFields.whatsappNumber}
+                        onChange={(value: string) =>
+                          setPersonalFields((p) => ({
+                            ...p,
+                            whatsappNumber: value,
+                            callingNumber: p.sameAsWhatsapp ? value : p.callingNumber,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Calling Number</label>
+                        <label className="flex items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="accent-blue-600 w-3 h-3 rounded"
+                            checked={personalFields.sameAsWhatsapp}
+                            onChange={e => {
+                              const checked = e.target.checked;
+                              setPersonalFields(p => ({
+                                ...p,
+                                sameAsWhatsapp: checked,
+                                callingNumber: checked ? p.whatsappNumber : p.callingNumber
+                              }));
+                            }}
+                          />
+                          Same as Whatsapp
+                        </label>
+                      </div>
+                      <CountryPhoneInput
+                        disabled={personalFields.sameAsWhatsapp}
+                        value={personalFields.callingNumber}
+                        onChange={(value: string) =>
+                          setPersonalFields((p) => ({
+                            ...p,
+                            callingNumber: value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="12-digit Aadhaar No"
-                    maxLength={12}
-                    value={personalFields.aadhaarNumber}
-                    onChange={e => setPersonalFields(p => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
-                  />
+
+                {/* 3. Education & Occupation */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+                      Education &amp; Occupation
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.education}
+                        onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
+                      >
+                        <option value="">Select Education</option>
+                        <option value="HighSchool">High School</option>
+                        <option value="Graduate">Graduate</option>
+                        <option value="PostGraduate">Post Graduate</option>
+                        <option value="Professional">Professional</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.annualIncome}
+                        onChange={e => setPersonalFields(p => ({ ...p, annualIncome: e.target.value }))}
+                      >
+                        <option value="">Select Income Bracket</option>
+                        <option value="200000">Below 2 Lakhs</option>
+                        <option value="500000">2 - 5 Lakhs</option>
+                        <option value="1000000">5 - 10 Lakhs</option>
+                        <option value="2000000">10 - 20 Lakhs</option>
+                        <option value="5000000">20+ Lakhs</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Salaried / Business"
+                        value={personalFields.occupationType}
+                        onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Company / Business Name</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Infosys / Traders"
+                        value={personalFields.companyName}
+                        onChange={e => setPersonalFields(p => ({ ...p, companyName: e.target.value }))}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
-                    <label className="flex items-center gap-1 text-[9px] text-slate-400 cursor-pointer">
+
+                {/* 4. Address Details */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
+                      Address Details
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.state}
+                        onChange={e => setPersonalFields(p => ({ ...p, state: e.target.value }))}
+                      >
+                        <option value="">Select State</option>
+                        <option value="Maharashtra">Maharashtra</option>
+                        <option value="Delhi">Delhi</option>
+                        <option value="Karnataka">Karnataka</option>
+                        <option value="Gujarat">Gujarat</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        value={personalFields.district}
+                        onChange={e => setPersonalFields(p => ({ ...p, district: e.target.value }))}
+                      >
+                        <option value="">Select District</option>
+                        <option value="Pune">Pune</option>
+                        <option value="Mumbai">Mumbai</option>
+                        <option value="Bangalore">Bangalore</option>
+                        <option value="Ahmedabad">Ahmedabad</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Pune"
+                        value={personalFields.city}
+                        onChange={e => setPersonalFields(p => ({ ...p, city: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Pincode</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="000000"
+                        value={personalFields.pincode}
+                        onChange={e => setPersonalFields(p => ({ ...p, pincode: e.target.value }))}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Street Address / House No</label>
+                      <textarea
+                        className="input w-full text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        rows={2}
+                        placeholder="Flat No, Street, Landmark..."
+                        value={personalFields.streetAddress}
+                        onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Bank Details */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
+                      Bank Details
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
+                  </div>
+                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. HDFC Bank"
+                        value={personalFields.bankName || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, bankName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Account Number</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. 50100012345678"
+                        value={personalFields.bankAccountNumber || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, bankAccountNumber: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">IFSC Code</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
+                        placeholder="e.g. HDFC0001234"
+                        value={personalFields.bankIfsc || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, bankIfsc: e.target.value.toUpperCase() }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Branch Name</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Shivajinagar Branch"
+                        value={personalFields.bankBranch || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, bankBranch: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Lifestyle Habits */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
+                      Lifestyle Habits
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Personal Habits</span>
+                  </div>
+                  <div className="p-4 flex flex-wrap gap-4">
+                    <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.chewTobacco ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                       <input
                         type="checkbox"
-                        checked={personalFields.sameAsWhatsapp}
-                        onChange={e => {
-                          const checked = e.target.checked;
-                          setPersonalFields(p => ({
-                            ...p,
-                            sameAsWhatsapp: checked,
-                            callingNumber: checked ? p.whatsappNumber : p.callingNumber
-                          }));
-                        }}
+                        className="accent-blue-600 w-4 h-4 rounded"
+                        checked={!!personalFields.chewTobacco}
+                        onChange={e => setPersonalFields(p => ({ ...p, chewTobacco: e.target.checked }))}
                       />
-                      Same as Whatsapp
+                      <span className="text-xs font-semibold">Chew Tobacco</span>
+                    </label>
+                    <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.smoke ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                      <input
+                        type="checkbox"
+                        className="accent-blue-600 w-4 h-4 rounded"
+                        checked={!!personalFields.smoke}
+                        onChange={e => setPersonalFields(p => ({ ...p, smoke: e.target.checked }))}
+                      />
+                      <span className="text-xs font-semibold">Smoke</span>
+                    </label>
+                    <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.consumeAlcohol ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                      <input
+                        type="checkbox"
+                        className="accent-blue-600 w-4 h-4 rounded"
+                        checked={!!personalFields.consumeAlcohol}
+                        onChange={e => setPersonalFields(p => ({ ...p, consumeAlcohol: e.target.checked }))}
+                      />
+                      <span className="text-xs font-semibold">Consume Alcohol</span>
                     </label>
                   </div>
-                  <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all">
-                    <span className="bg-slate-50 px-2.5 py-1.5 text-xs border-r border-slate-200 text-slate-500 font-bold">+91</span>
-                    <input
-                      type="tel"
-                      className="px-3 py-1.5 text-xs w-full outline-none bg-transparent"
-                      placeholder="Mobile Number"
-                      value={personalFields.whatsappNumber}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setPersonalFields(p => ({
-                          ...p,
-                          whatsappNumber: val,
-                          callingNumber: p.sameAsWhatsapp ? val : p.callingNumber
-                        }));
-                      }}
+                </div>
+
+                {/* 7. Health History / Medical History */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
+                      Health History / Medical History
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Medical Records</span>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* Declared Medical History Multi-Select */}
+                    <MultiSelectBox
+                      label="Declared Medical History (Multi-Select)"
+                      selectedValues={(personalFields.declaredMedicalHistory || []) as string[]}
+                      onChange={(vals) => setPersonalFields(p => ({ ...p, declaredMedicalHistory: vals }))}
+                      badgeColor="blue"
+                      placeholder="Click to select medical conditions..."
+                    />
+
+                    {/* NOT Declared Medical History Multi-Select */}
+                    <MultiSelectBox
+                      label="NOT Declared Medical History (Multi-Select)"
+                      selectedValues={(personalFields.notDeclaredMedicalHistory || []) as string[]}
+                      onChange={(vals) => setPersonalFields(p => ({ ...p, notDeclaredMedicalHistory: vals }))}
+                      badgeColor="orange"
+                      placeholder="Click to select NOT declared conditions..."
+                    />
+
+                    {/* Details of Medical History */}
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
+                      <textarea
+                        className="input w-full resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        rows={2}
+                        placeholder="Add any additional medical history details..."
+                        value={personalFields.medicalHistoryDetails}
+                        onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 8. Any Surgery Done / Advised */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">8</span>
+                      Any Surgery Done / Advised
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Surgical History</span>
+                  </div>
+                  <div className="p-4">
+                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Surgery Details / History</label>
+                    <textarea
+                      className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                      rows={2}
+                      placeholder="Specify any surgeries done or advised..."
+                      value={personalFields.surgeryDetails || ''}
+                      onChange={e => setPersonalFields(p => ({ ...p, surgeryDetails: e.target.value }))}
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                    Calling Number
-                  </label>
 
-                  <PhoneInput
-                    country={"in"}
-                    enableSearch
-                    countryCodeEditable={false}
-                    disabled={personalFields.sameAsWhatsapp}
-                    value={personalFields.callingNumber}
-                    onChange={(value: any) =>
-                      setPersonalFields((p) => ({
-                        ...p,
-                        callingNumber: value,
-                      }))
-                    }
-                    inputStyle={{
-                      width: "100%",
-                      height: "34px",
-                      fontSize: "12px",
-                      borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      paddingLeft: "48px",
-                    }}
-                    buttonStyle={{
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "12px 0 0 12px",
-                      background: "#fff",
-                    }}
-                    containerStyle={{
-                      width: "100%",
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.education}
-                    onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
-                  >
-                    <option value="">SelectType</option>
-                    <option value="HighSchool">High School</option>
-                    <option value="Graduate">Graduate</option>
-                    <option value="PostGraduate">Post Graduate</option>
-                    <option value="Professional">Professional</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.annualIncome}
-                    onChange={e => setPersonalFields(p => ({ ...p, annualIncome: e.target.value }))}
-                  >
-                    <option value="">SelectType</option>
-                    <option value="200000">Below 2 Lakhs</option>
-                    <option value="500000">2 - 5 Lakhs</option>
-                    <option value="1000000">5 - 10 Lakhs</option>
-                    <option value="2000000">10 - 20 Lakhs</option>
-                    <option value="5000000">20+ Lakhs</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Salaried"
-                    value={personalFields.occupationType}
-                    onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Company / Business Name</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Infosys / Sharma Traders"
-                    value={personalFields.companyName}
-                    onChange={e => setPersonalFields(p => ({ ...p, companyName: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">State</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.state}
-                    onChange={e => setPersonalFields(p => ({ ...p, state: e.target.value }))}
-                  >
-                    <option value="">Select State</option>
-                    <option value="Maharashtra">Maharashtra</option>
-                    <option value="Delhi">Delhi</option>
-                    <option value="Karnataka">Karnataka</option>
-                    <option value="Gujarat">Gujarat</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">District</label>
-                  <select
-                    className="input w-full"
-                    value={personalFields.district}
-                    onChange={e => setPersonalFields(p => ({ ...p, district: e.target.value }))}
-                  >
-                    <option value="">Select District</option>
-                    <option value="Pune">Pune</option>
-                    <option value="Mumbai">Mumbai</option>
-                    <option value="Bangalore">Bangalore</option>
-                    <option value="Ahmedabad">Ahmedabad</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="e.g. Pune"
-                    value={personalFields.city}
-                    onChange={e => setPersonalFields(p => ({ ...p, city: e.target.value }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Pincode</label>
-                  <input
-                    type="text"
-                    className="input w-full"
-                    placeholder="000000"
-                    value={personalFields.pincode}
-                    onChange={e => setPersonalFields(p => ({ ...p, pincode: e.target.value }))}
-                  />
-                </div>
-                <div className="col-span-3">
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Street Address / House No</label>
-                  <textarea
-                    className="input w-full text-xs"
-                    rows={2}
-                    placeholder="Flat No, Street, Landmark..."
-                    value={personalFields.streetAddress}
-                    onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
-                  />
-                </div>
-
-                {/* Declared Medical History */}
-                <div className="col-span-3">
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Declared Medical History</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                      const isOthers = condition === 'Others';
-                      const current = personalFields.declaredMedicalHistory as string[];
-                      const isSelected = isOthers
-                        ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                        : current.includes(condition);
-                      return (
-                        <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            className="accent-blue-600 w-3.5 h-3.5"
-                            checked={isSelected}
-                            onChange={() => {
-                              setPersonalFields(p => {
-                                const list = p.declaredMedicalHistory as string[];
-                                if (isOthers) {
-                                  if (isSelected) {
-                                    return {
-                                      ...p,
-                                      declaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                    };
-                                  } else {
-                                    return {
-                                      ...p,
-                                      declaredMedicalHistory: [...list, '']
-                                    };
-                                  }
-                                } else {
-                                  return {
-                                    ...p,
-                                    declaredMedicalHistory: isSelected
-                                      ? list.filter(c => c !== condition)
-                                      : [...list, condition]
-                                  };
-                                }
-                              });
-                            }}
-                          />
-                          <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                        </label>
-                      );
-                    })}
+                {/* 9. Current Medicines / Prescription */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">9</span>
+                      Current Medicines / Prescription
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-semibold">Ongoing Medications</span>
                   </div>
-                  {(personalFields.declaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                    <div className="mt-2 animate-fadeIn">
-                      <input
-                        type="text"
-                        className="input w-full text-xs py-1 px-2.5"
-                        placeholder="Type medical conditions..."
-                        value={(personalFields.declaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setPersonalFields(p => {
-                            const current = p.declaredMedicalHistory as string[];
-                            const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                            return {
-                              ...p,
-                              declaredMedicalHistory: [...baseVal, val]
-                            };
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-               
-                {/* NOT Declared Medical History */}
-                <div className="col-span-3">
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">NOT Declared Medical History</label>
-                  <div className="flex flex-wrap gap-2">
-                    {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                      const isOthers = condition === 'Others';
-                      const current = personalFields.notDeclaredMedicalHistory as string[];
-                      const isSelected = isOthers
-                        ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                        : current.includes(condition);
-                      return (
-                        <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            className="accent-orange-500 w-3.5 h-3.5"
-                            checked={isSelected}
-                            onChange={() => {
-                              setPersonalFields(p => {
-                                const list = p.notDeclaredMedicalHistory as string[];
-                                if (isOthers) {
-                                  if (isSelected) {
-                                    return {
-                                      ...p,
-                                      notDeclaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                    };
-                                  } else {
-                                    return {
-                                      ...p,
-                                      notDeclaredMedicalHistory: [...list, '']
-                                    };
-                                  }
-                                } else {
-                                  return {
-                                    ...p,
-                                    notDeclaredMedicalHistory: isSelected
-                                      ? list.filter(c => c !== condition)
-                                      : [...list, condition]
-                                  };
-                                }
-                              });
-                            }}
-                          />
-                          <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                        </label>
-                      );
-                    })}
+                  <div className="p-4">
+                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Prescription &amp; Medication Details</label>
+                    <textarea
+                      className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                      rows={2}
+                      placeholder="List current ongoing medicines or prescriptions..."
+                      value={personalFields.prescriptionDetails || ''}
+                      onChange={e => setPersonalFields(p => ({ ...p, prescriptionDetails: e.target.value }))}
+                    />
                   </div>
-                  {(personalFields.notDeclaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                    <div className="mt-2 animate-fadeIn">
-                      <input
-                        type="text"
-                        className="input w-full text-xs py-1 px-2.5"
-                        placeholder="Type medical conditions..."
-                        value={(personalFields.notDeclaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setPersonalFields(p => {
-                            const current = p.notDeclaredMedicalHistory as string[];
-                            const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                            return {
-                              ...p,
-                              notDeclaredMedicalHistory: [...baseVal, val]
-                            };
-                          });
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Details of Medical History */}
-                <div className="col-span-3">
-                  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
-                  <textarea
-                    className="input w-full resize-none"
-                    rows={2}
-                    placeholder="Add any additional medical history details..."
-                    value={personalFields.medicalHistoryDetails}
-                    onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
-                  />
                 </div>
               </div>
             )}
@@ -3608,11 +3765,7 @@ export default function Contacts() {
                               className="input w-full mt-1"
                               placeholder="First name"
                               value={member.firstName}
-                              onChange={e => {
-                                const val = e.target.value;
-                                updateFamilyMember(idx, 'firstName', val);
-                                updateFamilyMember(idx, 'name', [val, member.middleName, member.lastName].filter(Boolean).join(' '));
-                              }}
+                              onChange={e => updateFamilyMemberName(idx, e.target.value, member.middleName, member.lastName)}
                             />
                           </div>
                           <div>
@@ -3622,11 +3775,7 @@ export default function Contacts() {
                               className="input w-full mt-1"
                               placeholder="Middle name"
                               value={member.middleName}
-                              onChange={e => {
-                                const val = e.target.value;
-                                updateFamilyMember(idx, 'middleName', val);
-                                updateFamilyMember(idx, 'name', [member.firstName, val, member.lastName].filter(Boolean).join(' '));
-                              }}
+                              onChange={e => updateFamilyMemberName(idx, member.firstName, e.target.value, member.lastName)}
                             />
                           </div>
                           <div>
@@ -3636,11 +3785,7 @@ export default function Contacts() {
                               className="input w-full mt-1"
                               placeholder="Last name"
                               value={member.lastName}
-                              onChange={e => {
-                                const val = e.target.value;
-                                updateFamilyMember(idx, 'lastName', val);
-                                updateFamilyMember(idx, 'name', [member.firstName, member.middleName, val].filter(Boolean).join(' '));
-                              }}
+                              onChange={e => updateFamilyMemberName(idx, member.firstName, member.middleName, e.target.value)}
                             />
                           </div>
                         </div>
@@ -3697,42 +3842,19 @@ export default function Contacts() {
                         <div className="grid grid-cols-3 gap-3 px-4 pt-3">
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">WhatsApp</label>
-                            <div className="flex mt-1">
-                              <span className="inline-flex items-center px-2.5 text-xs text-gray-500 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg font-medium">+91</span>
-                              <input
-                                type="tel"
-                                className="input rounded-l-none flex-1 min-w-0"
-                                placeholder="Number"
-                                value={member.whatsapp}
-                                onChange={e => updateFamilyMember(idx, 'whatsapp', e.target.value)}
+                            <div className="mt-1">
+                              <CountryPhoneInput
+                                value={member.whatsapp || ''}
+                                onChange={(value: string) => updateFamilyMember(idx, 'whatsapp', value)}
                               />
                             </div>
                           </div>
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Calling Number</label>
                             <div className="mt-1">
-                              <PhoneInput
-                                country={"in"}
-                                enableSearch
-                                countryCodeEditable={false}
+                              <CountryPhoneInput
                                 value={member.callingNumber || ''}
-                                onChange={(value: any) => updateFamilyMember(idx, 'callingNumber', value)}
-                                inputStyle={{
-                                  width: "100%",
-                                  height: "34px",
-                                  fontSize: "12px",
-                                  borderRadius: "12px",
-                                  border: "1px solid #e2e8f0",
-                                  paddingLeft: "48px",
-                                }}
-                                buttonStyle={{
-                                  border: "1px solid #e2e8f0",
-                                  borderRadius: "12px 0 0 12px",
-                                  background: "#fff",
-                                }}
-                                containerStyle={{
-                                  width: "100%",
-                                }}
+                                onChange={(value: string) => updateFamilyMember(idx, 'callingNumber', value)}
                               />
                             </div>
                           </div>
