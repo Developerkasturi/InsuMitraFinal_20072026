@@ -548,6 +548,7 @@ export default function Contacts() {
 
   // Family members state
   const [familyMembers, setFamilyMembers] = useState<Array<{
+    contactId?: string;
     name: string; firstName: string; middleName: string; lastName: string;
     dob: string; relation: string;
     whatsapp: string; callingNumber?: string; occupation: string; education: string;
