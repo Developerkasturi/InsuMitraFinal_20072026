@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { UserRole } from '@prisma/client';
+import { UserRole, RelationshipType } from '@prisma/client';
 import {
   CreateContactDto, UpdateContactDto,
   CreateAddressDto, CreateOccupationDto,
@@ -29,7 +29,7 @@ export class ContactsRepository {
     const skip = (pageNum - 1) * limitNum;
 
     const isActiveBool = isActive === false || (isActive as any) === 'false' ? false : true;
-    const where: any = { tenantId, isActive: isActiveBool, relatedTo: { none: {} } };
+    const where: any = { tenantId, isActive: isActiveBool };
 
     if (search) {
       where.OR = [
@@ -47,10 +47,13 @@ export class ContactsRepository {
       where.AND = [
         {
           OR: [
+            { assignedEmployeeId: null },
             { assignedEmployeeId: userId },
             { policies: { some: { assignedEmployeeId: userId } } },
             { productInterests: { some: { assignedEmployeeId: userId } } },
             { claims: { some: { assignedEmployeeId: userId } } },
+            { relationships: { some: { primaryContactId: userId } } },
+            { relatedTo: { some: { relatedContactId: userId } } },
           ],
         },
       ];
@@ -74,6 +77,7 @@ export class ContactsRepository {
         include: {
           addresses:   { where: { isPrimary: true }, take: 1 },
           occupations: { where: { isPrimary: true }, take: 1 },
+          assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
           productInterests: { select: { id: true, stage: true } },
           policies: { select: { id: true, status: true } },
           _count:      { select: { policies: true, documents: true } },
@@ -93,17 +97,18 @@ export class ContactsRepository {
       include: {
         addresses:     true,
         occupations:   true,
+        assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
         relationships: {
           include: {
             relatedContact: {
-              select: { id: true, firstName: true, lastName: true, phone: true, avatarUrl: true },
+              select: { id: true, firstName: true, middleName: true, lastName: true, phone: true, dateOfBirth: true, avatarUrl: true },
             },
           },
         },
         relatedTo: {
           include: {
             primaryContact: {
-              select: { id: true, firstName: true, lastName: true, phone: true, avatarUrl: true },
+              select: { id: true, firstName: true, middleName: true, lastName: true, phone: true, dateOfBirth: true, avatarUrl: true },
             },
           },
         },
@@ -133,7 +138,7 @@ export class ContactsRepository {
   // ── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateContactDto) {
-    const { dateOfBirth, city, followUpDate, ...rest } = dto as any;
+    const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
     return this.prisma.contact.create({
       data: {
         ...rest,
@@ -147,7 +152,7 @@ export class ContactsRepository {
   // ── Update ──────────────────────────────────────────────────────────────
 
   async update(tenantId: string, id: string, dto: UpdateContactDto) {
-    const { dateOfBirth, city, followUpDate, ...rest } = dto as any;
+    const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
     return this.prisma.contact.updateMany({
       where: { id, tenantId },
       data: {

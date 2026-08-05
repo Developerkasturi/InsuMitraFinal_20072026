@@ -197,6 +197,16 @@ export class ContactsController {
     return this.svc.remove(user.tenantId, id);
   }
 
+  @Patch(':id/pick')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Pick / assign an unassigned contact to current employee' })
+  pickContact(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.svc.pickContact(user.tenantId, id, user.id, user.role);
+  }
+
   @Patch(':id/role')
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update contact portal role and permissions' })

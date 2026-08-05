@@ -2,7 +2,7 @@ import {
   IsString, IsOptional, IsEnum, IsNumber, IsMongoId, IsDateString, IsArray,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { LeadStage } from '@prisma/client';
 
 export class CreateLeadDto {
@@ -12,11 +12,13 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsMongoId()
   planId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsMongoId()
   assignedEmployeeId?: string;
 
@@ -33,6 +35,7 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional({ enum: LeadStage, default: LeadStage.TO_CONTACT })
   @IsOptional()
+  @Transform(({ value }) => (value === 'OPEN' ? LeadStage.TO_CONTACT : value))
   @IsEnum(LeadStage)
   stage?: LeadStage;
 
@@ -48,6 +51,7 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsDateString()
   followUpDate?: string;
 

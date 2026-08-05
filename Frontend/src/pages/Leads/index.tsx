@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useLeadKanban, useMoveLeadStage, useCreateLead, useUpdateLead, useDeleteLead } from '@hooks/useLeads';
 import Modal from '@comps/common/Modal';
 import {
   Plus, Search, Pencil, Trash2, Shield, Upload, Phone, Calendar,
   MessageCircle, LayoutGrid, List, Filter, X, UserPlus, Users,
   UserCircle2, Mail, ChevronDown, Flame, Thermometer, Snowflake,
-  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History
+  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History, Lock
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -18,8 +19,7 @@ import { useAuthStore } from '@store/auth.store';
 import { useLookupStore } from '@store/lookup.store';
 import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
+import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
 
 const formatPreview = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -179,7 +179,134 @@ const LEAD_STATUS_OPTIONS = [
   { value: 'VERY_HOT', label: 'Very Hot' },
 ];
 
-import { useSearchParams } from 'react-router-dom';
+const MEDICAL_CONDITIONS_LIST = [
+  'Diabetes Mellitus',
+  'High BP / Cholesterol',
+  'Heart Disease',
+  'Tuberculosis',
+  'Asthma',
+  'Other Respiratory Infection',
+  'Disease of bones/joints',
+  'Slip disc',
+  'Spinal Disorder',
+  'Ligament Injury',
+  'Cancer',
+  'Gynecological disorder (DUB, Fibroid Uterus, Ovarian cyst)',
+  'Undergone Cesarean / Hysterectomy',
+  'Disease of Stomach / Intestine',
+  'Liver / Gall Bladder / Pancreas',
+  'Kidney / Urinary Bladder / Urinary Tract Disease',
+  'Disease of Prostate / Fistula / Piles / Genital Disease',
+  'Cataract or Other Disease of Eye and ENT',
+  'Thyroid',
+  'Others'
+];
+
+function MultiSelectBox({
+  label,
+  selectedValues,
+  onChange,
+  badgeColor = 'blue',
+  placeholder = 'Select Conditions...'
+}: {
+  label: string;
+  selectedValues: string[];
+  onChange: (vals: string[]) => void;
+  badgeColor?: 'blue' | 'orange';
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredOptions = MEDICAL_CONDITIONS_LIST.filter(opt =>
+    opt.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleOption = (opt: string) => {
+    if (selectedValues.includes(opt)) {
+      onChange(selectedValues.filter(o => o !== opt));
+    } else {
+      onChange([...selectedValues, opt]);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">{label}</label>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="input min-h-[40px] w-full cursor-pointer flex items-center justify-between gap-2 flex-wrap py-1.5 px-3 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all"
+      >
+        {selectedValues.length === 0 ? (
+          <span className="text-slate-400 text-xs font-normal">{placeholder}</span>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {selectedValues.map((val, idx) => (
+              <span
+                key={idx}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                  badgeColor === 'orange'
+                    ? 'bg-orange-50 text-orange-700 border-orange-200'
+                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                }`}
+              >
+                {val}
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(selectedValues.filter(v => v !== val));
+                  }}
+                  className="hover:text-red-600 font-bold cursor-pointer ml-0.5"
+                >
+                  ×
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+        <span className="text-slate-400 text-[10px] ml-auto">▼</span>
+      </div>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-2.5 max-h-60 overflow-y-auto">
+            <input
+              type="text"
+              className="input w-full text-xs py-1.5 px-2.5 mb-2 border border-slate-200 rounded-lg"
+              placeholder="Type to search condition..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="space-y-0.5">
+              {filteredOptions.map((opt) => {
+                const isChecked = selectedValues.includes(opt);
+                return (
+                  <label
+                    key={opt}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className={`w-3.5 h-3.5 rounded cursor-pointer ${badgeColor === 'orange' ? 'accent-orange-500' : 'accent-blue-600'}`}
+                      checked={isChecked}
+                      onChange={() => toggleOption(opt)}
+                    />
+                    <span className={`font-medium ${isChecked ? 'text-slate-900 font-bold' : 'text-slate-600'}`}>
+                      {opt}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Leads() {
@@ -394,7 +521,16 @@ export default function Leads() {
     streetAddress: '',
     declaredMedicalHistory: [] as string[],
     notDeclaredMedicalHistory: [] as string[],
-    medicalHistoryDetails: ''
+    medicalHistoryDetails: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    bankBranch: '',
+    chewTobacco: false,
+    smoke: false,
+    consumeAlcohol: false,
+    surgeryDetails: '',
+    prescriptionDetails: ''
   });
 
   const [leadInfoFields, setLeadInfoFields] = useState({
@@ -720,7 +856,7 @@ export default function Leads() {
     setPersonalFields(p => ({ ...p, dateOfBirth: val, age: String(age) }));
   };
 
-  const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean) => {
+  const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean = false) => {
     if (e) e.preventDefault();
     if (!personalFields.firstName.trim()) {
       toast.error('First Name is required');
@@ -769,11 +905,6 @@ export default function Leads() {
         }
         if (!card.leadSource?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please select or enter a Lead Source`);
-          setActiveLeadTab('Product Interest');
-          return;
-        }
-        if (!card.assignedEmployeeId) {
-          toast.error(`Product Interest #${i + 1}: Please select an Assigned Employee`);
           setActiveLeadTab('Product Interest');
           return;
         }
@@ -852,7 +983,11 @@ export default function Leads() {
             isPrimary: true,
           } : undefined,
         });
-        contactId = contactRes.data.contact.id;
+        const createdContactObj = contactRes?.data?.contact || contactRes?.data?.data || contactRes?.data || contactRes;
+        contactId = createdContactObj?.id || createdContactObj?._id || contactRes?.data?.contact?.id;
+        if (contactId) {
+          setEditContactId(contactId);
+        }
       }
 
       const subResourcePromises: Promise<any>[] = [];
@@ -925,19 +1060,31 @@ export default function Leads() {
 
       // Save Product Interests (Leads)
       for (const card of productInterests) {
+        const isUntouchedDefaultPlaceholder = card.id.startsWith('temp-') &&
+          (card.interestedIn.length === 1 && card.interestedIn[0] === 'Health') &&
+          !card.expectedPremium &&
+          !card.followUpDate &&
+          !card.descriptionDetails &&
+          !card.otherProduct;
+
+        if (isUntouchedDefaultPlaceholder) {
+          continue;
+        }
+
         const product = card.interestedIn[0];
         const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
 
-        const stage = card.leadStage || 'TO_CONTACT';
+        const stage = card.leadStage && card.leadStage !== 'OPEN' ? card.leadStage : 'TO_CONTACT';
 
         const serializedNotes = serializeLeadNotes(card);
 
+        const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
         const body = {
           contactId: contactId!,
           interests,
           stage,
           source: card.leadSource,
-          assignedEmployeeId: card.assignedEmployeeId || undefined,
+          assignedEmployeeId: validEmpId(card.assignedEmployeeId),
           followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
           premiumBudget: Number(card.expectedPremium) || undefined,
           notes: serializedNotes,
@@ -957,8 +1104,9 @@ export default function Leads() {
                 await leadsService.addConsultation(savedLead.id, { notes: cmt.text });
               }
             }
-          } catch (leadErr) {
+          } catch (leadErr: any) {
             console.error('Failed to save product interest:', leadErr);
+            toast.error(`Failed to save Product Interest (${interests.join(', ')}): ${leadErr.response?.data?.message || 'Error occurred'}`);
           }
         };
         subResourcePromises.push(saveLeadFlow());
@@ -970,7 +1118,9 @@ export default function Leads() {
       qc.invalidateQueries({ queryKey: ['contacts'] });
       qc.invalidateQueries({ queryKey: ['leads'] });
 
-      closeModal();
+      if (shouldClose) {
+        closeModal();
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Failed to save lead', { id: toastId });
     }
@@ -1158,17 +1308,44 @@ const medicalOptions = [
           datetime: c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '',
         }));
 
-        const interestsList = lead.interests || [];
-        const isStandard = (p: string) => ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'].includes(p);
-        const standardInterests = interestsList.filter((p: string) => isStandard(p));
-        const otherInterests = interestsList.filter((p: string) => !isStandard(p));
+        const parseBackendInterests = (list: string[] = []): { interestedIn: string[]; otherProduct: string } => {
+          const STANDARD_PRODUCTS = ['Health', 'Life', 'Term', 'Accident Policy', 'Motor', 'Mutual Funds', 'Porting'];
+          const interestedIn: string[] = [];
+          const otherParts: string[] = [];
+          for (const raw of list) {
+            if (!raw || !raw.trim()) continue;
+            const trimmed = raw.trim();
+            const lower = trimmed.toLowerCase();
+            if (lower.includes('health')) {
+              if (!interestedIn.includes('Health')) interestedIn.push('Health');
+            } else if (lower.includes('life') && !lower.includes('term')) {
+              if (!interestedIn.includes('Life')) interestedIn.push('Life');
+            } else if (lower.includes('term')) {
+              if (!interestedIn.includes('Term')) interestedIn.push('Term');
+            } else if (lower.includes('accident')) {
+              if (!interestedIn.includes('Accident Policy')) interestedIn.push('Accident Policy');
+            } else if (lower.includes('motor') || lower.includes('car') || lower.includes('vehicle') || lower.includes('bike')) {
+              if (!interestedIn.includes('Motor')) interestedIn.push('Motor');
+            } else if (lower.includes('mutual') || lower.includes('fund')) {
+              if (!interestedIn.includes('Mutual Funds')) interestedIn.push('Mutual Funds');
+            } else if (lower.includes('port')) {
+              if (!interestedIn.includes('Porting')) interestedIn.push('Porting');
+            } else if (STANDARD_PRODUCTS.includes(trimmed)) {
+              if (!interestedIn.includes(trimmed)) interestedIn.push(trimmed);
+            } else {
+              otherParts.push(trimmed);
+            }
+          }
+          if (otherParts.length > 0 && !interestedIn.includes('Other')) {
+            interestedIn.push('Other');
+          }
+          if (interestedIn.length === 0) {
+            interestedIn.push('Health');
+          }
+          return { interestedIn, otherProduct: otherParts.join(', ') };
+        };
 
-        const interestedIn = [...standardInterests];
-        let otherProduct = '';
-        if (otherInterests.length > 0) {
-          interestedIn.push('Other');
-          otherProduct = otherInterests.join(', ');
-        }
+        const { interestedIn, otherProduct } = parseBackendInterests(lead.interests || []);
 
         const expectedPremium = lead.premiumBudget ? String(lead.premiumBudget) : '';
         const leadStage = lead.stage || 'TO_CONTACT';
@@ -1192,6 +1369,7 @@ const medicalOptions = [
           newComment: '',
         };
       });
+
       setProductInterests(mappedInterests);
 
       setEditContactId(contactId);
@@ -1861,32 +2039,13 @@ const medicalOptions = [
         size="2xl"
         actions={
           <div className="flex gap-2.5 mr-1">
-            {editTarget ? (
-              <button
-                type="button"
-                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                onClick={(e) => handleLeadSubmit(e, true)}
-              >
-                Update Profile
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="px-4 py-2 text-xs font-extrabold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all"
-                  onClick={(e) => handleLeadSubmit(e, false)}
-                >
-                  Save Draft
-                </button>
-                <button
-                  type="button"
-                  className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                  onClick={(e) => handleLeadSubmit(e, true)}
-                >
-                  Save & Close
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              onClick={(e) => handleLeadSubmit(e, false)}
+            >
+              {editTarget || editContactId ? 'Update Profile' : 'Save'}
+            </button>
           </div>
         }
       >
@@ -1987,7 +2146,7 @@ const medicalOptions = [
                   const firstProduct = card.interestedIn[0] || 'Other';
                   const headerGradient = PRODUCT_COLORS[firstProduct] || 'from-blue-500 to-indigo-600';
 
-                  const isExisting = !!(card.id && card.id.length === 24);
+                  const isExisting = Boolean(card.id && !card.id.startsWith('temp-'));
 
                   return (
                     <div
@@ -2216,7 +2375,7 @@ const medicalOptions = [
                               </datalist>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
                               <select
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -2403,539 +2562,539 @@ const medicalOptions = [
                     <span>Contact details are read-only. Edit them in the Contacts module.</span>
                   </div>
                 )}
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Rahul"
-                      value={personalFields.firstName}
-                      onChange={e => setPersonalFields(p => ({ ...p, firstName: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Middle Name</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Kumar"
-                      value={personalFields.middleName}
-                      onChange={e => setPersonalFields(p => ({ ...p, middleName: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Sharma"
-                      value={personalFields.lastName}
-                      onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Gender</label>
-                    <select
-                      className="input w-full"
-                      value={['MALE', 'FEMALE', ''].includes(personalFields.gender) ? personalFields.gender : 'OTHER'}
-                      onChange={e => setPersonalFields(p => ({ ...p, gender: e.target.value }))}
-                    >
-                      <option value="">SelectType</option>
-                      <option value="MALE">Male</option>
-                      <option value="FEMALE">Female</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                    {(personalFields.gender === 'OTHER' || (personalFields.gender && !['MALE', 'FEMALE', ''].includes(personalFields.gender))) && (
-                      <div className="mt-1.5 animate-fadeIn">
+                <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
+                  {/* 1. Personal Details */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                        Personal Details
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
                         <input
                           type="text"
-                          className="input w-full text-xs"
-                          placeholder="Specify Gender..."
-                          value={personalFields.gender === 'OTHER' ? '' : personalFields.gender}
-                          onChange={e => setPersonalFields(p => ({ ...p, gender: e.target.value || 'OTHER' }))}
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Rahul"
+                          value={personalFields.firstName}
+                          onChange={e => setPersonalFields(p => ({ ...p, firstName: e.target.value }))}
                         />
                       </div>
-                    )}
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Middle Name</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Kumar"
+                          value={personalFields.middleName}
+                          onChange={e => setPersonalFields(p => ({ ...p, middleName: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Sharma"
+                          value={personalFields.lastName}
+                          onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Mother's Name</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Sunita Sharma"
+                          value={personalFields.motherName || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, motherName: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Gender</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={['MALE', 'FEMALE', ''].includes(personalFields.gender) ? personalFields.gender : 'OTHER'}
+                          onChange={e => setPersonalFields(p => ({ ...p, gender: e.target.value }))}
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Marital Status</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.maritalStatus}
+                          onChange={e => setPersonalFields(p => ({ ...p, maritalStatus: e.target.value }))}
+                        >
+                          <option value="">Select Status</option>
+                          <option value="SINGLE">Single</option>
+                          <option value="MARRIED">Married</option>
+                          <option value="DIVORCED">Divorced</option>
+                          <option value="WIDOWED">Widowed</option>
+                        </select>
+                      </div>
+                      {personalFields.maritalStatus === 'MARRIED' && (
+                        <div className="animate-fadeIn">
+                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Wedding Anniversary Date</label>
+                          <DatePicker
+                            className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                            value={personalFields.weddingAnniversaryDate || ''}
+                            onDateChange={(val) => setPersonalFields(p => ({ ...p, weddingAnniversaryDate: val }))}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
+                        <DatePicker
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.dateOfBirth}
+                          onDateChange={handleDOBChange}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Age</label>
+                        <input
+                          type="text"
+                          className="input w-full bg-slate-50 font-semibold text-slate-600 cursor-not-allowed rounded-xl"
+                          value={personalFields.age}
+                          disabled
+                          placeholder="Auto-calculated"
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Height (cm)</label>
+                        <input
+                          type="number"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. 170"
+                          value={personalFields.height}
+                          onChange={(e) => setPersonalFields((p) => ({ ...p, height: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Weight (kg)</label>
+                        <input
+                          type="number"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. 65"
+                          value={personalFields.weight}
+                          onChange={(e) => setPersonalFields((p) => ({ ...p, weight: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number *</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
+                          placeholder="ABCDE1234F"
+                          maxLength={10}
+                          value={personalFields.panNumber || personalFields.pan || ''}
+                          onChange={(e) =>
+                            setPersonalFields((p) => ({
+                              ...p,
+                              panNumber: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+                              pan: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Marital Status</label>
-                    <select
-                      className="input w-full"
-                      value={personalFields.maritalStatus}
-                      onChange={e => setPersonalFields(p => ({ ...p, maritalStatus: e.target.value }))}
-                    >
-                      <option value="">SelectType</option>
-                      <option value="SINGLE">Single</option>
-                      <option value="MARRIED">Married</option>
-                      <option value="DIVORCED">Divorced</option>
-                      <option value="WIDOWED">Widowed</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
-                    <DatePicker
-                      className="input w-full"
-                      value={personalFields.dateOfBirth}
-                      onDateChange={handleDOBChange}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Age</label>
-                    <input
-                      type="text"
-                      className="input w-full bg-gray-50 cursor-not-allowed"
-                      value={personalFields.age}
-                      disabled
-                      placeholder="Auto-calculated"
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Height (cm)
-                    </label>
-                    <input
-                      type="number"
-                      className="input w-full"
-                      placeholder="e.g. 170"
-                      value={personalFields.height}
-                      onChange={(e) =>
-                        setPersonalFields((p) => ({
-                          ...p,
-                          height: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Weight (kg)
-                    </label>
-                    <input
-                      type="number"
-                      className="input w-full"
-                      placeholder="e.g. 65"
-                      value={personalFields.weight}
-                      onChange={(e) =>
-                        setPersonalFields((p) => ({
-                          ...p,
-                          weight: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      className="input w-full"
-                      placeholder="client@example.com"
-                      value={personalFields.email}
-                      onChange={e => setPersonalFields(p => ({ ...p, email: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number *</label>
-                    <input
-                      type="text"
-                      className={`input w-full ${personalFields.aadhaarNumber && !/^\d{12}$/.test(personalFields.aadhaarNumber)
-                          ? 'border-red-400 focus:ring-red-400/20'
-                          : ''
-                        }`}
-                      placeholder="12-digit Aadhaar No"
-                      maxLength={12}
-                      value={personalFields.aadhaarNumber}
-                      onChange={e => setPersonalFields(p => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
-                    />
-                    {personalFields.aadhaarNumber && !/^\d{12}$/.test(personalFields.aadhaarNumber) && (
-                      <p className="text-red-500 text-[10px] font-semibold mt-1">Must be exactly 12 digits</p>
-                    )}
-                    {!personalFields.aadhaarNumber && (
-                      <p className="text-red-500 text-[10px] font-semibold mt-1">Required</p>
-                    )}
-                  </div>
-                    <div>
-  <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-    PAN Number *
-  </label>
 
-  <input
-    type="text"
-    className={`input w-full ${
-      personalFields.panNumber &&
-      !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(personalFields.panNumber)
-        ? "border-red-400 focus:ring-red-400/20"
-        : ""
-    }`}
-    placeholder="ABCDE1234F"
-    maxLength={10}
-    value={personalFields.panNumber}
-    onChange={(e) =>
-      setPersonalFields((p) => ({
-        ...p,
-        panNumber: e.target.value
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, ""),
-      }))
-    }
-  />
+                  {/* 2. Contact Details */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                        Contact Details
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
+                        <input
+                          type="email"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="client@example.com"
+                          value={personalFields.email}
+                          onChange={e => setPersonalFields(p => ({ ...p, email: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number *</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="12-digit Aadhaar No"
+                          maxLength={12}
+                          value={personalFields.aadhaarNumber}
+                          onChange={e => setPersonalFields(p => ({ ...p, aadhaarNumber: e.target.value.replace(/\D/g, '') }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
+                        <CountryPhoneInput
+                          value={personalFields.whatsappNumber}
+                          onChange={(value: string) =>
+                            setPersonalFields((p) => ({
+                              ...p,
+                              whatsappNumber: value,
+                              callingNumber: p.sameAsWhatsapp ? value : p.callingNumber,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Calling Number</label>
+                          <label className="flex items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              className="accent-blue-600 w-3 h-3 rounded"
+                              checked={personalFields.sameAsWhatsapp}
+                              onChange={e => {
+                                const checked = e.target.checked;
+                                setPersonalFields(p => ({
+                                  ...p,
+                                  sameAsWhatsapp: checked,
+                                  callingNumber: checked ? p.whatsappNumber : p.callingNumber
+                                }));
+                              }}
+                            />
+                            Same as Whatsapp
+                          </label>
+                        </div>
+                        <CountryPhoneInput
+                          disabled={personalFields.sameAsWhatsapp}
+                          value={personalFields.callingNumber}
+                          onChange={(value: string) =>
+                            setPersonalFields((p) => ({
+                              ...p,
+                              callingNumber: value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-  {personalFields.panNumber &&
-    !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(personalFields.panNumber) && (
-      <p className="text-red-500 text-[10px] font-semibold mt-1">
-        Enter a valid PAN Number
-      </p>
-    )}
-</div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
-                      <label className="flex items-center gap-1 text-[9px] text-slate-400 cursor-pointer">
+                  {/* 3. Education & Occupation */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+                        Education &amp; Occupation
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={['HighSchool', 'Graduate', 'PostGraduate', 'Professional', ''].includes(personalFields.education) ? personalFields.education : 'OTHER'}
+                          onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
+                        >
+                          <option value="">Select Education</option>
+                          <option value="HighSchool">High School</option>
+                          <option value="Graduate">Graduate</option>
+                          <option value="PostGraduate">Post Graduate</option>
+                          <option value="Professional">Professional</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.annualIncome}
+                          onChange={e => setPersonalFields(p => ({ ...p, annualIncome: e.target.value }))}
+                        >
+                          <option value="">Select Income Bracket</option>
+                          <option value="200000">Below 2 Lakhs</option>
+                          <option value="500000">2 - 5 Lakhs</option>
+                          <option value="1000000">5 - 10 Lakhs</option>
+                          <option value="2000000">10 - 20 Lakhs</option>
+                          <option value="5000000">20+ Lakhs</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Salaried / Business"
+                          value={personalFields.occupationType}
+                          onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Company / Business Name</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Infosys / Traders"
+                          value={personalFields.companyName}
+                          onChange={e => setPersonalFields(p => ({ ...p, companyName: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Address Details */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
+                        Address Details
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.state}
+                          onChange={e => setPersonalFields(p => ({ ...p, state: e.target.value }))}
+                        >
+                          <option value="">Select State</option>
+                          <option value="Maharashtra">Maharashtra</option>
+                          <option value="Delhi">Delhi</option>
+                          <option value="Karnataka">Karnataka</option>
+                          <option value="Gujarat">Gujarat</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          value={personalFields.district}
+                          onChange={e => setPersonalFields(p => ({ ...p, district: e.target.value }))}
+                        >
+                          <option value="">Select District</option>
+                          <option value="Pune">Pune</option>
+                          <option value="Mumbai">Mumbai</option>
+                          <option value="Bangalore">Bangalore</option>
+                          <option value="Ahmedabad">Ahmedabad</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Pune"
+                          value={personalFields.city}
+                          onChange={e => setPersonalFields(p => ({ ...p, city: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Pincode</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="000000"
+                          value={personalFields.pincode}
+                          onChange={e => setPersonalFields(p => ({ ...p, pincode: e.target.value }))}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Street Address / House No</label>
+                        <textarea
+                          className="input w-full text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          rows={2}
+                          placeholder="Flat No, Street, Landmark..."
+                          value={personalFields.streetAddress}
+                          onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 5. Bank Details */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
+                        Bank Details
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. HDFC Bank"
+                          value={personalFields.bankName || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, bankName: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Account Number</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. 50100012345678"
+                          value={personalFields.bankAccountNumber || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, bankAccountNumber: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">IFSC Code</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
+                          placeholder="e.g. HDFC0001234"
+                          value={personalFields.bankIfsc || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, bankIfsc: e.target.value.toUpperCase() }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Branch Name</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Shivajinagar Branch"
+                          value={personalFields.bankBranch || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, bankBranch: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. Lifestyle Habits */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
+                        Lifestyle Habits
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Personal Habits</span>
+                    </div>
+                    <div className="p-4 flex flex-wrap gap-4">
+                      <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.chewTobacco ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                         <input
                           type="checkbox"
-                          checked={personalFields.sameAsWhatsapp}
-                          onChange={e => {
-                            const checked = e.target.checked;
-                            setPersonalFields(p => ({
-                              ...p,
-                              sameAsWhatsapp: checked,
-                              callingNumber: checked ? p.whatsappNumber : p.callingNumber
-                            }));
-                          }}
+                          className="accent-blue-600 w-4 h-4 rounded"
+                          checked={!!personalFields.chewTobacco}
+                          onChange={e => setPersonalFields(p => ({ ...p, chewTobacco: e.target.checked }))}
                         />
-                        Same as Whatsapp
+                        <span className="text-xs font-semibold">Chew Tobacco</span>
+                      </label>
+                      <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.smoke ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-blue-600 w-4 h-4 rounded"
+                          checked={!!personalFields.smoke}
+                          onChange={e => setPersonalFields(p => ({ ...p, smoke: e.target.checked }))}
+                        />
+                        <span className="text-xs font-semibold">Smoke</span>
+                      </label>
+                      <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.consumeAlcohol ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                        <input
+                          type="checkbox"
+                          className="accent-blue-600 w-4 h-4 rounded"
+                          checked={!!personalFields.consumeAlcohol}
+                          onChange={e => setPersonalFields(p => ({ ...p, consumeAlcohol: e.target.checked }))}
+                        />
+                        <span className="text-xs font-semibold">Consume Alcohol</span>
                       </label>
                     </div>
-                    <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all">
-                      <span className="bg-slate-50 px-2.5 py-1.5 text-xs border-r border-slate-200 text-slate-500 font-bold">+91</span>
-                      <input
-                        type="tel"
-                        className="px-3 py-1.5 text-xs w-full outline-none bg-transparent"
-                        placeholder="Mobile Number"
-                        maxLength={10}
-                        value={personalFields.whatsappNumber}
-                        onChange={e => {
-                          const val = e.target.value.replace(/\D/g, '');
-                          setPersonalFields(p => ({
-                            ...p,
-                            whatsappNumber: val,
-                            callingNumber: p.sameAsWhatsapp ? val : p.callingNumber
-                          }));
-                        }}
+                  </div>
+
+                  {/* 7. Health History / Medical History */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
+                        Health History / Medical History
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Medical Records</span>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {/* Declared Medical History Multi-Select */}
+                      <MultiSelectBox
+                        label="Declared Medical History (Multi-Select)"
+                        selectedValues={(personalFields.declaredMedicalHistory || []) as string[]}
+                        onChange={(vals) => setPersonalFields(p => ({ ...p, declaredMedicalHistory: vals }))}
+                        badgeColor="blue"
+                        placeholder="Click to select medical conditions..."
+                      />
+
+                      {/* NOT Declared Medical History Multi-Select */}
+                      <MultiSelectBox
+                        label="NOT Declared Medical History (Multi-Select)"
+                        selectedValues={(personalFields.notDeclaredMedicalHistory || []) as string[]}
+                        onChange={(vals) => setPersonalFields(p => ({ ...p, notDeclaredMedicalHistory: vals }))}
+                        badgeColor="orange"
+                        placeholder="Click to select NOT declared conditions..."
+                      />
+
+                      {/* Details of Medical History */}
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
+                        <textarea
+                          className="input w-full resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          rows={2}
+                          placeholder="Add any additional medical history details..."
+                          value={personalFields.medicalHistoryDetails}
+                          onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 8. Any Surgery Done / Advised */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">8</span>
+                        Any Surgery Done / Advised
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Surgical History</span>
+                    </div>
+                    <div className="p-4">
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Surgery Details / History</label>
+                      <textarea
+                        className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        rows={2}
+                        placeholder="Specify any surgeries done or advised..."
+                        value={personalFields.surgeryDetails || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, surgeryDetails: e.target.value }))}
                       />
                     </div>
-                    {personalFields.whatsappNumber && !/^\d{10}$/.test(personalFields.whatsappNumber) && (
-                      <p className="text-red-500 text-[10px] font-semibold mt-1">Must be exactly 10 digits</p>
-                    )}
-                    {!personalFields.whatsappNumber && (
-                      <p className="text-red-500 text-[10px] font-semibold mt-1">Required</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                      Calling Number
-                    </label>
-
-                    <PhoneInput
-                      country="in"
-                      enableSearch
-                      countryCodeEditable={false}
-                      disabled={personalFields.sameAsWhatsapp}
-                      value={personalFields.callingNumber}
-                      onChange={(value: any) =>
-                        setPersonalFields((p) => ({
-                          ...p,
-                          callingNumber: value,
-                        }))
-                      }
-                      inputStyle={{
-                        width: "100%",
-                        height: "34px",
-                        fontSize: "12px",
-                        borderRadius: "12px",
-                        border: "1px solid #e2e8f0",
-                        paddingLeft: "48px",
-                      }}
-                      buttonStyle={{
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "12px 0 0 12px",
-                        background: "#fff",
-                      }}
-                      containerStyle={{
-                        width: "100%",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
-                    <select
-                      className="input w-full"
-                      value={['HighSchool', 'Graduate', 'PostGraduate', 'Professional', ''].includes(personalFields.education) ? personalFields.education : 'OTHER'}
-                      onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
-                    >
-                      <option value="">SelectType</option>
-                      <option value="HighSchool">High School</option>
-                      <option value="Graduate">Graduate</option>
-                      <option value="PostGraduate">Post Graduate</option>
-                      <option value="Professional">Professional</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                    {(personalFields.education === 'OTHER' || (personalFields.education && !['HighSchool', 'Graduate', 'PostGraduate', 'Professional', ''].includes(personalFields.education))) && (
-                      <div className="mt-1.5 animate-fadeIn">
-                        <input
-                          type="text"
-                          className="input w-full text-xs"
-                          placeholder="Specify Education..."
-                          value={personalFields.education === 'OTHER' ? '' : personalFields.education}
-                          onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value || 'OTHER' }))}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
-                    <select
-                      className="input w-full"
-                      value={personalFields.annualIncome}
-                      onChange={e => setPersonalFields(p => ({ ...p, annualIncome: e.target.value }))}
-                    >
-                      <option value="">SelectType</option>
-                      <option value="200000">Below 2 Lakhs</option>
-                      <option value="500000">2 - 5 Lakhs</option>
-                      <option value="1000000">5 - 10 Lakhs</option>
-                      <option value="2000000">10 - 20 Lakhs</option>
-                      <option value="5000000">20+ Lakhs</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Salaried"
-                      value={personalFields.occupationType}
-                      onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Company / Business Name</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Infosys / Sharma Traders"
-                      value={personalFields.companyName}
-                      onChange={e => setPersonalFields(p => ({ ...p, companyName: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">State</label>
-                    <select
-                      className="input w-full"
-                      value={personalFields.state}
-                      onChange={e => setPersonalFields(p => ({ ...p, state: e.target.value }))}
-                    >
-                      <option value="">Select State</option>
-                      <option value="Maharashtra">Maharashtra</option>
-                      <option value="Delhi">Delhi</option>
-                      <option value="Karnataka">Karnataka</option>
-                      <option value="Gujarat">Gujarat</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">District</label>
-                    <select
-                      className="input w-full"
-                      value={personalFields.district}
-                      onChange={e => setPersonalFields(p => ({ ...p, district: e.target.value }))}
-                    >
-                      <option value="">Select District</option>
-                      <option value="Pune">Pune</option>
-                      <option value="Mumbai">Mumbai</option>
-                      <option value="Bangalore">Bangalore</option>
-                      <option value="Ahmedabad">Ahmedabad</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="e.g. Pune"
-                      value={personalFields.city}
-                      onChange={e => setPersonalFields(p => ({ ...p, city: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Pincode</label>
-                    <input
-                      type="text"
-                      className="input w-full"
-                      placeholder="000000"
-                      value={personalFields.pincode}
-                      onChange={e => setPersonalFields(p => ({ ...p, pincode: e.target.value }))}
-                    />
-                  </div>
-                  <div className="col-span-3">
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Street Address / House No</label>
-                    <textarea
-                      className="input w-full text-xs"
-                      rows={2}
-                      placeholder="Flat No, Street, Landmark..."
-                      value={personalFields.streetAddress}
-                      onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
-                    />
                   </div>
 
-                  {/* Declared Medical History */}
-                  <div className="col-span-3">
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Declared Medical History</label>
-                    <div className="flex flex-wrap gap-x-6 gap-y-2">
-                      {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                        const isOthers = condition === 'Others';
-                        const current = personalFields.declaredMedicalHistory as string[];
-                        const isSelected = isOthers
-                          ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                          : current.includes(condition);
-                        return (
-                          <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              className="accent-blue-600 w-3.5 h-3.5"
-                              checked={isSelected}
-                              onChange={() => {
-                                setPersonalFields(p => {
-                                  const list = p.declaredMedicalHistory as string[];
-                                  if (isOthers) {
-                                    if (isSelected) {
-                                      return {
-                                        ...p,
-                                        declaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                      };
-                                    } else {
-                                      return {
-                                        ...p,
-                                        declaredMedicalHistory: [...list, '']
-                                      };
-                                    }
-                                  } else {
-                                    return {
-                                      ...p,
-                                      declaredMedicalHistory: isSelected
-                                        ? list.filter(c => c !== condition)
-                                        : [...list, condition]
-                                    };
-                                  }
-                                });
-                              }}
-                            />
-                            <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                          </label>
-                        );
-                      })}
+                  {/* 9. Current Medicines / Prescription */}
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">9</span>
+                        Current Medicines / Prescription
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-semibold">Ongoing Medications</span>
                     </div>
-                    {(personalFields.declaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                      <div className="mt-2 animate-fadeIn">
-                        <input
-                          type="text"
-                          className="input w-full text-xs py-1 px-2.5"
-                          placeholder="Type medical conditions..."
-                          value={(personalFields.declaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setPersonalFields(p => {
-                              const current = p.declaredMedicalHistory as string[];
-                              const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                              return {
-                                ...p,
-                                declaredMedicalHistory: [...baseVal, val]
-                              };
-                            });
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* NOT Declared Medical History */}
-                  <div className="col-span-3">
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">NOT Declared Medical History</label>
-                    <div className="flex flex-wrap gap-x-6 gap-y-2">
-                      {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                        const isOthers = condition === 'Others';
-                        const current = personalFields.notDeclaredMedicalHistory as string[];
-                        const isSelected = isOthers
-                          ? current.some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                          : current.includes(condition);
-                        return (
-                          <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              className="accent-orange-500 w-3.5 h-3.5"
-                              checked={isSelected}
-                              onChange={() => {
-                                setPersonalFields(p => {
-                                  const list = p.notDeclaredMedicalHistory as string[];
-                                  if (isOthers) {
-                                    if (isSelected) {
-                                      return {
-                                        ...p,
-                                        notDeclaredMedicalHistory: list.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                      };
-                                    } else {
-                                      return {
-                                        ...p,
-                                        notDeclaredMedicalHistory: [...list, '']
-                                      };
-                                    }
-                                  } else {
-                                    return {
-                                      ...p,
-                                      notDeclaredMedicalHistory: isSelected
-                                        ? list.filter(c => c !== condition)
-                                        : [...list, condition]
-                                    };
-                                  }
-                                });
-                              }}
-                            />
-                            <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                          </label>
-                        );
-                      })}
+                    <div className="p-4">
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Prescription &amp; Medication Details</label>
+                      <textarea
+                        className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        rows={2}
+                        placeholder="List current ongoing medicines or prescriptions..."
+                        value={personalFields.prescriptionDetails || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, prescriptionDetails: e.target.value }))}
+                      />
                     </div>
-                    {(personalFields.notDeclaredMedicalHistory as string[]).some(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                      <div className="mt-2 animate-fadeIn">
-                        <input
-                          type="text"
-                          className="input w-full text-xs py-1 px-2.5"
-                          placeholder="Type medical conditions..."
-                          value={(personalFields.notDeclaredMedicalHistory as string[]).find(c => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setPersonalFields(p => {
-                              const current = p.notDeclaredMedicalHistory as string[];
-                              const baseVal = current.filter(c => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                              return {
-                                ...p,
-                                notDeclaredMedicalHistory: [...baseVal, val]
-                              };
-                            });
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details of Medical History */}
-                  <div className="col-span-3">
-                    <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
-                    <textarea
-                      className="input w-full resize-none"
-                      rows={2}
-                      placeholder="Add any additional medical history details..."
-                      value={personalFields.medicalHistoryDetails}
-                      onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
-                    />
                   </div>
                 </div>
               </fieldset>
@@ -3108,28 +3267,9 @@ const medicalOptions = [
                             <div>
                               <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Calling Number</label>
                               <div className="mt-1">
-                                <PhoneInput
-                                  country={"in"}
-                                  enableSearch
-                                  countryCodeEditable={false}
+                                <CountryPhoneInput
                                   value={member.callingNumber || ''}
-                                  onChange={(value: any) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, callingNumber: value } : m))}
-                                  inputStyle={{
-                                    width: "100%",
-                                    height: "34px",
-                                    fontSize: "12px",
-                                    borderRadius: "12px",
-                                    border: "1px solid #e2e8f0",
-                                    paddingLeft: "48px",
-                                  }}
-                                  buttonStyle={{
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: "12px 0 0 12px",
-                                    background: "#fff",
-                                  }}
-                                  containerStyle={{
-                                    width: "100%",
-                                  }}
+                                  onChange={(value: string) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, callingNumber: value } : m))}
                                 />
                               </div>
                             </div>
@@ -4332,7 +4472,66 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
     staleTime: 0,
   });
   const fullLead = fullLeadData?.data ?? lead;
+  const contactId = fullLead?.contact?.id || lead?.contact?.id || lead?.contactId;
+  const { data: contactData } = useQuery({
+    queryKey: ['contact-lead-popup', contactId],
+    queryFn: () => contactsService.get(contactId!),
+    enabled: !!contactId,
+  });
   const consultations: any[] = fullLead.consultations ?? [];
+
+  const initialNotes = parseLeadNotes(fullLead.notes);
+  const [editStage, setEditStage] = useState(fullLead.stage || 'TO_CONTACT');
+  const [editStatus, setEditStatus] = useState(initialNotes.leadStatus || fullLead.status || 'Interested');
+  const [editType, setEditType] = useState(initialNotes.leadType || fullLead.type || 'Fresh');
+  const [editSource, setEditSource] = useState(fullLead.source || 'Walk-in');
+  const [editAssignee, setEditAssignee] = useState(fullLead.assignedEmployeeId ?? '');
+  const [editFollowUp, setEditFollowUp] = useState(fullLead.followUpDate ? fullLead.followUpDate.slice(0, 10) : '');
+  const [editPremium, setEditPremium] = useState<string | number>(fullLead.premiumBudget || fullLead.expectedPremium || '');
+  const [savingLeadDetails, setSavingLeadDetails] = useState(false);
+
+  useEffect(() => {
+    if (fullLead) {
+      const parsed = parseLeadNotes(fullLead.notes);
+      setEditStage(fullLead.stage || 'TO_CONTACT');
+      setEditStatus(parsed.leadStatus || fullLead.status || 'Interested');
+      setEditType(parsed.leadType || fullLead.type || 'Fresh');
+      setEditSource(fullLead.source || 'Walk-in');
+      setEditAssignee(fullLead.assignedEmployeeId ?? '');
+      setEditFollowUp(fullLead.followUpDate ? fullLead.followUpDate.slice(0, 10) : '');
+      setEditPremium(fullLead.premiumBudget || fullLead.expectedPremium || '');
+    }
+  }, [fullLead]);
+
+  const handleUpdateLeadDetails = async (overrides?: Record<string, any>) => {
+    setSavingLeadDetails(true);
+    try {
+      const currentParsed = parseLeadNotes(fullLead.notes);
+      const newParsedNotes = {
+        ...currentParsed,
+        leadStatus: overrides?.status ?? editStatus,
+        leadType: overrides?.type ?? editType,
+      };
+
+      const payload: any = {
+        stage: overrides?.stage ?? editStage,
+        source: overrides?.source ?? editSource,
+        assignedEmployeeId: (overrides?.assignee !== undefined ? overrides.assignee : editAssignee) || null,
+        followUpDate: (overrides?.followUp !== undefined ? overrides.followUp : editFollowUp) || null,
+        premiumBudget: Number(overrides?.premium ?? editPremium) || 0,
+        notes: JSON.stringify(newParsedNotes),
+      };
+
+      await leadsService.update(lead.id, payload);
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['lead-detail-popup', lead.id] });
+      toast.success('Lead details updated');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update lead details');
+    } finally {
+      setSavingLeadDetails(false);
+    }
+  };
 
   const addConsultationMutation = useMutation({
     mutationFn: (notes: string) => leadsService.addConsultation(lead.id, { notes }),
@@ -4388,7 +4587,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
   const tabs: { id: 'overview' | 'comments' | 'stage'; label: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'comments', label: `Comments (${consultations.length})` },
+    { id: 'comments', label: `Consultation Comments (${consultations.length})` },
     { id: 'stage', label: 'Stage & Actions' },
   ];
 
@@ -4414,7 +4613,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
           </div>
         </div>
         <button onClick={onEdit} className="btn-secondary text-xs flex items-center gap-1">
-          <Pencil size={12} /> Edit
+          <Pencil size={12} /> Contact
         </button>
       </div>
 
@@ -4430,10 +4629,117 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
       </div>
 
       {/* Fixed height tab content container so popup size remains constant when switching tabs */}
-      <div className="h-[400px] min-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+      <div className="h-[400px] min-h-[400px] max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
         {/* Overview */}
       {tab === 'overview' && (
         <div className="space-y-4">
+          {/* Non-Editable Product Interest Data Cards */}
+          {(() => {
+            const backendInterests = contactData?.data?.productInterests || [];
+            const allProductInterestsList = backendInterests.length > 0 ? backendInterests : [fullLead];
+
+            return (
+              <div className="space-y-3">
+                {allProductInterestsList.map((pi: any, idx: number) => {
+                  const parsedNotes = parseLeadNotes(pi.notes);
+                  const interestsList: string[] = pi.interests && pi.interests.length > 0
+                    ? pi.interests
+                    : [pi.plan?.name || pi.plan?.category || 'Health'];
+                  const premium = pi.premiumBudget || pi.expectedPremium || 0;
+                  const sumAssured = pi.sumAssuredRequired || pi.sumAssured || 0;
+                  const planName = pi.plan?.name;
+                  const companyName = pi.plan?.company?.name;
+
+                  return (
+                    <div key={pi.id || idx} className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
+                      <div className="flex items-center justify-between border-b border-blue-100/80 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs text-xs">
+                            <Shield size={15} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Product Interest {allProductInterestsList.length > 1 ? `#${idx + 1}` : ''}</span>
+                            <h4 className="text-xs font-extrabold text-slate-800">Selected Product Interest Details</h4>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {pi.stage && (
+                            <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[pi.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
+                              {STAGE_LABELS[pi.stage] ?? pi.stage}
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-200/80 text-slate-600 border border-slate-300/60 flex items-center gap-1">
+                            <Lock size={9} className="text-slate-500" /> Non-Editable
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Selected Product(s)</span>
+                          <div className="flex flex-wrap gap-1.5 mt-0.5">
+                            {interestsList.map((prod: string, i: number) => (
+                              <span key={i} className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-blue-600 text-white shadow-2xs">
+                                ✓ {prod}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Expected Premium / Budget</span>
+                          <p className="font-extrabold text-emerald-700 text-sm mt-0.5">
+                            ₹{Number(premium).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+
+                        {Number(sumAssured) > 0 && (
+                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Sum Assured Required</span>
+                            <p className="font-extrabold text-blue-700 text-sm mt-0.5">
+                              ₹{Number(sumAssured).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                        )}
+
+                        {(companyName || planName) && (
+                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Selected Plan</span>
+                            <p className="font-bold text-slate-800 text-xs mt-0.5 truncate">
+                              {companyName ? `${companyName} - ` : ''}{planName || ''}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Source</span>
+                          <p className="font-bold text-slate-700 mt-0.5">
+                            {pi.source || fullLead.source || 'Walk-in'}
+                          </p>
+                        </div>
+
+                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Stage</span>
+                          <p className="font-bold text-slate-700 mt-0.5">
+                            {(STAGE_LABELS[pi.stage] || pi.stage || STAGE_LABELS[fullLead.stage] || fullLead.stage)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {parsedNotes.descriptionDetails && (
+                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs text-xs space-y-1">
+                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">Requirements / Description Notes</span>
+                          <p className="text-slate-700 font-medium text-[11px] leading-relaxed whitespace-pre-wrap">
+                            {parsedNotes.descriptionDetails}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
           {(() => {
             const parsedLeadNotes = parseLeadNotes(fullLead.notes);
             const connectedPolicyData = fullLead.connectedPolicy;
@@ -4500,132 +4806,198 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
               </div>
             );
           })()}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white border border-slate-100 rounded-xl p-3 space-y-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contact</p>
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <Phone size={13} className="text-slate-400" />
-                <span>{c?.phone || '—'}</span>
+          {/* Directly Editable Lead Management Details */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                  <Pencil size={14} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Lead Information & Status</h4>
+                  <p className="text-[10px] text-slate-400">Directly editable fields for this lead</p>
+                </div>
               </div>
-              {c?.email && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <Mail size={13} className="text-slate-400" />
-                  <span className="truncate">{c.email}</span>
-                </div>
-              )}
+              <button
+                onClick={() => handleUpdateLeadDetails()}
+                disabled={savingLeadDetails}
+                className="btn-primary text-xs px-3.5 py-1.5 h-auto flex items-center gap-1.5 font-bold shadow-2xs"
+              >
+                {savingLeadDetails ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} Save Lead Details
+              </button>
             </div>
-            <div className="bg-white border border-slate-100 rounded-xl p-3 space-y-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lead Info</p>
-              {fullLead.premiumBudget && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Expected Premium</span>
-                  <span className="font-semibold text-slate-800">₹{Number(fullLead.premiumBudget).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {fullLead.sumAssuredRequired && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Sum Assured</span>
-                  <span className="font-semibold">₹{Number(fullLead.sumAssuredRequired).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Assigned To</span>
-                <span className="font-medium text-slate-700">{assigneeName}</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              {/* Lead Stage */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Stage *</label>
+                <select
+                  value={editStage}
+                  onChange={e => setEditStage(e.target.value)}
+                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                >
+                  {UI_STAGES.map(s => {
+                    const key = STAGE_MAPPINGS[s];
+                    return <option key={key} value={key}>{s}</option>;
+                  })}
+                </select>
+              </div>
+
+              {/* Lead Status */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Status *</label>
+                <select
+                  value={editStatus}
+                  onChange={e => setEditStatus(e.target.value)}
+                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                >
+                  <option value="Interested">Interested</option>
+                  <option value="Hot">Hot</option>
+                  <option value="Warm">Warm</option>
+                  <option value="Cold">Cold</option>
+                  <option value="Follow Up">Follow Up</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+
+              {/* Lead Type */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Type *</label>
+                <select
+                  value={editType}
+                  onChange={e => setEditType(e.target.value)}
+                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                >
+                  <option value="Fresh">Fresh</option>
+                  <option value="Renewal">Renewal</option>
+                  <option value="Porting">Porting</option>
+                </select>
+              </div>
+
+              {/* Lead Source */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source *</label>
+                <select
+                  value={editSource}
+                  onChange={e => setEditSource(e.target.value)}
+                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                >
+                  <option value="Walk-in">Walk-in</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Website">Website</option>
+                  <option value="Cold Call">Cold Call</option>
+                  <option value="Campaign">Campaign</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Partner">Partner</option>
+                  <option value="Existing Client">Existing Client</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Assigned Employee */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                <select
+                  value={editAssignee}
+                  onChange={e => setEditAssignee(e.target.value)}
+                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                >
+                  <option value="">Unassigned</option>
+                  {employees.map((emp: any) => (
+                    <option key={emp.id} value={emp.userId || emp.id}>
+                      {emp.firstName || emp.employeeProfile?.firstName} {emp.lastName || emp.employeeProfile?.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Follow-up Date */}
+              <div>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Follow-up Date *</label>
+                <DatePicker
+                  value={editFollowUp}
+                  onChange={setEditFollowUp}
+                  className="input text-xs bg-slate-50/50 border-slate-200 focus:bg-white"
+                />
+              </div>
+
+              {/* Expected Premium / Budget */}
+              <div className="sm:col-span-2">
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
+                <input
+                  type="number"
+                  value={editPremium}
+                  onChange={e => setEditPremium(e.target.value)}
+                  placeholder="e.g. 12000"
+                  className="input text-xs font-bold text-emerald-700 bg-slate-50/50 border-slate-200 focus:bg-white"
+                />
               </div>
             </div>
           </div>
 
-          {/* Follow-up date editor */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
-              <Calendar size={11} /> Next Follow-up Date
-            </p>
-            <div className="flex items-center gap-2">
-              <DatePicker value={followUpEdit} onChange={setFollowUpEdit}
-                className="input text-xs flex-1 border-amber-200 bg-white" />
-              <button onClick={handleFollowUpSave} disabled={savingFollowup}
-                className="btn-primary text-xs px-3 py-1.5 h-auto flex items-center gap-1">
-                {savingFollowup ? <RefreshCw size={11} className="animate-spin" /> : 'Update'}
+        </div>
+      )}
+
+      {/* Consultation Comments */}
+      {tab === 'comments' && (
+        <div className="space-y-3">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-700 block">Add Call Summary / Comment</label>
+              <span className="text-[10px] text-slate-400 font-medium">Press Ctrl+Enter to save</span>
+            </div>
+            <div className="flex gap-2">
+              <textarea
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                placeholder="Add Call Summary / Comment..."
+                className="input text-xs flex-1 resize-none bg-slate-50/50 border-slate-200 focus:bg-white"
+                rows={2}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && commentText.trim()) {
+                    addConsultationMutation.mutate(commentText.trim());
+                  }
+                }}
+              />
+              <button
+                onClick={() => commentText.trim() && addConsultationMutation.mutate(commentText.trim())}
+                disabled={!commentText.trim() || addConsultationMutation.isPending}
+                className="btn-primary px-3.5 self-end h-8 text-xs flex items-center gap-1 font-bold shadow-2xs"
+              >
+                {addConsultationMutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />} Save
               </button>
             </div>
           </div>
 
-          {/* Reassign (owner only) */}
-          {isOwner && (
-            <div className="bg-white border border-slate-100 rounded-xl p-3 space-y-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                <UserCircle2 size={11} /> Assigned Employee
-              </p>
-              <div className="flex items-center gap-2">
-                <select value={assigneeEdit} onChange={e => setAssigneeEdit(e.target.value)} className="input text-xs flex-1">
-                  <option value="">Unassigned</option>
-                  {employees.map((emp: any) => (
-                    <option key={emp.id} value={emp.userId}>{emp.firstName} {emp.lastName}</option>
-                  ))}
-                </select>
-                <button onClick={() => updateAssigneeMutation.mutate(assigneeEdit || null)}
-                  disabled={updateAssigneeMutation.isPending}
-                  className="btn-secondary text-xs px-3 py-1.5 h-auto flex items-center gap-1">
-                  {updateAssigneeMutation.isPending ? <RefreshCw size={11} className="animate-spin" /> : 'Reassign'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {fullLead.notes && (
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notes</p>
-              <div className="text-sm bg-gray-50 border border-gray-200 rounded-xl p-3 text-gray-700">{fullLead.notes}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Comments */}
-      {tab === 'comments' && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <textarea
-              value={commentText}
-              onChange={e => setCommentText(e.target.value)}
-              placeholder="Add a communication note or follow-up remark... (Ctrl+Enter to send)"
-              className="input text-xs flex-1 resize-none"
-              rows={2}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && commentText.trim()) {
-                  addConsultationMutation.mutate(commentText.trim());
-                }
-              }}
-            />
-            <button
-              onClick={() => commentText.trim() && addConsultationMutation.mutate(commentText.trim())}
-              disabled={!commentText.trim() || addConsultationMutation.isPending}
-              className="btn-primary px-3 self-end h-8 text-xs flex items-center gap-1"
-            >
-              {addConsultationMutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />}
-            </button>
-          </div>
-
-          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+          <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
             {consultations.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
-                <MessageCircle size={24} className="mx-auto mb-2 opacity-40" />
-                <p className="text-xs">No comments yet. Add one above.</p>
+              <div className="text-center py-8 text-slate-400 bg-slate-50/60 border border-slate-200/60 rounded-xl p-4">
+                <MessageCircle size={24} className="mx-auto mb-2 opacity-40 text-slate-400" />
+                <p className="text-xs font-medium text-slate-500">No comments yet. Add the first summary below.</p>
               </div>
             ) : (
-              [...consultations].reverse().map((c: any) => (
-                <div key={c.id} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                  <p className="text-[13px] text-gray-800">{c.notes}</p>
-                  {c.scheduledAt && (
-                    <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {c.createdAt ? format(new Date(c.createdAt), 'dd/MMM/yyyy, hh:mm a') : ''}
-                  </p>
-                </div>
-              ))
+              [...consultations].reverse().map((c: any) => {
+                const authorName = c.authorName || (c.author?.employeeProfile ? `${c.author.employeeProfile.firstName || ''} ${c.author.employeeProfile.lastName || ''}`.trim() : (c.author?.email || 'System'));
+                return (
+                  <div key={c.id} className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                        {authorName}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        {c.createdAt ? format(new Date(c.createdAt), 'dd/MMM/yyyy, hh:mm a') : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-800 leading-relaxed font-medium">{c.notes}</p>
+                    {c.scheduledAt && (
+                      <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                        <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

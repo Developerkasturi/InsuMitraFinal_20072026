@@ -37,7 +37,7 @@ function toDisplay(iso: string): string {
 }
 
 /** Parse DD/MMM/YYYY or DD/MM/YYYY string → ISO yyyy-MM-dd string (or '' if invalid) */
-function parseDateString(text: string): string {
+function parseDateString(text: string, allowTwoDigitYear = false): string {
   if (!text) return '';
   const trimmed = text.trim();
 
@@ -51,7 +51,7 @@ function parseDateString(text: string): string {
     mon = parseInt(trimmed.slice(2, 4), 10) - 1;
     year = parseInt(trimmed.slice(4, 8), 10);
   }
-  // Separated parts: 31/Jul/2026 or 31/07/2026 or 31-07-2026
+  // Separated parts: 31/Jul/2026 or 31/07/2026 or 31-07-2026 or 31/Jul/26
   else {
     const parts = trimmed.split(/[\/\-\.\s]+/);
     if (parts.length === 3) {
@@ -65,6 +65,10 @@ function parseDateString(text: string): string {
       const yStr = parts[2];
       if (/^\d{4}$/.test(yStr)) {
         year = parseInt(yStr, 10);
+      } else if (allowTwoDigitYear && /^\d{2}$/.test(yStr)) {
+        const yNum = parseInt(yStr, 10);
+        const currTwoDigit = new Date().getFullYear() % 100;
+        year = yNum > currTwoDigit ? 1900 + yNum : 2000 + yNum;
       }
     }
   }
@@ -205,7 +209,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         if (iso) {
           setIsoValue(iso);
           fireChange(iso);
-        } else {
+        } else if (!trimmed.trim()) {
           setIsoValue('');
           fireChange('');
         }
@@ -219,7 +223,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
       if (iso) {
         setIsoValue(iso);
         fireChange(iso);
-      } else {
+      } else if (!val.trim()) {
         setIsoValue('');
         fireChange('');
       }
@@ -247,7 +251,35 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
 
     const handleTextBlur = () => {
       setIsTyping(false);
-      const iso = parseDateString(typedText);
+      let iso = parseDateString(typedText, true);
+
+      // If typedText has day and month but incomplete year, attempt completing year without wiping selected date
+      if (!iso && typedText.trim()) {
+        const parts = typedText.trim().split(/[\/\-\.\s]+/);
+        if (parts.length >= 2) {
+          const day = parseInt(parts[0], 10);
+          const mStr = parts[1].toLowerCase();
+          const mon = /^\d+$/.test(mStr) ? parseInt(mStr, 10) - 1 : MONTHS[mStr];
+
+          if (!isNaN(day) && mon !== undefined && mon >= 0 && mon <= 11 && day >= 1 && day <= 31) {
+            let fallbackYear = new Date().getFullYear();
+            if (isoValue) {
+              const prevYear = parseInt(isoValue.split('-')[0], 10);
+              if (!isNaN(prevYear)) fallbackYear = prevYear;
+            }
+            const yStr = parts[2] || '';
+            if (yStr.length > 0 && /^\d+$/.test(yStr)) {
+              if (yStr.length === 1) fallbackYear = parseInt(`200${yStr}`, 10);
+              else if (yStr.length === 3) fallbackYear = parseInt(`2${yStr}`, 10);
+            }
+            const testIso = `${fallbackYear}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (parseDateString(toDisplay(testIso))) {
+              iso = testIso;
+            }
+          }
+        }
+      }
+
       if (iso) {
         setTypedText(toDisplay(iso));
         setIsoValue(iso);
@@ -257,7 +289,6 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         setIsoValue('');
         fireChange('');
       }
-      // If typedText is incomplete (e.g. user was editing year), keep typedText as is so it does not reset or wipe out!
     };
 
     const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
