@@ -12,6 +12,8 @@ import { useAuthStore } from '@store/auth.store';
 import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
 
+import { canEditModule, canManageModule } from '../../utils/permissions';
+
 // ─── Shared Employee type (re-exported so sub-pages can import it) ────────────
 export interface Employee {
   id: string; firstName: string; lastName: string;
@@ -69,6 +71,9 @@ export default function EmployeesLayout() {
   const user      = useAuthStore(s => s.user);
   const [modalOpen, setModalOpen] = useState(false);
   const qc = useQueryClient();
+
+  const canEditEmployees = canEditModule(user, 'employees');
+  const canManageEmployees = canManageModule(user, 'employees');
 
   // Subscription + seat count
   const { data: subRes } = useQuery({
@@ -178,7 +183,7 @@ export default function EmployeesLayout() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Employees</h2>
-        {isOverview && (
+        {isOverview && canEditEmployees && (
           <button
             className={clsx(
               'btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer',
@@ -199,8 +204,8 @@ export default function EmployeesLayout() {
           { label: 'Directory', path: '/employees', icon: Users },
           { label: 'Targets', path: '/employees/targets', icon: Target },
           { label: 'Attendance & Leaves', path: '/employees/attendance', icon: CalendarCheck },
-          { label: 'EOD Reports', path: '/employees/eod-reports', icon: FileText },
-          { label: 'Access Control', path: '/employees/access-control', icon: ShieldCheck },
+          { label: 'Reports', path: '/employees/eod-reports', icon: FileText },
+          ...(canManageEmployees ? [{ label: 'Access Control', path: '/employees/access-control', icon: ShieldCheck }] : []),
         ].map(tab => {
           const isActive = tab.path === '/employees'
             ? location.pathname === '/employees' || location.pathname === '/employees/'
@@ -319,32 +324,32 @@ export default function EmployeesLayout() {
               </div>
             </div>
             <div>
-              <label className="label">First Name *</label>
+              <label className="label">First Name <span className="text-red-500">*</span></label>
               <input {...register('firstName')} className="input" placeholder="Ravi" />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName.message}</p>}
             </div>
             <div>
-              <label className="label">Last Name *</label>
+              <label className="label">Last Name <span className="text-red-500">*</span></label>
               <input {...register('lastName')} className="input" placeholder="Sharma" />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName.message}</p>}
             </div>
             <div>
-              <label className="label">Email *</label>
+              <label className="label">Email <span className="text-red-500">*</span></label>
               <input {...register('email')} type="email" className="input" placeholder="ravi@agency.com" />
               {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
             </div>
             <div>
-              <label className="label">Phone *</label>
+              <label className="label">Phone <span className="text-red-500">*</span></label>
               <input {...register('phone')} className="input" placeholder="9876543210" />
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
             <div>
-              <label className="label">Password *</label>
+              <label className="label">Password <span className="text-red-500">*</span></label>
               <input {...register('password')} type="password" className="input" placeholder="Min 8 characters" />
               {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
             </div>
             <div>
-              <label className="label">Aadhaar Number *</label>
+              <label className="label">Aadhaar Number <span className="text-red-500">*</span></label>
               <input {...register('aadhaarNumber')} className="input" placeholder="12-digit Aadhaar number" maxLength={12} />
               {errors.aadhaarNumber && <p className="text-xs text-red-500 mt-1">{errors.aadhaarNumber.message}</p>}
             </div>
@@ -390,7 +395,7 @@ export default function EmployeesLayout() {
               <input {...register('callsTarget')} type="number" className="input" placeholder="e.g. 30" />
             </div>
             <div>
-              <label className="label">Daily Visits Target</label>
+              <label className="label">Proposal Target</label>
               <input {...register('visitsTarget')} type="number" className="input" placeholder="e.g. 5" />
             </div>
             <div className="col-span-2 border-t border-slate-100 pt-3 grid grid-cols-3 gap-3">

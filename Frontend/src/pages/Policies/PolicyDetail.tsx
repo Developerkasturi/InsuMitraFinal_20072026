@@ -469,13 +469,13 @@ export default function PolicyDetail() {
       <Modal open={memberModal} onClose={() => { setMemberModal(false); memberForm.reset(); }} title="Add Insured Member" size="xl">
         <form onSubmit={memberForm.handleSubmit(d => addMember.mutate(d))} className="space-y-4">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="label">Full Name *</label>
+            <label className="label">Full Name <span className="text-red-500">*</span></label>
             <input {...memberForm.register('name')} className="input" />
             {memberForm.formState.errors.name && <p className="text-xs text-red-500">{memberForm.formState.errors.name.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Relationship *</label>
+              <label className="label">Relationship <span className="text-red-500">*</span></label>
               <select {...memberForm.register('relationship')} className="input">
                 <option value="">— Select —</option>
                 <option value="SPOUSE">Spouse</option>
@@ -520,13 +520,13 @@ export default function PolicyDetail() {
       <Modal open={nomineeModal} onClose={() => { setNomineeModal(false); nomineeForm.reset(); }} title="Add Nominee" size="xl">
         <form onSubmit={nomineeForm.handleSubmit(d => addNominee.mutate(d))} className="space-y-4">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="label">Full Name *</label>
+            <label className="label">Full Name <span className="text-red-500">*</span></label>
             <input {...nomineeForm.register('name')} className="input" />
             {nomineeForm.formState.errors.name && <p className="text-xs text-red-500">{nomineeForm.formState.errors.name.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Relationship *</label>
+              <label className="label">Relationship <span className="text-red-500">*</span></label>
               <select {...nomineeForm.register('relationship')} className="input">
                 <option value="">— Select —</option>
                 <option value="SPOUSE">Spouse</option>

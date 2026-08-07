@@ -11,13 +11,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import type { Employee } from './EmployeesLayout';
 
-const AVAILABLE_PERMISSIONS = [
-  { key: 'manage_leads',       label: 'Leads Pipeline Management' },
-  { key: 'manage_policies',    label: 'Policies Module Access' },
-  { key: 'manage_claims',      label: 'Claims Module Access' },
-  { key: 'manage_commissions', label: 'Commissions Module Access' },
-  { key: 'manage_whatsapp',    label: 'WhatsApp Module Access' },
-  { key: 'manage_employees',   label: 'Employees Module Access' },
+const MODULES = [
+  { key: 'dashboard',         label: 'Dashboard' },
+  { key: 'workspace',         label: 'Workspace' },
+  { key: 'contacts',          label: 'Contacts' },
+  { key: 'leads',             label: 'Leads Pipeline' },
+  { key: 'policies',          label: 'Policies' },
+  { key: 'claims',            label: 'Claims' },
+  { key: 'calendar',          label: 'Calendar' },
+  { key: 'whatsapp',          label: 'WhatsApp' },
+  { key: 'operations',        label: 'Operations' },
+  { key: 'commissions',       label: 'Commissions' },
+  { key: 'employees',         label: 'Employees' },
+  { key: 'deletion_requests', label: 'Delete Requests' },
+  { key: 'subscription',      label: 'Subscription' },
+  { key: 'firm_profile',      label: 'Firm Profile' },
 ];
 
 const permissionSchema = z.object({
@@ -91,11 +99,25 @@ export default function EmployeeAccessControl() {
           return <span className="text-xs text-gray-400 italic">No modules enabled</span>;
         }
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 max-w-md">
             {perms.map(p => {
-              const label = AVAILABLE_PERMISSIONS.find(ap => ap.key === p)?.label.replace(' Access', '').replace(' Management', '') || p;
+              let label = p;
+              let badgeStyle = "bg-slate-50 border-slate-200 text-slate-600";
+              const matchModule = MODULES.find(m => p.includes(m.key));
+              if (matchModule) {
+                if (p.startsWith('view_')) {
+                  label = `${matchModule.label} (View)`;
+                  badgeStyle = "bg-emerald-50 border-emerald-200/80 text-emerald-700 font-bold";
+                } else if (p.startsWith('edit_')) {
+                  label = `${matchModule.label} (Edit)`;
+                  badgeStyle = "bg-purple-50 border-purple-200/80 text-purple-700 font-bold";
+                } else if (p.startsWith('manage_') || p.startsWith('all_')) {
+                  label = `${matchModule.label} (All Data)`;
+                  badgeStyle = "bg-blue-50 border-blue-200/80 text-blue-700 font-bold";
+                }
+              }
               return (
-                <span key={p} className="text-[10px] bg-slate-50 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-medium">
+                <span key={p} className={`text-[10px] border px-2 py-0.5 rounded-lg shadow-2xs ${badgeStyle}`}>
                   {label}
                 </span>
               );
@@ -108,13 +130,13 @@ export default function EmployeeAccessControl() {
       key: 'actions' as any,
       label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-start" onClick={e => e.stopPropagation()}>
           <button
             title="Edit Permissions"
-            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
             onClick={e => openPermEdit(r, e)}
           >
-            <Key size={16} />
+            <Key size={14} />
           </button>
         </div>
       ),
@@ -157,21 +179,50 @@ export default function EmployeeAccessControl() {
                 <option value="OWNER">Agency Owner / Super Admin</option>
               </select>
             </div>
-            <div className="space-y-2 border-t border-slate-100 pt-3">
-              <label className="label font-bold text-slate-600 mb-2">Module Access Control Permissions</label>
-              <div className="space-y-2">
-                {AVAILABLE_PERMISSIONS.map(p => (
-                  <label key={p.key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50 p-1.5 rounded transition-colors">
-                    <input
-                      type="checkbox"
-                      value={p.key}
-                      className="rounded text-primary-600 focus:ring-primary-500"
-                      {...register('permissions')}
-                    />
-                    <span>{p.label}</span>
-                  </label>
-                ))}
-              </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-1 border-t border-slate-100 pt-3">
+              <label className="label font-bold text-slate-700 block mb-1">
+                Module Access Control Permissions
+              </label>
+              {MODULES.map(mod => {
+                const viewKey = `view_${mod.key}`;
+                const editKey = `edit_${mod.key}`;
+                const allKey  = `manage_${mod.key}`;
+
+                return (
+                  <div key={mod.key} className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl space-y-2">
+                    <div className="text-[13px] font-black text-slate-900 tracking-tight">{mod.label}</div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
+                        <input
+                          type="checkbox"
+                          value={viewKey}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                          {...register('permissions')}
+                        />
+                        <span className="text-emerald-800">View</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
+                        <input
+                          type="checkbox"
+                          value={editKey}
+                          className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                          {...register('permissions')}
+                        />
+                        <span>Edit</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
+                        <input
+                          type="checkbox"
+                          value={allKey}
+                          className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                          {...register('permissions')}
+                        />
+                        <span>All Data (Owner Access)</span>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn-secondary" onClick={() => setPermEditEmp(null)}>Cancel</button>

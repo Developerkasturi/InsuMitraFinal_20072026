@@ -48,8 +48,16 @@ export class ContactsService {
   }
 
   async create(tenantId: string, dto: CreateContactDto, createdById: string, role?: UserRole) {
+    if (!dto.phone || !dto.phone.trim()) {
+      if (dto.isDependent) {
+        dto.phone = `00${Date.now().toString().slice(-8)}`;
+      } else {
+        dto.phone = '0000000000';
+      }
+    }
+
     // Duplicate phone check (within same tenant)
-    if (dto.phone !== '0000000000') {
+    if (dto.phone !== '0000000000' && !dto.phone.startsWith('00')) {
       const existing = await this.repo.findByPhone(tenantId, dto.phone);
       if (existing) {
         if (!existing.isActive) {
@@ -472,9 +480,19 @@ export class ContactsService {
     createdById: string,
     role?: UserRole,
   ) {
-    const existing = await this.repo.findByPhone(tenantId, dto.contact.phone);
-    if (existing) {
-      throw new ConflictException(`A contact with phone ${dto.contact.phone} already exists`);
+    if (!dto.contact.phone || !dto.contact.phone.trim()) {
+      if (dto.contact.isDependent) {
+        dto.contact.phone = `00${Date.now().toString().slice(-8)}`;
+      } else {
+        dto.contact.phone = '0000000000';
+      }
+    }
+
+    if (dto.contact.phone !== '0000000000' && !dto.contact.phone.startsWith('00')) {
+      const existing = await this.repo.findByPhone(tenantId, dto.contact.phone);
+      if (existing) {
+        throw new ConflictException(`A contact with phone ${dto.contact.phone} already exists`);
+      }
     }
 
     if (role === UserRole.EMPLOYEE) {

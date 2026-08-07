@@ -55,13 +55,21 @@ const PRIORITY_BADGE: Record<string, string> = {
   HIGH:   'bg-red-100 text-red-700',
 };
 
-const AVAILABLE_PERMISSIONS = [
-  { key: 'manage_leads',       label: 'Leads Pipeline Management' },
-  { key: 'manage_policies',    label: 'Policies Module Access' },
-  { key: 'manage_claims',      label: 'Claims Module Access' },
-  { key: 'manage_commissions', label: 'Commissions Module Access' },
-  { key: 'manage_whatsapp',    label: 'WhatsApp Module Access' },
-  { key: 'manage_employees',   label: 'Employees Module Access' },
+const MODULES = [
+  { key: 'dashboard',         label: 'Dashboard' },
+  { key: 'workspace',         label: 'Workspace' },
+  { key: 'contacts',          label: 'Contacts' },
+  { key: 'leads',             label: 'Leads Pipeline' },
+  { key: 'policies',          label: 'Policies' },
+  { key: 'claims',            label: 'Claims' },
+  { key: 'calendar',          label: 'Calendar' },
+  { key: 'whatsapp',          label: 'WhatsApp' },
+  { key: 'operations',        label: 'Operations' },
+  { key: 'commissions',       label: 'Commissions' },
+  { key: 'employees',         label: 'Employees' },
+  { key: 'deletion_requests', label: 'Delete Requests' },
+  { key: 'subscription',      label: 'Subscription' },
+  { key: 'firm_profile',      label: 'Firm Profile' },
 ];
 
 const formatPreview = (dateStr?: string) => {
@@ -390,10 +398,10 @@ export default function EmployeeDetail() {
                 </div>
               </div>
 
-              {/* Visits Target */}
+              {/* Proposal Target */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-600">
-                  <span>Daily Visits/Meetings progress</span>
+                  <span>Proposal target progress</span>
                   <span className="text-primary-700 font-bold">{visitsProgress}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
@@ -401,7 +409,7 @@ export default function EmployeeDetail() {
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-gray-400">
                   <span>Done Today: {s?.meetingsToday ?? 0}</span>
-                  <span>Target: {emp.visitsTarget ?? 0} visits</span>
+                  <span>Target: {emp.visitsTarget ?? 0} proposals</span>
                 </div>
               </div>
             </div>
@@ -673,7 +681,7 @@ export default function EmployeeDetail() {
             <input {...targetForm.register('callsTarget')} type="number" className="input" />
           </div>
           <div>
-            <label className="label">Daily Visits Target *</label>
+            <label className="label">Proposal Target *</label>
             <input {...targetForm.register('visitsTarget')} type="number" className="input" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -697,21 +705,50 @@ export default function EmployeeDetail() {
             </select>
           </div>
 
-          <div className="space-y-2 border-t border-slate-100 pt-3">
-            <label className="label font-bold text-slate-600">Module Access Control Permissions</label>
-            <div className="grid grid-cols-1 gap-2.5">
-              {AVAILABLE_PERMISSIONS.map(p => (
-                <label key={p.key} className="flex items-start gap-2.5 p-2 bg-slate-50 border border-slate-200/50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
-                  <input
-                    type="checkbox"
-                    value={p.key}
-                    {...permForm.register('permissions')}
-                    className="mt-0.5 cursor-pointer"
-                  />
-                  <span>{p.label}</span>
-                </label>
-              ))}
-            </div>
+          <div className="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-1 border-t border-slate-100 pt-3">
+            <label className="label font-bold text-slate-700 block mb-1">
+              Module Access Control Permissions
+            </label>
+            {MODULES.map(mod => {
+              const viewKey = `view_${mod.key}`;
+              const editKey = `edit_${mod.key}`;
+              const allKey  = `manage_${mod.key}`;
+
+              return (
+                <div key={mod.key} className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl space-y-2">
+                  <div className="text-[13px] font-black text-slate-900 tracking-tight">{mod.label}</div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
+                      <input
+                        type="checkbox"
+                        value={viewKey}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                        {...permForm.register('permissions')}
+                      />
+                      <span className="text-emerald-800">View</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
+                      <input
+                        type="checkbox"
+                        value={editKey}
+                        className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                        {...permForm.register('permissions')}
+                      />
+                      <span>Edit</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
+                      <input
+                        type="checkbox"
+                        value={allKey}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                        {...permForm.register('permissions')}
+                      />
+                      <span>All Data (Owner Access)</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

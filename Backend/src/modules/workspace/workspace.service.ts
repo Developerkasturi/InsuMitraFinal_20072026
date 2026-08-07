@@ -29,8 +29,8 @@ export class WorkspaceService {
       // 2. Count metrics scoped by role
       role === UserRole.EMPLOYEE
         ? (async () => {
-            const [leadsCount, policiesCount, claimsCount, pContacts, lContacts, cContacts] = await Promise.all([
-              this.prisma.productInterest.count({ where: { tenantId, assignedEmployeeId: userId } }),
+            const [leadsCount, policiesCount, claimsCount, pContacts, lContacts, cContacts, directContacts] = await Promise.all([
+              this.prisma.productInterest.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
               this.prisma.policy.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
               this.prisma.claim.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
               this.prisma.policy.findMany({
@@ -38,18 +38,23 @@ export class WorkspaceService {
                 select: { contactId: true },
               }),
               this.prisma.productInterest.findMany({
-                where: { tenantId, assignedEmployeeId: userId },
+                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
                 select: { contactId: true },
               }),
               this.prisma.claim.findMany({
                 where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
                 select: { contactId: true },
               }),
+              this.prisma.contact.findMany({
+                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+                select: { id: true },
+              }),
             ]);
             const contactIds = new Set([
               ...pContacts.map(p => p.contactId),
               ...lContacts.map(l => l.contactId),
               ...cContacts.map(c => c.contactId),
+              ...directContacts.map(dc => dc.id),
             ]);
             return { leadsCount, policiesCount, claimsCount, contactsCount: contactIds.size };
           })()

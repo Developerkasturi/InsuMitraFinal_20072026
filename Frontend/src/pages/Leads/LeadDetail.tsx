@@ -393,7 +393,7 @@ export default function LeadDetail() {
 
             {/* Policy Number */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Policy Number *</label>
+              <label className="label">Policy Number <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
                 {...registerPolicy('policyNumber', { required: true })} 
@@ -405,7 +405,7 @@ export default function LeadDetail() {
 
             {/* Policy Type (Select category) */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Policy Type *</label>
+              <label className="label">Policy Type <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={policySelectedType}
@@ -425,7 +425,7 @@ export default function LeadDetail() {
 
             {/* Insurance Company */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Insurance Company *</label>
+              <label className="label">Insurance Company <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={policySelectedCompany}
@@ -445,7 +445,7 @@ export default function LeadDetail() {
 
             {/* Insurance Plan */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Insurance Plan *</label>
+              <label className="label">Insurance Plan <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={policySelectedPlanId}
@@ -462,7 +462,7 @@ export default function LeadDetail() {
 
             {/* Sum Assured */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Sum Assured *</label>
+              <label className="label">Sum Assured <span className="text-red-500">*</span></label>
               <input 
                 type="number" 
                 step="any"
@@ -475,7 +475,7 @@ export default function LeadDetail() {
 
             {/* Premium Amount */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Premium Amount *</label>
+              <label className="label">Premium Amount <span className="text-red-500">*</span></label>
               <input 
                 type="number" 
                 step="any"
@@ -488,7 +488,7 @@ export default function LeadDetail() {
 
             {/* Start Date */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Start Date *</label>
+              <label className="label">Start Date <span className="text-red-500">*</span></label>
               <DatePicker 
                 {...registerPolicy('startDate', { required: true })} 
                 className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
@@ -498,7 +498,7 @@ export default function LeadDetail() {
 
             {/* End Date */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">End Date *</label>
+              <label className="label">End Date <span className="text-red-500">*</span></label>
               <DatePicker 
                 {...registerPolicy('endDate', { required: true })} 
                 className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
@@ -508,7 +508,7 @@ export default function LeadDetail() {
 
             {/* Payment Frequency */}
             <div className="flex flex-col gap-1 col-span-2">
-              <label className="label">Payment Frequency *</label>
+              <label className="label">Payment Frequency <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 {...registerPolicy('paymentFrequency', { required: true })}

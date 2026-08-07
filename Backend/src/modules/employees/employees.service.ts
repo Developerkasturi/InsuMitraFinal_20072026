@@ -24,7 +24,6 @@ export class EmployeesService {
 
     const where: any = {
       tenantId,
-      isActive: { not: false },
     };
 
     if (search) {
@@ -227,12 +226,14 @@ export class EmployeesService {
     const profile = await this.prisma.employeeProfile.findFirst({ where: { id, tenantId } });
     if (!profile) throw new NotFoundException('Employee not found');
 
+    const newStatus = !profile.isActive;
+
     await Promise.all([
-      this.prisma.employeeProfile.update({ where: { id }, data: { isActive: false } }),
-      this.prisma.user.update({ where: { id: profile.userId }, data: { isActive: false } }),
+      this.prisma.employeeProfile.update({ where: { id }, data: { isActive: newStatus } }),
+      this.prisma.user.update({ where: { id: profile.userId }, data: { isActive: newStatus } }),
     ]);
 
-    return { data: null, message: 'Employee deactivated' };
+    return { data: null, message: `Employee ${newStatus ? 'activated' : 'deactivated'}` };
   }
 
   // ── Tasks ──────────────────────────────────────────────────────────────────

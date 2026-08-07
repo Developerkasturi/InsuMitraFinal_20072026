@@ -20,6 +20,38 @@ import { useLookupStore } from '@store/lookup.store';
 import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
+import { DatalistInput } from '@comps/common/DatalistInput';
+
+const EDUCATION_OPTIONS = [
+  'Metric',
+  'Intermediate',
+  'Graduate',
+  'Post Graduate',
+  'Up to 9th class passed',
+  '10th class passed',
+  'Post Graduate (Gen)',
+  'Med Graduate',
+  'Post Graduate, Eng',
+  'Law Graduate / Post Graduate',
+  'CA/ICWA/MBA/CFA',
+  'Computer degree other',
+  'Other',
+];
+
+const OCCUPATION_TYPE_OPTIONS = [
+  'Salaried Private',
+  'Salaried Gov',
+  'Salaried/Service',
+  'Business Owner',
+  'Business',
+  'Industrialist',
+  'Self Employed Professional',
+  'Agriculture',
+  'Student',
+  'Retired',
+  'Homemaker',
+  'Other',
+];
 
 const formatPreview = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -318,6 +350,8 @@ export default function Leads() {
   // Filters
   const [filterPlans, setFilterPlans] = useState<string[]>([]);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterStages, setFilterStages] = useState<string[]>([]);
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
@@ -325,8 +359,12 @@ export default function Leads() {
 
   const [planFilterOpen, setPlanFilterOpen] = useState(false);
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
+  const [stageFilterOpen, setStageFilterOpen] = useState(false);
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
   const planFilterRef = useRef<HTMLDivElement>(null);
   const statusFilterRef = useRef<HTMLDivElement>(null);
+  const stageFilterRef = useRef<HTMLDivElement>(null);
+  const typeFilterRef = useRef<HTMLDivElement>(null);
 
   // Table sort
   const [sortKey, setSortKey] = useState<string>('');
@@ -747,11 +785,18 @@ export default function Leads() {
       if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm)) return false;
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
       if (filterEmployee && lead.assignedEmployeeId !== filterEmployee) return false;
+      if (filterStages.length > 0 && !filterStages.includes(lead.stage ?? '')) return false;
+      
+      const extra = parseLeadNotes(lead.notes);
       if (filterStatuses.length > 0) {
-        const extra = parseLeadNotes(lead.notes);
         const status = extra.leadStatus || 'INTERESTED';
         if (!filterStatuses.includes(status)) return false;
       }
+      if (filterTypes.length > 0) {
+        const lType = extra.leadType || 'FRESH';
+        if (!filterTypes.includes(lType)) return false;
+      }
+
       if (filterDateFrom) {
         const fromDate = new Date(filterDateFrom); fromDate.setHours(0, 0, 0, 0);
         if (!lead.followUpDate || new Date(lead.followUpDate) < fromDate) return false;
@@ -762,7 +807,7 @@ export default function Leads() {
       }
       return true;
     });
-  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterDateFrom, filterDateTo]);
+  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterStages, filterTypes, filterDateFrom, filterDateTo]);
 
   // Sorted leads for table
   const sortedLeads = useMemo(() => {
@@ -804,6 +849,8 @@ export default function Leads() {
     function handleOutside(e: MouseEvent) {
       if (planFilterRef.current && !planFilterRef.current.contains(e.target as Node)) setPlanFilterOpen(false);
       if (statusFilterRef.current && !statusFilterRef.current.contains(e.target as Node)) setStatusFilterOpen(false);
+      if (stageFilterRef.current && !stageFilterRef.current.contains(e.target as Node)) setStageFilterOpen(false);
+      if (typeFilterRef.current && !typeFilterRef.current.contains(e.target as Node)) setTypeFilterOpen(false);
       if (colMenuRef.current && !colMenuRef.current.contains(e.target as Node)) setColMenuOpen(false);
     }
     document.addEventListener('mousedown', handleOutside);
@@ -1709,7 +1756,7 @@ const medicalOptions = [
   };
 
   const activeFilterCount =
-    filterPlans.length + filterStatuses.length +
+    filterPlans.length + filterStatuses.length + filterStages.length + filterTypes.length +
     (filterEmployee ? 1 : 0) + (filterDateFrom ? 1 : 0) + (filterDateTo ? 1 : 0);
 
   if (isLoading) return <div className="flex h-48 items-center justify-center text-gray-400">Loading pipeline…</div>;
@@ -1829,7 +1876,73 @@ const medicalOptions = [
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="card-panel grid grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50/50 p-4 border rounded-xl">
+        <div className="card-panel grid grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50/50 p-4 border rounded-xl">
+          {/* Lead Stage Filter */}
+          <div>
+            <label className="label text-[11px] font-bold text-gray-700">Lead Stage (Multi-Select)</label>
+            <div className="relative" ref={stageFilterRef}>
+              <button type="button" onClick={() => setStageFilterOpen(!stageFilterOpen)}
+                className="input text-xs flex items-center justify-between w-full text-left bg-white font-medium">
+                <span className="truncate">{filterStages.length === 0 ? 'All Stages' : `${filterStages.length} selected`}</span>
+                <ChevronDown size={12} className="text-gray-400 shrink-0" />
+              </button>
+              {stageFilterOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
+                  {[
+                    { value: 'TO_CONTACT', label: 'To Contact' },
+                    { value: 'CONTACTED', label: 'Contacted' },
+                    { value: 'PROPOSAL_SENT', label: 'Proposal Sent' },
+                    { value: 'LOGIN_PROGRESS', label: 'Login Progress' },
+                    { value: 'PAYMENT_DONE', label: 'Payment Done' },
+                    { value: 'PROCESS_COMPLETED', label: 'Process Completed' },
+                  ].map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={filterStages.includes(opt.value)}
+                        onChange={() => setFilterStages(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
+                        className="rounded accent-blue-600" />
+                      {opt.label}
+                    </label>
+                  ))}
+                  {filterStages.length > 0 && (
+                    <button onClick={() => setFilterStages([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center font-bold">Clear Selected</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Lead Type Filter */}
+          <div>
+            <label className="label text-[11px] font-bold text-gray-700">Lead Type (Multi-Select)</label>
+            <div className="relative" ref={typeFilterRef}>
+              <button type="button" onClick={() => setTypeFilterOpen(!typeFilterOpen)}
+                className="input text-xs flex items-center justify-between w-full text-left bg-white font-medium">
+                <span className="truncate">{filterTypes.length === 0 ? 'All Lead Types' : `${filterTypes.length} selected`}</span>
+                <ChevronDown size={12} className="text-gray-400 shrink-0" />
+              </button>
+              {typeFilterOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
+                  {[
+                    { value: 'FRESH', label: 'Fresh' },
+                    { value: 'RENEWAL', label: 'Renewal' },
+                    { value: 'PORTING', label: 'Porting' },
+                  ].map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                      <input type="checkbox" checked={filterTypes.includes(opt.value)}
+                        onChange={() => setFilterTypes(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
+                        className="rounded accent-blue-600" />
+                      {opt.label}
+                    </label>
+                  ))}
+                  {filterTypes.length > 0 && (
+                    <button onClick={() => setFilterTypes([])} className="w-full text-xs text-red-500 hover:text-red-700 py-1 text-center font-bold">Clear Selected</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Product Category Filter */}
           <div>
             <label className="label text-[11px] font-bold text-gray-700">Product Category (Multi-Select)</label>
             <div className="relative" ref={planFilterRef}>
@@ -1856,6 +1969,7 @@ const medicalOptions = [
             </div>
           </div>
 
+          {/* Lead Status Filter */}
           <div>
             <label className="label text-[11px] font-bold text-gray-700">
               Lead Status (Multi-Select)
@@ -1905,10 +2019,10 @@ const medicalOptions = [
           </div>
 
           {activeFilterCount > 0 && (
-            <div className="col-span-2 lg:col-span-4 flex justify-end">
+            <div className="col-span-2 lg:col-span-3 flex justify-end">
               <button
-                onClick={() => { setFilterPlans([]); setFilterStatuses([]); setFilterEmployee(''); setFilterDateFrom(''); setFilterDateTo(''); }}
-                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                onClick={() => { setFilterPlans([]); setFilterStatuses([]); setFilterStages([]); setFilterTypes([]); setFilterEmployee(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-bold"
               >
                 <X size={11} /> Clear all filters
               </button>
@@ -2293,7 +2407,7 @@ const medicalOptions = [
                           {/* Row 1: Stage, Status, Dependency, Type */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage <span className="text-red-500">*</span></label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStage}
@@ -2309,7 +2423,7 @@ const medicalOptions = [
                             </div>
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                                Lead Status *{isExisting ? ' (Editable)' : ''}
+                                Lead Status <span className="text-red-500">*</span>{isExisting ? ' (Editable)' : ''}
                               </label>
                               <select
                                 className="input w-full text-xs"
@@ -2336,7 +2450,7 @@ const medicalOptions = [
                               </select>
                             </div> */}
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type <span className="text-red-500">*</span></label>
                               <select
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -2356,7 +2470,7 @@ const medicalOptions = [
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
                               <input
                                 type="text"
                                 disabled={isExisting}
@@ -2391,7 +2505,7 @@ const medicalOptions = [
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date <span className="text-red-500">*</span></label>
                               <DatePicker
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -2400,7 +2514,7 @@ const medicalOptions = [
                               />
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) <span className="text-red-500">*</span></label>
                               <input
                                 type="number"
                                 disabled={isExisting}
@@ -2574,7 +2688,7 @@ const medicalOptions = [
                     </div>
                     <div className="p-4 grid grid-cols-3 gap-3.5">
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -2594,7 +2708,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -2689,7 +2803,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number *</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
@@ -2729,7 +2843,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number *</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -2740,7 +2854,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number <span className="text-red-500">*</span></label>
                         <CountryPhoneInput
                           value={personalFields.whatsappNumber}
                           onChange={(value: string) =>
@@ -2787,7 +2901,7 @@ const medicalOptions = [
                   </div>
 
                   {/* 3. Education & Occupation */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
@@ -2798,18 +2912,13 @@ const medicalOptions = [
                     <div className="p-4 grid grid-cols-2 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
-                        <select
+                        <DatalistInput
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                          value={['HighSchool', 'Graduate', 'PostGraduate', 'Professional', ''].includes(personalFields.education) ? personalFields.education : 'OTHER'}
-                          onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
-                        >
-                          <option value="">Select Education</option>
-                          <option value="HighSchool">High School</option>
-                          <option value="Graduate">Graduate</option>
-                          <option value="PostGraduate">Post Graduate</option>
-                          <option value="Professional">Professional</option>
-                          <option value="OTHER">Other</option>
-                        </select>
+                          placeholder="Select or enter Education"
+                          value={personalFields.education || ''}
+                          options={EDUCATION_OPTIONS}
+                          onChange={val => setPersonalFields(p => ({ ...p, education: val }))}
+                        />
                       </div>
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
@@ -2828,12 +2937,12 @@ const medicalOptions = [
                       </div>
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
-                        <input
-                          type="text"
+                        <DatalistInput
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                          placeholder="e.g. Salaried / Business"
-                          value={personalFields.occupationType}
-                          onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
+                          placeholder="Select or enter Occupation Type"
+                          value={personalFields.occupationType || ''}
+                          options={OCCUPATION_TYPE_OPTIONS}
+                          onChange={val => setPersonalFields(p => ({ ...p, occupationType: val }))}
                         />
                       </div>
                       <div>
@@ -4635,8 +4744,24 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
         <div className="space-y-4">
           {/* Non-Editable Product Interest Data Cards */}
           {(() => {
-            const backendInterests = contactData?.data?.productInterests || [];
-            const allProductInterestsList = backendInterests.length > 0 ? backendInterests : [fullLead];
+            const backendInterests: any[] = contactData?.data?.productInterests || [];
+            
+            // Find specific matching backend product interest for this lead (by ID or plan category/interest match), fallback to fullLead
+            const leadInterests = fullLead.interests && fullLead.interests.length > 0
+              ? fullLead.interests
+              : [fullLead.plan?.name || fullLead.plan?.category].filter(Boolean);
+
+            const matchedBackendInterest = backendInterests.find((pi: any) => {
+              if (pi.id && fullLead.id && pi.id === fullLead.id) return true;
+              if (pi.productInterestId && fullLead.id && pi.productInterestId === fullLead.id) return true;
+              if (pi.planId && fullLead.planId && pi.planId === fullLead.planId) return true;
+              const piInterests: string[] = pi.interests && pi.interests.length > 0
+                ? pi.interests
+                : [pi.plan?.name || pi.plan?.category].filter(Boolean);
+              return piInterests.some(i => leadInterests.includes(i));
+            });
+
+            const allProductInterestsList = matchedBackendInterest ? [matchedBackendInterest] : [fullLead];
 
             return (
               <div className="space-y-3">
@@ -4830,7 +4955,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               {/* Lead Stage */}
               <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Stage *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Stage <span className="text-red-500">*</span></label>
                 <select
                   value={editStage}
                   onChange={e => setEditStage(e.target.value)}
@@ -4845,7 +4970,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
               {/* Lead Status */}
               <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Status *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Status <span className="text-red-500">*</span></label>
                 <select
                   value={editStatus}
                   onChange={e => setEditStatus(e.target.value)}
@@ -4862,7 +4987,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
               {/* Lead Type */}
               <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Type *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Type <span className="text-red-500">*</span></label>
                 <select
                   value={editType}
                   onChange={e => setEditType(e.target.value)}
@@ -4876,7 +5001,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
               {/* Lead Source */}
               <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
                 <select
                   value={editSource}
                   onChange={e => setEditSource(e.target.value)}

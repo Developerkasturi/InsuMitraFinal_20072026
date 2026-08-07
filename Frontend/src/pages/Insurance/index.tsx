@@ -567,8 +567,20 @@ export default function Insurance() {
                     className="btn-sm text-xs px-2 py-1 border border-primary-300 text-primary-700 rounded hover:bg-primary-50 flex items-center gap-1">
                     <Plus size={11}/> Plan
                   </button>
-                  <button onClick={() => openEditCompany(co)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"><Pencil size={13}/></button>
-                  <button onClick={() => setDeleteCompany(co)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={13}/></button>
+                  <button
+                    onClick={() => openEditCompany(co)}
+                    className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                    title="Edit Company"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => setDeleteCompany(co)}
+                    className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                    title="Delete Company"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
                 {expandedCompany === co.id ? <ChevronDown size={14} className="text-gray-400 shrink-0"/> : <ChevronRight size={14} className="text-gray-400 shrink-0"/>}
               </div>
@@ -588,9 +600,21 @@ export default function Insurance() {
                         </p>
                       </div>
                       <span className={pl.isActive ? 'badge-green' : 'badge-gray'}>{pl.isActive ? 'Active' : 'Inactive'}</span>
-                      <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                        <button onClick={() => openEditPlan(pl, co.id)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600"><Pencil size={12}/></button>
-                        <button onClick={() => setDeletePlan(pl)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={12}/></button>
+                      <div className="opacity-0 group-hover:opacity-100 flex gap-1.5">
+                        <button
+                          onClick={() => openEditPlan(pl, co.id)}
+                          className="p-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                          title="Edit Plan"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => setDeletePlan(pl)}
+                          className="p-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                          title="Delete Plan"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
                   ))}

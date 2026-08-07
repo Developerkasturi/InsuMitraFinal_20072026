@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@store/auth.store';
@@ -11,13 +11,14 @@ import {
   useCreateTask,
   useEmployeeTasks
 } from '@hooks/useWorkspace';
-import { commissionsService, employeesService } from '@api/index';
+import { commissionsService, employeesService, workspaceService } from '@api/index';
 import {
   Clock, CheckCircle, Play, Square,
   TrendingUp, ListTodo, ClipboardList,
   Plus, CheckSquare, Target, User, Shield,
   FileText, Users, Calendar, Phone, DollarSign,
-  Filter, Check, AlertCircle, LayoutDashboard, ArrowRight, Lock, MessageSquare
+  Filter, Check, AlertCircle, LayoutDashboard, ArrowRight, Lock, MessageSquare,
+  ChevronDown, Eye, X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
@@ -60,6 +61,9 @@ export default function Workspace() {
 
   // Task filter & form state
   const [taskStatusFilter, setTaskStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('ALL');
+  const [taskFilterDateFrom, setTaskFilterDateFrom] = useState('');
+  const [taskFilterDateTo, setTaskFilterDateTo] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [assignedToId, setAssignedToId] = useState('');
@@ -96,6 +100,18 @@ export default function Workspace() {
   const [visitsCompleted, setVisitsCompleted] = useState(0);
   const [premiumCollected, setPremiumCollected] = useState(0);
   const [nextDayPlan, setNextDayPlan] = useState('');
+
+  // Admin View Employee Workspace state
+  const [selectedEmployeeUserId, setSelectedEmployeeUserId] = useState<string | null>(null);
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+
+  // Query for selected employee workspace data (when admin selects an employee)
+  const { data: selectedEmpWsRes, isLoading: selectedEmpWsLoading } = useQuery({
+    queryKey: ['workspace', 'employee-data', selectedEmployeeUserId],
+    queryFn: () => selectedEmployeeUserId ? workspaceService.getEmployeeData(selectedEmployeeUserId) : null,
+    enabled: !!selectedEmployeeUserId && (user?.role === 'OWNER' || user?.role === 'SUPERADMIN'),
+    staleTime: 30_000,
+  });
 
   const workspaceData = wsRes?.data || wsRes; // support both envelope formats
   const logToday = workspaceData?.dailyLog;
@@ -182,6 +198,53 @@ export default function Workspace() {
     });
   };
 
+  const employeesList = (employeesRes?.data?.data || employeesRes?.data || []) as any[];
+  const selectedEmployeeObj = employeesList.find((e: any) => (e.user?.id || e.userId || e.id) === selectedEmployeeUserId);
+
+  const activeWorkspaceData = selectedEmployeeUserId ? (selectedEmpWsRes?.data || selectedEmpWsRes) : workspaceData;
+  const activeCounts = activeWorkspaceData?.counts || (workspaceData?.counts || { leads: 0, policies: 0, claims: 0, contacts: 0 });
+  const activeTarget = activeWorkspaceData?.target || (workspaceData?.target || { monthlyTarget: 0, progress: 0, percentage: 0 });
+  const activeTasks = activeWorkspaceData?.tasks || (workspaceData?.tasks || []);
+  const activeRecentLogs = activeWorkspaceData?.recentLogs || (workspaceData?.recentLogs || []);
+  const activeLogToday = activeWorkspaceData?.dailyLog;
+  const activeIsClockedIn = !!activeLogToday?.checkIn && !activeLogToday?.checkOut;
+  const activeIsClockedOut = !!activeLogToday?.checkIn && !!activeLogToday?.checkOut;
+
+  const counts = activeCounts;
+  const target = activeTarget;
+  const tasks = activeTasks;
+  const recentLogs = activeRecentLogs;
+
+  const taskListFromApi = selectedEmployeeUserId ? activeTasks : (allTasksRes?.data || tasks);
+
+  const filteredTasksList = useMemo(() => {
+    const list = taskListFromApi || [];
+    return list.filter((task: any) => {
+      // 1. Status Filter
+      if (taskStatusFilter !== 'ALL' && task.status !== taskStatusFilter) {
+        return false;
+      }
+      // 2. Priority Filter
+      if (taskPriorityFilter !== 'ALL' && (task.priority || 'MEDIUM') !== taskPriorityFilter) {
+        return false;
+      }
+      // 3. Datewise Filter (matches task dueDate, startDate, or createdAt)
+      const taskDateStr = task.dueDate || task.startDate || task.createdAt;
+      if (taskDateStr) {
+        const taskTime = new Date(taskDateStr).getTime();
+        if (taskFilterDateFrom) {
+          const fromTime = new Date(taskFilterDateFrom).setHours(0, 0, 0, 0);
+          if (taskTime < fromTime) return false;
+        }
+        if (taskFilterDateTo) {
+          const toTime = new Date(taskFilterDateTo).setHours(23, 59, 59, 999);
+          if (taskTime > toTime) return false;
+        }
+      }
+      return true;
+    });
+  }, [taskListFromApi, taskStatusFilter, taskPriorityFilter, taskFilterDateFrom, taskFilterDateTo]);
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -190,31 +253,107 @@ export default function Workspace() {
     );
   }
 
-  const counts = workspaceData?.counts || { leads: 0, policies: 0, claims: 0, contacts: 0 };
-  const target = workspaceData?.target || { monthlyTarget: 0, progress: 0, percentage: 0 };
-  const tasks = workspaceData?.tasks || [];
-  const recentLogs = workspaceData?.recentLogs || [];
-
-  const taskListFromApi = allTasksRes?.data || tasks;
-  const employeesList = (employeesRes?.data as any[]) || [];
-
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary-800 to-primary-600 rounded-2xl p-6 text-white shadow-lg">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary-800 to-primary-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
         <div>
-          <h1 className="text-2xl font-bold">Welcome back, {user?.firstName}!</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold">
+              {selectedEmployeeUserId && selectedEmployeeObj
+                ? `Viewing ${selectedEmployeeObj.firstName} ${selectedEmployeeObj.lastName}'s Workspace`
+                : `Welcome back, ${user?.firstName}!`}
+            </h1>
+            {selectedEmployeeUserId && (
+              <span className="px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 text-xs font-bold flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" /> View Only Mode
+              </span>
+            )}
+          </div>
           <p className="text-primary-100 text-sm mt-1">
-            Role: <span className="font-semibold">{user?.role}</span> | {format(new Date(), 'EEEE, dd MMMM yyyy')}
+            {selectedEmployeeUserId && selectedEmployeeObj ? (
+              <span>Designation: <span className="font-semibold">{selectedEmployeeObj.designation || 'Employee'}</span> | Email: {selectedEmployeeObj.email || selectedEmployeeObj.user?.email}</span>
+            ) : (
+              <span>Role: <span className="font-semibold">{user?.role}</span> | {format(new Date(), 'EEEE, dd MMMM yyyy')}</span>
+            )}
           </p>
         </div>
+
         <div className="mt-4 md:mt-0 flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm">
           <Clock className="w-5 h-5 text-primary-200" />
           <span className="text-sm font-medium">
-            Shift Status: {isClockedOut ? 'Attendance Ended (Locked)' : isClockedIn ? 'Attendance Marked (On Duty)' : 'Attendance Not Marked'}
+            Shift Status: {activeIsClockedOut ? 'Attendance Ended (Locked)' : activeIsClockedIn ? 'Attendance Marked (On Duty)' : 'Attendance Not Marked'}
           </span>
         </div>
       </div>
+
+      {/* Admin Select Employee Modal / Modal List */}
+      {isEmployeeModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary-600" /> Select Employee Workspace
+              </h3>
+              <button
+                onClick={() => setIsEmployeeModalOpen(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-gray-500">
+              Select an employee to view their targets, active tasks, daily log reports, and performance in view-only mode.
+            </p>
+
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              {employeesList.length === 0 ? (
+                <div className="text-center py-6 text-xs text-gray-400">No employees found.</div>
+              ) : (
+                employeesList.map((emp: any) => {
+                  const empUserId = emp.user?.id || emp.userId || emp.id;
+                  const isSelected = selectedEmployeeUserId === empUserId;
+                  return (
+                    <button
+                      key={empUserId}
+                      onClick={() => {
+                        setSelectedEmployeeUserId(empUserId);
+                        setIsEmployeeModalOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between p-3 rounded-xl text-left text-xs transition-all cursor-pointer border ${
+                        isSelected
+                          ? 'bg-primary-50 border-primary-300 text-primary-900 font-bold'
+                          : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-800 font-semibold'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
+                          {emp.firstName?.[0] || 'E'}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{emp.firstName} {emp.lastName}</p>
+                          <p className="text-[10px] text-gray-500">{emp.designation || 'Employee'} • {emp.email || emp.user?.email}</p>
+                        </div>
+                      </div>
+                      <Eye className="w-4 h-4 text-primary-600 opacity-60 group-hover:opacity-100" />
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setIsEmployeeModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Workspace Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-gray-200 pb-1 overflow-x-auto">
@@ -246,16 +385,6 @@ export default function Workspace() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('daily_log')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
-            activeTab === 'daily_log'
-              ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-          }`}
-        >
-          <Clock className="w-4 h-4" /> Daily Log & Attendance
-        </button>
-        <button
           onClick={() => setActiveTab('targets')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
             activeTab === 'targets'
@@ -265,13 +394,34 @@ export default function Workspace() {
         >
           <Target className="w-4 h-4" /> My Targets & Commissions
         </button>
+
+        {/* Admin "View Employee Workspace" Button Next to My Targets Tab */}
+        {(user?.role === 'OWNER' || user?.role === 'SUPERADMIN') && (
+          <div className="relative ml-auto flex items-center gap-2">
+            {selectedEmployeeUserId ? (
+              <button
+                onClick={() => setSelectedEmployeeUserId(null)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              >
+                <X className="w-4 h-4 text-amber-700" /> Clear Employee Filter
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsEmployeeModalOpen(!isEmployeeModalOpen)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              >
+                <Users className="w-4 h-4 text-primary-600" /> View Employee Workspace <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Mini Dashboard & Quick Actions Row (Visible in Overview & My Targets tabs) */}
-      {(activeTab === 'overview' || activeTab === 'targets') && (
+      {/* Mini Dashboard & Quick Actions Row (Visible in Overview tab) */}
+      {activeTab === 'overview' && (
         <div className="space-y-4">
           {/* Quick Metrics Grid - Clickable with Assigned to Me filter */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <Link
               to="/leads?assignedTo=me"
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer hover:no-underline group"
@@ -282,10 +432,10 @@ export default function Workspace() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Assigned Leads</p>
-                  <p className="text-lg font-bold text-gray-800">{counts.leads}</p>
+                  <p className="text-lg font-bold text-gray-800">{activeCounts.leads}</p>
                 </div>
               </div>
-              <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-semibold border border-blue-100 hidden sm:inline-block">Assigned to Me</span>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
             </Link>
             
             <Link
@@ -297,11 +447,11 @@ export default function Workspace() {
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">Assigned Contacts</p>
-                  <p className="text-lg font-bold text-gray-800">{counts.contacts}</p>
+                  <p className="text-xs text-gray-500 font-medium">My Contacts</p>
+                  <p className="text-lg font-bold text-gray-800">{activeCounts.contacts}</p>
                 </div>
               </div>
-              <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full font-semibold border border-purple-100 hidden sm:inline-block">Assigned to Me</span>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all" />
             </Link>
 
             <Link
@@ -313,11 +463,11 @@ export default function Workspace() {
                   <Shield className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">Assigned Policies</p>
-                  <p className="text-lg font-bold text-gray-800">{counts.policies}</p>
+                  <p className="text-xs text-gray-500 font-medium">Active Policies</p>
+                  <p className="text-lg font-bold text-gray-800">{activeCounts.policies}</p>
                 </div>
               </div>
-              <span className="text-[10px] bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-semibold border border-green-100 hidden sm:inline-block">Assigned to Me</span>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-green-600 group-hover:translate-x-0.5 transition-all" />
             </Link>
 
             <Link
@@ -329,12 +479,29 @@ export default function Workspace() {
                   <FileText className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 font-medium">Assigned Claims</p>
-                  <p className="text-lg font-bold text-gray-800">{counts.claims}</p>
+                  <p className="text-xs text-gray-500 font-medium">Open Claims</p>
+                  <p className="text-lg font-bold text-gray-800">{activeCounts.claims}</p>
                 </div>
               </div>
-              <span className="text-[10px] bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-semibold border border-orange-100 hidden sm:inline-block">Assigned to Me</span>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-orange-600 group-hover:translate-x-0.5 transition-all" />
             </Link>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('tasks')}
+              className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer text-left group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <ListTodo className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Assigned Tasks</p>
+                  <p className="text-lg font-bold text-gray-800">{taskListFromApi.length}</p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+            </button>
           </div>
         </div>
       )}
@@ -345,39 +512,6 @@ export default function Workspace() {
           
           {/* Attendance & EOD Column */}
           <div className="space-y-6 lg:col-span-2">
-            
-            {/* Quick Actions Bar */}
-            <div className="card bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
-                <Plus className="w-4 h-4 text-primary-600" /> Quick Actions
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Link
-                  to="/contacts?action=add"
-                  className="flex items-center justify-center gap-2 p-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-xl text-xs transition-all hover:scale-[1.02] hover:no-underline"
-                >
-                  <Users className="w-4 h-4 text-purple-600" /> + Contact
-                </Link>
-                <Link
-                  to="/leads?action=add"
-                  className="flex items-center justify-center gap-2 p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl text-xs transition-all hover:scale-[1.02] hover:no-underline"
-                >
-                  <TrendingUp className="w-4 h-4 text-blue-600" /> + Lead
-                </Link>
-                <Link
-                  to="/policies?action=add"
-                  className="flex items-center justify-center gap-2 p-3 bg-green-50 hover:bg-green-100 text-green-700 font-semibold rounded-xl text-xs transition-all hover:scale-[1.02] hover:no-underline"
-                >
-                  <Shield className="w-4 h-4 text-green-600" /> + Policy
-                </Link>
-                <Link
-                  to="/claims?action=add"
-                  className="flex items-center justify-center gap-2 p-3 bg-orange-50 hover:bg-orange-100 text-orange-700 font-semibold rounded-xl text-xs transition-all hover:scale-[1.02] hover:no-underline"
-                >
-                  <FileText className="w-4 h-4 text-orange-600" /> + Claim
-                </Link>
-              </div>
-            </div>
             
             {/* Attendance & EOD Form Card */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -519,12 +653,6 @@ export default function Workspace() {
                 <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                   <ClipboardList className="w-5 h-5 text-primary-600" /> Recent Daily Logs
                 </h2>
-                <button
-                  onClick={() => setActiveTab('daily_log')}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  View All Logs <ArrowRight className="w-3.5 h-3.5" />
-                </button>
               </div>
               {recentLogs.length === 0 ? (
                 <div className="text-center py-6 text-sm text-gray-400">No EOD history found.</div>
@@ -700,49 +828,96 @@ export default function Workspace() {
       {activeTab === 'tasks' && (
         <div className="space-y-6">
           <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                   <ListTodo className="w-5 h-5 text-primary-600" /> My Tasks
                 </h2>
-                <p className="text-xs text-gray-500 mt-0.5">Manage and track work items with complete assignment and timing control</p>
+                <p className="text-xs text-gray-500 mt-0.5">Manage and track work items with complete assignment, timing, and multi-filter control</p>
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Status Filter buttons */}
-                <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs">
-                  <button
-                    onClick={() => setTaskStatusFilter('ALL')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                      taskStatusFilter === 'ALL' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setTaskStatusFilter('PENDING')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                      taskStatusFilter === 'PENDING' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Pending
-                  </button>
-                  <button
-                    onClick={() => setTaskStatusFilter('COMPLETED')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                      taskStatusFilter === 'COMPLETED' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Completed
-                  </button>
-                </div>
-
                 <button
                   onClick={() => setShowAddTask(!showAddTask)}
                   className="btn-primary flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" /> Add Task
                 </button>
+              </div>
+            </div>
+
+            {/* Task Filters Bar: Status, Priority, Datewise Filter */}
+            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 mb-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <Filter className="w-4 h-4 text-primary-600" />
+                  <span>Filter Tasks</span>
+                </div>
+                {(taskStatusFilter !== 'ALL' || taskPriorityFilter !== 'ALL' || taskFilterDateFrom || taskFilterDateTo) && (
+                  <button
+                    onClick={() => {
+                      setTaskStatusFilter('ALL');
+                      setTaskPriorityFilter('ALL');
+                      setTaskFilterDateFrom('');
+                      setTaskFilterDateTo('');
+                    }}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" /> Clear Filters
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Status Filter */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status Filter</label>
+                  <select
+                    value={taskStatusFilter}
+                    onChange={(e: any) => setTaskStatusFilter(e.target.value)}
+                    className="input w-full p-2 text-xs border border-gray-200 rounded-xl bg-white font-semibold"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING">Pending Tasks</option>
+                    <option value="COMPLETED">Completed Tasks</option>
+                  </select>
+                </div>
+
+                {/* 2. Priority Filter */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Priority Filter</label>
+                  <select
+                    value={taskPriorityFilter}
+                    onChange={(e: any) => setTaskPriorityFilter(e.target.value)}
+                    className="input w-full p-2 text-xs border border-gray-200 rounded-xl bg-white font-semibold"
+                  >
+                    <option value="ALL">All Priorities</option>
+                    <option value="LOW">Low Priority</option>
+                    <option value="MEDIUM">Medium Priority</option>
+                    <option value="HIGH">High Priority</option>
+                    <option value="URGENT">Urgent Priority</option>
+                  </select>
+                </div>
+
+                {/* 3. Date From */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date From</label>
+                  <DatePicker
+                    value={taskFilterDateFrom}
+                    onDateChange={setTaskFilterDateFrom}
+                    className="input w-full p-2 text-xs border border-gray-200 rounded-xl bg-white"
+                  />
+                </div>
+
+                {/* 4. Date To */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Date To</label>
+                  <DatePicker
+                    value={taskFilterDateTo}
+                    onDateChange={setTaskFilterDateTo}
+                    className="input w-full p-2 text-xs border border-gray-200 rounded-xl bg-white"
+                  />
+                </div>
               </div>
             </div>
 
@@ -876,10 +1051,10 @@ export default function Workspace() {
               <div className="flex justify-center py-12">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
               </div>
-            ) : taskListFromApi.length === 0 ? (
+            ) : filteredTasksList.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <ListTodo className="w-10 h-10 mx-auto text-gray-300 mb-2" />
-                <p className="text-sm font-medium">No tasks found matching current filter.</p>
+                <p className="text-sm font-medium">No tasks found matching current filters.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -899,7 +1074,7 @@ export default function Workspace() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-xs">
-                    {taskListFromApi.map((task: any) => {
+                    {filteredTasksList.map((task: any) => {
                       const isDone = task.status === 'COMPLETED';
                       const assignedName = task.assignedTo?.employeeProfile
                         ? `${task.assignedTo.employeeProfile.firstName} ${task.assignedTo.employeeProfile.lastName}`
@@ -990,202 +1165,6 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* TAB 3: DAILY LOG & ATTENDANCE */}
-      {activeTab === 'daily_log' && (
-        <div className="space-y-6">
-          <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-6">
-              <Clock className="w-5 h-5 text-primary-600" /> Attendance & Daily EOD Reporting
-            </h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Attendance Shift Status */}
-              <div className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Attendance Status</h3>
-                
-                {isClockedOut ? (
-                  <div className="p-4 bg-gray-100 rounded-xl border border-gray-200 space-y-2">
-                    <div className="flex items-center gap-2 text-gray-700 font-bold text-xs uppercase tracking-wider">
-                      <Lock className="w-4 h-4 text-gray-500" /> Attendance Locked
-                    </div>
-                    <p className="text-xs font-semibold text-gray-800">
-                      In: {format(new Date(logToday.checkIn), 'hh:mm a')} | Out: {format(new Date(logToday.checkOut), 'hh:mm a')}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      Total Duration: <span className="font-semibold">{formatTotalDuration(logToday.checkIn, logToday.checkOut)}</span>
-                    </p>
-                    <p className="text-[10px] text-amber-700 font-medium bg-amber-50 p-2 rounded-lg border border-amber-200 mt-2">
-                      Shift completed & attendance locked for today after EOD submission.
-                    </p>
-                  </div>
-                ) : !logToday?.checkIn ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs">
-                      <p className="font-semibold">Shift Not Started</p>
-                      <p className="mt-1 text-amber-700">Click below to mark present and begin today's shift log.</p>
-                    </div>
-                    <button
-                      onClick={handleClockIn}
-                      disabled={clockInMutation.isPending}
-                      className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
-                    >
-                      <Play className="w-4 h-4" /> {clockInMutation.isPending ? 'Marking Attendance...' : 'Mark Attendance (Clock In)'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-xl border border-green-200 flex items-center gap-3">
-                      <div className="bg-green-500 p-2.5 rounded-xl text-white">
-                        <Clock className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-green-700 font-bold uppercase tracking-wider">On Duty</p>
-                        <p className="text-sm font-bold text-gray-800">
-                          Clocked In: {format(new Date(logToday.checkIn), 'hh:mm a')}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={handleClockOut}
-                      disabled={clockOutMutation.isPending}
-                      className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
-                    >
-                      <Square className="w-4 h-4" /> {clockOutMutation.isPending ? 'Ending Shift...' : 'End Attendance (Clock Out)'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Comprehensive EOD Form */}
-              <form onSubmit={handleSaveLog} className="lg:col-span-2 space-y-4 bg-gray-50 p-5 rounded-2xl border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Today's End of Day (EOD) Report</h3>
-                  {logToday?.updatedAt && (
-                    <span className="text-[10px] text-gray-400 font-medium">
-                      Last Updated: {format(new Date(logToday.updatedAt), 'hh:mm a')}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Calls Made Today</label>
-                    <input
-                      type="number"
-                      value={callsMade}
-                      onChange={(e) => setCallsMade(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Visits Completed Today</label>
-                    <input
-                      type="number"
-                      value={visitsCompleted}
-                      onChange={(e) => setVisitsCompleted(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Premium Collected (₹)</label>
-                    <input
-                      type="number"
-                      value={premiumCollected}
-                      onChange={(e) => setPremiumCollected(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white text-center font-bold text-green-700"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Tomorrow's Plan & Agenda</label>
-                  <input
-                    type="text"
-                    value={nextDayPlan}
-                    onChange={(e) => setNextDayPlan(e.target.value)}
-                    placeholder="Scheduled client visits, follow-up calls, target tasks..."
-                    className="input w-full p-2.5 text-xs border border-gray-200 rounded-xl bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Today's Shift Notes & Remarks</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Summary of day activities, customer feedback, issues faced..."
-                    className="input w-full min-h-[70px] text-xs p-2.5 border border-gray-200 rounded-xl bg-white"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={saveLogMutation.isPending}
-                  className="btn-primary w-full text-xs font-semibold py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white transition-all cursor-pointer shadow-sm"
-                >
-                  {saveLogMutation.isPending ? 'Saving EOD Report...' : 'Save Today\'s EOD Log'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* EOD Log History Table */}
-          <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
-              <ClipboardList className="w-5 h-5 text-primary-600" /> Daily Log History
-            </h2>
-            {recentLogs.length === 0 ? (
-              <div className="text-center py-8 text-sm text-gray-400">No daily log history recorded.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-100">
-                  <thead>
-                    <tr className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      <th className="pb-3 px-3">Log Date</th>
-                      <th className="pb-3 px-3">Shift Timing</th>
-                      <th className="pb-3 px-3 text-center">Calls</th>
-                      <th className="pb-3 px-3 text-center">Visits</th>
-                      <th className="pb-3 px-3 text-right">Premium Collected</th>
-                      <th className="pb-3 px-3">Next Day Plan</th>
-                      <th className="pb-3 px-3">Notes & Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 text-xs">
-                    {recentLogs.map((log: any, i: number) => (
-                      <tr key={i} className="text-gray-700 hover:bg-gray-50/50">
-                        <td className="py-3 px-3 font-semibold text-gray-900">{format(new Date(log.logDate), 'dd/MMM/yyyy')}</td>
-                        <td className="py-3 px-3">
-                          {log.checkIn ? (
-                            <span className="text-green-600 font-medium">
-                              {format(new Date(log.checkIn), 'hh:mm a')}
-                              {log.checkOut ? ` - ${format(new Date(log.checkOut), 'hh:mm a')}` : ' (On Duty)'}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center font-medium">{log.callsMade ?? 0}</td>
-                        <td className="py-3 px-3 text-center font-medium">{log.visitsCompleted ?? 0}</td>
-                        <td className="py-3 px-3 text-right font-semibold text-green-700">
-                          ₹{Number(log.premiumCollected ?? 0).toLocaleString('en-IN')}
-                        </td>
-                        <td className="py-3 px-3 text-gray-600 truncate max-w-[200px]" title={log.nextDayPlan || undefined}>
-                          {log.nextDayPlan || '—'}
-                        </td>
-                        <td className="py-3 px-3 text-gray-500 truncate max-w-[200px]" title={log.notes || log.adminRemarks || undefined}>
-                          {log.notes || log.adminRemarks || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* TAB 4: MY TARGETS & COMMISSIONS */}
       {activeTab === 'targets' && (
         <div className="space-y-6">
@@ -1252,11 +1231,11 @@ export default function Workspace() {
                   </div>
                 </div>
 
-                {/* Visits Progress Card */}
+                {/* Proposal Progress Card */}
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-purple-600" /> Visits Target
+                      <Users className="w-4 h-4 text-purple-600" /> Proposal Target
                     </span>
                     <span className="text-xs font-bold text-purple-600">
                       {target.visitsTarget > 0 ? Math.min(100, Math.round(((target.visitsProgress || 0) / target.visitsTarget) * 100)) : 0}%
@@ -1270,7 +1249,7 @@ export default function Workspace() {
                   </div>
                   <div className="space-y-1 pt-1 text-xs">
                     <div className="flex justify-between text-gray-500">
-                      <span>Visits Done:</span>
+                      <span>Proposals Done:</span>
                       <span className="font-bold text-gray-800">{target.visitsProgress || 0}</span>
                     </div>
                     <div className="flex justify-between text-gray-500">
@@ -1334,7 +1313,8 @@ export default function Workspace() {
                     <table className="min-w-full divide-y divide-gray-100">
                       <thead>
                         <tr className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                          <th className="pb-3 px-3">Policy #</th>
+                          <th className="pb-3 px-3">Policy Details</th>
+                          <th className="pb-3 px-3">Policy Number</th>
                           <th className="pb-3 px-3">Year</th>
                           <th className="pb-3 px-3 text-right">Commission Amount</th>
                           <th className="pb-3 px-3 text-right">Rate</th>
@@ -1343,22 +1323,36 @@ export default function Workspace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-xs">
-                        {commList.map((c: any) => (
-                          <tr key={c.id} className="text-gray-700 hover:bg-gray-50 transition-colors">
-                            <td className="py-3 px-3 font-semibold text-gray-800">{c.policy?.policyNumber ?? '—'}</td>
-                            <td className="py-3 px-3 text-gray-500">{c.commissionYear?.name ?? '—'}</td>
-                            <td className="py-3 px-3 text-right font-bold text-gray-900">₹{Number(c.amount ?? 0).toLocaleString('en-IN')}</td>
-                            <td className="py-3 px-3 text-right text-gray-500">{Number(c.rate ?? 0).toFixed(2)}%</td>
-                            <td className="py-3 px-3 text-center">
-                              <span className={c.isPaid ? 'badge-green' : 'badge-yellow'}>
-                                {c.isPaid ? 'Paid' : 'Pending'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-gray-500">
-                              {c.paidAt ? format(new Date(c.paidAt), 'dd/MMM/yyyy') : '—'}
-                            </td>
-                          </tr>
-                        ))}
+                        {commList.map((c: any) => {
+                          const contactName = c.policy?.contact ? `${c.policy.contact.firstName ?? ''} ${c.policy.contact.lastName ?? ''}`.trim() : '';
+                          const planName = c.policy?.plan?.name || c.policyName || 'Insurance Policy';
+                          return (
+                            <tr key={c.id} className="text-gray-700 hover:bg-gray-50 transition-colors">
+                              <td className="py-3 px-3">
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-gray-900 text-xs">{planName}</span>
+                                  {contactName && <span className="text-[11px] text-gray-500 font-medium">Holder: {contactName}</span>}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                  #{c.policy?.policyNumber ?? '—'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-gray-600 font-medium">{c.commissionYear?.name ?? (c.year ? `Year ${c.year}` : '—')}</td>
+                              <td className="py-3 px-3 text-right font-bold text-gray-900">₹{Number(c.amount ?? 0).toLocaleString('en-IN')}</td>
+                              <td className="py-3 px-3 text-right text-gray-500">{Number(c.rate ?? 0).toFixed(2)}%</td>
+                              <td className="py-3 px-3 text-center">
+                                <span className={c.isPaid ? 'badge-green' : 'badge-yellow'}>
+                                  {c.isPaid ? 'Paid' : 'Pending'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-gray-500">
+                                {c.paidAt ? format(new Date(c.paidAt), 'dd/MMM/yyyy') : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
