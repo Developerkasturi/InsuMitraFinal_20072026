@@ -43,7 +43,70 @@ interface NavGroupProps {
   user: any;
 }
 
-function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature }: NavGroupProps) {
+interface NavItemProps {
+  item: typeof NAV[0];
+  collapsed: boolean;
+  isFeatureEnabled: (feature?: string) => boolean;
+  setLockedFeature: (label: string) => void;
+  setTooltip: (tooltip: { label: string; enabled: boolean; top: number } | null) => void;
+}
+
+function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setTooltip }: NavItemProps) {
+  const { to, label, Icon, feature } = item;
+  const enabled = isFeatureEnabled(feature);
+
+  return (
+    <NavLink
+      key={to}
+      to={to}
+      onClick={(e) => { if (!enabled) { e.preventDefault(); setLockedFeature(label); } }}
+      onMouseEnter={(e) => {
+        if (collapsed) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setTooltip({ label, enabled, top: rect.top + rect.height / 2 });
+        }
+      }}
+      onMouseLeave={() => setTooltip(null)}
+      className={({ isActive }) =>
+        clsx(
+          'flex items-center rounded-xl font-medium transition-all duration-200 relative group select-none',
+          collapsed
+            ? 'justify-center w-10 h-10 mx-auto my-1'
+            : 'gap-3.5 px-3 py-2 text-[13px] hover:translate-x-0.5 my-0.5',
+          isActive && enabled
+            ? collapsed
+              ? 'bg-blue-600/20 text-white ring-1 ring-blue-500/40'
+              : 'bg-white/10 text-white shadow-md border-l-2 border-blue-400 pl-[12px]'
+            : 'text-slate-300 hover:bg-white/[0.08] hover:text-white border-l-2 border-transparent',
+          !enabled && 'opacity-35 cursor-not-allowed',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <div className={clsx(
+            "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+            isActive && enabled
+              ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30"
+              : "bg-white/[0.05] text-slate-300 group-hover:bg-white/[0.1] group-hover:text-white"
+          )}>
+            <Icon size={16} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
+          </div>
+          {!collapsed && (
+            <>
+              <span className="flex-1 truncate leading-none ml-1">{label}</span>
+              {!enabled && (
+                <Lock size={11} className="text-slate-500 shrink-0" />
+              )}
+            </>
+          )}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature, setTooltip }: NavGroupProps & { setTooltip: (tooltip: any) => void }) {
   if (!items.length) return null;
   return (
     <div className="space-y-1">
@@ -55,58 +118,16 @@ function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature 
       {collapsed && (
         <div className="w-7 h-[1px] bg-white/[0.08] mx-auto my-2.5 rounded-full" />
       )}
-      {items.map(({ to, label, Icon, feature }) => {
-        const enabled = isFeatureEnabled(feature);
-        return (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={(e) => { if (!enabled) { e.preventDefault(); setLockedFeature(label); } }}
-            className={({ isActive }) =>
-              clsx(
-                'flex items-center rounded-xl font-medium transition-all duration-200 relative group select-none',
-                collapsed
-                  ? 'justify-center w-10 h-10 mx-auto my-1'
-                  : 'gap-3.5 px-3 py-2 text-[13px] hover:translate-x-0.5 my-0.5',
-                isActive && enabled
-                  ? collapsed
-                    ? 'bg-blue-600/20 text-white ring-1 ring-blue-500/40'
-                    : 'bg-white/10 text-white shadow-md border-l-2 border-blue-400 pl-[12px]'
-                  : 'text-slate-300 hover:bg-white/[0.08] hover:text-white border-l-2 border-transparent',
-                !enabled && 'opacity-35 cursor-not-allowed',
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <div className={clsx(
-                  "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
-                  isActive && enabled
-                    ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30"
-                    : "bg-white/[0.05] text-slate-300 group-hover:bg-white/[0.1] group-hover:text-white"
-                )}>
-                  <Icon size={16} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
-                </div>
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 truncate leading-none ml-1">{label}</span>
-                    {!enabled && (
-                      <Lock size={11} className="text-slate-500 shrink-0" />
-                    )}
-                  </>
-                )}
-                {/* Floating Tooltip Label on Hover (Escapes overflow-y-auto clipping) */}
-                {collapsed && (
-                  <div className="fixed left-[68px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[9999] opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap hidden group-hover:flex items-center gap-1.5">
-                    {label}
-                    {!enabled && <Lock size={10} className="text-slate-400" />}
-                  </div>
-                )}
-              </>
-            )}
-          </NavLink>
-        );
-      })}
+      {items.map((item) => (
+        <NavItem
+          key={item.to}
+          item={item}
+          collapsed={collapsed}
+          isFeatureEnabled={isFeatureEnabled}
+          setLockedFeature={setLockedFeature}
+          setTooltip={setTooltip}
+        />
+      ))}
     </div>
   );
 }
@@ -114,6 +135,7 @@ function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature 
 export default function Sidebar() {
   const [collapsed, setCollapsed]         = useState(true);
   const [lockedFeature, setLockedFeature] = useState<string | null>(null);
+  const [tooltip, setTooltip]             = useState<{ label: string; enabled: boolean; top: number } | null>(null);
   const user                              = useAuthStore(s => s.user);
   const navigate                          = useNavigate();
 
@@ -140,8 +162,12 @@ export default function Sidebar() {
   };
 
   const visibleByRole = (item: typeof NAV[0]) => {
-    if (item.to === '/whatsapp') {
-      return user?.role === 'OWNER' || user?.role === 'SUPERADMIN' || (user?.role === 'EMPLOYEE' && (user as any)?.permissions?.includes('manage_whatsapp'));
+    if (user?.role === 'OWNER' || user?.role === 'SUPERADMIN') return true;
+    if (user?.role === 'EMPLOYEE') {
+      const perms: string[] = (user as any)?.permissions || [];
+      const modKey = item.to.replace('/', '').replace('-', '_');
+      const hasPerm = perms.some((p: string) => p.includes(modKey));
+      if (hasPerm) return true;
     }
     return !item.roles || item.roles.includes(user?.role ?? '');
   };
@@ -191,21 +217,17 @@ export default function Sidebar() {
             </span>
           </div>
         )}
-        {collapsed && (
-          <div className="fixed left-[68px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[9999] opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap hidden group-hover:block">
-            InsuMitra CRM Portal
-          </div>
-        )}
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar px-3 overflow-x-hidden">
+      <nav className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar px-3 relative">
         <NavGroup
           title="Overview"
           items={overviewItems}
           collapsed={collapsed}
           isFeatureEnabled={isFeatureEnabled}
           setLockedFeature={setLockedFeature}
+          setTooltip={setTooltip}
           user={user}
         />
         <NavGroup
@@ -214,6 +236,7 @@ export default function Sidebar() {
           collapsed={collapsed}
           isFeatureEnabled={isFeatureEnabled}
           setLockedFeature={setLockedFeature}
+          setTooltip={setTooltip}
           user={user}
         />
         {(mgmtItems.length > 0) && (
@@ -223,6 +246,7 @@ export default function Sidebar() {
             collapsed={collapsed}
             isFeatureEnabled={isFeatureEnabled}
             setLockedFeature={setLockedFeature}
+            setTooltip={setTooltip}
             user={user}
           />
         )}
@@ -259,22 +283,33 @@ export default function Sidebar() {
         <div className="mb-2 relative group flex justify-center">
           <button
             onClick={() => navigate('/subscription')}
+            onMouseEnter={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setTooltip({ label: 'Upgrade Plan', enabled: true, top: rect.top + rect.height / 2 });
+            }}
+            onMouseLeave={() => setTooltip(null)}
             className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-600/40 hover:text-white transition-all shadow-sm"
           >
             <Zap size={15} />
           </button>
-          <div className="fixed left-[68px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[9999] opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap hidden group-hover:block">
-            Upgrade Plan
-          </div>
         </div>
       )}
 
       {/* ── User + Logout ───────────────────────────────────────────────── */}
-      <div className="shrink-0 p-3 space-y-2"
+      <div className="shrink-0 p-3 space-y-2 relative"
            style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         {/* User profile row */}
         {user && (
-          <div className={clsx("relative group flex items-center", collapsed ? "justify-center" : "gap-3 px-3 py-2.5 rounded-xl border border-white/[0.02] bg-white/[0.02]")}>
+          <div
+            onMouseEnter={(e) => {
+              if (collapsed) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTooltip({ label: `${user.firstName} ${user.lastName} (${user.role})`, enabled: true, top: rect.top + rect.height / 2 });
+              }
+            }}
+            onMouseLeave={() => setTooltip(null)}
+            className={clsx("relative group flex items-center", collapsed ? "justify-center" : "gap-3 px-3 py-2.5 rounded-xl border border-white/[0.02] bg-white/[0.02]")}
+          >
             <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-[12px] font-bold shrink-0 shadow-inner">
               {initials}
             </div>
@@ -288,11 +323,6 @@ export default function Sidebar() {
                 </p>
               </div>
             )}
-            {collapsed && (
-              <div className="fixed left-[68px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[9999] opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap hidden group-hover:block">
-                {user.firstName} {user.lastName} ({user.role})
-              </div>
-            )}
           </div>
         )}
 
@@ -300,6 +330,13 @@ export default function Sidebar() {
         <div className="relative group flex justify-center">
           <button
             onClick={handleLogout}
+            onMouseEnter={(e) => {
+              if (collapsed) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTooltip({ label: 'Logout', enabled: true, top: rect.top + rect.height / 2 });
+              }
+            }}
+            onMouseLeave={() => setTooltip(null)}
             className={clsx(
               'flex items-center rounded-xl transition-all duration-200 text-slate-400 hover:bg-red-500/15 hover:text-red-400',
               collapsed ? 'w-9 h-9 justify-center' : 'w-full gap-2.5 px-3 py-2 text-[12px] font-semibold'
@@ -308,13 +345,19 @@ export default function Sidebar() {
             <LogOut size={16} strokeWidth={2} />
             {!collapsed && <span>Logout</span>}
           </button>
-          {collapsed && (
-            <div className="fixed left-[68px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[9999] opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap hidden group-hover:block">
-              Logout
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Floating Tooltip outside overflow container */}
+      {collapsed && tooltip && (
+        <div
+          className="fixed left-[72px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[99999] pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fadeIn"
+          style={{ top: `${tooltip.top}px`, transform: 'translateY(-50%)' }}
+        >
+          {tooltip.label}
+          {!tooltip.enabled && <Lock size={10} className="text-slate-400" />}
+        </div>
+      )}
 
       <UpgradePromptModal
         isOpen={!!lockedFeature}

@@ -912,11 +912,23 @@ export default function Claims() {
     },
     {
       key: 'actions' as any,
-      label: '',
+      label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-2 justify-end" onClick={e => e.stopPropagation()}>
-          <button title="Edit" className="p-1 rounded hover:bg-gray-100 text-gray-500" onClick={() => setEditTarget(r)}><Pencil size={13} /></button>
-          <button title="Delete" className="p-1 rounded hover:bg-red-50 text-red-500" onClick={() => setDeleteTarget(r)}><Trash2 size={13} /></button>
+        <div className="flex items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
+          <button
+            title="Edit Claim"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            onClick={() => setEditTarget(r)}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            title="Delete Claim"
+            className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            onClick={() => setDeleteTarget(r)}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       ),
     },
@@ -1469,7 +1481,7 @@ export default function Claims() {
             
             {/* Select Customer */}
             <div className="relative">
-              <label className="label">Select Customer</label>
+              <label className="label">Select Customer <span className="text-red-500">*</span></label>
               <input type="hidden" {...register('contactId')} />
               <div className="relative mt-1">
                 <input
@@ -1518,7 +1530,7 @@ export default function Claims() {
             <div className="grid grid-cols-2 gap-4">
               {/* Select Policy */}
               <div className="relative">
-                <label className="label">Select Policy</label>
+                <label className="label">Select Policy <span className="text-red-500">*</span></label>
                 <input type="hidden" {...register('policyId')} />
                 <button
                   type="button"
@@ -1584,7 +1596,7 @@ export default function Claims() {
           {/* Row: Claim Type | Diagnosis / Ailment */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Claim Type</label>
+              <label className="label">Claim Type <span className="text-red-500">*</span></label>
               <select {...register('claimType')} className="input mt-1">
                 <option value="Cashless">Cashless</option>
                 <option value="Reimbursement">Reimbursement</option>
@@ -1626,11 +1638,11 @@ export default function Claims() {
           {/* Row: Claim Number | Intimation Date */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Claim Number *</label>
+              <label className="label">Claim Number <span className="text-red-500">*</span></label>
               <input {...register('claimNumber')} className="input mt-1" placeholder="CLM-XXXXXXXX" />
             </div>
             <div>
-              <label className="label">Intimation Date *</label>
+              <label className="label">Intimation Date <span className="text-red-500">*</span></label>
               <DatePicker {...register('intimatedAt')} className="input mt-1" />
             </div>
           </div>

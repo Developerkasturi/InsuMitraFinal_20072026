@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil } from 'lucide-react';
+import { Pencil, Download, Eye } from 'lucide-react';
 import { employeesService } from '@api/index';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
+import * as XLSX from 'xlsx';
 import type { Employee } from './EmployeesLayout';
 
 export default function EmployeeEodReports() {
@@ -33,6 +34,60 @@ export default function EmployeeEodReports() {
       setEditTarget(null);
     },
   });
+
+  const handleExportSingleReport = (r: Employee, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const log = r.user?.dailyLogs?.[0];
+    const reportData = [
+      {
+        'Employee ID': r.id,
+        'Employee Name': `${r.firstName} ${r.lastName}`,
+        'Designation': r.designation || r.user?.role || 'Agent',
+        'Department': r.department || '—',
+        'Phone': r.phone || '—',
+        'Email': r.user?.email || '—',
+        'Calls Made': log?.callsMade ?? 0,
+        'Meetings Done': log?.visitsCompleted ?? 0,
+        'Premium Collected (₹)': log?.premiumCollected ?? 0,
+        'Next Day Plan': log?.nextDayPlan || '—',
+        'Notes / Remarks': log?.notes || '—',
+        'Admin Remarks': log?.adminRemarks || '—',
+        'Export Date': new Date().toLocaleDateString('en-IN'),
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(reportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'EOD Report');
+    XLSX.writeFile(workbook, `${r.firstName}_${r.lastName}_Report.xlsx`);
+  };
+
+  const handleExportAllReports = () => {
+    if (!data?.data || data.data.length === 0) return;
+    const reportData = data.data.map((r: Employee) => {
+      const log = r.user?.dailyLogs?.[0];
+      return {
+        'Employee ID': r.id,
+        'Employee Name': `${r.firstName} ${r.lastName}`,
+        'Designation': r.designation || r.user?.role || 'Agent',
+        'Department': r.department || '—',
+        'Phone': r.phone || '—',
+        'Email': r.user?.email || '—',
+        'Calls Made': log?.callsMade ?? 0,
+        'Meetings Done': log?.visitsCompleted ?? 0,
+        'Premium Collected (₹)': log?.premiumCollected ?? 0,
+        'Next Day Plan': log?.nextDayPlan || '—',
+        'Notes / Remarks': log?.notes || '—',
+        'Admin Remarks': log?.adminRemarks || '—',
+        'Export Date': new Date().toLocaleDateString('en-IN'),
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(reportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Employee Reports');
+    XLSX.writeFile(workbook, `Employee_Reports_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   const cols: Column<Employee>[] = [
     {
@@ -101,20 +156,27 @@ export default function EmployeeEodReports() {
       key: 'actions' as any,
       label: 'ACTION',
       render: r => (
-        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
           <button
             title="Add / Edit EOD"
-            className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
             onClick={() => setEditTarget(r)}
           >
             <Pencil size={14} />
           </button>
           <button
             title="View Employee"
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-emerald-500/20 hover:shadow-lg hover:scale-105 transition-all"
             onClick={() => navigate(`/employees/${r.id}`)}
           >
-            View
+            <Eye size={14} />
+          </button>
+          <button
+            title="Export Report"
+            className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            onClick={e => handleExportSingleReport(r, e)}
+          >
+            <Download size={14} />
           </button>
         </div>
       ),
@@ -122,7 +184,17 @@ export default function EmployeeEodReports() {
   ];
 
   return (
-    <>
+    <div className="space-y-3">
+      <div className="flex justify-end items-center">
+        <button
+          type="button"
+          onClick={handleExportAllReports}
+          className="btn-secondary h-8 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer hover:bg-slate-100"
+          title="Export all employee reports to Excel"
+        >
+          <Download size={13} /> Export All Reports
+        </button>
+      </div>
       <DataTable
         columns={cols}
         data={data?.data ?? []}
@@ -189,6 +261,6 @@ export default function EmployeeEodReports() {
           </div>
         </div>
       </Modal>
-    </>
+    </div>
   );
 }

@@ -31,7 +31,7 @@ export class CommissionsService {
         skip,
         take:    limit,
         include: {
-          policy:         { select: { policyNumber: true } },
+          policy:         { select: { policyNumber: true, contact: { select: { firstName: true, lastName: true } }, plan: { select: { name: true } } } },
           commissionYear: { select: { name: true, year: true } },
           beneficiary:    { select: { employeeProfile: { select: { firstName: true, lastName: true } } } },
         },

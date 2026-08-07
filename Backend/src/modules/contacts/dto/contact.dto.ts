@@ -98,10 +98,21 @@ export class CreateContactDto {
   @IsString()
   lastName: string;
 
-  @ApiProperty({ description: 'Mobile number — must be exactly 10 digits', example: '9876543210' })
+  @ApiPropertyOptional({ description: 'Mobile number — must be exactly 10 digits', example: '9876543210' })
+  @IsOptional()
   @IsString()
-  @Matches(/^\d{10}$/, { message: 'Mobile number must be exactly 10 digits' })
-  phone: string;
+  phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isDependent?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  dependentNo?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

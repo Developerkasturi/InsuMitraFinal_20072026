@@ -79,20 +79,20 @@ export default function EmployeeTargets() {
     },
     {
       key: 'visitsTarget',
-      label: 'DAILY VISITS TARGET',
-      render: r => <span className="text-sm font-medium text-slate-600">{r.visitsTarget ?? '—'} visits</span>,
+      label: 'PROPOSAL TARGET',
+      render: r => <span className="text-sm font-medium text-slate-600">{r.visitsTarget ?? '—'} proposals</span>,
     },
     {
       key: 'actions' as any,
       label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-start" onClick={e => e.stopPropagation()}>
           <button
             title="Edit Targets"
-            className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
             onClick={e => openTargetEdit(r, e)}
           >
-            <Target size={16} />
+            <Target size={14} />
           </button>
         </div>
       ),
@@ -134,7 +134,7 @@ export default function EmployeeTargets() {
               <input {...register('callsTarget')} type="number" className="input" placeholder="e.g. 50" />
             </div>
             <div>
-              <label className="label">Daily Visits Target</label>
+              <label className="label">Proposal Target</label>
               <input {...register('visitsTarget')} type="number" className="input" placeholder="e.g. 5" />
             </div>
             <div className="flex items-center justify-center gap-4 pt-4 border-t border-slate-50">

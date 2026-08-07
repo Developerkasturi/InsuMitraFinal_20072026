@@ -139,8 +139,12 @@ export class AuthService {
       include: { tenant: { select: { isActive: true, slug: true } } },
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Your account is deactivated');
     }
 
     if (!user.tenant.isActive) {

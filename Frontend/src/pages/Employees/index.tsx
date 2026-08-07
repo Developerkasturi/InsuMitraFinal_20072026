@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, UserX, AlertTriangle } from 'lucide-react';
+import { Pencil, UserX, UserCheck, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { employeesService } from '@api/index';
 import DataTable, { Column } from '@comps/common/DataTable';
@@ -12,6 +12,9 @@ import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
 import type { Employee } from './EmployeesLayout';
+
+import { useAuthStore } from '@store/auth.store';
+import { canEditModule, canManageModule } from '../../utils/permissions';
 
 const editSchema = z.object({
   firstName:         z.string().min(1, 'Required'),
@@ -37,6 +40,10 @@ type EditForm = z.infer<typeof editSchema>;
 
 export default function Employees() {
   const navigate = useNavigate();
+  const user = useAuthStore(s => s.user);
+  const canEditEmployees = canEditModule(user, 'employees');
+  const canManageEmployees = canManageModule(user, 'employees');
+
   const [page, setPage] = useState(1);
   const [editTarget, setEditTarget]         = useState<Employee | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null);
@@ -64,12 +71,12 @@ export default function Employees() {
 
   const deactivateEmployee = useMutation({
     mutationFn: (id: string) => employeesService.deactivate(id),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['employees'] });
-      toast.success('Employee deactivated');
+      toast.success(res?.data?.message ?? (deactivateTarget?.isActive ? 'Employee deactivated' : 'Employee activated'));
       setDeactivateTarget(null);
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to deactivate employee'),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update employee status'),
   });
 
   const openEdit = (emp: Employee) => {
@@ -115,8 +122,8 @@ export default function Employees() {
       label: 'STATUS',
       render: r => (
         <span className={clsx('px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide uppercase',
-          r.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-700')}>
-          {r.isActive ? 'ACTIVE' : 'INACTIVE'}
+          r.isActive ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200')}>
+          {r.isActive ? 'ACTIVE' : 'DEACTIVE'}
         </span>
       ),
     },
@@ -134,13 +141,33 @@ export default function Employees() {
       key: 'actions' as any,
       label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
-          <button title="Edit" className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" onClick={() => openEdit(r)}>
-            <Pencil size={16} />
-          </button>
-          <button title="Deactivate" className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setDeactivateTarget(r)}>
-            <UserX size={16} />
-          </button>
+        <div className="flex items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
+          {canEditEmployees && (
+            <button
+              title="Edit Employee"
+              className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+              onClick={() => openEdit(r)}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          {canManageEmployees && (
+            <button
+              title={r.isActive ? "Deactivate Employee" : "Activate Employee"}
+              className={clsx(
+                "p-2 rounded-xl text-white font-bold flex items-center justify-center cursor-pointer shadow-md transition-all hover:scale-105",
+                r.isActive
+                  ? "bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 shadow-rose-500/20"
+                  : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/20"
+              )}
+              onClick={() => setDeactivateTarget(r)}
+            >
+              {r.isActive ? <UserX size={14} /> : <UserCheck size={14} />}
+            </button>
+          )}
+          {!canEditEmployees && !canManageEmployees && (
+            <span className="text-xs text-slate-400 italic">View Only</span>
+          )}
         </div>
       ),
     },
@@ -267,19 +294,28 @@ export default function Employees() {
         </form>
       </Modal>
 
-      {/* Deactivate Confirm Modal */}
-      <Modal open={!!deactivateTarget} onClose={() => setDeactivateTarget(null)} title="Deactivate Employee" size="sm">
+      {/* Deactivate / Activate Confirm Modal */}
+      <Modal open={!!deactivateTarget} onClose={() => setDeactivateTarget(null)} title={deactivateTarget?.isActive ? "Deactivate Employee" : "Activate Employee"} size="sm">
         <div className="flex items-start gap-3 mb-4">
-          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <AlertTriangle className={clsx("w-5 h-5 flex-shrink-0 mt-0.5", deactivateTarget?.isActive ? "text-red-500" : "text-green-500")} />
           <p className="text-sm text-gray-600">
-            Deactivate <strong>{deactivateTarget?.firstName} {deactivateTarget?.lastName}</strong>? They will lose access to the system.
+            {deactivateTarget?.isActive ? (
+              <>Deactivate <strong>{deactivateTarget?.firstName} {deactivateTarget?.lastName}</strong>? They will lose access to login.</>
+            ) : (
+              <>Activate <strong>{deactivateTarget?.firstName} {deactivateTarget?.lastName}</strong>? They will regain access to login.</>
+            )}
           </p>
         </div>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeactivateTarget(null)}>Cancel</button>
-          <button className="btn-danger" disabled={deactivateEmployee.isPending}
-            onClick={() => deactivateEmployee.mutate(deactivateTarget!.id)}>
-            {deactivateEmployee.isPending ? 'Deactivating…' : 'Deactivate'}
+          <button
+            className={deactivateTarget?.isActive ? "btn-danger" : "btn-primary"}
+            disabled={deactivateEmployee.isPending}
+            onClick={() => deactivateEmployee.mutate(deactivateTarget!.id)}
+          >
+            {deactivateEmployee.isPending
+              ? (deactivateTarget?.isActive ? 'Deactivating…' : 'Activating…')
+              : (deactivateTarget?.isActive ? 'Deactivate' : 'Activate')}
           </button>
         </div>
       </Modal>

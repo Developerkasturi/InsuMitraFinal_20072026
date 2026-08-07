@@ -20,6 +20,17 @@ export class WorkspaceController {
     return this.svc.getWorkspaceData(user.tenantId, user.id, user.role);
   }
 
+  @Get('employee/:employeeUserId')
+  @Roles(UserRole.OWNER, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Get workspace data for a specific employee (Admin view)' })
+  getEmployeeWorkspaceData(
+    @CurrentUser() user: any,
+    @Req() req: any
+  ) {
+    const employeeUserId = req.params.employeeUserId;
+    return this.svc.getWorkspaceData(user.tenantId, employeeUserId, UserRole.EMPLOYEE);
+  }
+
   @Post('clock-in')
   @Roles(UserRole.EMPLOYEE)
   @ApiOperation({ summary: 'Mark attendance for the day' })

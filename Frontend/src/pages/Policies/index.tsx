@@ -684,11 +684,23 @@ export default function Policies() {
 
     // Append action column
     cols.push({
-      key: 'actions' as any, label: '',
+      key: 'actions' as any, label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-          <button title="Edit" className="p-1.5 rounded hover:bg-gray-100 text-gray-500" onClick={() => openEdit(r)}><Pencil size={14} /></button>
-          <button title="Delete" className="p-1.5 rounded hover:bg-red-50 text-red-400" onClick={() => setDeleteTarget(r)}><Trash2 size={14} /></button>
+        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+          <button
+            title="Edit Policy"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            onClick={() => openEdit(r)}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            title="Delete Policy"
+            className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            onClick={() => setDeleteTarget(r)}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       ),
     });
@@ -1166,7 +1178,7 @@ export default function Policies() {
 
             {/* ── Customer Picker ── */}
             <div className="col-span-2 relative flex flex-col gap-1">
-              <label className="label">Customer *</label>
+              <label className="label">Customer <span className="text-red-500">*</span></label>
               <input type="hidden" {...register('contactId')} />
               <div className="relative">
                 <input
@@ -1209,7 +1221,7 @@ export default function Policies() {
 
             {/* ── Policy Type (Select) ── */}
             <div className="flex flex-col gap-1">
-              <label className="label">Policy Type *</label>
+              <label className="label">Policy Type <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={selectedType}
@@ -1231,7 +1243,7 @@ export default function Policies() {
 
             {/* ── Company (Select) ── */}
             <div className="flex flex-col gap-1">
-              <label className="label">Company *</label>
+              <label className="label">Company <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={selectedCompany}
@@ -1253,7 +1265,7 @@ export default function Policies() {
 
             {/* ── Plan Name (Select) ── */}
             <div className="flex flex-col gap-1">
-              <label className="label">Plan Name *</label>
+              <label className="label">Plan Name <span className="text-red-500">*</span></label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={selectedPlan?.id || ''}
@@ -1275,7 +1287,7 @@ export default function Policies() {
 
             {/* ── Policy Number ── */}
             <div className="flex flex-col gap-1">
-              <label className="label">Policy No. *</label>
+              <label className="label">Policy No. <span className="text-red-500">*</span></label>
               <input
                 {...register('policyNumber')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
@@ -1286,7 +1298,7 @@ export default function Policies() {
             {/* ── Start Date, Duration & Calculated End Date ── */}
             <div className="col-span-2 grid grid-cols-3 gap-4">
               <div className="flex flex-col gap-1">
-                <label className="label">Start Date *</label>
+                <label className="label">Start Date <span className="text-red-500">*</span></label>
                 <DatePicker {...register('startDate')} className="input h-10 text-xs rounded-xl bg-white border border-slate-200" />
               </div>
               <div className="flex flex-col gap-1">
@@ -1313,7 +1325,7 @@ export default function Policies() {
 
             {/* ── Sum Insured, Deductible, Status & Assigned To ── */}
             <div className="flex flex-col gap-1">
-              <label className="label">Sum Insured (₹) *</label>
+              <label className="label">Sum Insured (₹) <span className="text-red-500">*</span></label>
               <div className="relative">
                 <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500/80" />
                 <input
@@ -1335,7 +1347,7 @@ export default function Policies() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="label">Policy Status *</label>
+              <label className="label">Policy Status <span className="text-red-500">*</span></label>
               <select
                 {...register('status')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
@@ -1367,7 +1379,7 @@ export default function Policies() {
 
             {/* ── Riders / Addons Multi-Select ── */}
             <div className="col-span-2 flex flex-col gap-1">
-              <label className="label">Riders / Addons *</label>
+              <label className="label">Riders / Addons</label>
               <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                 {[
                   { id: 'CRITICAL_ILLNESS', label: 'Critical Illness' },
@@ -1396,7 +1408,7 @@ export default function Policies() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="label">Premium / Instalment Amount (₹) *</label>
+              <label className="label">Premium / Instalment Amount (₹) <span className="text-red-500">*</span></label>
               <div className="relative">
                 <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500/80" />
                 <input
@@ -1409,7 +1421,7 @@ export default function Policies() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="label">Installment Frequency *</label>
+              <label className="label">Installment Frequency <span className="text-red-500">*</span></label>
               <select
                 {...register('paymentFrequency')}
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"

@@ -76,12 +76,12 @@ export default function EmployeeAttendance() {
     },
     {
       key: 'actions' as any,
-      label: 'ADMIN',
+      label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-start" onClick={e => e.stopPropagation()}>
           <button
-            title="View Employee"
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="Edit / View Employee"
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
             onClick={() => navigate(`/employees/${r.id}`)}
           >
             <Pencil size={14} />

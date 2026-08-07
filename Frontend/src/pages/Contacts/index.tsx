@@ -22,6 +22,38 @@ import { useAuthStore } from '@store/auth.store';
 import ContactDetailModal from './ContactDetailModal';
 import * as XLSX from 'xlsx';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
+import { DatalistInput } from '@comps/common/DatalistInput';
+
+const EDUCATION_OPTIONS = [
+  'Metric',
+  'Intermediate',
+  'Graduate',
+  'Post Graduate',
+  'Up to 9th class passed',
+  '10th class passed',
+  'Post Graduate (Gen)',
+  'Med Graduate',
+  'Post Graduate, Eng',
+  'Law Graduate / Post Graduate',
+  'CA/ICWA/MBA/CFA',
+  'Computer degree other',
+  'Other',
+];
+
+const OCCUPATION_TYPE_OPTIONS = [
+  'Salaried Private',
+  'Salaried Gov',
+  'Salaried/Service',
+  'Business Owner',
+  'Business',
+  'Industrialist',
+  'Self Employed Professional',
+  'Agriculture',
+  'Student',
+  'Retired',
+  'Homemaker',
+  'Other',
+];
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -183,8 +215,12 @@ function MultiSelectBox({
   );
 }
 
+import { canEditModule, canManageModule } from '../../utils/permissions';
+
 export default function Contacts() {
   const user = useAuthStore(s => s.user);
+  const canEditContacts = canEditModule(user, 'contacts');
+  const canManageContacts = canManageModule(user, 'contacts');
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -552,6 +588,11 @@ export default function Contacts() {
     name: string; firstName: string; middleName: string; lastName: string;
     dob: string; relation: string;
     whatsapp: string; callingNumber?: string; occupation: string; education: string;
+    maritalStatus?: string;
+    weddingAnniversary?: string;
+    age?: string;
+    height?: string;
+    weight?: string;
     medicalHistory: string[];
     declaredMedicalHistory?: string[];
     notDeclaredMedicalHistory?: string[];
@@ -563,6 +604,11 @@ export default function Contacts() {
       name: '', firstName: '', middleName: '', lastName: '',
       dob: '', relation: '',
       whatsapp: '', callingNumber: '', occupation: '', education: '',
+      maritalStatus: '',
+      weddingAnniversary: '',
+      age: '',
+      height: '',
+      weight: '',
       medicalHistory: [],
       declaredMedicalHistory: [],
       notDeclaredMedicalHistory: [],
@@ -601,6 +647,11 @@ export default function Contacts() {
   };
   type PolicyPortfolio = { policyType: 'Health' | 'Life'; entries: PolicyItem[] };
   const [policies, setPolicies] = useState<PolicyPortfolio[]>([]);
+
+  // Personal Info Collapsed Sub-Sections State
+  const [personalCollapsed, setPersonalCollapsed] = useState<Record<string, boolean>>({});
+  const togglePersonalCollapse = (key: string) =>
+    setPersonalCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   const newPolicyItem = (): PolicyItem => ({
     company: '', planName: '', policyNo: '',
@@ -750,6 +801,8 @@ export default function Contacts() {
 
   const openCustomerCreate = () => {
     setPersonalFields({
+      isDependent: false,
+      dependentNo: '',
       firstName: '',
       middleName: '',
       lastName: '',
@@ -887,6 +940,8 @@ export default function Contacts() {
         const updatedNames = extractNameFields(contact, fallbackContact);
 
         setPersonalFields({
+          isDependent: !!(contact.isDependent ?? fallbackContact.isDependent),
+          dependentNo: contact.dependentNo || fallbackContact.dependentNo || '',
           firstName: updatedNames.firstName,
           middleName: updatedNames.middleName,
           lastName: updatedNames.lastName,
@@ -1104,6 +1159,9 @@ export default function Contacts() {
     const lastName = (personalFields?.lastName || '').trim();
     const whatsappNumber = (personalFields?.whatsappNumber || '').trim();
 
+    const isDep = !!personalFields?.isDependent;
+    const guardianNo = (personalFields?.dependentNo || '').trim();
+
     if (!firstName) {
       toast.error('First Name is required');
       return;
@@ -1112,17 +1170,27 @@ export default function Contacts() {
       toast.error('Last Name is required');
       return;
     }
-    if (!whatsappNumber) {
-      toast.error('Whatsapp Number is required');
-      return;
+
+    if (isDep) {
+      if (!guardianNo) {
+        toast.error('Guardian WhatsApp Number is required for dependent contacts');
+        return;
+      }
+    } else {
+      if (!whatsappNumber) {
+        toast.error('Whatsapp Number is required');
+        return;
+      }
+      const rawPhoneDigits = whatsappNumber.replace(/\D/g, '');
+      const cleanPhone = rawPhoneDigits.length > 10 ? rawPhoneDigits.slice(-10) : rawPhoneDigits;
+      if (cleanPhone.length !== 10) {
+        toast.error('Whatsapp/Mobile Number must be exactly 10 digits');
+        return;
+      }
     }
 
-    const rawPhoneDigits = whatsappNumber.replace(/\D/g, '');
-    const cleanPhone = rawPhoneDigits.length > 10 ? rawPhoneDigits.slice(-10) : rawPhoneDigits;
-    if (cleanPhone.length !== 10) {
-      toast.error('Whatsapp/Mobile Number must be exactly 10 digits');
-      return;
-    }
+    const rawPhoneDigits = whatsappNumber ? whatsappNumber.replace(/\D/g, '') : '';
+    const cleanPhone = rawPhoneDigits ? (rawPhoneDigits.length > 10 ? rawPhoneDigits.slice(-10) : rawPhoneDigits) : `00${Date.now().toString().slice(-8)}`;
 
     const cleanAadhaar = (personalFields?.aadhaarNumber || '').replace(/\D/g, '');
     if (cleanAadhaar && cleanAadhaar.length !== 12) {
@@ -1191,6 +1259,8 @@ export default function Contacts() {
           firstName,
           lastName,
           phone: cleanPhone,
+          isDependent: !!personalFields.isDependent,
+          dependentNo: personalFields.isDependent ? personalFields.dependentNo : undefined,
         };
         if (personalFields.middleName?.trim()) updateBody.middleName = personalFields.middleName.trim();
         if (cleanAltPhone) updateBody.alternatePhone = cleanAltPhone;
@@ -1247,6 +1317,8 @@ export default function Contacts() {
           firstName,
           lastName,
           phone: cleanPhone,
+          isDependent: !!personalFields.isDependent,
+          dependentNo: personalFields.isDependent ? personalFields.dependentNo : undefined,
         };
         if (personalFields.middleName?.trim()) contactBody.middleName = personalFields.middleName.trim();
         if (cleanAltPhone) contactBody.alternatePhone = cleanAltPhone;
@@ -1328,7 +1400,7 @@ export default function Contacts() {
                 lastName: famLast,
                 phone: cleanFamPhone,
                 dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
-                assignedEmployeeId: curEmpId || undefined,
+                assignedEmployeeId: undefined,
                 tags: ['contact', 'customer', 'family'],
               });
               const famObj = famContactRes?.data?.data || famContactRes?.data || famContactRes;
@@ -1849,32 +1921,36 @@ export default function Contacts() {
               href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+              className="p-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-emerald-500/20 hover:shadow-lg hover:scale-105 transition-all"
               title="WhatsApp"
             >
               <MessageCircle size={14} />
             </a>
             <a
               href={`tel:${r.phone}`}
-              className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+              className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
               title="Call"
             >
               <Phone size={14} />
             </a>
-            <button
-              onClick={() => openEdit(r)}
-              className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-blue-600 cursor-pointer transition-all hover:scale-105"
-              title="Edit"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              onClick={() => setDeleteTarget(r)}
-              className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 cursor-pointer transition-all hover:scale-105"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
+            {canEditContacts && (
+              <button
+                onClick={() => openEdit(r)}
+                className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                title="Edit Contact"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            {canManageContacts && (
+              <button
+                onClick={() => setDeleteTarget(r)}
+                className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                title="Delete Contact"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         );
       }
@@ -2033,32 +2109,36 @@ export default function Contacts() {
             href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            className="p-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-emerald-500/20 hover:shadow-lg hover:scale-105 transition-all"
             title="WhatsApp"
           >
             <MessageCircle size={14} />
           </a>
           <a
             href={`tel:${r.phone}`}
-            className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
             title="Call"
           >
             <Phone size={14} />
           </a>
-          <button
-            onClick={() => openEdit(r)}
-            className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-blue-600 cursor-pointer transition-all hover:scale-105"
-            title="Edit"
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            onClick={() => setDeleteTarget(r)}
-            className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 cursor-pointer transition-all hover:scale-105"
-            title="Delete"
-          >
-            <Trash2 size={14} />
-          </button>
+          {canEditContacts && (
+            <button
+              onClick={() => openEdit(r)}
+              className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+              title="Edit Contact"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          {canManageContacts && (
+            <button
+              onClick={() => setDeleteTarget(r)}
+              className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+              title="Delete Contact"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       )
     }
@@ -2147,14 +2227,14 @@ export default function Contacts() {
             href={`https://wa.me/${r.phone?.replace(/\D/g, '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            className="p-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-emerald-500/20 hover:shadow-lg hover:scale-105 transition-all"
             title="WhatsApp"
           >
             <MessageCircle size={14} />
           </a>
           <a
             href={`tel:${r.phone}`}
-            className="p-1.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-600 hover:text-white transition-all shadow-2xs hover:scale-105"
+            className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
             title="Call"
           >
             <Phone size={14} />
@@ -3194,16 +3274,26 @@ export default function Contacts() {
               <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
                 {/* 1. Personal Details */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('personalDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                       Personal Details
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['personalDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 grid grid-cols-3 gap-3.5">
+                  {!personalCollapsed['personalDetails'] && (
+                    <div className="p-4 grid grid-cols-3 gap-3.5">
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name *</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3223,7 +3313,7 @@ export default function Contacts() {
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name *</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Last Name <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3232,6 +3322,28 @@ export default function Contacts() {
                         onChange={e => setPersonalFields(p => ({ ...p, lastName: e.target.value }))}
                       />
                     </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Is Dependent?</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all font-semibold"
+                        value={personalFields.isDependent ? 'YES' : 'NO'}
+                        onChange={e => setPersonalFields(p => ({ ...p, isDependent: e.target.value === 'YES' }))}
+                      >
+                        <option value="NO">No</option>
+                        <option value="YES">Yes</option>
+                      </select>
+                    </div>
+                    {personalFields.isDependent && (
+                      <div className="animate-fadeIn">
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          Guardian WhatsApp Number <span className="text-red-500">*</span>
+                        </label>
+                        <CountryPhoneInput
+                          value={personalFields.dependentNo || ''}
+                          onChange={(value: string) => setPersonalFields(p => ({ ...p, dependentNo: value }))}
+                        />
+                      </div>
+                    )}
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Mother's Name</label>
                       <input
@@ -3327,19 +3439,30 @@ export default function Contacts() {
                         onChange={(e) => setPersonalFields(p => ({ ...p, pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() }))}
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 2. Contact Details */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('contactDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                       Contact Details
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['contactDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                  {!personalCollapsed['contactDetails'] && (
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
                       <input
@@ -3362,7 +3485,9 @@ export default function Contacts() {
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Whatsapp Number *</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                        Whatsapp Number {!personalFields.isDependent && <span className="text-red-500">*</span>}
+                      </label>
                       <CountryPhoneInput
                         value={personalFields.whatsappNumber}
                         onChange={(value: string) =>
@@ -3405,33 +3530,39 @@ export default function Contacts() {
                         }
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Education & Occupation */}
-                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('educationOccupation')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                       Education &amp; Occupation
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['educationOccupation'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                  {!personalCollapsed['educationOccupation'] && (
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
-                      <select
+                      <DatalistInput
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                        value={personalFields.education}
-                        onChange={e => setPersonalFields(p => ({ ...p, education: e.target.value }))}
-                      >
-                        <option value="">Select Education</option>
-                        <option value="HighSchool">High School</option>
-                        <option value="Graduate">Graduate</option>
-                        <option value="PostGraduate">Post Graduate</option>
-                        <option value="Professional">Professional</option>
-                        <option value="OTHER">Other</option>
-                      </select>
+                        placeholder="Select or enter Education"
+                        value={personalFields.education || ''}
+                        options={EDUCATION_OPTIONS}
+                        onChange={val => setPersonalFields(p => ({ ...p, education: val }))}
+                      />
                     </div>
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
@@ -3450,12 +3581,12 @@ export default function Contacts() {
                     </div>
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
-                      <input
-                        type="text"
+                      <DatalistInput
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                        placeholder="e.g. Salaried / Business"
-                        value={personalFields.occupationType}
-                        onChange={e => setPersonalFields(p => ({ ...p, occupationType: e.target.value }))}
+                        placeholder="Select or enter Occupation Type"
+                        value={personalFields.occupationType || ''}
+                        options={OCCUPATION_TYPE_OPTIONS}
+                        onChange={val => setPersonalFields(p => ({ ...p, occupationType: val }))}
                       />
                     </div>
                     <div>
@@ -3468,19 +3599,30 @@ export default function Contacts() {
                         onChange={e => setPersonalFields(p => ({ ...p, companyName: e.target.value }))}
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 4. Address Details */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('addressDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
                       Address Details
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['addressDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 grid grid-cols-3 gap-3.5">
+                  {!personalCollapsed['addressDetails'] && (
+                    <div className="p-4 grid grid-cols-3 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
                       <select
@@ -3539,19 +3681,30 @@ export default function Contacts() {
                         onChange={e => setPersonalFields(p => ({ ...p, streetAddress: e.target.value }))}
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 5. Bank Details */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('bankDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                       Bank Details
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['bankDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 grid grid-cols-2 gap-3.5">
+                  {!personalCollapsed['bankDetails'] && (
+                    <div className="p-4 grid grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
                       <input
@@ -3592,19 +3745,30 @@ export default function Contacts() {
                         onChange={e => setPersonalFields(p => ({ ...p, bankBranch: e.target.value }))}
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 6. Lifestyle Habits */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('lifestyleHabits')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                       Lifestyle Habits
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Personal Habits</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Personal Habits</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['lifestyleHabits'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 flex flex-wrap gap-4">
+                  {!personalCollapsed['lifestyleHabits'] && (
+                    <div className="p-4 flex flex-wrap gap-4">
                     <label className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all cursor-pointer select-none ${personalFields.chewTobacco ? 'bg-blue-50/80 border-blue-300 text-blue-800 font-bold shadow-2xs' : 'bg-slate-50/50 border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
                       <input
                         type="checkbox"
@@ -3632,19 +3796,30 @@ export default function Contacts() {
                       />
                       <span className="text-xs font-semibold">Consume Alcohol</span>
                     </label>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 7. Health History / Medical History */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('healthHistory')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
                       Health History / Medical History
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Medical Records</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Medical Records</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['healthHistory'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4 space-y-4">
+                  {!personalCollapsed['healthHistory'] && (
+                    <div className="p-4 space-y-4">
                     {/* Declared Medical History Multi-Select */}
                     <MultiSelectBox
                       label="Declared Medical History (Multi-Select)"
@@ -3674,19 +3849,30 @@ export default function Contacts() {
                         onChange={e => setPersonalFields(p => ({ ...p, medicalHistoryDetails: e.target.value }))}
                       />
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 8. Any Surgery Done / Advised */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('surgeryDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">8</span>
                       Any Surgery Done / Advised
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Surgical History</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Surgical History</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['surgeryDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4">
+                  {!personalCollapsed['surgeryDetails'] && (
+                    <div className="p-4">
                     <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Surgery Details / History</label>
                     <textarea
                       className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3695,19 +3881,30 @@ export default function Contacts() {
                       value={personalFields.surgeryDetails || ''}
                       onChange={e => setPersonalFields(p => ({ ...p, surgeryDetails: e.target.value }))}
                     />
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 9. Current Medicines / Prescription */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => togglePersonalCollapse('prescriptionDetails')}
+                  >
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">9</span>
                       Current Medicines / Prescription
                     </h4>
-                    <span className="text-[10px] text-slate-400 font-semibold">Ongoing Medications</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Ongoing Medications</span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-slate-500 transition-transform duration-200 ${personalCollapsed['prescriptionDetails'] ? 'rotate-180' : ''}`}
+                      />
+                    </div>
                   </div>
-                  <div className="p-4">
+                  {!personalCollapsed['prescriptionDetails'] && (
+                    <div className="p-4">
                     <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Prescription &amp; Medication Details</label>
                     <textarea
                       className="input w-full text-xs resize-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3716,7 +3913,8 @@ export default function Contacts() {
                       value={personalFields.prescriptionDetails || ''}
                       onChange={e => setPersonalFields(p => ({ ...p, prescriptionDetails: e.target.value }))}
                     />
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -3877,6 +4075,85 @@ export default function Contacts() {
                           </div>
                         </div>
 
+                        {/* Row 3.5: Marital Status | Wedding Anniversary & Age (if married) | Height & Weight */}
+                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Marital Status</label>
+                            <input
+                              type="text"
+                              list={`marital-status-list-${idx}`}
+                              className="input w-full mt-1"
+                              placeholder="Select or type..."
+                              value={member.maritalStatus || ''}
+                              onChange={e => updateFamilyMember(idx, 'maritalStatus', e.target.value)}
+                            />
+                            <datalist id={`marital-status-list-${idx}`}>
+                              <option value="Single" />
+                              <option value="Married" />
+                              <option value="Unmarried" />
+                              <option value="Divorced" />
+                              <option value="Widowed" />
+                              <option value="Other" />
+                            </datalist>
+                          </div>
+
+                          {member.maritalStatus?.toLowerCase() === 'married' ? (
+                            <>
+                              <div>
+                                <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Wedding Anniversary Date</label>
+                                <DatePicker
+                                  className="input w-full mt-1"
+                                  value={member.weddingAnniversary || ''}
+                                  onChange={val => updateFamilyMember(idx, 'weddingAnniversary', val)}
+                                />
+                              </div>
+                              <div>
+                                <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Age</label>
+                                <input
+                                  type="text"
+                                  className="input w-full mt-1"
+                                  placeholder="Age"
+                                  value={member.age || ''}
+                                  onChange={e => updateFamilyMember(idx, 'age', e.target.value)}
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <div>
+                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Age</label>
+                              <input
+                                type="text"
+                                className="input w-full mt-1"
+                                placeholder="Age"
+                                value={member.age || ''}
+                                onChange={e => updateFamilyMember(idx, 'age', e.target.value)}
+                              />
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Height (cm / ft)</label>
+                            <input
+                              type="text"
+                              className="input w-full mt-1"
+                              placeholder="e.g. 170 cm or 5.6 ft"
+                              value={member.height || ''}
+                              onChange={e => updateFamilyMember(idx, 'height', e.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Weight (kg)</label>
+                            <input
+                              type="text"
+                              className="input w-full mt-1"
+                              placeholder="e.g. 65 kg"
+                              value={member.weight || ''}
+                              onChange={e => updateFamilyMember(idx, 'weight', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
                         {/* Row 4: Medical History */}
                         <div className="grid grid-cols-3 gap-3 px-4 pt-3 pb-3">
                           {/* Generic Medical History */}
@@ -3951,148 +4228,26 @@ export default function Contacts() {
                             )}
                           </div>
 
-                          {/* Declared Medical History */}
+                          {/* Declared Medical History Multi-Select */}
                           <div className="col-span-3">
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Declared Medical History</label>
-                            <div className="flex flex-wrap gap-x-6 gap-y-2">
-                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                                const isOthers = condition === 'Others';
-                                const current = member.declaredMedicalHistory || [];
-                                const isSelected = isOthers
-                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                  : current.includes(condition);
-                                return (
-                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      className="accent-blue-600 w-3.5 h-3.5"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setFamilyMembers(prev => prev.map((m, i) => {
-                                          if (i !== idx) return m;
-                                          const list: string[] = m.declaredMedicalHistory || [];
-                                          if (isOthers) {
-                                            if (isSelected) {
-                                              return {
-                                                ...m,
-                                                declaredMedicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                              };
-                                            } else {
-                                              return {
-                                                ...m,
-                                                declaredMedicalHistory: [...list, '']
-                                              };
-                                            }
-                                          } else {
-                                            return {
-                                              ...m,
-                                              declaredMedicalHistory: isSelected
-                                                ? list.filter((c: string) => c !== condition)
-                                                : [...list, condition]
-                                            };
-                                          }
-                                        }));
-                                      }}
-                                    />
-                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                            {(member.declaredMedicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                              <div className="mt-2 animate-fadeIn">
-                                <input
-                                  type="text"
-                                  className="input w-full text-xs py-1 px-2.5"
-                                  placeholder="Type medical conditions..."
-                                  value={(member.declaredMedicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setFamilyMembers(prev => prev.map((m, i) => {
-                                      if (i !== idx) return m;
-                                      const current: string[] = m.declaredMedicalHistory || [];
-                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                                      return {
-                                        ...m,
-                                        declaredMedicalHistory: [...baseVal, val]
-                                      };
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            )}
+                            <MultiSelectBox
+                              label="Declared Medical History (Multi-Select)"
+                              selectedValues={member.declaredMedicalHistory || []}
+                              onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, declaredMedicalHistory: vals } : m))}
+                              badgeColor="blue"
+                              placeholder="Click to select declared medical conditions..."
+                            />
                           </div>
 
-                          {/* NOT Declared Medical History */}
+                          {/* NOT Declared Medical History Multi-Select */}
                           <div className="col-span-3">
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">NOT Declared Medical History</label>
-                            <div className="flex flex-wrap gap-x-6 gap-y-2">
-                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                                const isOthers = condition === 'Others';
-                                const current = member.notDeclaredMedicalHistory || [];
-                                const isSelected = isOthers
-                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                  : current.includes(condition);
-                                return (
-                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      className="accent-orange-500 w-3.5 h-3.5"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setFamilyMembers(prev => prev.map((m, i) => {
-                                          if (i !== idx) return m;
-                                          const list: string[] = m.notDeclaredMedicalHistory || [];
-                                          if (isOthers) {
-                                            if (isSelected) {
-                                              return {
-                                                ...m,
-                                                notDeclaredMedicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                              };
-                                            } else {
-                                              return {
-                                                ...m,
-                                                notDeclaredMedicalHistory: [...list, '']
-                                              };
-                                            }
-                                          } else {
-                                            return {
-                                              ...m,
-                                              notDeclaredMedicalHistory: isSelected
-                                                ? list.filter((c: string) => c !== condition)
-                                                : [...list, condition]
-                                            };
-                                          }
-                                        }));
-                                      }}
-                                    />
-                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                            {(member.notDeclaredMedicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                              <div className="mt-2 animate-fadeIn">
-                                <input
-                                  type="text"
-                                  className="input w-full text-xs py-1 px-2.5"
-                                  placeholder="Type medical conditions..."
-                                  value={(member.notDeclaredMedicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setFamilyMembers(prev => prev.map((m, i) => {
-                                      if (i !== idx) return m;
-                                      const current: string[] = m.notDeclaredMedicalHistory || [];
-                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                                      return {
-                                        ...m,
-                                        notDeclaredMedicalHistory: [...baseVal, val]
-                                      };
-                                    }));
-                                  }}
-                                />
-                              </div>
-                            )}
+                            <MultiSelectBox
+                              label="NOT Declared Medical History (Multi-Select)"
+                              selectedValues={member.notDeclaredMedicalHistory || []}
+                              onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, notDeclaredMedicalHistory: vals } : m))}
+                              badgeColor="orange"
+                              placeholder="Click to select NOT declared conditions..."
+                            />
                           </div>
 
                           {/* Details of Medical History */}

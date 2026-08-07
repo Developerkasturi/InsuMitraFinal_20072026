@@ -344,6 +344,8 @@ model Contact {
   leadStage         String?           @map("lead_stage")
   leadStatus        String?           @map("lead_status")
   leadType          String?           @map("lead_type")
+  isDependent       Boolean?  @default(false)          @map("is_dependent")
+  dependentNo       String?   @map("dependent_no")
   isActive          Boolean   @default(true)           @map("is_active")
   deletedAt         DateTime? @map("deleted_at")
   createdAt         DateTime  @default(now())          @map("created_at")

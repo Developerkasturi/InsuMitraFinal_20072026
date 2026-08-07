@@ -242,7 +242,8 @@ export const bannersService = {
 
 /* ─── Workspace ──────────────────────────────────────────────────────────── */
 export const workspaceService = {
-  getData:  ()                   => api.get('/workspace').then(r => r.data),
+  getData:         ()                   => api.get('/workspace').then(r => r.data),
+  getEmployeeData: (employeeUserId: string) => api.get(`/workspace/employee/${employeeUserId}`).then(r => r.data),
   clockIn:  ()                   => api.post('/workspace/clock-in').then(r => r.data),
   clockOut: ()                   => api.post('/workspace/clock-out').then(r => r.data),
   saveEod:  (eodData: {
