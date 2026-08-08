@@ -26,7 +26,19 @@ export class PoliciesService {
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
-    if (role === UserRole.EMPLOYEE) where.assignedEmployeeId = userId;
+    if (role === UserRole.EMPLOYEE) {
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+      const validIds = [userId];
+      if (empProfile?.id) validIds.push(empProfile.id);
+
+      where.OR = [
+        { assignedEmployeeId: null },
+        { assignedEmployeeId: { in: validIds } },
+      ];
+    }
     if (status)    where.status    = status;
     if (contactId) where.contactId = contactId;
     if (planId)    where.planId    = planId;

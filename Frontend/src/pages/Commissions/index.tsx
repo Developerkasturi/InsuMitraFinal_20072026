@@ -237,19 +237,19 @@ export default function Commissions() {
       {/* ── Search + Table ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="relative w-72">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by policy, client, ID…"
-              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition"
+              className="w-full pl-9 pr-4 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold text-slate-800 shadow-2xs placeholder-slate-400"
             />
           </div>
           <span className="text-xs text-gray-400 font-medium">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-100">
                 {['POLICY', 'AGENT', 'BASE', 'ADDON', 'DEDUCTIBLE', 'TOTAL', 'STATUS', 'ACTIONS'].map(h => (
@@ -299,14 +299,14 @@ export default function Commissions() {
                         </span>
                       </td>
                       <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
                           {!r.isPaid && (
                             <button className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap transition-colors" onClick={() => setPayConfirm(r)}>
                               Mark Paid
                             </button>
                           )}
-                          <button title="Delete" className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" onClick={() => setDeleteTarget(r)}>
-                            <Trash2 size={13} />
+                          <button title="Delete" className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all" onClick={() => setDeleteTarget(r)}>
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>

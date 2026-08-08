@@ -19,6 +19,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/contacts',     label: 'Contacts',     Icon: Users,           feature: 'contacts' },
   { to: '/leads',        label: 'Leads',        Icon: TrendingUp,      feature: 'leads' },
   { to: '/policies',     label: 'Policies',     Icon: Shield,          feature: 'policies' },
+  { to: '/policies?tab=emi', label: 'EMI Tracking', Icon: CreditCard, feature: 'policies' },
   { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
   { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },

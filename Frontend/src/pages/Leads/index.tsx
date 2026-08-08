@@ -659,7 +659,7 @@ export default function Leads() {
   }
 
   const newProductInterestCard = (): ProductInterestCard => ({
-    id: Math.random().toString(36).slice(2),
+    id: 'temp-' + Math.random().toString(36).slice(2),
     collapsed: false,
     interestedIn: [],
     otherProduct: '',
@@ -760,10 +760,12 @@ export default function Leads() {
   const { data: empRes } = useQuery({
     queryKey: ['employees-list-leads'],
     queryFn: () => employeesService.list({ limit: 100 }),
-    enabled: isOwner,
     staleTime: 5 * 60_000,
   });
-  const employees = empRes?.data ?? [];
+  const employeesList = useMemo(() => {
+    const raw = empRes?.data?.data || empRes?.data || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [empRes]);
 
   // Flat leads
   const leadsFlat = useMemo(() => {
@@ -781,6 +783,21 @@ export default function Leads() {
   const filteredLeads = useMemo(() => {
     const sTerm = search.toLowerCase();
     return leadsFlat.filter(lead => {
+      // Employee role data isolation safeguard: only see self-assigned or unassigned
+      if (user?.role === 'EMPLOYEE') {
+        const currentUserId = user.id;
+        const assignedEmpId = lead.assignedEmployeeId || lead.assignedEmployee?.id || lead.assignedEmployee?.userId;
+        if (assignedEmpId) {
+          const myEmp = employeesList.find((e: any) => e.userId === currentUserId || e.user?.id === currentUserId || e.id === currentUserId);
+          const validMyIds = [currentUserId];
+          if (myEmp?.id) validMyIds.push(myEmp.id);
+          if (myEmp?.userId) validMyIds.push(myEmp.userId);
+          if (myEmp?.user?.id) validMyIds.push(myEmp.user.id);
+          if (!validMyIds.includes(assignedEmpId)) {
+            return false;
+          }
+        }
+      }
       const fullName = `${lead.contact?.firstName || ''} ${lead.contact?.lastName || ''}`.toLowerCase();
       if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm)) return false;
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
@@ -917,7 +934,13 @@ export default function Leads() {
       toast.error('Mobile Number is required');
       return;
     }
-    if (!/^\d{10}$/.test(personalFields.whatsappNumber.trim())) {
+    // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
+    const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','86','1','7'];
+    const rawWaDigits = personalFields.whatsappNumber.trim().replace(/\D/g, '');
+    const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
+    const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
+    const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
+    if (!/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
       toast.error('Mobile Number must be exactly 10 digits');
       return;
     }
@@ -955,7 +978,7 @@ export default function Leads() {
           setActiveLeadTab('Product Interest');
           return;
         }
-        if (!card.followUpDate?.trim()) {
+        if (!String(card.followUpDate ?? '').trim()) {
           toast.error(`Product Interest #${i + 1}: Please select a Follow-up Date`);
           setActiveLeadTab('Product Interest');
           return;
@@ -1000,7 +1023,7 @@ export default function Leads() {
             firstName,
             middleName: personalFields.middleName || undefined,
             lastName,
-            phone: personalFields.whatsappNumber,
+            phone: waLocalDigits || rawWaDigits,
             height: personalFields.height ? Number(personalFields.height) : undefined,
             weight: personalFields.weight ? Number(personalFields.weight) : undefined,
             panNumber: personalFields.panNumber || personalFields.pan || undefined,
@@ -1132,7 +1155,7 @@ export default function Leads() {
           stage,
           source: card.leadSource,
           assignedEmployeeId: validEmpId(card.assignedEmployeeId),
-          followUpDate: card.followUpDate?.trim() ? new Date(card.followUpDate).toISOString() : undefined,
+          followUpDate: String(card.followUpDate ?? '').trim() ? new Date(card.followUpDate).toISOString() : undefined,
           premiumBudget: Number(card.expectedPremium) || undefined,
           notes: serializedNotes,
         };
@@ -1202,7 +1225,7 @@ export default function Leads() {
     });
 
     const currentUser = useAuthStore.getState().user;
-    const curEmp = employees.find((e: any) => e.userId === currentUser?.id || e.id === currentUser?.id);
+    const curEmp = employeesList.find((e: any) => e.userId === currentUser?.id || e.id === currentUser?.id);
 
     setLeadInfoFields({
       profileType: 'Lead Profile',
@@ -1998,17 +2021,21 @@ const medicalOptions = [
             </div>
           </div>
 
-          {isOwner ? (
-            <div>
-              <label className="label text-[11px]">Assigned Employee</label>
-              <select value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)} className="input text-xs">
-                <option value="">All Employees</option>
-                {employees.map((emp: any) => (
-                  <option key={emp.id} value={emp.userId}>{emp.firstName} {emp.lastName}</option>
-                ))}
-              </select>
-            </div>
-          ) : <div />}
+          <div>
+            <label className="label text-[11px] font-bold text-gray-700">Assigned Employee</label>
+            <select value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)} className="input text-xs font-semibold">
+              <option value="">All Employees</option>
+              {employeesList.map((emp: any) => {
+                const empUserId = emp.userId || emp.user?.id || emp.id;
+                const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
+                return (
+                  <option key={emp.id || empUserId} value={empUserId}>
+                    {empName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
           <div className="space-y-2">
             <label className="label text-[11px]">Next Follow-up Date</label>
@@ -2491,17 +2518,20 @@ const medicalOptions = [
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
                               <select
-                                disabled={isExisting}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                className="input w-full text-xs bg-white"
                                 value={card.assignedEmployeeId}
                                 onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
                               >
                                 <option value="">Unassigned</option>
-                                {employees?.map((emp: any) => (
-                                  <option key={emp.id} value={emp.userId || emp.id}>
-                                    {emp.firstName} {emp.lastName}
-                                  </option>
-                                ))}
+                                {employeesList.map((emp: any) => {
+                                  const empUserId = emp.userId || emp.user?.id || emp.id;
+                                  const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
+                                  return (
+                                    <option key={emp.id || empUserId} value={empUserId}>
+                                      {empName}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                             <div>
@@ -2803,7 +2833,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number <span className="text-red-500">*</span></label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number</label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"

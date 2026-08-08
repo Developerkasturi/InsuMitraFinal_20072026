@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Save, ChevronDown, Settings } from 'lucide-react';
+import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Save, ChevronDown, Settings, CreditCard } from 'lucide-react';
+import EmiTrackingView from './EmiTrackingView';
 import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulkAssignPolicies } from '@hooks/usePolicies';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, employeesService, claimsService, documentsService } from '@api/index';
@@ -841,9 +842,41 @@ export default function Policies() {
     }
   };
 
+  const currentTab = searchParams.get('tab') || searchParams.get('view') || (location.pathname.includes('emi') ? 'emi' : 'list');
+
   return (
     <div className="space-y-4">
-      {/* Floating Right Action Panel */}
+      {/* Top View Switcher Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3">
+        <button
+          type="button"
+          onClick={() => navigate('/policies?tab=list')}
+          className={clsx(
+            'px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
+            currentTab !== 'emi' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          )}
+        >
+          <Shield size={14} />
+          Policies List
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/policies?tab=emi')}
+          className={clsx(
+            'px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
+            currentTab === 'emi' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          )}
+        >
+          <CreditCard size={14} />
+          Monthly EMI Tracking
+        </button>
+      </div>
+
+      {currentTab === 'emi' ? (
+        <EmiTrackingView />
+      ) : (
+        <>
+          {/* Floating Right Action Panel */}
       <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
       <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
         {/* Import CSV */}
@@ -1896,6 +1929,8 @@ export default function Policies() {
           </button>
         </div>
       </Modal>
-    </div>
+    </>
+  )}
+</div>
   );
 }

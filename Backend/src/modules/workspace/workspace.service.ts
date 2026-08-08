@@ -30,23 +30,23 @@ export class WorkspaceService {
       role === UserRole.EMPLOYEE
         ? (async () => {
             const [leadsCount, policiesCount, claimsCount, pContacts, lContacts, cContacts, directContacts] = await Promise.all([
-              this.prisma.productInterest.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
-              this.prisma.policy.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
-              this.prisma.claim.count({ where: { tenantId, assignedEmployeeId: userId, deletedAt: null } }),
+              this.prisma.productInterest.count({ where: { tenantId, assignedEmployeeId: userId } }),
+              this.prisma.policy.count({ where: { tenantId, assignedEmployeeId: userId } }),
+              this.prisma.claim.count({ where: { tenantId, assignedEmployeeId: userId } }),
               this.prisma.policy.findMany({
-                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+                where: { tenantId, assignedEmployeeId: userId },
                 select: { contactId: true },
               }),
               this.prisma.productInterest.findMany({
-                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+                where: { tenantId, assignedEmployeeId: userId },
                 select: { contactId: true },
               }),
               this.prisma.claim.findMany({
-                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+                where: { tenantId, assignedEmployeeId: userId },
                 select: { contactId: true },
               }),
               this.prisma.contact.findMany({
-                where: { tenantId, assignedEmployeeId: userId, deletedAt: null },
+                where: { tenantId, assignedEmployeeId: userId },
                 select: { id: true },
               }),
             ]);
@@ -61,9 +61,9 @@ export class WorkspaceService {
         : (async () => {
             const [leadsCount, policiesCount, claimsCount, contactsCount] = await Promise.all([
               this.prisma.productInterest.count({ where: { tenantId } }),
-              this.prisma.policy.count({ where: { tenantId, deletedAt: null } }),
-              this.prisma.claim.count({ where: { tenantId, deletedAt: null } }),
-              this.prisma.contact.count({ where: { tenantId, deletedAt: null } }),
+              this.prisma.policy.count({ where: { tenantId } }),
+              this.prisma.claim.count({ where: { tenantId } }),
+              this.prisma.contact.count({ where: { tenantId } }),
             ]);
             return { leadsCount, policiesCount, claimsCount, contactsCount };
           })(),
@@ -74,7 +74,6 @@ export class WorkspaceService {
           tenantId,
           assignedToId: userId,
           status: { not: TaskStatus.COMPLETED },
-          deletedAt: null,
         },
         orderBy: { dueDate: 'asc' },
       }),
@@ -89,7 +88,6 @@ export class WorkspaceService {
                   tenantId,
                   assignedEmployeeId: userId,
                   startDate: { gte: startOfMonth, lte: endOfMonth },
-                  deletedAt: null,
                 },
                 _sum: { premiumAmount: true },
               }),
@@ -99,7 +97,6 @@ export class WorkspaceService {
                   assignedEmployeeId: userId,
                   stage: 'PAYMENT_DONE',
                   updatedAt: { gte: startOfMonth, lte: endOfMonth },
-                  deletedAt: null,
                 },
                 _sum: { premiumBudget: true, sumAssuredRequired: true },
               }),
@@ -137,7 +134,6 @@ export class WorkspaceService {
                 where: {
                   tenantId,
                   startDate: { gte: startOfMonth, lte: endOfMonth },
-                  deletedAt: null,
                 },
                 _sum: { premiumAmount: true },
               }),
@@ -146,7 +142,6 @@ export class WorkspaceService {
                   tenantId,
                   stage: 'PAYMENT_DONE',
                   updatedAt: { gte: startOfMonth, lte: endOfMonth },
-                  deletedAt: null,
                 },
                 _sum: { premiumBudget: true, sumAssuredRequired: true },
               }),

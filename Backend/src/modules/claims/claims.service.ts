@@ -27,7 +27,17 @@ export class ClaimsService {
 
     const where: any = { tenantId };
     if (role === UserRole.EMPLOYEE) {
-      where.assignedEmployeeId = userId;
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+      const validIds = [userId];
+      if (empProfile?.id) validIds.push(empProfile.id);
+
+      where.OR = [
+        { assignedEmployeeId: null },
+        { assignedEmployeeId: { in: validIds } },
+      ];
     } else if (assignedEmployeeId) {
       where.assignedEmployeeId = assignedEmployeeId === 'UNASSIGNED' ? null : assignedEmployeeId;
     }
