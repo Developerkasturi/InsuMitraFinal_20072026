@@ -44,16 +44,21 @@ export class ContactsRepository {
     }
 
     if (role === UserRole.EMPLOYEE && userId) {
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+      const validEmployeeIds = [userId];
+      if (empProfile?.id) validEmployeeIds.push(empProfile.id);
+
       where.AND = [
         {
           OR: [
             { assignedEmployeeId: null },
-            { assignedEmployeeId: userId },
-            { policies: { some: { assignedEmployeeId: userId } } },
-            { productInterests: { some: { assignedEmployeeId: userId } } },
-            { claims: { some: { assignedEmployeeId: userId } } },
-            { relationships: { some: { primaryContactId: userId } } },
-            { relatedTo: { some: { relatedContactId: userId } } },
+            { assignedEmployeeId: { in: validEmployeeIds } },
+            { policies: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
+            { productInterests: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
+            { claims: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
           ],
         },
       ];
@@ -78,7 +83,7 @@ export class ContactsRepository {
           addresses:   { where: { isPrimary: true }, take: 1 },
           occupations: { where: { isPrimary: true }, take: 1 },
           assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
-          productInterests: { select: { id: true, stage: true } },
+          productInterests: { select: { id: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
           policies: { select: { id: true, status: true } },
           _count:      { select: { policies: true, documents: true } },
         },

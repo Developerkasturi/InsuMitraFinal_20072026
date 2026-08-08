@@ -681,7 +681,16 @@ export default function Contacts() {
     }));
 
   // Fetch employees lookup to map assignee name
-  const { employees, plans: dbPlans } = useLookupStore();
+  const { employees, plans: dbPlans, loadEmployees } = useLookupStore();
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
+
+  const employeesList = useMemo(() => {
+    const raw = (employees as any)?.data || employees;
+    return Array.isArray(raw) ? raw : [];
+  }, [employees]);
 
   const { data: contactsRes, isLoading: contactsLoading, refetch: refetchContacts } = useContacts({
     page,
@@ -1255,6 +1264,9 @@ export default function Contacts() {
 
       let contactId = editContactId;
       if (editContactId) {
+        const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
+        const chosenEmpId = validEmpId(leadInfoFields.assignedEmployeeId) || validEmpId(productInterests[0]?.assignedEmployeeId);
+
         const updateBody: any = {
           firstName,
           lastName,
@@ -1262,6 +1274,7 @@ export default function Contacts() {
           isDependent: !!personalFields.isDependent,
           dependentNo: personalFields.isDependent ? personalFields.dependentNo : undefined,
         };
+        if (chosenEmpId) updateBody.assignedEmployeeId = chosenEmpId;
         if (personalFields.middleName?.trim()) updateBody.middleName = personalFields.middleName.trim();
         if (cleanAltPhone) updateBody.alternatePhone = cleanAltPhone;
         if (personalFields.email?.trim()) updateBody.email = personalFields.email.trim();
@@ -1536,16 +1549,40 @@ export default function Contacts() {
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) });
 
-  const getEmployeeName = (id?: string | null, assignedEmpObj?: any) => {
-    if (assignedEmpObj) {
-      const prof = assignedEmpObj.employeeProfile;
-      const name = prof ? `${prof.firstName || ''} ${prof.lastName || ''}`.trim() : (assignedEmpObj.email || '');
+  const getEmployeeName = (id?: string | null, assignedEmpObj?: any, contactItem?: any) => {
+    const targetObj = assignedEmpObj || contactItem?.assignedEmployee;
+    if (targetObj) {
+      const prof = targetObj.employeeProfile;
+      const name = prof ? `${prof.firstName || ''} ${prof.lastName || ''}`.trim() : (targetObj.email || '');
       if (name) return name;
     }
-    if (!id) return 'Unassigned';
-    const emp = employees.find(e => e.id === id || e.userId === id);
+
+    const targetId = id || contactItem?.assignedEmployeeId;
+    if (!targetId) return 'Unassigned';
+
+    const emp = employeesList.find((e: any) => e.id === targetId || e.userId === targetId || e.user?.id === targetId);
     if (!emp) return 'Unassigned';
-    return `${emp.firstName ?? ''} ${emp.lastName ?? ''}`.trim() || emp.name || emp.email || 'Unassigned';
+    return `${emp.firstName ?? emp.user?.firstName ?? ''} ${emp.lastName ?? emp.user?.lastName ?? ''}`.trim() || emp.name || emp.email || 'Unassigned';
+  };
+
+  const handlePickContact = async (contact: any) => {
+    const currentUserId = user?.id;
+    if (!currentUserId) {
+      toast.error('User session not found');
+      return;
+    }
+    const toastId = toast.loading('Assigning contact to you...');
+    try {
+      await contactsService.update(contact.id, { assignedEmployeeId: currentUserId });
+      toast.success('Contact picked successfully!', { id: toastId });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.refetchQueries({ queryKey: ['contacts'] });
+      refetchContacts();
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['policies'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Failed to pick contact', { id: toastId });
+    }
   };
 
   const toggleFilter = (filter: string) => {
@@ -1636,6 +1673,26 @@ export default function Contacts() {
       : (contactsRes?.data || []);
 
     return list.filter((item: any) => {
+      // Employee role data isolation safeguard: only see self-assigned, unassigned, or contacts with self-assigned sub-resources
+      if (user?.role === 'EMPLOYEE') {
+        const currentUserId = user.id;
+        const assignedEmpId = item.assignedEmployeeId || item.assignedEmployee?.id || item.assignedEmployee?.userId;
+        const myEmp = employeesList.find((e: any) => e.userId === currentUserId || e.user?.id === currentUserId || e.id === currentUserId);
+        const validMyIds = [currentUserId];
+        if (myEmp?.id) validMyIds.push(myEmp.id);
+        if (myEmp?.userId) validMyIds.push(myEmp.userId);
+        if (myEmp?.user?.id) validMyIds.push(myEmp.user.id);
+
+        const hasMySubResource =
+          (item.policies && item.policies.some((p: any) => p.assignedEmployeeId && validMyIds.includes(p.assignedEmployeeId))) ||
+          (item.productInterests && item.productInterests.some((pi: any) => pi.assignedEmployeeId && validMyIds.includes(pi.assignedEmployeeId))) ||
+          (item.claims && item.claims.some((c: any) => c.assignedEmployeeId && validMyIds.includes(c.assignedEmployeeId)));
+
+        if (assignedEmpId && !validMyIds.includes(assignedEmpId) && !hasMySubResource) {
+          return false;
+        }
+      }
+
       // Date range filtering
       if (dateFrom && item.createdAt) {
         const itemDate = new Date(item.createdAt);
@@ -1775,20 +1832,6 @@ export default function Contacts() {
     return result;
   }, [filteredData, sortKey, sortDir, policyMap]);
 
-  const handlePickContact = async (contactId: string) => {
-    const toastId = toast.loading('Assigning contact to you...');
-    try {
-      await contactsService.pickContact(contactId);
-      toast.success('Contact assigned to you successfully!', { id: toastId });
-      qc.invalidateQueries({ queryKey: ['contacts'] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to pick contact', { id: toastId });
-    }
-  };
-
-
-
   // Contact Table Columns
   const CONTACT_COLS: Column<any>[] = [
     {
@@ -1882,12 +1925,27 @@ export default function Contacts() {
       label: 'ASSIGNED EMPLOYEE',
       sortable: true,
       render: r => {
-        const empName = getEmployeeName(r.assignedEmployeeId, r.assignedEmployee);
-        if (!r.assignedEmployeeId || empName === 'Unassigned') {
+        const empName = getEmployeeName(r.assignedEmployeeId, r.assignedEmployee, r);
+        if (empName === 'Unassigned') {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-              Unassigned
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                Unassigned
+              </span>
+              {user?.role === 'EMPLOYEE' && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePickContact(r);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg cursor-pointer shadow-xs transition-all hover:scale-105"
+                  title="Assign this contact to yourself"
+                >
+                  Pick Contact
+                </button>
+              )}
+            </div>
           );
         }
         return <span className="text-slate-700 text-xs font-bold">{empName}</span>;
@@ -2555,9 +2613,15 @@ export default function Contacts() {
               className="input text-xs font-semibold"
             >
               <option value="">All Agents</option>
-              {employees?.map((emp: any) => (
-                <option key={emp.id} value={emp.userId}>{emp.firstName} {emp.lastName}</option>
-              ))}
+              {employeesList.map((emp: any) => {
+                const empUserId = emp.userId || emp.user?.id || emp.id;
+                const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
+                return (
+                  <option key={emp.id || empUserId} value={empUserId}>
+                    {empName}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div>
@@ -3114,17 +3178,20 @@ export default function Contacts() {
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
                               <select
-                                disabled={isExisting}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                className="input w-full text-xs bg-white"
                                 value={card.assignedEmployeeId}
                                 onChange={e => updateProductInterest(card.id, 'assignedEmployeeId', e.target.value)}
                               >
                                 <option value="">Unassigned</option>
-                                {employees?.map((emp: any) => (
-                                  <option key={emp.id} value={emp.userId || emp.id}>
-                                    {emp.firstName} {emp.lastName}
-                                  </option>
-                                ))}
+                                {employeesList.map((emp: any) => {
+                                  const empUserId = emp.userId || emp.user?.id || emp.id;
+                                  const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
+                                  return (
+                                    <option key={emp.id || empUserId} value={empUserId}>
+                                      {empName}
+                                    </option>
+                                  );
+                                })}
                               </select>
                             </div>
                             <div>

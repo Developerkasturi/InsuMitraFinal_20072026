@@ -219,6 +219,7 @@ export default function App() {
         <Route path="leads"        element={<PlanProtectedRoute feature="leads"><Suspense fallback={<Loader />}><Leads /></Suspense></PlanProtectedRoute>} />
         <Route path="leads/:id"    element={<PlanProtectedRoute feature="leads"><Suspense fallback={<Loader />}><LeadDetail /></Suspense></PlanProtectedRoute>} />
         <Route path="policies"     element={<Suspense fallback={<Loader />}><Policies /></Suspense>} />
+        <Route path="emi-tracking" element={<Suspense fallback={<Loader />}><Policies /></Suspense>} />
         <Route path="policies/:id" element={<Suspense fallback={<Loader />}><PolicyDetail /></Suspense>} />
         <Route path="claims"       element={<Suspense fallback={<Loader />}><Claims /></Suspense>} />
         <Route path="claims/:id"   element={<Suspense fallback={<Loader />}><ClaimDetail /></Suspense>} />

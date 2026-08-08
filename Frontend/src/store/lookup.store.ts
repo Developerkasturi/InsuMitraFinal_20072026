@@ -58,7 +58,9 @@ export const useLookupStore = create<LookupState>((set, get) => ({
     if (get().employees.length > 0 && !force) return;
     try {
       const res = await employeesService.list({ limit: 100 });
-      set({ employees: res.data ?? [] });
+      const raw = res?.data?.data || res?.data || [];
+      const empList = Array.isArray(raw) ? raw : (Array.isArray(res?.data) ? res.data : []);
+      set({ employees: empList });
     } catch (err: any) {
       console.error('Failed to load employees lookup', err);
     }

@@ -14,7 +14,7 @@ export class WorkspaceController {
   constructor(private readonly svc: WorkspaceService) {}
 
   @Get()
-  @Roles(UserRole.EMPLOYEE)
+  @Roles(UserRole.EMPLOYEE, UserRole.OWNER, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Get unified workspace data for logged in user' })
   getWorkspaceData(@CurrentUser() user: any) {
     return this.svc.getWorkspaceData(user.tenantId, user.id, user.role);

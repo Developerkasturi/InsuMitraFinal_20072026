@@ -98,9 +98,19 @@ export class LeadsService {
 
     const where: any = { tenantId };
 
-    // Employees only see their assigned leads
+    // Employees see assigned leads and unassigned leads
     if (role === UserRole.EMPLOYEE) {
-      where.assignedEmployeeId = userId;
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+      const validIds = [userId];
+      if (empProfile?.id) validIds.push(empProfile.id);
+
+      where.OR = [
+        { assignedEmployeeId: null },
+        { assignedEmployeeId: { in: validIds } },
+      ];
     }
 
     const leads = await this.prisma.productInterest.findMany({
@@ -144,7 +154,19 @@ export class LeadsService {
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
-    if (role === UserRole.EMPLOYEE) where.assignedEmployeeId = userId;
+    if (role === UserRole.EMPLOYEE) {
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+      const validIds = [userId];
+      if (empProfile?.id) validIds.push(empProfile.id);
+
+      where.OR = [
+        { assignedEmployeeId: null },
+        { assignedEmployeeId: { in: validIds } },
+      ];
+    }
     if (stage)                      where.stage              = stage;
     if (assignedEmployeeId)         where.assignedEmployeeId = assignedEmployeeId;
     if (contactId)                  where.contactId          = contactId;
