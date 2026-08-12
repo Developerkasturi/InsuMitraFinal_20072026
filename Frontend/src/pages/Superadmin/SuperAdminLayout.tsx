@@ -36,7 +36,7 @@ export function SuperAdminLayout() {
         <aside className="w-56 flex flex-col bg-gray-900 text-white shrink-0">
           {/* Brand */}
           <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/10">
-            <img src="/InsumitraLogo.png" alt="InsuMitra" className="h-8 w-auto object-contain" />
+            <img src="/InsumitraLogo.png" alt="Insumitra" className="h-8 w-auto object-contain" />
             <p className="text-[10px] text-gray-400 leading-tight">Super Admin</p>
           </div>
 

@@ -366,7 +366,7 @@ export default function LeadDetail() {
       <Modal 
         open={policyModalOpen} 
         onClose={() => setPolicyModalOpen(false)} 
-        title="Issue New Policy" 
+        title="Add New Policy" 
         subtitle="Pre-fill details from lead to create a new policy." 
         size="xl"
       >

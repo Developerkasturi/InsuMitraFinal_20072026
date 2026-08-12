@@ -28,7 +28,7 @@ export default function ClientLayout() {
               <Shield size={18} strokeWidth={2.5} />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="font-extrabold text-slate-800 text-base tracking-tight">InsuMitra</span>
+              <span className="font-extrabold text-slate-800 text-base tracking-tight">Insumitra</span>
               <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mt-0.5">Client Portal</span>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function ClientLayout() {
       </main>
 
       <footer className="text-center text-xs text-gray-400 py-4">
-        Powered by InsuMitra · Insurance Agency Management
+        Powered by Insumitra · Insurance Agency Management
       </footer>
     </div>
   );

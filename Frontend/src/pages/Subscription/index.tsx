@@ -128,7 +128,7 @@ function FeedbackForm() {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Feature Feedback / Request</h3>
-          <p className="text-[10px] text-gray-400">Help us build what matters to you. Feedback is shared with the InsuMitra team.</p>
+          <p className="text-[10px] text-gray-400">Help us build what matters to you. Feedback is shared with the Insumitra team.</p>
         </div>
       </div>
       {/* Star rating */}

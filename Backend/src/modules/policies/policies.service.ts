@@ -10,6 +10,7 @@ import {
 import { UserRole } from '@prisma/client';
 
 import { LeadsService } from '../leads/leads.service';
+import { NotificationEngineService } from '../notifications/notification-engine.service';
 
 @Injectable()
 export class PoliciesService {
@@ -17,6 +18,7 @@ export class PoliciesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly leadsService: LeadsService,
+    private readonly notifEngine: NotificationEngineService,
   ) {}
 
   async findAll(tenantId: string, userId: string, role: UserRole, query: PolicyQueryDto) {
@@ -605,6 +607,17 @@ export class PoliciesService {
         'UPDATE',
         `Policy bulk reassigned to ${assignedEmployeeId || 'unassigned'}`,
       );
+
+      if (assignedEmployeeId) {
+        await this.notifEngine.notifyAssignment({
+          tenantId,
+          assignerId: userId,
+          assigneeId: assignedEmployeeId,
+          recordType: 'Policy',
+          recordId: policy.id,
+          recordName: policy.policyNumber || 'Policy',
+        }).catch(err => this.logger.warn(`Failed sending policy assignment notification: ${err.message}`));
+      }
     }
 
     return { count: updated.count, message: `${updated.count} policies successfully reassigned` };

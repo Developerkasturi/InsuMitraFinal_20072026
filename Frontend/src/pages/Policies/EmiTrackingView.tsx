@@ -4,8 +4,9 @@ import {
   Search, Filter, Plus, Phone, MessageSquare, ExternalLink,
   ChevronLeft, ChevronRight, Eye, MoreHorizontal, User, Shield,
   CreditCard, Check, Clock, X, Send, ArrowRight, Info, Award,
-  Sparkles, SlidersHorizontal, Bell, RefreshCw, Layers, LayoutGrid, List, ChevronDown
+  Sparkles, SlidersHorizontal, Bell, RefreshCw, Layers, LayoutGrid, List, ChevronDown, MessageCircle, ChevronUp
 } from 'lucide-react';
+import Modal from '@comps/common/Modal';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -481,13 +482,13 @@ function EmiKanbanCard({ card, onOpen, onCall, onWhatsApp }: EmiKanbanCardProps)
       {/* EMI Info & Due Date */}
       <div className="space-y-1.5 text-xs text-slate-700 font-medium">
         <div className="flex items-center justify-between text-[11px] text-slate-600">
-          <span className="font-semibold text-slate-500">EMI No: <strong className="text-slate-800 font-extrabold">{card.paidEmis + 1}/{card.totalEmis}</strong></span>
+          <span className="font-semibold text-slate-500">Installment No: <strong className="text-slate-800 font-extrabold">{card.paidEmis + 1}/{card.totalEmis}</strong></span>
           <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">Due: {card.dueDate.split(' ')[0]} {card.dueDate.split(' ')[1]}</span>
         </div>
 
-        {/* EMI Amount Box (Lead Card Style) */}
+        {/* Installment Amount Box (Lead Card Style) */}
         <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-xl px-2.5 py-1 text-xs font-semibold text-emerald-900 mt-1">
-          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">EMI Amount</span>
+          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Installment Amount</span>
           <span className="font-black text-emerald-800 text-xs">
             ₹{Number(card.amount).toLocaleString('en-IN')}
           </span>
@@ -652,6 +653,7 @@ export default function EmiTrackingView() {
   const [productFilter, setProductFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('list');
+  const [showFilters, setShowFilters] = useState(false);
   const [drawerRecord, setDrawerRecord] = useState<EmiRecord | null>(null);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'schedule' | 'communication' | 'notes'>('overview');
   const [newNoteInput, setNewNoteInput] = useState('');
@@ -797,35 +799,21 @@ export default function EmiTrackingView() {
   return (
     <div className="space-y-5 animate-fadeIn font-sans pb-10">
       
-      {/* ── Top Header Bar matching reference image ──────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        {/* Left: Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-500/20">
-            <CreditCard size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">EMI Tracking Dashboard</h1>
-            <p className="text-xs text-slate-500 font-medium">Track monthly policy premium EMIs, collections & customer follow-ups</p>
-          </div>
-        </div>
-
-        {/* Month Selector Calendar */}
-        <div className="flex items-center justify-center my-1 sm:my-0">
-          <MonthPickerDropdown selectedMonth={selectedMonth} onChange={setSelectedMonth} />
-        </div>
+      {/* Month Selector Calendar */}
+      <div className="flex justify-end">
+        <MonthPickerDropdown selectedMonth={selectedMonth} onChange={setSelectedMonth} />
       </div>
 
       {/* ── Summary KPI Cards Row (5 Cards) ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         
-        {/* Card 1: Total EMI Due */}
+        {/* Card 1: Total Installments Due */}
         <div className="bg-white rounded-2xl p-4 border border-blue-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
             <FileText size={22} />
           </div>
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total EMI Due</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Installments Due</span>
             <div className="flex items-baseline gap-2 mt-0.5">
               <span className="text-2xl font-black text-slate-900">84</span>
             </div>
@@ -893,78 +881,47 @@ export default function EmiTrackingView() {
       </div>
 
       {/* ── Filter Bar ────────────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-          {['All', 'Due Today', 'Upcoming', 'Overdue', 'Paid'].map(st => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={clsx(
-                'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
-                statusFilter === st
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80 border border-slate-200/50'
-              )}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-
-        {/* Dropdowns + Search */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Employee Filter */}
-          <select
-            value={employeeFilter}
-            onChange={e => setEmployeeFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
-          >
-            <option value="All">Employee: All</option>
-            <option value="Amit Sharma">Amit Sharma</option>
-            <option value="Neha Joshi">Neha Joshi</option>
-            <option value="Sagar More">Sagar More</option>
-          </select>
-
-          {/* Insurer Filter */}
-          <select
-            value={insurerFilter}
-            onChange={e => setInsurerFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
-          >
-            <option value="All">Insurer: All</option>
-            <option value="HDFC Ergo">HDFC Ergo</option>
-            <option value="HDFC Life">HDFC Life</option>
-            <option value="Star Health">Star Health</option>
-            <option value="ICICI Lombard">ICICI Lombard</option>
-          </select>
-
-          {/* Product Filter */}
-          <select
-            value={productFilter}
-            onChange={e => setProductFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
-          >
-            <option value="All">Product: All</option>
-            <option value="HDFC Ergo - OS+">HDFC Ergo - OS+</option>
-            <option value="HDFC Life - Term">HDFC Life - Term</option>
-            <option value="Star Comprehensive">Star Comprehensive</option>
-          </select>
-
+        {/* Left Side: Search Box (Top) + Status Filter Pills (Next Line) */}
+        <div className="flex flex-col gap-3 w-full lg:w-auto">
           {/* Search Box */}
-          <div className="relative w-full sm:w-56">
+          <div className="relative w-full sm:w-80">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search Customer / Policy / EMI"
-              className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-semibold text-slate-800 placeholder-slate-400"
+              placeholder="Search Customer / Policy / Installment"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
             />
           </div>
 
-          {/* Kanban / Table Toggle (Lead Page Style) */}
+          {/* Status Filter Pills (Next Line below search box) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+            <div className="bg-slate-100/80 p-1 rounded-xl flex items-center gap-1 border border-slate-200/50">
+              {['All', 'Due Today', 'Upcoming', 'Overdue', 'Paid'].map(st => (
+                <button
+                  key={st}
+                  type="button"
+                  onClick={() => setStatusFilter(st)}
+                  className={clsx(
+                    'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap select-none',
+                    statusFilter === st
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800'
+                  )}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: View Toggle + Filter Icon */}
+        <div className="flex flex-wrap items-center gap-2.5 justify-end">
+          {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100/90 rounded-xl p-1 border border-slate-200/60">
             <button
               type="button"
@@ -985,11 +942,81 @@ export default function EmiTrackingView() {
           </div>
 
           {/* Filter Toggle Icon */}
-          <button title="More Filters" className="p-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">
+          <button
+            type="button"
+            onClick={() => setShowFilters(prev => !prev)}
+            title="More Filters"
+            className={clsx(
+              "p-2 rounded-xl border transition-all cursor-pointer",
+              showFilters ? "border-blue-500 bg-blue-50 text-blue-600" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+            )}
+          >
             <Filter size={14} />
           </button>
         </div>
       </div>
+
+      {/* ── Collapsible Advanced Filter Panel ────────────────────────────────────────── */}
+      {showFilters && (
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex flex-col gap-1 min-w-[150px] flex-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Employee</label>
+            <select
+              value={employeeFilter}
+              onChange={e => setEmployeeFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="All">Employee: All</option>
+              <option value="Amit Sharma">Amit Sharma</option>
+              <option value="Neha Joshi">Neha Joshi</option>
+              <option value="Sagar More">Sagar More</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1 min-w-[150px] flex-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Insurer</label>
+            <select
+              value={insurerFilter}
+              onChange={e => setInsurerFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="All">Insurer: All</option>
+              <option value="HDFC Ergo">HDFC Ergo</option>
+              <option value="HDFC Life">HDFC Life</option>
+              <option value="Star Health">Star Health</option>
+              <option value="ICICI Lombard">ICICI Lombard</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1 min-w-[150px] flex-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product</label>
+            <select
+              value={productFilter}
+              onChange={e => setProductFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="All">Product: All</option>
+              <option value="HDFC Ergo - OS+">HDFC Ergo - OS+</option>
+              <option value="HDFC Life - Term">HDFC Life - Term</option>
+              <option value="Star Comprehensive">Star Comprehensive</option>
+            </select>
+          </div>
+
+          <div className="flex items-end self-end">
+            <button
+              type="button"
+              onClick={() => {
+                setEmployeeFilter('All');
+                setInsurerFilter('All');
+                setProductFilter('All');
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Table Section (List View) ────────────────────────────────────────────────── */}
       {viewMode === 'list' && (
@@ -1220,12 +1247,360 @@ export default function EmiTrackingView() {
         </div>
       )}
 
-      {/* ── EMI Details Side Drawer Panel (Slide-Over) ────────────────────────────── */}
+      {/* ── NEW EMI Details Popup Modal UI (matching Add New Contact popup design) ───────── */}
+      <Modal
+        open={Boolean(drawerRecord)}
+        onClose={() => setDrawerRecord(null)}
+        title="Installment Details"
+        subtitle={`View installment schedule, collections, and customer follow-ups for ${drawerRecord?.customerName || ''}`}
+        size="2xl"
+        actions={
+          <div className="flex items-center gap-2 mr-1">
+            {drawerRecord && (
+              <button
+                type="button"
+                onClick={() => handleMarkAsPaid(drawerRecord.id)}
+                disabled={drawerRecord.status === 'PAID'}
+                className={clsx(
+                  'px-3.5 py-1.5 text-xs font-bold rounded-lg cursor-pointer shadow-xs transition-all',
+                  drawerRecord.status === 'PAID'
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/20 hover:scale-[1.02]'
+                )}
+              >
+                {drawerRecord.status === 'PAID' ? 'Already Paid' : 'Mark as Paid'}
+              </button>
+            )}
+          </div>
+        }
+      >
+        {drawerRecord && (
+          <div className="space-y-3">
+            {/* Customer Profile Banner Card */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  <User size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-xs text-slate-900 truncate">{drawerRecord.customerName}</h3>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {drawerRecord.customerTag}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-semibold text-slate-500">Policy: {drawerRecord.policyNo}</p>
+                </div>
+              </div>
+
+              {/* Sub details grid */}
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer</span>
+                  <span className="font-bold text-slate-800 text-[11px] truncate block">{drawerRecord.insurer}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Tenure</span>
+                  <span className="font-bold text-slate-800 text-[11px] truncate block">{drawerRecord.tenure}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Mode</span>
+                  <span className="font-bold text-slate-800 text-[11px] truncate block">{drawerRecord.paymentMode}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal sub-navigation tabs (styled like Add New Contact modal tabs) */}
+            <div className="grid grid-cols-4 bg-slate-200/60 p-1.5 rounded-xl gap-2 border border-slate-200/80 shadow-2xs">
+              {[
+                { key: 'overview', label: 'Installment Overview' },
+                { key: 'schedule', label: 'Installment Schedule' },
+                { key: 'communication', label: 'Communication' },
+                { key: 'notes', label: 'Notes' },
+              ].map(tb => (
+                <button
+                  key={tb.key}
+                  type="button"
+                  onClick={() => setDrawerTab(tb.key as any)}
+                  className={clsx(
+                    'w-full py-1.5 px-2 rounded-lg text-xs font-bold tracking-wide transition-all cursor-pointer truncate text-center select-none',
+                    drawerTab === tb.key
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                  )}
+                >
+                  {tb.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Fixed Height Scroll Content */}
+            <div className="h-[410px] overflow-y-auto pr-1.5 custom-scrollbar space-y-3.5">
+              {/* TAB 1: OVERVIEW */}
+              {drawerTab === 'overview' && (
+                <div className="space-y-3.5 animate-fadeIn">
+                  {/* Installment Progress */}
+                  <div className="space-y-1.5 bg-white p-3 border border-slate-200/80 rounded-xl shadow-2xs">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-700">Installment Progress</span>
+                      <span className="text-slate-900">{drawerRecord.paidEmis} / {drawerRecord.totalEmis} Paid</span>
+                      <span className="text-slate-400 font-semibold">{((drawerRecord.paidEmis / drawerRecord.totalEmis) * 100).toFixed(2)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${(drawerRecord.paidEmis / drawerRecord.totalEmis) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stat Cards 3 Columns */}
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-lg text-center">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Paid</span>
+                      <span className="text-xs font-extrabold text-emerald-900 block mt-0.5">{drawerRecord.paidEmis}</span>
+                      <span className="text-[10px] font-bold text-emerald-700 block">{fmtCurr(drawerRecord.paidAmountTotal)}</span>
+                    </div>
+
+                    <div className="bg-amber-50/60 border border-amber-100 p-2.5 rounded-lg text-center">
+                      <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Due</span>
+                      <span className="text-xs font-extrabold text-amber-900 block mt-0.5">1</span>
+                      <span className="text-[10px] font-bold text-amber-700 block">{fmtCurr(drawerRecord.amount)}</span>
+                    </div>
+
+                    <div className="bg-sky-50/60 border border-sky-100 p-2.5 rounded-lg text-center">
+                      <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">Remaining</span>
+                      <span className="text-xs font-extrabold text-sky-900 block mt-0.5">{drawerRecord.totalEmis - drawerRecord.paidEmis - 1}</span>
+                      <span className="text-[10px] font-bold text-sky-700 block">{fmtCurr(drawerRecord.remainingAmountTotal)}</span>
+                    </div>
+                  </div>
+
+                  {/* Current Installment Due Box */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">Current Installment (Due)</span>
+                    <div className="grid grid-cols-4 gap-2 text-xs items-center">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block">Installment No.</span>
+                        <span className="font-bold text-slate-800 text-[11px]">{drawerRecord.paidEmis + 1} of {drawerRecord.totalEmis}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block">Due Date</span>
+                        <span className="font-bold text-slate-800 text-[11px]">{drawerRecord.dueDate}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block">Amount</span>
+                        <span className="font-extrabold text-slate-900 text-[11px]">{fmtCurr(drawerRecord.amount)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 block">Status</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-amber-100 text-amber-700">
+                          {drawerRecord.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Quick Actions</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSendReminder(drawerRecord)}
+                        className="w-full py-2 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer truncate"
+                      >
+                        <MessageSquare size={13} className="shrink-0" />
+                        <span>Send Reminder</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCallCustomer(drawerRecord)}
+                        className="w-full py-2 px-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer truncate"
+                      >
+                        <Phone size={13} className="shrink-0" />
+                        <span>Call Customer</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setStatusUpdateOpen(!statusUpdateOpen)}
+                        className="w-full py-2 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer truncate"
+                      >
+                        <span>Update Status</span>
+                      </button>
+                    </div>
+
+                    {statusUpdateOpen && (
+                      <div className="p-2.5 bg-white border border-slate-200 rounded-lg shadow-md space-y-1.5 text-xs">
+                        <p className="font-bold text-slate-600 text-[10px] uppercase">Select New Status</p>
+                        <div className="grid grid-cols-2 gap-1">
+                          {['DUE', 'PAID', 'UPCOMING', 'OVERDUE', 'MESSAGE SENT', 'CUSTOMER CONTACTED'].map(st => (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => handleUpdateStatus(drawerRecord.id, st as any)}
+                              className="px-2 py-1 text-left text-[10px] font-bold rounded border hover:bg-blue-50 text-slate-700"
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Communication History Timeline */}
+                  <div className="space-y-2 pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Communication History</span>
+                    <div className="space-y-2 text-xs border-l-2 border-slate-200 pl-2.5">
+                      {drawerRecord.history.map((h, i) => (
+                        <div key={h.id || i} className="relative group">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 text-[11px]">{h.date}</span>
+                            <span className="text-[9px] text-slate-400 font-semibold">{h.author}</span>
+                          </div>
+                          <p className="text-slate-600 mt-0.5 font-medium text-[11px]">{h.note}</p>
+                        </div>
+                      ))}
+                      {drawerRecord.history.length === 0 && (
+                        <p className="text-xs text-slate-400 font-medium">No history logged yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: SCHEDULE */}
+              {drawerTab === 'schedule' && (
+                <div className="space-y-2.5 text-xs animate-fadeIn">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Installment Payment Schedule ({drawerRecord.totalEmis} Months)</span>
+                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                    {drawerRecord.schedule.map(sc => (
+                      <div key={sc.emiNo} className="p-2.5 flex items-center justify-between bg-white hover:bg-slate-50">
+                        <div>
+                          <span className="font-bold text-slate-900 block text-[11px]">Installment #{sc.emiNo}</span>
+                          <span className="text-slate-400 text-[10px]">Due: {sc.dueDate}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-slate-900 block text-[11px]">{fmtCurr(sc.amount)}</span>
+                          <span className={clsx(
+                            'px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase',
+                            sc.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          )}>
+                            {sc.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: COMMUNICATION */}
+              {drawerTab === 'communication' && (
+                <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs animate-fadeIn">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <MessageCircle size={13} />
+                      </div>
+                      <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                        Consultation Comments & Communication Logs
+                      </h4>
+                    </div>
+                    {drawerRecord.history.length > 0 && (
+                      <span className="text-[10px] font-extrabold bg-slate-200/70 text-slate-600 px-2 py-0.5 rounded-full">
+                        {drawerRecord.history.length} {drawerRecord.history.length === 1 ? 'Comment' : 'Comments'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Timeline List */}
+                  <div className="max-h-56 overflow-y-auto space-y-2.5 custom-scrollbar pr-0.5">
+                    {drawerRecord.history.length === 0 ? (
+                      <div className="bg-white/60 rounded-xl border border-dashed border-slate-200 p-4 text-center">
+                        <p className="text-xs text-slate-400 font-medium italic">No comments yet. Add the first summary below.</p>
+                      </div>
+                    ) : (
+                      drawerRecord.history.map((cmt, ci) => (
+                        <div key={cmt.id || ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                              {cmt.author}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                              {cmt.date}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-700 font-medium leading-relaxed whitespace-pre-wrap pl-0.5">
+                            {cmt.note}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add Call Summary & Consultation Comment Box */}
+                  <form onSubmit={handleAddNote} className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <MessageCircle size={12} className="text-blue-600" />
+                        Add Call Summary / Comment
+                      </label>
+                      <span className="text-[9px] text-slate-400 font-semibold italic">Communication Log</span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      className="w-full text-xs p-2.5 bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 font-medium focus:bg-white focus:border-blue-400 outline-none resize-y transition-all"
+                      placeholder="Type call summary, client discussion details, or follow-up notes..."
+                      value={newNoteInput}
+                      onChange={e => setNewNoteInput(e.target.value)}
+                    />
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="submit"
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-extrabold text-[11px] shadow-xs cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      >
+                        <Send size={12} />
+                        <span>Add Comment</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB 4: NOTES */}
+              {drawerTab === 'notes' && (
+                <div className="space-y-2.5 text-xs animate-fadeIn">
+                  <label className="font-bold text-slate-700 block">Policy Notes</label>
+                  <textarea
+                    rows={6}
+                    defaultValue={drawerRecord.notes || ''}
+                    placeholder="Add internal notes for this policy installment..."
+                    className="w-full p-2.5 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toast.success('Notes saved successfully!')}
+                    className="py-2 px-4 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 cursor-pointer text-xs transition-all hover:scale-[1.01]"
+                  >
+                    Save Notes
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── OLD EMI Details Side Drawer Panel UI (Commented out for comparison) ───────── */}
+      {/* 
       {drawerRecord && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end animate-fadeIn">
           <div className="w-full sm:w-[480px] lg:w-[520px] max-w-full bg-white h-full shadow-2xl flex flex-col justify-between border-l border-slate-200 animate-slideLeft">
-            
-            {/* Drawer Header */}
             <div className="flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
                 <h2 className="text-lg font-black text-slate-900 tracking-tight">EMI Details</h2>
@@ -1236,8 +1611,6 @@ export default function EmiTrackingView() {
                   <X size={18} />
                 </button>
               </div>
-
-              {/* Customer Profile Banner Card */}
               <div className="p-5 bg-slate-50/70 border-b border-slate-100 space-y-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-slate-200/80 text-slate-600 flex items-center justify-center font-extrabold text-base shrink-0 border border-slate-300/60">
@@ -1253,8 +1626,6 @@ export default function EmiTrackingView() {
                     <p className="text-xs font-semibold text-slate-500">{drawerRecord.policyNo}</p>
                   </div>
                 </div>
-
-                {/* Sub details grid */}
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer</span>
@@ -1270,8 +1641,6 @@ export default function EmiTrackingView() {
                   </div>
                 </div>
               </div>
-
-              {/* Drawer Navigation Tabs */}
               <div className="flex border-b border-slate-100 px-5 text-xs font-bold shrink-0">
                 {[
                   { key: 'overview', label: 'EMI Overview' },
@@ -1293,14 +1662,9 @@ export default function EmiTrackingView() {
                   </button>
                 ))}
               </div>
-
-              {/* Drawer Body Scroll Content */}
               <div className="p-5 flex-1 overflow-y-auto space-y-5">
-                
-                {/* ── TAB 1: OVERVIEW ────────────────────────────────────────────── */}
                 {drawerTab === 'overview' && (
                   <>
-                    {/* EMI Progress */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs font-extrabold">
                         <span className="text-slate-700">EMI Progress</span>
@@ -1314,29 +1678,23 @@ export default function EmiTrackingView() {
                         />
                       </div>
                     </div>
-
-                    {/* Stat Cards 3 Columns */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Paid</span>
                         <span className="text-sm font-extrabold text-emerald-900 block mt-0.5">{drawerRecord.paidEmis}</span>
                         <span className="text-[11px] font-bold text-emerald-700 block">{fmtCurr(drawerRecord.paidAmountTotal)}</span>
                       </div>
-
                       <div className="bg-amber-50/60 border border-amber-100 p-2.5 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Due</span>
                         <span className="text-sm font-extrabold text-amber-900 block mt-0.5">1</span>
                         <span className="text-[11px] font-bold text-amber-700 block">{fmtCurr(drawerRecord.amount)}</span>
                       </div>
-
                       <div className="bg-sky-50/60 border border-sky-100 p-2.5 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider block">Remaining</span>
                         <span className="text-sm font-extrabold text-sky-900 block mt-0.5">{drawerRecord.totalEmis - drawerRecord.paidEmis - 1}</span>
                         <span className="text-[11px] font-bold text-sky-700 block">{fmtCurr(drawerRecord.remainingAmountTotal)}</span>
                       </div>
                     </div>
-
-                    {/* Current EMI Due Box */}
                     <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
                       <span className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider block">Current EMI (Due)</span>
                       <div className="grid grid-cols-4 gap-2 text-xs items-center">
@@ -1360,8 +1718,6 @@ export default function EmiTrackingView() {
                         </div>
                       </div>
                     </div>
-
-                    {/* Quick Actions */}
                     <div className="space-y-2">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Quick Actions</span>
                       <div className="flex items-center gap-2">
@@ -1372,7 +1728,6 @@ export default function EmiTrackingView() {
                           <MessageSquare size={14} />
                           Send Reminder
                         </button>
-
                         <button
                           onClick={() => handleCallCustomer(drawerRecord)}
                           className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer"
@@ -1380,7 +1735,6 @@ export default function EmiTrackingView() {
                           <Phone size={14} />
                           Call Customer
                         </button>
-
                         <button
                           onClick={() => setStatusUpdateOpen(!statusUpdateOpen)}
                           className="py-2 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
@@ -1388,8 +1742,6 @@ export default function EmiTrackingView() {
                           Update Status
                         </button>
                       </div>
-
-                      {/* Status Popover Selection */}
                       {statusUpdateOpen && (
                         <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-lg space-y-2 text-xs">
                           <p className="font-bold text-slate-600 text-[10px] uppercase">Select New Status</p>
@@ -1407,11 +1759,8 @@ export default function EmiTrackingView() {
                         </div>
                       )}
                     </div>
-
-                    {/* Communication History Timeline */}
                     <div className="space-y-3 pt-2">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Communication History</span>
-                      
                       <div className="space-y-3 text-xs border-l-2 border-slate-200 pl-3">
                         {drawerRecord.history.map((h, i) => (
                           <div key={h.id || i} className="relative group">
@@ -1429,8 +1778,6 @@ export default function EmiTrackingView() {
                     </div>
                   </>
                 )}
-
-                {/* ── TAB 2: SCHEDULE ────────────────────────────────────────────── */}
                 {drawerTab === 'schedule' && (
                   <div className="space-y-3 text-xs">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">EMI Payment Schedule ({drawerRecord.totalEmis} Months)</span>
@@ -1455,8 +1802,6 @@ export default function EmiTrackingView() {
                     </div>
                   </div>
                 )}
-
-                {/* ── TAB 3: COMMUNICATION ────────────────────────────────────────── */}
                 {drawerTab === 'communication' && (
                   <div className="space-y-4">
                     <form onSubmit={handleAddNote} className="space-y-2">
@@ -1472,7 +1817,6 @@ export default function EmiTrackingView() {
                         Add Communication Log
                       </button>
                     </form>
-
                     <div className="space-y-3 text-xs pt-2">
                       {drawerRecord.history.map(h => (
                         <div key={h.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-1">
@@ -1486,8 +1830,6 @@ export default function EmiTrackingView() {
                     </div>
                   </div>
                 )}
-
-                {/* ── TAB 4: NOTES ───────────────────────────────────────────────── */}
                 {drawerTab === 'notes' && (
                   <div className="space-y-3 text-xs">
                     <label className="font-bold text-slate-700 block">Policy Notes</label>
@@ -1505,11 +1847,8 @@ export default function EmiTrackingView() {
                     </button>
                   </div>
                 )}
-
               </div>
             </div>
-
-            {/* Bottom Drawer Footer Primary Action Button */}
             <div className="p-5 border-t border-slate-100 bg-white shrink-0">
               <button
                 onClick={() => handleMarkAsPaid(drawerRecord.id)}
@@ -1525,10 +1864,10 @@ export default function EmiTrackingView() {
                 {drawerRecord.status === 'PAID' ? 'Already Paid' : 'Mark as Paid'}
               </button>
             </div>
-
           </div>
         </div>
       )}
+      */}
 
     </div>
   );

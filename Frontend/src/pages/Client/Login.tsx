@@ -52,7 +52,7 @@ export default function ClientLogin() {
         <div className="bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl p-5 md:p-6 shadow-xl shadow-slate-200/80 space-y-3">
           {/* Logo / Header */}
           <div className="flex flex-col items-center text-center space-y-1">
-            <img src="/InsumitraLogo.png" alt="InsuMitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
+            <img src="/InsumitraLogo.png" alt="Insumitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
             <h1 className="text-xl font-black text-slate-800 tracking-tight">Client Portal</h1>
             <p className="text-[11px] text-slate-500 font-medium">View your active policies, claims & documents</p>
           </div>

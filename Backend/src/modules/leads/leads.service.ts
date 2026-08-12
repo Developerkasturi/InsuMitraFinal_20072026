@@ -9,10 +9,15 @@ import {
 } from './dto/lead.dto';
 import { LeadStage, UserRole } from '@prisma/client';
 
+import { NotificationEngineService } from '../notifications/notification-engine.service';
+
 @Injectable()
 export class LeadsService {
   private readonly logger = new Logger(LeadsService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifEngine: NotificationEngineService,
+  ) {}
 
   /** Auto-create renewal leads for active policies ending within 45 days */
   async autoCreateRenewalLeads(tenantId: string): Promise<void> {
@@ -539,7 +544,10 @@ export class LeadsService {
   }
 
   async updateLeadAssignee(tenantId: string, id: string, assignedEmployeeId: string | null, userId: string) {
-    const lead = await this.prisma.productInterest.findFirst({ where: { id, tenantId } });
+    const lead = await this.prisma.productInterest.findFirst({
+      where: { id, tenantId },
+      include: { contact: { select: { firstName: true, lastName: true } } },
+    });
     if (!lead) throw new NotFoundException('Lead not found');
 
     const updated = await this.prisma.productInterest.update({
@@ -553,13 +561,25 @@ export class LeadsService {
       `Lead assignee updated to ${assignedEmployeeId || 'unassigned'}`,
     );
 
+    if (assignedEmployeeId) {
+      const contactName = lead.contact ? `${lead.contact.firstName ?? ''} ${lead.contact.lastName ?? ''}`.trim() : (lead.interests?.[0] || 'Lead');
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: userId,
+        assigneeId: assignedEmployeeId,
+        recordType: 'Lead',
+        recordId: id,
+        recordName: contactName || 'Lead',
+      }).catch(err => this.logger.warn(`Failed sending lead assignment notification: ${err.message}`));
+    }
+
     return { data: updated, message: 'Lead assignee updated successfully' };
   }
 
   async bulkAssignLeads(tenantId: string, ids: string[], assignedEmployeeId: string | null, userId: string) {
     const leads = await this.prisma.productInterest.findMany({
       where: { id: { in: ids }, tenantId },
-      select: { id: true, contactId: true },
+      include: { contact: { select: { firstName: true, lastName: true } } },
     });
 
     await this.prisma.productInterest.updateMany({
@@ -573,6 +593,18 @@ export class LeadsService {
         'ASSIGNEE_CHANGE',
         `Lead bulk reassigned to ${assignedEmployeeId || 'unassigned'}`,
       );
+
+      if (assignedEmployeeId) {
+        const contactName = lead.contact ? `${lead.contact.firstName ?? ''} ${lead.contact.lastName ?? ''}`.trim() : (lead.interests?.[0] || 'Lead');
+        await this.notifEngine.notifyAssignment({
+          tenantId,
+          assignerId: userId,
+          assigneeId: assignedEmployeeId,
+          recordType: 'Lead',
+          recordId: lead.id,
+          recordName: contactName || 'Lead',
+        }).catch(err => this.logger.warn(`Failed sending bulk lead assignment notification: ${err.message}`));
+      }
     }
 
     return { message: `${leads.length} leads successfully reassigned` };

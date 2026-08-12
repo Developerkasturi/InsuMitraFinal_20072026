@@ -2060,7 +2060,7 @@ const medicalOptions = [
 
       {/* Main View */}
       {viewMode === 'board' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 pb-4 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           {UI_STAGES.map(stage => {
             const cards = filteredBoard[stage] ?? [];
             const totalBudget = expectedBusiness(stage);
@@ -2068,7 +2068,7 @@ const medicalOptions = [
             return (
               <div
                 key={stage}
-                className="flex-shrink-0 w-72 flex flex-col"
+                className="flex flex-col min-w-0"
                 onDragEnter={e => {
                   e.preventDefault();
                   if (draggedOverStage !== stage) setDraggedOverStage(stage);
@@ -2097,8 +2097,8 @@ const medicalOptions = [
                   }
                 }}
               >
-                <div className="flex items-center justify-between mb-3 px-2 py-1 select-none">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-between mb-2 px-1.5 py-1 select-none">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className={clsx('h-2 w-2 rounded-full shrink-0',
                       stage === 'New' && 'bg-blue-500',
                       stage === 'Contacted' && 'bg-indigo-500',
@@ -2108,25 +2108,25 @@ const medicalOptions = [
                       stage === 'Payment Done' && 'bg-emerald-500',
                       stage === 'Lost' && 'bg-rose-500'
                     )} />
-                    <span className="text-sm font-bold text-slate-800 truncate">{stage}</span>
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1.5 py-0.5 rounded-md shrink-0">{cards.length}</span>
+                    <span className="text-xs font-bold text-slate-800 truncate">{stage}</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1 py-0.5 rounded-md shrink-0">{cards.length}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-400 font-bold shrink-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-slate-400 font-bold shrink-0">
                       ₹{totalBudget >= 100000 ? `${(totalBudget / 100000).toFixed(1)}L` : `${(totalBudget / 1000).toFixed(1)}K`}
                     </span>
                     <button
                       onClick={() => openCreate(backendStage)}
-                      className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors cursor-pointer"
                       title={`Add lead in ${stage}`}
                     >
-                      <Plus size={12} />
+                      <Plus size={11} />
                     </button>
                   </div>
                 </div>
 
                 <div className={clsx(
-                  'flex-1 min-h-[400px] rounded-xl border p-2 space-y-2 transition-all duration-200 overflow-y-auto custom-scrollbar',
+                  'flex-1 min-h-[350px] rounded-xl border p-1.5 space-y-1.5 transition-all duration-200 overflow-y-auto custom-scrollbar',
                   STAGE_COLORS[stage],
                   draggedOverStage === stage ? 'ring-2 ring-blue-500 scale-[1.01] bg-slate-100' : 'bg-slate-50/50'
                 )}>
@@ -4086,7 +4086,7 @@ const medicalOptions = [
             lead={detailTarget}
             tab={detailTab}
             onTabChange={setDetailTab}
-            employees={employees}
+            employees={employeesList}
             isOwner={isOwner}
             onEdit={() => { setDetailOpen(false); openEdit(detailTarget); }}
             onTriggerPolicyCreation={triggerPolicyCreationForLead}
@@ -4098,7 +4098,7 @@ const medicalOptions = [
       <Modal
         open={policyModalOpen}
         onClose={() => setPolicyModalOpen(false)}
-        title="Issue New Policy"
+        title="Add New Policy"
         subtitle="Pre-fill details from lead to create a new policy."
         size="xl"
       >

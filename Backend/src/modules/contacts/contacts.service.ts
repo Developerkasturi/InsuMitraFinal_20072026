@@ -14,6 +14,8 @@ import {
   BulkTagDto, BulkDeleteDto,
 } from './dto/contact.dto';
 
+import { NotificationEngineService } from '../notifications/notification-engine.service';
+
 @Injectable()
 export class ContactsService {
   private readonly logger = new Logger(ContactsService.name);
@@ -22,6 +24,7 @@ export class ContactsService {
     private readonly repo:   ContactsRepository,
     private readonly prisma: PrismaService,
     private readonly email:  EmailService,
+    private readonly notifEngine: NotificationEngineService,
   ) {}
 
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
@@ -105,6 +108,27 @@ export class ContactsService {
       this.logger.warn(`ActivityLog write failed for contact ${contact.id}: ${err.message}`);
     }
 
+    if (dto.assignedEmployeeId) {
+      let targetUserId = dto.assignedEmployeeId;
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { OR: [{ id: dto.assignedEmployeeId }, { userId: dto.assignedEmployeeId }], tenantId },
+        select: { userId: true },
+      });
+      if (empProfile?.userId) {
+        targetUserId = empProfile.userId;
+      }
+
+      const contactName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim();
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: createdById,
+        assigneeId: targetUserId,
+        recordType: 'Contact',
+        recordId: contact.id,
+        recordName: contactName || 'Contact',
+      }).catch(err => this.logger.warn(`Failed sending contact assignment notification: ${err.message}`));
+    }
+
     return { data: contact, message: 'Contact created successfully' };
   }
 
@@ -148,6 +172,28 @@ export class ContactsService {
     }
 
     const updated = await this.repo.findOne(tenantId, id);
+
+    if (dto.assignedEmployeeId && dto.assignedEmployeeId !== existing.assignedEmployeeId) {
+      let targetUserId = dto.assignedEmployeeId;
+      const empProfile = await this.prisma.employeeProfile.findFirst({
+        where: { OR: [{ id: dto.assignedEmployeeId }, { userId: dto.assignedEmployeeId }], tenantId },
+        select: { userId: true },
+      });
+      if (empProfile?.userId) {
+        targetUserId = empProfile.userId;
+      }
+
+      const contactName = updated ? `${updated.firstName || ''} ${updated.lastName || ''}`.trim() : 'Contact';
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: updatedById,
+        assigneeId: targetUserId,
+        recordType: 'Contact',
+        recordId: id,
+        recordName: contactName || 'Contact',
+      }).catch(err => this.logger.warn(`Failed sending contact assignment notification: ${err.message}`));
+    }
+
     return { data: updated, message: 'Contact updated successfully' };
   }
 
@@ -467,6 +513,19 @@ export class ContactsService {
     }
 
     const fresh = await this.repo.findOne(tenantId, contactId);
+
+    if (fresh) {
+      const contactName = `${fresh.firstName} ${fresh.lastName}`.trim();
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: userId,
+        assigneeId: userId, // Note: pickContact assigns to self if picked, but if assigned by someone else, notify
+        recordType: 'Contact',
+        recordId: contactId,
+        recordName: contactName || 'Contact',
+      }).catch(err => this.logger.warn(`Failed sending contact assignment notification: ${err.message}`));
+    }
+
     return { data: fresh, message: 'Contact assigned successfully' };
   }
 

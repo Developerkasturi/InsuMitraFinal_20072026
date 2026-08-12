@@ -345,7 +345,7 @@ function FontSizePanel() {
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Font Size Control</h3>
-        <p className="text-xs text-gray-500">Adjust the app's base text size. Especially useful when using InsuMitra on a phone or tablet. Your preference is saved automatically.</p>
+        <p className="text-xs text-gray-500">Adjust the app's base text size. Especially useful when using Insumitra on a phone or tablet. Your preference is saved automatically.</p>
       </div>
 
       {/* Size picker */}

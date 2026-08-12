@@ -19,15 +19,16 @@ export default function Header({ title }: { title?: string }) {
   const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showNotifPop, setShowNotifPop] = useState(false);
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
 
   const debouncedQuery = useDebounce(query.trim(), 300);
 
-  const { data: notifs } = useQuery({
-    queryKey: ['notifications', 'unread'],
-    queryFn: () => notificationsService.list({ unreadOnly: true, limit: 1 }),
-    refetchInterval: 60_000,
+  const { data: notifs, refetch: refetchNotifs } = useQuery({
+    queryKey: ['notifications', 'list'],
+    queryFn: () => notificationsService.list({ limit: 10 }),
+    refetchInterval: 30_000,
   });
 
   const { data: searchResults, isLoading: isSearchLoading, isError: isSearchError } = useQuery({
@@ -67,7 +68,7 @@ export default function Header({ title }: { title?: string }) {
       {/* Page title / breadcrumb */}
       {title && (
         <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">InsuMitra</span>
+          <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">Insumitra</span>
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
             <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -226,18 +227,92 @@ export default function Header({ title }: { title?: string }) {
         </a>
 
         {/* Notification bell */}
-        <button
-          className="relative p-2 rounded-xl text-slate-400 bg-slate-50/20 hover:text-slate-700 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all duration-200"
-          onClick={() => navigate('/settings')}
-          aria-label="Notifications"
-        >
-          <Bell size={16} strokeWidth={2} />
-          {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] bg-red-500 rounded-full text-[8px] font-bold text-white flex items-center justify-center px-0.5 shadow-[0_0_0_2px_#ffffff] animate-pulse">
-              {unreadCount}
-            </span>
+        <div className="relative">
+          <button
+            className="relative p-2 rounded-xl text-slate-400 bg-slate-50/20 hover:text-slate-700 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all duration-200"
+            onClick={() => setShowNotifPop(!showNotifPop)}
+            aria-label="Notifications"
+          >
+            <Bell size={16} strokeWidth={2} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] bg-red-500 rounded-full text-[8px] font-bold text-white flex items-center justify-center px-0.5 shadow-[0_0_0_2px_#ffffff] animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notifications Popover */}
+          {showNotifPop && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowNotifPop(false)} />
+              <div className="absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 animate-fade-in">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Bell size={14} className="text-blue-600" />
+                    <h4 className="text-xs font-bold text-slate-800">Notifications</h4>
+                    {unreadCount > 0 && (
+                      <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await notificationsService.markAllRead();
+                        refetchNotifs();
+                      }}
+                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-[300px] overflow-y-auto flex flex-col gap-2">
+                  {(notifs?.data || []).length > 0 ? (
+                    (notifs?.data || []).map((n: any) => (
+                      <div
+                        key={n.id}
+                        onClick={async () => {
+                          if (!n.isRead) {
+                            await notificationsService.markRead(n.id);
+                            refetchNotifs();
+                          }
+                          const recordType = n.data?.recordType;
+                          const recordId = n.data?.recordId || n.data?.taskId;
+                          if (recordId) {
+                            setShowNotifPop(false);
+                            if (n.type === 'TASK_ASSIGNED' || recordType?.toLowerCase() === 'task') {
+                              navigate('/workspace');
+                            } else if (recordType) {
+                              const path = recordType.toLowerCase() === 'contact' ? 'contacts' : recordType.toLowerCase() === 'lead' ? 'leads' : recordType.toLowerCase() === 'policy' ? 'policies' : 'claims';
+                              navigate(`/${path}/${recordId}`);
+                            }
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                          n.isRead ? 'bg-slate-50/60 border-slate-100 text-slate-500' : 'bg-blue-50/40 border-blue-100 text-slate-800 font-medium hover:bg-blue-50'
+                        }`}
+                      >
+                        <p className="font-semibold text-slate-800">{n.title}</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">{n.body}</p>
+                        <p className="text-[9px] text-slate-400 mt-1">
+                          {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-6 text-center text-slate-400 text-xs">
+                      No notifications yet
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
-        </button>
+        </div>
 
         {/* Vertical divider */}
         <div className="h-6 w-px bg-slate-200/80 mx-1" />
