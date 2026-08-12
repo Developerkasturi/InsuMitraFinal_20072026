@@ -45,7 +45,7 @@ export default function SuperAdminLogin() {
         <div className="bg-white/85 backdrop-blur-xl border border-white/90 rounded-3xl p-5 md:p-6 shadow-xl shadow-slate-200/80 space-y-3">
           {/* Header */}
           <div className="flex flex-col items-center text-center space-y-1">
-            <img src="/InsumitraLogo.png" alt="InsuMitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
+            <img src="/InsumitraLogo.png" alt="Insumitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
             <h1 className="text-xl font-black text-slate-800 tracking-tight">Super Admin Portal</h1>
             <p className="text-[11px] text-slate-500 font-medium">Platform Administration & Oversight</p>
           </div>
@@ -61,7 +61,7 @@ export default function SuperAdminLogin() {
                   {...register('email')}
                   type="email"
                   className="w-full pl-10 pr-4 py-3 bg-slate-50/70 border border-slate-200 rounded-2xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 transition-all"
-                  placeholder="admin@insumitra.com"
+                  placeholder="admin@familyfirst.com"
                   autoComplete="username"
                 />
               </div>

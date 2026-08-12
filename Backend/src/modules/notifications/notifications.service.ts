@@ -10,6 +10,12 @@ export class NotificationsService {
   ) {}
 
   async list(tenantId: string, userId: string, query: any) {
+    // Automatically purge notifications older than 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    this.prisma.notification.deleteMany({
+      where: { createdAt: { lt: thirtyDaysAgo } },
+    }).catch(() => {});
+
     const pageNum  = Math.max(1, parseInt(query.page,  10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
     const unreadOnly = query.unreadOnly;

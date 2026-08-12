@@ -72,7 +72,7 @@ export default function Login() {
           
           {/* Logo & Header */}
           <div className="text-center space-y-1">
-            <img src="/InsumitraLogo.png" alt="InsuMitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
+            <img src="/InsumitraLogo.png" alt="Insumitra" className="h-24 md:h-28 max-w-[260px] w-auto object-contain mx-auto" />
 
             <div>
               <h1 className="text-xl font-black text-slate-800 tracking-tight">Welcome Back</h1>
@@ -188,7 +188,7 @@ export default function Login() {
 
         {/* Footer info */}
         <p className="text-center text-[10px] text-slate-400 font-medium mt-3">
-          © {new Date().getFullYear()} InsuMitra. All rights reserved.
+          © {new Date().getFullYear()} Insumitra. All rights reserved.
         </p>
 
       </div>

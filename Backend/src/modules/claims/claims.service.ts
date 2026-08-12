@@ -133,6 +133,14 @@ export class ClaimsService {
       await this.notifEngine.notifyClaimAssigned(
         tenantId, claim.id, dto.claimNumber, dto.assignedEmployeeId,
       );
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: createdById,
+        assigneeId: dto.assignedEmployeeId,
+        recordType: 'Claim',
+        recordId: claim.id,
+        recordName: dto.claimNumber || 'Claim',
+      }).catch(err => this.logger.warn(`Failed sending claim assignment notification: ${err.message}`));
     }
 
     return { data: claim, message: 'Claim created successfully' };
@@ -147,6 +155,18 @@ export class ClaimsService {
 
     const updated = await this.prisma.claim.update({ where: { id }, data: dto as any });
     await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Claim details updated');
+
+    if (dto.assignedEmployeeId && dto.assignedEmployeeId !== claim.assignedEmployeeId) {
+      await this.notifEngine.notifyAssignment({
+        tenantId,
+        assignerId: userId,
+        assigneeId: dto.assignedEmployeeId,
+        recordType: 'Claim',
+        recordId: id,
+        recordName: updated.claimNumber || 'Claim',
+      }).catch(err => this.logger.warn(`Failed sending claim assignment update notification: ${err.message}`));
+    }
+
     return { data: updated, message: 'Claim updated' };
   }
 

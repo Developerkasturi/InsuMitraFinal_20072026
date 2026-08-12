@@ -333,7 +333,7 @@ export default function PolicyDetail() {
             
             <div className="card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Shield size={14}/>Loans / EMI</h3>
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Shield size={14}/>Loans / Installments</h3>
               </div>
               {p.loans?.length === 0 && <p className="text-sm text-gray-400">No loans recorded.</p>}
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">

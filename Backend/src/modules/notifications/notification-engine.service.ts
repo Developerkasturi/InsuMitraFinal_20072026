@@ -202,6 +202,77 @@ export class NotificationEngineService {
     });
   }
 
+  // ── Record Assignment ──────────────────────────────────────────────────────
+
+  /**
+   * Send assignment notification when an Owner or Employee assigns a Lead, Policy, Contact, Claim, etc.
+   */
+  async notifyAssignment(params: {
+    tenantId: string;
+    assignerId: string;
+    assigneeId: string;
+    recordType: 'Lead' | 'Policy' | 'Contact' | 'Claim' | 'Task' | string;
+    recordId: string;
+    recordName: string;
+  }) {
+    const { tenantId, assignerId, assigneeId, recordType, recordId, recordName } = params;
+
+    // Do not notify if assigned to oneself
+    if (!assigneeId || assignerId === assigneeId) return null;
+
+    // Fetch assigner info
+    const assigner = await this.prisma.user.findFirst({
+      where: { id: assignerId, tenantId },
+      include: { employeeProfile: { select: { firstName: true, lastName: true } } },
+    });
+    const assignerName = assigner?.employeeProfile
+      ? `${assigner.employeeProfile.firstName} ${assigner.employeeProfile.lastName}`.trim()
+      : 'A user';
+
+    // Deduplication check: check if an identical ASSIGNMENT notification exists created in the last 1 minute
+    const oneMinAgo = new Date(Date.now() - 60 * 1000);
+    const recentNotifications = await this.prisma.notification.findMany({
+      where: {
+        tenantId,
+        userId: assigneeId,
+        type: NotificationType.ASSIGNMENT,
+        createdAt: { gte: oneMinAgo },
+      },
+    });
+    const existing = recentNotifications.find((n) => {
+      const data = n.data as Record<string, any> | null;
+      return data?.recordId === recordId;
+    });
+    if (existing) return existing;
+
+    const title = `New ${recordType} Assigned`;
+    const body = `${assignerName} assigned ${recordType} "${recordName}" to you.`;
+
+    return this.prisma.notification.create({
+      data: {
+        tenantId,
+        userId: assigneeId,
+        type: NotificationType.ASSIGNMENT,
+        title,
+        body,
+        data: { recordType, recordId, recordName, assignerId, assignerName },
+      },
+    });
+  }
+
+  /**
+   * Delete notifications older than 30 days automatically.
+   */
+  async cleanupOldNotifications() {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const result = await this.prisma.notification.deleteMany({
+      where: {
+        createdAt: { lt: thirtyDaysAgo },
+      },
+    });
+    return result;
+  }
+
   // ── Utility ─────────────────────────────────────────────────────────────────
 
   async countUnread(tenantId: string, userId: string): Promise<number> {

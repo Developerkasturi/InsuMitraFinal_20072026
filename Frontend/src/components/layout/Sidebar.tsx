@@ -19,7 +19,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/contacts',     label: 'Contacts',     Icon: Users,           feature: 'contacts' },
   { to: '/leads',        label: 'Leads',        Icon: TrendingUp,      feature: 'leads' },
   { to: '/policies',     label: 'Policies',     Icon: Shield,          feature: 'policies' },
-  { to: '/policies?tab=emi', label: 'EMI Tracking', Icon: CreditCard, feature: 'policies' },
+  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard, feature: 'policies' },
   { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
   { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
@@ -72,7 +72,7 @@ function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setToolt
         clsx(
           'flex items-center rounded-xl font-medium transition-all duration-200 relative group select-none',
           collapsed
-            ? 'justify-center w-10 h-10 mx-auto my-1'
+            ? 'justify-center w-10 h-10 mx-auto my-0.5'
             : 'gap-3.5 px-3 py-2 text-[13px] hover:translate-x-0.5 my-0.5',
           isActive && enabled
             ? collapsed
@@ -107,17 +107,17 @@ function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setToolt
   );
 }
 
-function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature, setTooltip }: NavGroupProps & { setTooltip: (tooltip: any) => void }) {
+function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature, setTooltip, isFirst }: NavGroupProps & { setTooltip: (tooltip: any) => void; isFirst?: boolean }) {
   if (!items.length) return null;
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {!collapsed && title && (
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 pb-2 pt-4 select-none text-slate-500">
+        <p className={clsx("text-[10px] font-bold uppercase tracking-[0.2em] px-3.5 pb-1 select-none text-slate-500", isFirst ? "pt-1" : "pt-3")}>
           {title}
         </p>
       )}
-      {collapsed && (
-        <div className="w-7 h-[1px] bg-white/[0.08] mx-auto my-2.5 rounded-full" />
+      {collapsed && !isFirst && (
+        <div className="w-7 h-[1px] bg-white/[0.08] mx-auto my-1.5 rounded-full" />
       )}
       {items.map((item) => (
         <NavItem
@@ -199,7 +199,7 @@ export default function Sidebar() {
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <div
         className={clsx(
-          'flex items-center shrink-0 px-5 py-[22px] group relative',
+          'flex items-center shrink-0 px-5 py-2 group relative',
           collapsed ? 'justify-center px-0' : 'gap-3.5',
         )}
         style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
@@ -210,8 +210,8 @@ export default function Sidebar() {
         </div>
         {!collapsed && (
           <div className="flex flex-col leading-none min-w-0">
-            <span className="font-extrabold text-[16.5px] text-white tracking-tight bg-gradient-to-r from-white via-white to-blue-100 bg-clip-text text-transparent">
-              InsuMitra
+            <span className="font-extrabold text-[14px] text-white tracking-tight bg-gradient-to-r from-white via-white to-blue-100 bg-clip-text text-transparent">
+              Insumitra
             </span>
             <span className="text-[8.5px] font-extrabold tracking-[0.2em] uppercase mt-[5.5px] text-blue-400/90">
               CRM Portal
@@ -221,7 +221,7 @@ export default function Sidebar() {
       </div>
 
       {/* ── Navigation ───────────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar px-3 relative">
+      <nav className="flex-1 overflow-y-auto pt-1 pb-2 space-y-0.5 custom-scrollbar px-3 relative">
         <NavGroup
           title="Overview"
           items={overviewItems}
@@ -230,6 +230,7 @@ export default function Sidebar() {
           setLockedFeature={setLockedFeature}
           setTooltip={setTooltip}
           user={user}
+          isFirst
         />
         <NavGroup
           title="Operations"
@@ -297,57 +298,7 @@ export default function Sidebar() {
       )}
 
       {/* ── User + Logout ───────────────────────────────────────────────── */}
-      <div className="shrink-0 p-3 space-y-2 relative"
-           style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-        {/* User profile row */}
-        {user && (
-          <div
-            onMouseEnter={(e) => {
-              if (collapsed) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setTooltip({ label: `${user.firstName} ${user.lastName} (${user.role})`, enabled: true, top: rect.top + rect.height / 2 });
-              }
-            }}
-            onMouseLeave={() => setTooltip(null)}
-            className={clsx("relative group flex items-center", collapsed ? "justify-center" : "gap-3 px-3 py-2.5 rounded-xl border border-white/[0.02] bg-white/[0.02]")}
-          >
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-[12px] font-bold shrink-0 shadow-inner">
-              {initials}
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-slate-100 truncate leading-none">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-[9px] uppercase font-bold tracking-wider mt-1 text-slate-500">
-                  {user.role}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Logout row */}
-        <div className="relative group flex justify-center">
-          <button
-            onClick={handleLogout}
-            onMouseEnter={(e) => {
-              if (collapsed) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setTooltip({ label: 'Logout', enabled: true, top: rect.top + rect.height / 2 });
-              }
-            }}
-            onMouseLeave={() => setTooltip(null)}
-            className={clsx(
-              'flex items-center rounded-xl transition-all duration-200 text-slate-400 hover:bg-red-500/15 hover:text-red-400',
-              collapsed ? 'w-9 h-9 justify-center' : 'w-full gap-2.5 px-3 py-2 text-[12px] font-semibold'
-            )}
-          >
-            <LogOut size={16} strokeWidth={2} />
-            {!collapsed && <span>Logout</span>}
-          </button>
-        </div>
-      </div>
 
       {/* Floating Tooltip outside overflow container */}
       {collapsed && tooltip && (
