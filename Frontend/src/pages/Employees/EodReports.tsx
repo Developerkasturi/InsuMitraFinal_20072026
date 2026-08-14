@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +8,7 @@ import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
 import * as XLSX from 'xlsx';
 import type { Employee } from './EmployeesLayout';
+import { sortData } from '../../utils/sortUtils';
 
 export default function EmployeeEodReports() {
   const navigate = useNavigate();
@@ -16,10 +18,26 @@ export default function EmployeeEodReports() {
   const [nextDayPlan, setNextDayPlan] = useState('');
   const [notes, setNotes] = useState('');
 
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', page],
-    queryFn: () => employeesService.list({ page, limit: 20 }),
+    queryKey: ['employees', 'all'],
+    queryFn: () => employeesService.list({ page: 1, limit: 500 }),
   });
+
+  const allEmployees = data?.data ?? data ?? [];
+  const sortedEmployees = React.useMemo(() => {
+    return sortData(Array.isArray(allEmployees) ? allEmployees : [], sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'firstName') return `${row.firstName} ${row.lastName}`;
+      return row[key];
+    });
+  }, [allEmployees, sortKey, sortDir]);
+
+  const paginatedEmployees = React.useMemo(() => {
+    const start = (page - 1) * 20;
+    return sortedEmployees.slice(start, start + 20);
+  }, [sortedEmployees, page]);
 
   useEffect(() => {
     const log = editTarget?.user?.dailyLogs?.[0];
@@ -196,14 +214,20 @@ export default function EmployeeEodReports() {
         </button>
       </div>
       <DataTable
-        columns={cols}
-        data={data?.data ?? []}
-        total={data?.meta?.total}
+        columns={cols.map(c => ({ ...c, sortable: c.key !== 'actions' && c.key !== 'user' }))}
+        data={paginatedEmployees}
+        total={sortedEmployees.length}
         page={page}
         pageSize={20}
         loading={isLoading}
         rowKey={r => r.id}
         onPageChange={setPage}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={(k) => {
+          if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortKey(k); setSortDir('asc'); }
+        }}
         onRowClick={r => navigate(`/employees/${r.id}`)}
       />
 

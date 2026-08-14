@@ -21,6 +21,7 @@ import { useLookupStore } from '@store/lookup.store';
 import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
+import { sortData } from '../../utils/sortUtils';
 
 interface Claim {
   id: string; claimNumber: string; status: string; claimType: string;
@@ -477,6 +478,10 @@ export default function Claims() {
   const [analyticsDuration, setAnalyticsDuration] = useState('ALL');
   const [showAnalytics, setShowAnalytics] = useState(false);
 
+  // Sorting
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   // Unified Filtered Claims Selector
   const filteredClaims = useMemo(() => {
     const sTerm = search.toLowerCase();
@@ -538,6 +543,21 @@ export default function Claims() {
       return true;
     });
   }, [rawClaims, search, filterStatus, filterStartDate, filterEndDate, filterCompany, filterHospital, filterClaimType, analyticsDuration]);
+
+  // Client-side Sorting
+  const sortedClaims = useMemo(() => {
+    return sortData(filteredClaims, sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'contact') return `${row.contact?.firstName ?? ''} ${row.contact?.lastName ?? ''}`;
+      
+      const parts = key.split('.');
+      let val = row;
+      for (const part of parts) {
+        if (val == null) break;
+        val = val[part];
+      }
+      return val !== undefined ? val : row[key];
+    });
+  }, [filteredClaims, sortKey, sortDir]);
 
   // Calculations for Advanced Analytics Dashboard
   const stats = useMemo(() => {
@@ -1453,14 +1473,20 @@ export default function Claims() {
       {/* Data Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <DataTable
-          columns={COLS}
-          data={filteredClaims}
-          total={filteredClaims.length}
+          columns={COLS.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
+          data={sortedClaims}
+          total={sortedClaims.length}
           page={page}
           pageSize={20}
           loading={isLoading}
           rowKey={r => r.id}
           onPageChange={setPage}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={(k) => {
+            if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+            else { setSortKey(k); setSortDir('asc'); }
+          }}
           onRowClick={r => {
             setSelectedClaim(r);
             setDetailOpen(true);
@@ -1469,7 +1495,7 @@ export default function Claims() {
       </div>
 
       {/* Create Modal */}
-      <Modal open={modalOpen} onClose={closeModal} title="Add New Claim" size="xl">
+      <Modal open={modalOpen} onClose={closeModal} title="Add New Claim" size="2xl">
         <div className="pb-3 text-xs text-slate-400 font-semibold -mt-1 mb-4 border-b border-slate-100">
           Enter details for the new insurance claim.
         </div>
@@ -1802,7 +1828,7 @@ export default function Claims() {
 
       {/* Edit Claim */}
       {editTarget && (
-        <Modal open onClose={() => setEditTarget(null)} title="Edit Claim">
+        <Modal open onClose={() => setEditTarget(null)} title="Edit Claim" size="2xl">
           <ClaimEditForm
             key={editTarget.id}
             initial={editTarget}
@@ -1840,7 +1866,7 @@ export default function Claims() {
       </Modal>
 
       {/* Claim Detail Sheet */}
-      <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="Claim Details" size="xl">
+      <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="Claim Details" size="2xl">
         {selectedClaim ? (
           <ClaimDetailView claim={selectedClaim} onEdit={() => { setDetailOpen(false); setEditTarget(selectedClaim); }} />
         ) : null}

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target } from 'lucide-react';
@@ -10,6 +11,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import type { Employee } from './EmployeesLayout';
+import { sortData } from '../../utils/sortUtils';
 
 const targetSchema = z.object({
   monthlyTarget: z.coerce.number().min(0),
@@ -24,10 +26,26 @@ export default function EmployeeTargets() {
   const [targetEditEmp, setTargetEditEmp] = useState<Employee | null>(null);
   const qc = useQueryClient();
 
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', page],
-    queryFn: () => employeesService.list({ page, limit: 20 }),
+    queryKey: ['employees', 'all'],
+    queryFn: () => employeesService.list({ page: 1, limit: 500 }),
   });
+
+  const allEmployees = data?.data ?? data ?? [];
+  const sortedEmployees = React.useMemo(() => {
+    return sortData(Array.isArray(allEmployees) ? allEmployees : [], sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'firstName') return `${row.firstName} ${row.lastName}`;
+      return row[key];
+    });
+  }, [allEmployees, sortKey, sortDir]);
+
+  const paginatedEmployees = React.useMemo(() => {
+    const start = (page - 1) * 20;
+    return sortedEmployees.slice(start, start + 20);
+  }, [sortedEmployees, page]);
 
   const { register, handleSubmit, setValue } = useForm<TargetForm>({
     resolver: zodResolver(targetSchema),
@@ -102,14 +120,20 @@ export default function EmployeeTargets() {
   return (
     <>
       <DataTable
-        columns={cols}
-        data={data?.data ?? []}
-        total={data?.meta?.total}
+        columns={cols.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
+        data={paginatedEmployees}
+        total={sortedEmployees.length}
         page={page}
         pageSize={20}
         loading={isLoading}
         rowKey={r => r.id}
         onPageChange={setPage}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={(k) => {
+          if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortKey(k); setSortDir('asc'); }
+        }}
         onRowClick={r => navigate(`/employees/${r.id}`)}
       />
 

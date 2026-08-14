@@ -1,5 +1,6 @@
+import React from 'react';
 import { useState } from 'react';
-import { Plus, FileText, User, Trash2, Search, TrendingUp, CheckCircle, Clock, DollarSign, Pencil, Wallet, Coins, ArrowRight, Shield, Calendar } from 'lucide-react';
+import { Plus, FileText, User, Trash2, Search, TrendingUp, CheckCircle, Clock, DollarSign, Pencil, Wallet, Coins, ArrowRight, Shield, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { commissionsService, policiesService, employeesService } from '@api/index';
 import Modal from '@comps/common/Modal';
@@ -8,8 +9,10 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { DatePicker } from '@comps/common/DatePicker';
 import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
+import { sortData } from '../../utils/sortUtils';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 
 interface Commission {
@@ -197,6 +200,21 @@ export default function Commissions() {
         `${r.beneficiary?.employeeProfile?.firstName ?? ''} ${r.beneficiary?.employeeProfile?.lastName ?? ''}`.toLowerCase().includes(search.toLowerCase())
       )
     : allRows;
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const sortedFiltered = React.useMemo(() => {
+    return sortData(filtered, sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'AGENT') return `${row.beneficiary?.employeeProfile?.firstName ?? ''} ${row.beneficiary?.employeeProfile?.lastName ?? ''}`;
+      if (key === 'POLICY') return row.policy?.policyNumber ?? '';
+      if (key === 'BASE') return Number(row.amount ?? 0);
+      if (key === 'ADDON') return Number(row.addon ?? 0);
+      if (key === 'DEDUCTIBLE') return Number(row.deductible ?? 0);
+      if (key === 'TOTAL') return Number(row.amount ?? 0) + Number(row.addon ?? 0) - Number(row.deductible ?? 0);
+      if (key === 'STATUS') return row.isPaid ? 1 : -1;
+      return row[key];
+    });
+  }, [filtered, sortKey, sortDir]);
 
   const STAT_CARDS = [
     { label: 'Total Commission',   value: `₹${Number((totals as any).totalAmount   ?? 0).toLocaleString('en-IN')}`, icon: TrendingUp,  bg: 'bg-blue-50',   text: 'text-blue-700'  },
@@ -253,7 +271,25 @@ export default function Commissions() {
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-100">
                 {['POLICY', 'AGENT', 'BASE', 'ADDON', 'DEDUCTIBLE', 'TOTAL', 'STATUS', 'ACTIONS'].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  <th key={h} 
+                    className={clsx("px-5 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap select-none border border-slate-200", h !== 'ACTIONS' && "cursor-pointer hover:text-gray-900")}
+                    onClick={() => {
+                      if (h === 'ACTIONS') return;
+                      if (sortKey === h) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                      else { setSortKey(h); setSortDir('asc'); }
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {h}
+                      {h !== 'ACTIONS' && (
+                        <span className="text-slate-400">
+                          {sortKey === h
+                            ? sortDir === 'asc' ? <ChevronUp size={13} className="text-slate-900 stroke-[3]" /> : <ChevronDown size={13} className="text-slate-900 stroke-[3]" />
+                            : <ChevronUp size={13} className="text-slate-500 stroke-[2.5]" />}
+                        </span>
+                      )}
+                    </span>
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -262,7 +298,7 @@ export default function Commissions() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>{Array.from({ length: 8 }).map((_, j) => <td key={j} className="px-5 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>)}</tr>
                 ))
-              ) : filtered.length === 0 ? (
+              ) : sortedFiltered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-3 text-gray-400">
@@ -273,32 +309,32 @@ export default function Commissions() {
                   </td>
                 </tr>
               ) : (
-                filtered.map(r => {
+                sortedFiltered.map((r, idx) => {
                   const agent      = r.beneficiary?.employeeProfile ? `${r.beneficiary.employeeProfile.firstName} ${r.beneficiary.employeeProfile.lastName}` : 'N/A';
                   const base       = Number(r.amount ?? 0);
                   const addon      = Number((r as any).addon ?? 0);
                   const deductible = Number((r as any).deductible ?? 0);
                   const total      = base + addon - deductible;
                   return (
-                    <tr key={r.id} className="hover:bg-blue-50/30 transition-colors group">
-                      <td className="px-5 py-4">
+                    <tr key={r.id} className={clsx("transition-colors group", idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white')}>
+                      <td className="px-5 py-4 border border-slate-200">
                         <div className="flex flex-col">
                           <span className="font-semibold text-gray-900">{r.policy?.policyNumber ?? '—'}</span>
                           <span className="text-[11px] text-gray-400">{r.commissionYear?.name ?? ''}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 font-medium text-gray-700">{agent}</td>
-                      <td className="px-5 py-4 font-semibold text-gray-700">₹{base.toLocaleString('en-IN')}</td>
-                      <td className="px-5 py-4 font-semibold text-gray-700">{addon > 0 ? `₹${addon.toLocaleString('en-IN')}` : '—'}</td>
-                      <td className="px-5 py-4"><span className={clsx('font-semibold', deductible > 0 ? 'text-red-500' : 'text-gray-400')}>{deductible > 0 ? `-₹${deductible.toLocaleString('en-IN')}` : '—'}</span></td>
-                      <td className="px-5 py-4 font-bold text-emerald-600">₹{total.toLocaleString('en-IN')}</td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4 font-medium text-gray-700 border border-slate-200">{agent}</td>
+                      <td className="px-5 py-4 font-semibold text-gray-700 border border-slate-200">₹{base.toLocaleString('en-IN')}</td>
+                      <td className="px-5 py-4 font-semibold text-gray-700 border border-slate-200">{addon > 0 ? `₹${addon.toLocaleString('en-IN')}` : '—'}</td>
+                      <td className="px-5 py-4 border border-slate-200"><span className={clsx('font-semibold', deductible > 0 ? 'text-red-500' : 'text-gray-400')}>{deductible > 0 ? `-₹${deductible.toLocaleString('en-IN')}` : '—'}</span></td>
+                      <td className="px-5 py-4 font-bold text-emerald-600 border border-slate-200">₹{total.toLocaleString('en-IN')}</td>
+                      <td className="px-5 py-4 border border-slate-200">
                         <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider', r.isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
                           <span className={clsx('w-1.5 h-1.5 rounded-full', r.isPaid ? 'bg-green-500' : 'bg-amber-500')} />
                           {r.isPaid ? 'Paid' : 'Pending'}
                         </span>
                       </td>
-                      <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                      <td className="px-5 py-4 border border-slate-200" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
                           {!r.isPaid && (
                             <button className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap transition-colors" onClick={() => setPayConfirm(r)}>

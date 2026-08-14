@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
@@ -7,6 +8,7 @@ import DataTable, { Column } from '@comps/common/DataTable';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import type { Employee } from './EmployeesLayout';
+import { sortData } from '../../utils/sortUtils';
 
 const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -14,10 +16,30 @@ export default function EmployeeAttendance() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
 
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', page],
-    queryFn: () => employeesService.list({ page, limit: 20 }),
+    queryKey: ['employees', 'all'],
+    queryFn: () => employeesService.list({ page: 1, limit: 500 }),
   });
+
+  const allEmployees = data?.data ?? data ?? [];
+  const sortedEmployees = React.useMemo(() => {
+    return sortData(Array.isArray(allEmployees) ? allEmployees : [], sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'firstName') return `${row.firstName} ${row.lastName}`;
+      if (key === 'isActive') {
+        const log = row.user?.dailyLogs?.[0];
+        return log?.checkIn ? 1 : -1;
+      }
+      return row[key];
+    });
+  }, [allEmployees, sortKey, sortDir]);
+
+  const paginatedEmployees = React.useMemo(() => {
+    const start = (page - 1) * 20;
+    return sortedEmployees.slice(start, start + 20);
+  }, [sortedEmployees, page]);
 
   const cols: Column<Employee>[] = [
     {
@@ -95,14 +117,20 @@ export default function EmployeeAttendance() {
     <>
       <h3 className="text-base font-bold text-gray-800 mb-3">Today's Attendance</h3>
       <DataTable
-        columns={cols}
-        data={data?.data ?? []}
-        total={data?.meta?.total}
+        columns={cols.map(c => ({ ...c, sortable: c.key !== 'actions' && c.key !== 'user' }))}
+        data={paginatedEmployees}
+        total={sortedEmployees.length}
         page={page}
         pageSize={20}
         loading={isLoading}
         rowKey={r => r.id}
         onPageChange={setPage}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={(k) => {
+          if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortKey(k); setSortDir('asc'); }
+        }}
         onRowClick={r => navigate(`/employees/${r.id}`)}
       />
     </>

@@ -4,9 +4,10 @@ import {
   ChevronLeft, ChevronRight, Eye, X, User, Shield,
   Heart, TrendingUp, Wallet, BarChart2,
   ChevronDown, Users, Layers, ArrowRight,
-  RotateCcw, SlidersHorizontal, History
+  RotateCcw, SlidersHorizontal, History, ChevronUp
 } from 'lucide-react';
 import clsx from 'clsx';
+import { sortData } from '../../utils/sortUtils';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 type PhcStatus = 'Interested' | 'Partial Utilized' | 'Fully Utilized' | 'Not Interested' | 'Upcoming' | 'Completed';
@@ -40,8 +41,12 @@ interface PhcPolicyRecord {
   customerPhone: string;
   planName: string;
   companyInitials: string;
+  companyName: string;
+  companyType: 'Health' | 'General';
   companyColor: string;
   policyStartDate: string;
+  policyEndDate: string;
+  sumInsured: number;
   phcFrequency: string;
   currentPhcYear: string;
   phcYearStartDate: string;
@@ -60,8 +65,8 @@ interface PhcPolicyRecord {
 const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   {
     id: 'phc-1', policyNo: 'LIC/123456/2024', customerName: 'Rahul Mehta', customerPhone: '9765432101',
-    planName: 'LIC Jeevan Anand', companyInitials: 'LIC', companyColor: 'bg-blue-600',
-    policyStartDate: '01 Jan 2024', phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
+    planName: 'LIC Jeevan Anand', companyInitials: 'LIC', companyName: 'Life Insurance Corporation', companyType: 'Health', companyColor: 'bg-blue-600',
+    policyStartDate: '01 Jan 2024', policyEndDate: '31 Dec 2025', sumInsured: 500000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
     phcYearStartDate: '01 Jan 2025', phcYearEndDate: '31 Dec 2025', phcStatus: 'Interested',
     phcCount: 2, eligibleAmount: 10000, utilizedAmount: 2100, balanceAmount: 7900, daysRemaining: 52, totalYears: 3,
     years: [
@@ -75,8 +80,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-2', policyNo: 'HDFC/788010/2023', customerName: 'Priya Mehta', customerPhone: '9876543210',
-    planName: 'HDFC Life Chick 2 Protect', companyInitials: 'HDFC', companyColor: 'bg-red-600',
-    policyStartDate: '15 Mar 2023', phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
+    planName: 'HDFC Life Chick 2 Protect', companyInitials: 'HDFC', companyName: 'HDFC Life Insurance', companyType: 'Health', companyColor: 'bg-red-600',
+    policyStartDate: '15 Mar 2023', policyEndDate: '14 Mar 2026', sumInsured: 1000000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
     phcYearStartDate: '15 Mar 2025', phcYearEndDate: '14 Mar 2026', phcStatus: 'Partial Utilized',
     phcCount: 1, eligibleAmount: 10000, utilizedAmount: 4800, balanceAmount: 5200, daysRemaining: 74, totalYears: 2,
     years: [
@@ -86,8 +91,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-3', policyNo: 'SBI/345678/2024', customerName: 'Amit Patil', customerPhone: '9814875432',
-    planName: 'SBI Life Smart Shield', companyInitials: 'SBI', companyColor: 'bg-blue-700',
-    policyStartDate: '10 Jun 2024', phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
+    planName: 'SBI Life Smart Shield', companyInitials: 'SBI', companyName: 'SBI Life Insurance', companyType: 'General', companyColor: 'bg-blue-700',
+    policyStartDate: '10 Jun 2024', policyEndDate: '09 Jun 2025', sumInsured: 750000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
     phcYearStartDate: '10 Jun 2024', phcYearEndDate: '09 Jun 2025', phcStatus: 'Not Interested',
     phcCount: 0, eligibleAmount: 10000, utilizedAmount: 0, balanceAmount: 10000, daysRemaining: 17, totalYears: 1,
     years: [
@@ -96,8 +101,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-4', policyNo: 'MAX/567880/2024', customerName: 'Sneha Joshi', customerPhone: '9820334455',
-    planName: 'Max Life Online Term', companyInitials: 'MAX', companyColor: 'bg-orange-600',
-    policyStartDate: '05 Sep 2022', phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
+    planName: 'Max Life Online Term', companyInitials: 'MAX', companyName: 'Max Life Insurance', companyType: 'Health', companyColor: 'bg-orange-600',
+    policyStartDate: '05 Sep 2022', policyEndDate: '04 Sep 2025', sumInsured: 2000000, phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
     phcYearStartDate: '05 Sep 2024', phcYearEndDate: '04 Sep 2025', phcStatus: 'Partial Utilized',
     phcCount: 2, eligibleAmount: 10000, utilizedAmount: 6000, balanceAmount: 4000, daysRemaining: 42, totalYears: 3,
     years: [
@@ -108,8 +113,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-5', policyNo: 'BAJAJ/990234/2024', customerName: 'Vikram Singh', customerPhone: '9751234566',
-    planName: 'Bajaj Allianz Care', companyInitials: 'BAJ', companyColor: 'bg-purple-600',
-    policyStartDate: '20 Dec 2023', phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
+    planName: 'Bajaj Allianz Care', companyInitials: 'BAJ', companyName: 'Bajaj Allianz', companyType: 'General', companyColor: 'bg-purple-600',
+    policyStartDate: '20 Dec 2023', policyEndDate: '19 Dec 2024', sumInsured: 300000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
     phcYearStartDate: '20 Dec 2023', phcYearEndDate: '19 Dec 2024', phcStatus: 'Fully Utilized',
     phcCount: 3, eligibleAmount: 10000, utilizedAmount: 10000, balanceAmount: 0, daysRemaining: 0, totalYears: 1,
     years: [
@@ -118,8 +123,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-6', policyNo: 'TATA/110222/2024', customerName: 'Kavita Sharma', customerPhone: '9761234432',
-    planName: 'Tata AIA Sampoorna Raksha', companyInitials: 'TATA', companyColor: 'bg-teal-600',
-    policyStartDate: '01 Jan 2024', phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
+    planName: 'Tata AIA Sampoorna Raksha', companyInitials: 'TATA', companyName: 'Tata AIA Life', companyType: 'Health', companyColor: 'bg-teal-600',
+    policyStartDate: '01 Jan 2024', policyEndDate: '31 Dec 2025', sumInsured: 1500000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
     phcYearStartDate: '01 Jan 2025', phcYearEndDate: '31 Dec 2025', phcStatus: 'Interested',
     phcCount: 3, eligibleAmount: 10000, utilizedAmount: 1500, balanceAmount: 8500, daysRemaining: 52, totalYears: 2,
     years: [
@@ -129,8 +134,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-7', policyNo: 'ICICI/333644/2024', customerName: 'Nilesh Pawar', customerPhone: '9887765654',
-    planName: 'ICICI Pru iProtect', companyInitials: 'ICICI', companyColor: 'bg-orange-500',
-    policyStartDate: '12 Apr 2023', phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
+    planName: 'ICICI Pru iProtect', companyInitials: 'ICICI', companyName: 'ICICI Prudential', companyType: 'Health', companyColor: 'bg-orange-500',
+    policyStartDate: '12 Apr 2023', policyEndDate: '11 Apr 2026', sumInsured: 800000, phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
     phcYearStartDate: '12 Apr 2025', phcYearEndDate: '11 Apr 2026', phcStatus: 'Partial Utilized',
     phcCount: 2, eligibleAmount: 10000, utilizedAmount: 6600, balanceAmount: 3400, daysRemaining: 102, totalYears: 3,
     years: [
@@ -141,8 +146,8 @@ const MOCK_PHC_DATA: PhcPolicyRecord[] = [
   },
   {
     id: 'phc-8', policyNo: 'STAR/555666/2024', customerName: 'Rohit Kulkarni', customerPhone: '9773889001',
-    planName: 'Star Comprehensive', companyInitials: 'STAR', companyColor: 'bg-yellow-600',
-    policyStartDate: '28 Aug 2024', phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
+    planName: 'Star Comprehensive', companyInitials: 'STAR', companyName: 'Star Health', companyType: 'Health', companyColor: 'bg-yellow-600',
+    policyStartDate: '28 Aug 2024', policyEndDate: '27 Aug 2025', sumInsured: 600000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
     phcYearStartDate: '28 Aug 2024', phcYearEndDate: '27 Aug 2025', phcStatus: 'Interested',
     phcCount: 2, eligibleAmount: 10000, utilizedAmount: 700, balanceAmount: 9300, daysRemaining: 25, totalYears: 1,
     years: [
@@ -514,38 +519,72 @@ export default function PhcTrackingView() {
   const [phcYearFilter, setPhcYearFilter] = useState('All');
   const [fromDate, setFromDate] = useState('01/04/2025');
   const [toDate, setToDate] = useState('30/06/2025');
+  const [dateFilterType, setDateFilterType] = useState('PHC Year End Date');
+  const [companyFilter, setCompanyFilter] = useState('All');
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [quickFilter, setQuickFilter] = useState<string | null>('this-quarter');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [drawerRecord, setDrawerRecord] = useState<PhcPolicyRecord | null>(null);
 
-  // Summary values
-  const totalWithPhc = MOCK_PHC_DATA.length;
-  const dueThisMonth = MOCK_PHC_DATA.filter(p => p.daysRemaining <= 30 && p.daysRemaining > 0).length;
-  const upcoming = MOCK_PHC_DATA.filter(p => p.phcStatus === 'Upcoming' || p.daysRemaining > 30).length;
-  const completed = MOCK_PHC_DATA.filter(p => p.phcStatus === 'Completed' || p.phcStatus === 'Fully Utilized').length;
-  const totalEligible = MOCK_PHC_DATA.reduce((s, p) => s + p.eligibleAmount, 0);
-  const totalUtilized = MOCK_PHC_DATA.reduce((s, p) => s + p.utilizedAmount, 0);
-  const totalBalance = MOCK_PHC_DATA.reduce((s, p) => s + p.balanceAmount, 0);
-  const totalPhcCount = MOCK_PHC_DATA.reduce((s, p) => s + p.phcCount, 0);
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const filteredData = useMemo(() => {
     let list = [...MOCK_PHC_DATA];
+
+    const parseDateStr = (d: string) => {
+      const m: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+      const parts = d.split(' ');
+      if (parts.length === 3) return new Date(parseInt(parts[2]), m[parts[1]], parseInt(parts[0]));
+      return new Date(d);
+    };
+
+    const parseInputDate = (d: string) => {
+      if (!d) return null;
+      const p = d.split('/');
+      if (p.length === 3) return new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+      return null;
+    };
+
+    const fDate = parseInputDate(fromDate);
+    const tDate = parseInputDate(toDate);
+
+    if (fDate && tDate) {
+      list = list.filter(p => {
+        let dateStr = p.phcYearEndDate;
+        if (dateFilterType === 'PHC Start Date') dateStr = p.phcYearStartDate;
+        else if (dateFilterType === 'Policy End Date') dateStr = p.policyEndDate;
+        
+        const filterDate = parseDateStr(dateStr);
+        return filterDate >= fDate && filterDate <= tDate;
+      });
+    }
+
     if (activeTab === 'due-this-month') list = list.filter(p => p.daysRemaining <= 30 && p.daysRemaining > 0);
     else if (activeTab === 'upcoming') list = list.filter(p => p.phcStatus === 'Upcoming' || p.daysRemaining > 30);
     else if (activeTab === 'completed') list = list.filter(p => p.phcStatus === 'Completed' || p.phcStatus === 'Fully Utilized');
+    
     if (phcStatusFilter !== 'All') list = list.filter(p => p.phcStatus === phcStatusFilter);
+    if (companyFilter !== 'All') list = list.filter(p => p.companyName === companyFilter || p.companyInitials === companyFilter);
+    
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(p => p.policyNo.toLowerCase().includes(q) || p.customerName.toLowerCase().includes(q) || p.planName.toLowerCase().includes(q) || p.customerPhone.includes(q));
     }
     return list;
-  }, [activeTab, phcStatusFilter, searchQuery]);
+  }, [activeTab, phcStatusFilter, searchQuery, fromDate, toDate]);
+
+  const sortedFilteredData = useMemo(() => {
+    return sortData(filteredData, sortKey, sortDir, (row: any, key: string) => {
+      return row[key];
+    });
+  }, [filteredData, sortKey, sortDir]);
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
-  }, [filteredData, currentPage, rowsPerPage]);
+    return sortedFilteredData.slice(start, start + rowsPerPage);
+  }, [sortedFilteredData, currentPage, rowsPerPage]);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
 
@@ -565,28 +604,17 @@ export default function PhcTrackingView() {
   ] as const;
 
   const SUMMARY_CARDS = [
-    { label: 'Total Policies with PHC', value: totalWithPhc, sub: 'All Active Policies', icon: Shield, color: 'border-teal-100', iconBg: 'bg-teal-50 text-teal-600 border-teal-100', isAmount: false },
-    { label: 'Due This Month', value: dueThisMonth, sub: 'Due in this month', icon: Calendar, color: 'border-amber-100', iconBg: 'bg-amber-50 text-amber-600 border-amber-100', isAmount: false },
-    { label: 'Upcoming PHC', value: upcoming, sub: 'In future', icon: Clock, color: 'border-sky-100', iconBg: 'bg-sky-50 text-sky-600 border-sky-100', isAmount: false },
-    { label: 'Completed PHC', value: completed, sub: 'PHC year completed', icon: CheckCircle2, color: 'border-emerald-100', iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100', isAmount: false },
-    { label: 'Total Eligible Amount', value: totalEligible, sub: 'All Policies', icon: Wallet, color: 'border-violet-100', iconBg: 'bg-violet-50 text-violet-600 border-violet-100', isAmount: true },
-    { label: 'Total Utilized Amount', value: totalUtilized, sub: 'All Policies', icon: TrendingUp, color: 'border-blue-100', iconBg: 'bg-blue-50 text-blue-600 border-blue-100', isAmount: true },
-    { label: 'Total Balance', value: totalBalance, sub: 'All Policies', icon: BarChart2, color: 'border-rose-100', iconBg: 'bg-rose-50 text-rose-600 border-rose-100', isAmount: true },
-    { label: 'Total PHC Count', value: totalPhcCount, sub: 'All Policies', icon: Heart, color: 'border-orange-100', iconBg: 'bg-orange-50 text-orange-600 border-orange-100', isAmount: false },
+    { label: 'Total Active Policies with PHC', value: filteredData.length, sub: 'Filtered Policies', icon: Shield, color: 'border-teal-100', iconBg: 'bg-teal-50 text-teal-600 border-teal-100', isAmount: false },
+    { label: 'Policies with Full Utilisation', value: filteredData.filter(p => p.phcStatus === 'Fully Utilized' || p.phcStatus === 'Completed').length, sub: 'Filtered Policies', icon: CheckCircle2, color: 'border-emerald-100', iconBg: 'bg-emerald-50 text-emerald-600 border-emerald-100', isAmount: false },
+    { label: 'Total PHC Amount', value: filteredData.reduce((s, p) => s + p.eligibleAmount, 0), sub: 'Filtered Policies', icon: Wallet, color: 'border-violet-100', iconBg: 'bg-violet-50 text-violet-600 border-violet-100', isAmount: true },
+    { label: 'Total Utilised Amount', value: filteredData.reduce((s, p) => s + p.utilizedAmount, 0), sub: 'Filtered Policies', icon: TrendingUp, color: 'border-blue-100', iconBg: 'bg-blue-50 text-blue-600 border-blue-100', isAmount: true },
   ];
 
   return (
     <div className="space-y-4 pb-10 font-sans">
 
-      {/* PHC History Button */}
-      <div className="flex justify-end">
-        <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs cursor-pointer transition-colors">
-          <History size={14} /> PHC History (All Policies)
-        </button>
-      </div>
-
       {/* ── Summary Cards ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {SUMMARY_CARDS.map(card => (
           <div key={card.label} className={clsx('bg-white rounded-2xl p-3.5 border shadow-xs flex items-center gap-2.5 hover:shadow-md transition-all', card.color)}>
             <div className={clsx('w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border', card.iconBg)}>
@@ -607,9 +635,19 @@ export default function PhcTrackingView() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-3">
         <p className="text-xs font-extrabold text-blue-700 flex items-center gap-1.5">
           <Calendar size={13} className="text-blue-500" />
-          Date Wise Filter (Based on PHC Year End Date)
+          Date Wise Filter
         </p>
         <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filter By</label>
+            <div className="relative">
+              <select value={dateFilterType} onChange={e => setDateFilterType(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none">
+                {['PHC Year End Date', 'PHC Start Date', 'Policy End Date'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">From Date</label>
             <div className="relative">
@@ -639,7 +677,7 @@ export default function PhcTrackingView() {
         </div>
         {fromDate && toDate && (
           <p className="text-[11px] font-medium text-slate-500 italic">
-            Showing policies whose PHC Year End Date is between {fromDate} and {toDate}
+            Showing policies whose {dateFilterType} is between {fromDate} and {toDate}
           </p>
         )}
       </div>
@@ -671,6 +709,7 @@ export default function PhcTrackingView() {
               { val: policyTypeFilter, setter: setPolicyTypeFilter, label: 'Policy Type', opts: [['All', 'Policy Type'], ['HEALTH', 'Health'], ['LIFE', 'Life'], ['TERM', 'Term']] },
               { val: phcStatusFilter, setter: setPhcStatusFilter, label: 'PHC Status', opts: [['All', 'PHC Status'], ['Interested', 'Interested'], ['Partial Utilized', 'Partial Utilized'], ['Fully Utilized', 'Fully Utilized'], ['Not Interested', 'Not Interested'], ['Upcoming', 'Upcoming'], ['Completed', 'Completed']] },
               { val: phcYearFilter, setter: setPhcYearFilter, label: 'PHC Year', opts: [['All', 'PHC Year'], ['Year 1', 'Year 1'], ['Year 2', 'Year 2'], ['Year 3', 'Year 3']] },
+              { val: companyFilter, setter: setCompanyFilter, label: 'Company', opts: [['All', 'Company'], ...Array.from(new Set(MOCK_PHC_DATA.map(p => p.companyName))).map(c => [c, c] as [string, string])] },
             ].map(({ val, setter, opts }) => (
               <div key={opts[0][1]} className="relative">
                 <select value={val} onChange={e => setter(e.target.value)}
@@ -698,42 +737,86 @@ export default function PhcTrackingView() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/60 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                <th className="px-3 py-3 whitespace-nowrap">Policy No.</th>
-                <th className="px-3 py-3 whitespace-nowrap">Customer</th>
-                <th className="px-3 py-3 whitespace-nowrap">Plan</th>
-                <th className="px-3 py-3 whitespace-nowrap">Policy Start Date (Original)</th>
-                <th className="px-3 py-3 whitespace-nowrap">PHC Frequency</th>
-                <th className="px-3 py-3 whitespace-nowrap">Current PHC Year</th>
-                <th className="px-3 py-3 whitespace-nowrap">PHC Year Start Date</th>
-                <th className="px-3 py-3 whitespace-nowrap">PHC Year End Date <span className="ml-0.5 text-blue-400">↕</span></th>
-                <th className="px-3 py-3 whitespace-nowrap">PHC Status</th>
-                <th className="px-3 py-3 whitespace-nowrap">PHC Count</th>
-                <th className="px-3 py-3 whitespace-nowrap">Eligible Amount</th>
-                <th className="px-3 py-3 whitespace-nowrap">Utilized Amount</th>
-                <th className="px-3 py-3 whitespace-nowrap">Balance Amount</th>
-                <th className="px-3 py-3 whitespace-nowrap text-right">Action</th>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-3 border border-slate-200 text-center w-10">
+                  <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                    checked={selectedRows.size === paginatedData.length && paginatedData.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedRows(new Set(paginatedData.map(r => r.id)));
+                      else setSelectedRows(new Set());
+                    }} />
+                </th>
+                {[
+                  { key: 'srNo', label: 'Sr. No.' },
+                  { key: 'customerName', label: 'Customer Name' },
+                  { key: 'customerPhone', label: 'Customer contact no' },
+                  { key: 'companyType', label: 'Insurance company type' },
+                  { key: 'companyName', label: 'Insurance company name' },
+                  { key: 'planName', label: 'Product name' },
+                  { key: 'sumInsured', label: 'Sum Insured' },
+                  { key: 'policyNo', label: 'Policy no.' },
+                  { key: 'policyEndDate', label: 'Policy End date' },
+                  { key: 'currentPhcYear', label: 'Current PHC Year' },
+                  { key: 'phcYearStartDate', label: 'PHC Year Start Date' },
+                  { key: 'phcYearEndDate', label: 'PHC Year End Date' },
+                  { key: 'phcStatus', label: 'PHC Status' },
+                  { key: 'eligibleAmount', label: 'PHC Amount' },
+                  { key: 'utilizedAmount', label: 'Utilised Amount' },
+                  { key: 'balanceAmount', label: 'Balance amount' },
+                  { key: 'Actions', label: 'Action', align: 'right' },
+                ].map(h => (
+                  <th key={h.key} 
+                    className={clsx(`px-3 py-3 border border-slate-200 whitespace-nowrap select-none ${h.align === 'right' ? 'text-right' : ''}`, h.key !== 'Actions' && h.key !== 'srNo' && 'cursor-pointer hover:text-slate-900')}
+                    onClick={() => {
+                      if (h.key === 'Actions' || h.key === 'srNo') return;
+                      if (sortKey === h.key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                      else { setSortKey(h.key); setSortDir('asc'); }
+                    }}
+                  >
+                    <span className={clsx("inline-flex items-center gap-1", h.align === 'right' && "justify-end w-full")}>
+                      {h.label}
+                      {h.key !== 'Actions' && h.key !== 'srNo' && (
+                        <span className="text-slate-400">
+                          {sortKey === h.key
+                            ? sortDir === 'asc' ? <ChevronUp size={13} className="text-slate-900 stroke-[3]" /> : <ChevronDown size={13} className="text-slate-900 stroke-[3]" />
+                            : <ChevronUp size={13} className="text-slate-500 stroke-[2.5]" />}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 font-medium">
               {paginatedData.length === 0 ? (
-                <tr><td colSpan={14} className="px-5 py-12 text-center text-slate-400 font-semibold">No PHC policies match the selected filters.</td></tr>
-              ) : paginatedData.map(r => (
-                <tr key={r.id} onClick={() => setDrawerRecord(r)} className="hover:bg-blue-50/40 transition-colors cursor-pointer">
-                  <td className="px-3 py-3 whitespace-nowrap">
+                <tr><td colSpan={18} className="px-5 py-12 text-center text-slate-400 font-semibold">No PHC policies match the selected filters.</td></tr>
+              ) : paginatedData.map((r, idx) => (
+                <tr key={r.id} onClick={() => setDrawerRecord(r)} className={clsx("transition-colors cursor-pointer", idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white', selectedRows.has(r.id) && 'bg-blue-50/50')}>
+                  <td className="px-3 py-3 border border-slate-200 text-center" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                      checked={selectedRows.has(r.id)}
+                      onChange={(e) => {
+                        const newSet = new Set(selectedRows);
+                        if (e.target.checked) newSet.add(r.id);
+                        else newSet.delete(r.id);
+                        setSelectedRows(newSet);
+                      }} />
+                  </td>
+                  <td className="px-3 py-3 border border-slate-200 text-center font-bold text-slate-500">{(currentPage - 1) * rowsPerPage + idx + 1}</td>
+                  <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.customerName}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.customerPhone}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.companyType}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-700 font-semibold">{r.companyName}</td>
+                  <td className="px-3 py-3 border border-slate-200"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.planName}</p></td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-700">{fmtCurr(r.sumInsured)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <div className={clsx('w-7 h-7 rounded-lg text-white font-black text-[9px] flex items-center justify-center shrink-0', r.companyColor)}>{r.companyInitials.slice(0, 4)}</div>
                       <span className="font-bold text-slate-800 text-[11px]">{r.policyNo}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
-                    <p className="font-bold text-slate-900 text-[11px]">{r.customerName}</p>
-                    <p className="text-[10px] text-slate-400 font-semibold">{r.customerPhone}</p>
-                  </td>
-                  <td className="px-3 py-3"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.planName}</p></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-slate-600 text-[11px]">{r.policyStartDate}</td>
-                  <td className="px-3 py-3 whitespace-nowrap text-slate-600 font-semibold text-[11px]">{r.phcFrequency}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold text-[11px]">{r.policyEndDate}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
                     <span className={clsx('inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold border',
                       r.currentPhcYear.includes('1') ? 'bg-amber-50 text-amber-700 border-amber-200' :
                       r.currentPhcYear.includes('2') ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -741,17 +824,16 @@ export default function PhcTrackingView() {
                       {r.currentPhcYear.replace(' (Current)', '')} <span className="ml-1 text-[9px] opacity-70">(Current)</span>
                     </span>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap text-slate-600 text-[11px]">{r.phcYearStartDate}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 text-[11px]">{r.phcYearStartDate}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
                     <p className="text-slate-700 font-semibold text-[11px]">{r.phcYearEndDate}</p>
                     {r.daysRemaining > 0 && <p className={clsx('text-[10px] font-bold', r.daysRemaining <= 30 ? 'text-rose-500' : 'text-slate-400')}>{r.daysRemaining} Days Remaining</p>}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={r.phcStatus} /></td>
-                  <td className="px-3 py-3 whitespace-nowrap text-center"><span className="font-extrabold text-slate-800 text-sm">{r.phcCount}</span></td>
-                  <td className="px-3 py-3 whitespace-nowrap font-bold text-slate-700 text-[11px]">{fmtCurr(r.eligibleAmount)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap font-bold text-blue-700 text-[11px]">{fmtCurr(r.utilizedAmount)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap font-extrabold text-emerald-700 text-[11px]">{fmtCurr(r.balanceAmount)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap"><StatusBadge status={r.phcStatus} /></td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-700 text-[11px]">{fmtCurr(r.eligibleAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-blue-700 text-[11px]">{fmtCurr(r.utilizedAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-emerald-700 text-[11px]">{fmtCurr(r.balanceAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setDrawerRecord(r)} className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 cursor-pointer transition-colors" title="View PHC Details">
                       <Eye size={13} />
                     </button>
