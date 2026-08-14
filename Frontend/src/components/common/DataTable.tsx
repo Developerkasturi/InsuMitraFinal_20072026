@@ -17,6 +17,8 @@ interface Props<T> {
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  sortKey?: string;
+  sortDir?: 'asc' | 'desc';
   onSort?: (key: string, dir: 'asc' | 'desc') => void;
   loading?: boolean;
   rowKey: (row: T) => string;
@@ -62,7 +64,7 @@ export default function DataTable<T>({
                 <th
                   key={String(col.key)}
                   className={clsx(
-                    'px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider',
+                    'px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider border border-slate-200/80',
                     'text-slate-500 whitespace-nowrap select-none',
                     col.sortable && 'cursor-pointer hover:text-blue-600 transition-colors duration-150',
                     col.className,
@@ -75,9 +77,9 @@ export default function DataTable<T>({
                       <span className="text-slate-400 transition-colors duration-150">
                         {sortKey === String(col.key)
                           ? sortDir === 'asc'
-                            ? <ChevronUp size={12} className="text-blue-600 stroke-[2.5]" />
-                            : <ChevronDown size={12} className="text-blue-600 stroke-[2.5]" />
-                          : <ChevronUp size={12} className="opacity-30 hover:opacity-60" />
+                            ? <ChevronUp size={14} className="text-slate-900 stroke-[3]" />
+                            : <ChevronDown size={14} className="text-slate-900 stroke-[3]" />
+                          : <ChevronUp size={14} className="text-slate-500 stroke-[2.5]" />
                         }
                       </span>
                     )}
@@ -123,16 +125,16 @@ export default function DataTable<T>({
                   onClick={() => onRowClick?.(row)}
                   className={clsx(
                     'transition-all duration-150',
-                    idx % 2 === 1 ? 'bg-slate-50/20' : 'bg-white',
+                    idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white',
                     onRowClick
-                      ? 'cursor-pointer hover:bg-blue-50/40 hover:shadow-2xs'
-                      : 'hover:bg-slate-50/60',
+                      ? 'cursor-pointer'
+                      : '',
                   )}
                 >
                   {columns.map(col => (
                     <td
                       key={String(col.key)}
-                      className={clsx('px-5 py-3.5 text-slate-700 align-middle text-xs font-medium', col.className)}
+                      className={clsx('px-5 py-3.5 text-slate-700 align-middle text-xs font-medium border border-slate-200/80', col.className)}
                     >
                       {col.render ? col.render(row) : String((row as any)[col.key] ?? '')}
                     </td>

@@ -9,15 +9,21 @@ import {
 import Modal from '@comps/common/Modal';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { sortData } from '../../utils/sortUtils';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface EmiRecord {
   id: string;
   policyNo: string;
   customerName: string;
+  customerContactNo?: string;
+  insuranceCompanyType?: string;
   customerTag: string;
   product: string;
   insurer: string;
+  loanProvider?: string;
+  premiumAmount?: number;
+  installmentFrequency?: string;
   tenure: string;
   paymentMode: string;
   totalEmis: number;
@@ -522,13 +528,13 @@ function EmiKanbanCard({ card, onOpen, onCall, onWhatsApp }: EmiKanbanCardProps)
   );
 }
 
-interface MonthPickerDropdownProps {
+export interface MonthPickerDropdownProps {
   selectedMonth: string;
   onChange: (m: string) => void;
 }
 
 // ── Redesigned Interactive 12-Month Calendar Selector Dropdown Component ──────────────
-function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDropdownProps) {
+export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDropdownProps) {
   const [open, setOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(2026);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -644,28 +650,52 @@ function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDropdownPro
   );
 }
 
-export default function EmiTrackingView() {
-  const [data, setData] = useState<EmiRecord[]>(INITIAL_EMI_DATA);
-  const [selectedMonth, setSelectedMonth] = useState('August 2026');
+export default function EmiTrackingView({ selectedMonth }: { selectedMonth: string }) {
+  const [data, setData] = useState<EmiRecord[]>(() => INITIAL_EMI_DATA.map(d => ({
+    ...d,
+    customerContactNo: '+91 9876543210',
+    insuranceCompanyType: d.customerTag.split(' - ')[0] || 'Health',
+    loanProvider: 'FIBE',
+    premiumAmount: d.amount * d.totalEmis,
+    installmentFrequency: 'Monthly'
+  })));
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [employeeFilter, setEmployeeFilter] = useState<string>('All');
   const [insurerFilter, setInsurerFilter] = useState<string>('All');
   const [productFilter, setProductFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('list');
   const [showFilters, setShowFilters] = useState(false);
   const [drawerRecord, setDrawerRecord] = useState<EmiRecord | null>(null);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'schedule' | 'communication' | 'notes'>('overview');
   const [newNoteInput, setNewNoteInput] = useState('');
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
+  const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedRecords(sortedFilteredData.map(r => r.id));
+    } else {
+      setSelectedRecords([]);
+    }
+  };
+
+  const handleSelectRecord = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    e.stopPropagation();
+    if (e.target.checked) {
+      setSelectedRecords(prev => [...prev, id]);
+    } else {
+      setSelectedRecords(prev => prev.filter(rId => rId !== id));
+    }
+  };
+
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   // Filter logic
   const filteredData = useMemo(() => {
     return data.filter(item => {
       if (statusFilter !== 'All') {
-        if (statusFilter === 'Due Today' && item.status !== 'DUE') return false;
-        if (statusFilter === 'Upcoming' && item.status !== 'UPCOMING') return false;
-        if (statusFilter === 'Overdue' && item.status !== 'OVERDUE') return false;
+        if (statusFilter === 'Due' && item.status === 'PAID') return false;
         if (statusFilter === 'Paid' && item.status !== 'PAID') return false;
       }
       if (employeeFilter !== 'All' && item.employee !== employeeFilter) return false;
@@ -682,6 +712,45 @@ export default function EmiTrackingView() {
       return true;
     });
   }, [data, statusFilter, employeeFilter, insurerFilter, productFilter, searchQuery]);
+
+  const sortedFilteredData = useMemo(() => {
+    let result = [...filteredData];
+    if (!sortKey) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      result.sort((a, b) => {
+        const getGroup = (item: any) => {
+          if (item.status === 'PAID') return 3; // Paid
+          const itemDate = new Date(item.dueDate);
+          itemDate.setHours(0, 0, 0, 0);
+          return itemDate < today ? 1 : 2; // 1 = Overdue, 2 = Due
+        };
+
+        const aGroup = getGroup(a);
+        const bGroup = getGroup(b);
+
+        if (aGroup !== bGroup) return aGroup - bGroup; // Overdue -> Due -> Paid
+
+        // Within each status group, sort by due date closest to today
+        const aDate = new Date(a.dueDate);
+        aDate.setHours(0, 0, 0, 0);
+        const bDate = new Date(b.dueDate);
+        bDate.setHours(0, 0, 0, 0);
+
+        const aDist = Math.abs(aDate.getTime() - today.getTime());
+        const bDist = Math.abs(bDate.getTime() - today.getTime());
+
+        return aDist - bDist;
+      });
+    } else {
+      result = sortData(result, sortKey, sortDir, (row: any, key: string) => {
+        if (key === 'EMI (x/y)') return row.paidEmis / row.totalEmis;
+        return row[key];
+      });
+    }
+    return result;
+  }, [filteredData, sortKey, sortDir]);
 
   // Handler for Mark as Paid
   const handleMarkAsPaid = (recordId: string) => {
@@ -785,27 +854,13 @@ export default function EmiTrackingView() {
     toast.success('Note added');
   };
 
-  // Kanban Column Definitions
-  const KANBAN_COLS = [
-    { key: 'UPCOMING', label: 'UPCOMING', count: 18, color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { key: 'DUE', label: 'DUE', count: 12, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { key: 'MESSAGE SENT', label: 'MESSAGE SENT', count: 9, color: 'bg-purple-50 text-purple-700 border-purple-200' },
-    { key: 'CUSTOMER CONTACTED', label: 'CUSTOMER CONTACTED', count: 6, color: 'bg-sky-50 text-sky-700 border-sky-200' },
-    { key: 'PAID', label: 'PAID', count: 18, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { key: 'OVERDUE', label: 'OVERDUE', count: 8, color: 'bg-rose-50 text-rose-700 border-rose-200' },
-    { key: 'PAYMENT FAILED', label: 'PAYMENT FAILED / NOT PAID', count: 5, color: 'bg-gray-100 text-gray-700 border-gray-200' },
-  ];
+  // Kanban Column Definitions (Removed)
 
   return (
     <div className="space-y-5 animate-fadeIn font-sans pb-10">
       
-      {/* Month Selector Calendar */}
-      <div className="flex justify-end">
-        <MonthPickerDropdown selectedMonth={selectedMonth} onChange={setSelectedMonth} />
-      </div>
-
-      {/* ── Summary KPI Cards Row (5 Cards) ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      {/* ── Summary KPI Cards Row (4 Cards) ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
         {/* Card 1: Total Installments Due */}
         <div className="bg-white rounded-2xl p-4 border border-blue-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
@@ -835,21 +890,7 @@ export default function EmiTrackingView() {
           </div>
         </div>
 
-        {/* Card 3: Paid */}
-        <div className="bg-white rounded-2xl p-4 border border-emerald-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Paid</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-slate-900">56</span>
-            </div>
-            <span className="text-xs font-bold text-slate-500 block">₹ 5,60,000</span>
-          </div>
-        </div>
-
-        {/* Card 4: Pending / Overdue */}
+        {/* Card 3: Pending / Overdue */}
         <div className="bg-white rounded-2xl p-4 border border-rose-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
             <AlertTriangle size={22} />
@@ -863,18 +904,25 @@ export default function EmiTrackingView() {
           </div>
         </div>
 
-        {/* Card 5: This Month Collection */}
-        <div className="bg-sky-50/60 rounded-2xl p-4 border border-sky-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
+        {/* Card 4: Paid & Collection */}
+        <div className="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800">This Month Collection</span>
-              <span className="text-[10px] font-black text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded-md">65%</span>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle2 size={14} />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Paid / Collection</span>
+              </div>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">56 Policies</span>
             </div>
-            <span className="text-xl font-black text-sky-950 mt-1 block">₹ 3,25,000</span>
-            <span className="text-[11px] font-medium text-sky-700/80 block">Target: ₹ 5,00,000</span>
+            <div className="mt-2.5 flex items-baseline justify-between">
+              <span className="text-xl font-black text-emerald-950 block">₹ 5,60,000</span>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">65% Target</span>
+            </div>
           </div>
-          <div className="w-full bg-sky-200/80 h-2 rounded-full mt-2.5 overflow-hidden">
-            <div className="bg-sky-600 h-full rounded-full transition-all duration-500" style={{ width: '65%' }} />
+          <div className="w-full bg-emerald-200/80 h-2 rounded-full mt-2.5 overflow-hidden">
+            <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: '65%' }} />
           </div>
         </div>
 
@@ -882,25 +930,26 @@ export default function EmiTrackingView() {
 
       {/* ── Filter Bar ────────────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        
-        {/* Left Side: Search Box (Top) + Status Filter Pills (Next Line) */}
-        <div className="flex flex-col gap-3 w-full lg:w-auto">
-          {/* Search Box */}
-          <div className="relative w-full sm:w-80">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search Customer / Policy / Installment"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
-            />
+          
+          {/* Left Side: Search Box */}
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            <div className="relative w-full sm:w-80 lg:w-64">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search Customer / Policy / Installment"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+              />
+            </div>
           </div>
-
-          {/* Status Filter Pills (Next Line below search box) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+  
+          {/* Right Side: Status Filter Pills + Filter Icon */}
+          <div className="flex flex-wrap items-center gap-2.5 justify-end">
+            {/* Status Filter Pills */}
             <div className="bg-slate-100/80 p-1 rounded-xl flex items-center gap-1 border border-slate-200/50">
-              {['All', 'Due Today', 'Upcoming', 'Overdue', 'Paid'].map(st => (
+              {['All', 'Due', 'Paid'].map(st => (
                 <button
                   key={st}
                   type="button"
@@ -916,32 +965,6 @@ export default function EmiTrackingView() {
                 </button>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Right Side: View Toggle + Filter Icon */}
-        <div className="flex flex-wrap items-center gap-2.5 justify-end">
-          {/* Kanban / Table Toggle */}
-          <div className="flex items-center bg-slate-100/90 rounded-xl p-1 border border-slate-200/60">
-            <button
-              type="button"
-              onClick={() => setViewMode('board')}
-              className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all select-none',
-                viewMode === 'board' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900')}
-            >
-              <LayoutGrid size={13} /> <span>Board View</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('list')}
-              className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold cursor-pointer transition-all select-none',
-                viewMode === 'list' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900')}
-            >
-              <List size={13} /> <span>List View</span>
-            </button>
-          </div>
-
-          {/* Filter Toggle Icon */}
           <button
             type="button"
             onClick={() => setShowFilters(prev => !prev)}
@@ -1019,129 +1042,123 @@ export default function EmiTrackingView() {
       )}
 
       {/* ── Table Section (List View) ────────────────────────────────────────────────── */}
-      {viewMode === 'list' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">EMI Due List – {selectedMonth}</h3>
-            <span className="text-xs text-slate-400 font-bold">Showing {filteredData.length} records</span>
-          </div>
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">EMI Due List – {selectedMonth}</h3>
+          <span className="text-xs text-slate-400 font-bold">Showing {filteredData.length} records</span>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200/60 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="px-4 py-3">Customer Name</th>
-                  <th className="px-4 py-3">Policy No.</th>
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3">EMI (x/y)</th>
-                  <th className="px-4 py-3">Due Date</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Next Action</th>
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                {[
+                  { key: 'select', label: '' },
+                  { key: 'customerName', label: 'Customer Name' },
+                  { key: 'customerContactNo', label: 'Contact No.' },
+                  { key: 'insuranceCompanyType', label: 'Insurance Type' },
+                  { key: 'insurer', label: 'Insurer' },
+                  { key: 'product', label: 'Product Name' },
+                  { key: 'policyNo', label: 'Policy No.' },
+                  { key: 'loanProvider', label: 'Loan Provider' },
+                  { key: 'premiumAmount', label: 'Premium Amount' },
+                  { key: 'amount', label: 'Inst. Amount' },
+                  { key: 'installmentFrequency', label: 'Frequency' },
+                  { key: 'EMI (x/y)', label: 'No. of Inst.' },
+                  { key: 'dueDate', label: 'Due Date' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'employee', label: 'Assigned Employee' },
+                  { key: 'Actions', label: 'Actions', align: 'right' }
+                ].map(h => (
+                  <th key={h.key} 
+                    className={clsx(`px-4 py-3 border border-slate-200 select-none ${h.align === 'right' ? 'text-right' : ''}`, h.key !== 'Actions' && h.key !== 'select' && 'cursor-pointer hover:text-slate-900')}
+                    onClick={() => {
+                      if (h.key === 'Actions' || h.key === 'select') return;
+                      if (sortKey === h.key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                      else { setSortKey(h.key); setSortDir('asc'); }
+                    }}
+                  >
+                    {h.key === 'select' ? (
+                      <input type="checkbox" onChange={handleSelectAll} checked={sortedFilteredData.length > 0 && selectedRecords.length === sortedFilteredData.length} className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    ) : (
+                      <span className={clsx("inline-flex items-center gap-1", h.align === 'right' && "justify-end w-full")}>
+                        {h.label}
+                        {h.key !== 'Actions' && (
+                          <span className="text-slate-400">
+                            {sortKey === h.key
+                              ? sortDir === 'asc' ? <ChevronUp size={13} className="text-slate-900 stroke-[3]" /> : <ChevronDown size={13} className="text-slate-900 stroke-[3]" />
+                              : <ChevronUp size={13} className="text-slate-500 stroke-[2.5]" />}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {sortedFilteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={16} className="px-5 py-12 text-center text-slate-400 font-semibold">
+                    No EMI records match the selected filters.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredData.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-5 py-12 text-center text-slate-400 font-semibold">
-                      No EMI records match the selected filters.
+              ) : (
+                sortedFilteredData.map((r, idx) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => setDrawerRecord(r)}
+                    className={clsx(
+                      "transition-colors cursor-pointer group",
+                      idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white',
+                      selectedRecords.includes(r.id) && 'bg-blue-50/50'
+                    )}
+                  >
+                    <td className="px-4 py-3.5 border border-slate-200" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedRecords.includes(r.id)} onChange={(e) => handleSelectRecord(e, r.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                    </td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-900">{r.customerName}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.customerContactNo}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.insuranceCompanyType}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.insurer}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.product}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-semibold text-slate-700">{r.policyNo}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.loanProvider}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.premiumAmount ? fmtCurr(r.premiumAmount) : '-'}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-extrabold text-slate-900 whitespace-nowrap">{fmtCurr(r.amount)}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.installmentFrequency}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800">{r.paidEmis + 1}/{r.totalEmis}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 whitespace-nowrap">{r.dueDate}</td>
+                    <td className="px-4 py-3.5 border border-slate-200">
+                      <span
+                        className={clsx(
+                          'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border whitespace-nowrap',
+                          r.status === 'DUE' && 'bg-amber-50 text-amber-600 border-amber-200',
+                          r.status === 'PAID' && 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                          r.status === 'UPCOMING' && 'bg-blue-50 text-blue-600 border-blue-200',
+                          r.status === 'OVERDUE' && 'bg-rose-50 text-rose-600 border-rose-200',
+                          r.status === 'MESSAGE SENT' && 'bg-purple-50 text-purple-600 border-purple-200',
+                          r.status === 'CUSTOMER CONTACTED' && 'bg-sky-50 text-sky-600 border-sky-200',
+                          r.status === 'PAYMENT FAILED' && 'bg-gray-100 text-gray-600 border-gray-200'
+                        )}
+                      >
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.employee}</td>
+                    
+                    <td className="px-4 py-3.5 border border-slate-200 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => setDrawerRecord(r)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200/70 transition-all cursor-pointer"
+                      >
+                        Actions ▾
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  filteredData.map(r => (
-                    <tr
-                      key={r.id}
-                      onClick={() => setDrawerRecord(r)}
-                      className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
-                    >
-                      {/* Customer Name */}
-                      <td className="px-4 py-3.5 font-bold text-slate-900">{r.customerName}</td>
-                      
-                      {/* Policy No */}
-                      <td className="px-4 py-3.5 font-semibold text-slate-700">{r.policyNo}</td>
-                      
-                      {/* Product */}
-                      <td className="px-4 py-3.5 text-slate-600">{r.product}</td>
-                      
-                      {/* EMI (x/y) */}
-                      <td className="px-4 py-3.5 font-bold text-slate-800">{r.paidEmis + 1}/{r.totalEmis}</td>
-                      
-                      {/* Due Date */}
-                      <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">{r.dueDate}</td>
-                      
-                      {/* Amount */}
-                      <td className="px-4 py-3.5 font-extrabold text-slate-900">{fmtCurr(r.amount)}</td>
-                      
-                      {/* Status Badge */}
-                      <td className="px-4 py-3.5">
-                        <span
-                          className={clsx(
-                            'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase border',
-                            r.status === 'DUE' && 'bg-amber-50 text-amber-600 border-amber-200',
-                            r.status === 'PAID' && 'bg-emerald-50 text-emerald-600 border-emerald-200',
-                            r.status === 'UPCOMING' && 'bg-blue-50 text-blue-600 border-blue-200',
-                            r.status === 'OVERDUE' && 'bg-rose-50 text-rose-600 border-rose-200',
-                            r.status === 'MESSAGE SENT' && 'bg-purple-50 text-purple-600 border-purple-200',
-                            r.status === 'CUSTOMER CONTACTED' && 'bg-sky-50 text-sky-600 border-sky-200',
-                            r.status === 'PAYMENT FAILED' && 'bg-gray-100 text-gray-600 border-gray-200'
-                          )}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-
-                      {/* Next Action */}
-                      <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
-                        {r.nextAction === 'Send Reminder' && (
-                          <button
-                            onClick={() => handleSendReminder(r)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
-                          >
-                            <MessageSquare size={13} className="text-emerald-600" />
-                            Send Reminder
-                          </button>
-                        )}
-                        {r.nextAction === 'View Receipt' && (
-                          <button
-                            onClick={() => setDrawerRecord(r)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
-                          >
-                            <Eye size={13} className="text-slate-500" />
-                            View Receipt
-                          </button>
-                        )}
-                        {r.nextAction === 'Call Customer' && (
-                          <button
-                            onClick={() => handleCallCustomer(r)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
-                          >
-                            <Phone size={13} className="text-blue-600" />
-                            Call Customer
-                          </button>
-                        )}
-                        {(r.nextAction === 'Upcoming' || r.nextAction === 'Follow Up') && (
-                          <span className="text-slate-500 font-semibold text-xs">{r.nextAction}</span>
-                        )}
-                      </td>
-
-                      {/* Employee */}
-                      <td className="px-4 py-3.5 text-slate-700 font-semibold">{r.employee}</td>
-
-                      {/* Actions dropdown */}
-                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => setDrawerRecord(r)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200/70 transition-all cursor-pointer"
-                        >
-                          Actions ▾
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
+                ))
+              )}
+            </tbody>
             </table>
           </div>
 
@@ -1159,93 +1176,6 @@ export default function EmiTrackingView() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ── EMI Kanban Board Section ───────────────────────────────────────────────── */}
-      {viewMode === 'board' && (
-        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-base text-slate-900 tracking-tight">EMI Kanban Board</h3>
-              <button title="Kanban info" className="text-slate-400 hover:text-slate-600">
-                <Info size={15} />
-              </button>
-            </div>
-
-            {/* View Toggle Switcher (matching Leads page) */}
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200/50">
-              <button
-                type="button"
-                onClick={() => setViewMode('board')}
-                className={clsx(
-                  'px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer',
-                  (viewMode as string) === 'board' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                )}
-              >
-                <LayoutGrid size={13} />
-                Board View
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={clsx(
-                  'px-3 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer',
-                  (viewMode as string) === 'list' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                )}
-              >
-                <List size={13} />
-                List View
-              </button>
-            </div>
-          </div>
-
-          {/* 7 Columns Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3 overflow-x-auto pb-2 scrollbar-none">
-            {KANBAN_COLS.map(col => {
-              const colItems = data.filter(d => d.status === col.key);
-              return (
-                <div key={col.key} className="bg-slate-50/70 rounded-2xl border border-slate-200/70 p-3 flex flex-col min-w-[210px]">
-                  
-                  {/* Column Header */}
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 truncate">{col.label}</span>
-                    <span className={clsx('px-2 py-0.5 rounded-full text-[11px] font-extrabold border', col.color)}>
-                      {colItems.length || col.count}
-                    </span>
-                  </div>
-
-                  {/* Column Card List */}
-                  <div className="space-y-2.5 flex-1">
-                    {colItems.slice(0, 3).map(card => (
-                      <EmiKanbanCard
-                        key={card.id}
-                        card={card}
-                        onOpen={setDrawerRecord}
-                        onCall={handleCallCustomer}
-                        onWhatsApp={handleSendReminder}
-                      />
-                    ))}
-
-                    {/* Empty state placeholder if none */}
-                    {colItems.length === 0 && (
-                      <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400">
-                        No items
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer + X more */}
-                  <div className="mt-3 pt-2 text-center border-t border-slate-200/50">
-                    <span className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer">
-                      + {Math.max(0, col.count - Math.min(3, colItems.length))} more
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── NEW EMI Details Popup Modal UI (matching Add New Contact popup design) ───────── */}
       <Modal

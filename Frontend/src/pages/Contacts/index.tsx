@@ -18,7 +18,9 @@ import { format, differenceInDays } from 'date-fns';
 import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
 import toast from 'react-hot-toast';
+
 import { useAuthStore } from '@store/auth.store';
+import { sortData } from '../../utils/sortUtils';
 import ContactDetailModal from './ContactDetailModal';
 import * as XLSX from 'xlsx';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
@@ -290,6 +292,7 @@ export default function Contacts() {
 
   // Customer modal state
   const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [activeLeadTab, setActiveLeadTab] = useState('Personal');
 
   type PersonalFields = Record<string, any>;
@@ -862,6 +865,7 @@ export default function Contacts() {
     setEditContactId(null);
     setActiveLeadTab('Personal');
     setLeadModalOpen(true);
+    setIsViewMode(false);
   };
 
   const extractNameFields = (primary: any, secondary?: any) => {
@@ -1134,11 +1138,17 @@ export default function Contacts() {
     }
   };
 
+  const openLeadView = (leadOrContact: any) => {
+    setIsViewMode(true);
+    openLeadEdit(leadOrContact);
+  };
+
   const openEdit = openLeadEdit;
 
   const closeLeadModal = () => {
     setLeadModalOpen(false);
     setLoadedContact(null);
+    setIsViewMode(false);
   };
 
   const calculateAge = (dob: string): number => {
@@ -1796,40 +1806,24 @@ export default function Contacts() {
 
   // Client-side Sorting Memo
   const sortedAndFilteredData = useMemo(() => {
-    let result = [...filteredData];
-    if (sortKey) {
-      result.sort((a, b) => {
-        let valA = a[sortKey];
-        let valB = b[sortKey];
-
-        if (sortKey === 'name') {
-          valA = `${a.firstName || a.contact?.firstName || ''} ${a.lastName || a.contact?.lastName || ''}`.toLowerCase();
-          valB = `${b.firstName || b.contact?.firstName || ''} ${b.lastName || b.contact?.lastName || ''}`.toLowerCase();
-        } else if (sortKey === 'phone') {
-          valA = (a.phone || a.contact?.phone || '').toLowerCase();
-          valB = (b.phone || b.contact?.phone || '').toLowerCase();
-        } else if (sortKey === 'product') {
-          const pA = policyMap[a.id] ?? [];
-          const pB = policyMap[b.id] ?? [];
-          valA = pA.map((p: any) => p.plan?.category || p.plan?.name).join(', ').toLowerCase();
-          valB = pB.map((p: any) => p.plan?.category || p.plan?.name).join(', ').toLowerCase();
-        } else if (sortKey === 'assignedTo') {
-          valA = getEmployeeName(a.assignedEmployeeId).toLowerCase();
-          valB = getEmployeeName(b.assignedEmployeeId).toLowerCase();
-        } else if (typeof valA === 'string') {
-          valA = valA.toLowerCase();
-          valB = (valB || '').toLowerCase();
-        }
-
-        if (valA === undefined || valA === null) return 1;
-        if (valB === undefined || valB === null) return -1;
-
-        if (valA < valB) return sortDir === 'asc' ? -1 : 1;
-        if (valA > valB) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return result;
+    return sortData(filteredData, sortKey, sortDir as 'asc' | 'desc', (row: any, key: string) => {
+      if (key === 'name') return `${row.firstName || row.contact?.firstName || ''} ${row.lastName || row.contact?.lastName || ''}`;
+      if (key === 'phone') return row.phone || row.contact?.phone || '';
+      if (key === 'product') {
+        const p = policyMap[row.id] ?? [];
+        return p.map((x: any) => x.plan?.category || x.plan?.name).join(', ');
+      }
+      if (key === 'assignedTo') return getEmployeeName(row.assignedEmployeeId);
+      
+      // Attempt to resolve nested paths generically if standard row[key] is undefined
+      const parts = key.split('.');
+      let val = row;
+      for (const part of parts) {
+        if (val == null) break;
+        val = val[part];
+      }
+      return val !== undefined ? val : row[key];
+    });
   }, [filteredData, sortKey, sortDir, policyMap]);
 
   // Contact Table Columns
@@ -1845,8 +1839,7 @@ export default function Contacts() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedDetailId(cid);
-              setDetailModalOpen(true);
+              openLeadView(r);
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
@@ -2028,7 +2021,7 @@ export default function Contacts() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              openEdit(r);
+              openLeadView(r);
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
@@ -2215,8 +2208,7 @@ export default function Contacts() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedDetailId(cid);
-              setDetailModalOpen(true);
+              openLeadView(r);
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
@@ -2683,7 +2675,7 @@ export default function Contacts() {
           }}
           onRowClick={r => {
             if (activeTab === 'customers' || activeTab === 'contacts') {
-              openEdit(r);
+              openLeadView(r);
             } else {
               const cid = r.contactId || r.id;
               setSelectedDetailId(cid);
@@ -2893,13 +2885,23 @@ export default function Contacts() {
         size="2xl"
         actions={
           <div className="flex gap-2.5 mr-1">
-            <button
-              type="button"
-              className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-              onClick={(e) => handleLeadSubmit(e, false)}
-            >
-              Save
-            </button>
+            {isViewMode ? (
+                <button
+                  type="button"
+                  className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                  onClick={() => setIsViewMode(false)}
+                >
+                  Edit
+                </button>
+            ) : (
+              <button
+                type="button"
+                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                onClick={(e) => handleLeadSubmit(e, false)}
+              >
+                Save
+              </button>
+            )}
           </div>
         }
       >
@@ -2926,6 +2928,7 @@ export default function Contacts() {
 
           {/* Tab contents */}
           <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar">
+            <fieldset disabled={isViewMode} className="min-w-0 border-0 p-0 m-0 w-full">
             {activeLeadTab === 'Product Interest' && (
               <div className="space-y-3 animate-fadeIn pb-2">
 
@@ -4926,6 +4929,7 @@ export default function Contacts() {
                 </div>
               </div>
             )}
+            </fieldset>
           </div>
         </form>
       </Modal>

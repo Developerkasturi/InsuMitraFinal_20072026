@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, UserX, UserCheck, AlertTriangle } from 'lucide-react';
@@ -12,6 +13,7 @@ import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
 import type { Employee } from './EmployeesLayout';
+import { sortData } from '../../utils/sortUtils';
 
 import { useAuthStore } from '@store/auth.store';
 import { canEditModule, canManageModule } from '../../utils/permissions';
@@ -49,10 +51,34 @@ export default function Employees() {
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null);
   const qc = useQueryClient();
 
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', page],
-    queryFn: () => employeesService.list({ page, limit: 20 }),
+    queryKey: ['employees', 'all'],
+    queryFn: () => employeesService.list({ page: 1, limit: 500 }),
   });
+
+  const allEmployees = data?.data ?? data ?? [];
+  const sortedEmployees = React.useMemo(() => {
+    return sortData(Array.isArray(allEmployees) ? allEmployees : [], sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'firstName') return `${row.firstName} ${row.lastName}`;
+      if (key === 'isActive') return row.isActive ? 1 : -1;
+      
+      const parts = key.split('.');
+      let val = row;
+      for (const part of parts) {
+        if (val == null) break;
+        val = val[part];
+      }
+      return val !== undefined ? val : row[key];
+    });
+  }, [allEmployees, sortKey, sortDir]);
+
+  const paginatedEmployees = React.useMemo(() => {
+    const start = (page - 1) * 20;
+    return sortedEmployees.slice(start, start + 20);
+  }, [sortedEmployees, page]);
 
   const { register: regEdit, handleSubmit: handleEditSubmit, reset: resetEdit,
           setValue: setEditVal, formState: { errors: editErrors } } = useForm<EditForm>({
@@ -176,14 +202,20 @@ export default function Employees() {
   return (
     <>
       <DataTable
-        columns={cols}
-        data={data?.data ?? []}
-        total={data?.meta?.total}
+        columns={cols.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
+        data={paginatedEmployees}
+        total={sortedEmployees.length}
         page={page}
         pageSize={20}
         loading={isLoading}
         rowKey={r => r.id}
         onPageChange={setPage}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={(k) => {
+          if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortKey(k); setSortDir('asc'); }
+        }}
         onRowClick={r => navigate(`/employees/${r.id}`)}
       />
 

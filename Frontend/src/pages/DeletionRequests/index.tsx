@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -8,6 +9,7 @@ import { format } from 'date-fns';
 import clsx from 'clsx';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
+import { sortData } from '../../utils/sortUtils';
 
 export default function DeletionRequests() {
   const qc = useQueryClient();
@@ -17,10 +19,13 @@ export default function DeletionRequests() {
 
   const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
 
+  const [sortKey, setSortKey] = useState<string>('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   const { data: requestsRes, isLoading } = useQuery({
-    queryKey: ['deletion-requests', page, statusFilter],
+    queryKey: ['deletion-requests', 'all', statusFilter],
     queryFn: () => {
-      const filters: any = { page, limit: 10 };
+      const filters: any = { page: 1, limit: 500 };
       if (statusFilter !== 'ALL') filters.status = statusFilter;
       // The backend should handle global vs scoped based on the JWT token.
       return deletionRequestsService.getRequests(filters);
@@ -28,8 +33,22 @@ export default function DeletionRequests() {
     enabled: isAdmin,
   });
 
-  const requests = requestsRes?.data ?? [];
-  const meta = requestsRes?.meta ?? { total: 0, pages: 1 };
+  const rawRequests = requestsRes?.data ?? [];
+  
+  const sortedRequests = React.useMemo(() => {
+    return sortData(rawRequests, sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'requestedBy') {
+        const reqUser = typeof row.requestedBy === 'object' ? row.requestedBy : null;
+        return reqUser?.name || (reqUser?.firstName ? `${reqUser.firstName} ${reqUser.lastName || ''}`.trim() : '') || 'Unknown User';
+      }
+      return row[key];
+    });
+  }, [rawRequests, sortKey, sortDir]);
+
+  const paginatedRequests = React.useMemo(() => {
+    const start = (page - 1) * 10;
+    return sortedRequests.slice(start, start + 10);
+  }, [sortedRequests, page]);
 
   const [resolveTarget, setResolveTarget] = useState<any | null>(null);
 
@@ -182,21 +201,22 @@ export default function DeletionRequests() {
 
       <div className="card overflow-hidden border-t-4 border-t-indigo-500">
         <DataTable
-          columns={columns as any}
-          data={requests}
+          columns={columns.map((c: any) => ({ ...c, sortable: c.key !== 'id' }))}
+          data={paginatedRequests}
+          total={sortedRequests.length}
+          page={page}
+          pageSize={10}
+          onPageChange={setPage}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={(k) => {
+            if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+            else { setSortKey(k); setSortDir('asc'); }
+          }}
           rowKey={(row: any) => row.id}
           loading={isLoading}
           emptyMessage={`No ${statusFilter === 'ALL' ? '' : statusFilter.toLowerCase()} requests found.`}
         />
-        {meta.pages > 1 && (
-          <div className="flex justify-between items-center p-4 border-t bg-gray-50/50">
-            <span className="text-sm text-gray-500 font-medium">Page {page} of {meta.pages}</span>
-            <div className="flex gap-2">
-              <button className="btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-              <button className="btn-secondary" disabled={page === meta.pages} onClick={() => setPage(p => p + 1)}>Next</button>
-            </div>
-          </div>
-        )}
       </div>
 
       <Modal open={!!resolveTarget} onClose={() => setResolveTarget(null)} title={resolveTarget?.action === 'APPROVED' ? 'Approve Deletion' : 'Reject Deletion'} size="sm">

@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
 import { DatalistInput } from '@comps/common/DatalistInput';
+import { sortData } from '../../utils/sortUtils';
 
 const EDUCATION_OPTIONS = [
   'Metric',
@@ -828,26 +829,20 @@ export default function Leads() {
 
   // Sorted leads for table
   const sortedLeads = useMemo(() => {
-    if (!sortKey) return filteredLeads;
-    return [...filteredLeads].sort((a, b) => {
-      let av: any = '';
-      let bv: any = '';
-      if (sortKey === 'name') {
-        av = `${a.contact?.firstName ?? ''} ${a.contact?.lastName ?? ''}`;
-        bv = `${b.contact?.firstName ?? ''} ${b.contact?.lastName ?? ''}`;
-      } else if (sortKey === 'plan') {
-        av = a.plan?.name || (a.interests && a.interests.length > 0 ? a.interests.join(', ') : '');
-        bv = b.plan?.name || (b.interests && b.interests.length > 0 ? b.interests.join(', ') : '');
-      } else if (sortKey === 'premiumBudget') {
-        av = a.premiumBudget ?? 0; bv = b.premiumBudget ?? 0;
-      } else if (sortKey === 'followUpDate') {
-        av = a.followUpDate ? new Date(a.followUpDate).getTime() : 0;
-        bv = b.followUpDate ? new Date(b.followUpDate).getTime() : 0;
-      } else if (sortKey === 'stage') {
-        av = a.stage ?? ''; bv = b.stage ?? '';
+    return sortData(filteredLeads, sortKey, sortDir as 'asc' | 'desc', (row: any, key: string) => {
+      if (key === 'name') return `${row.contact?.firstName ?? ''} ${row.contact?.lastName ?? ''}`;
+      if (key === 'plan') return row.plan?.name || (row.interests && row.interests.length > 0 ? row.interests.join(', ') : '');
+      if (key === 'premiumBudget') return row.premiumBudget ?? 0;
+      if (key === 'followUpDate') return row.followUpDate ? new Date(row.followUpDate).getTime() : 0;
+      if (key === 'stage') return row.stage ?? '';
+      
+      const parts = key.split('.');
+      let val = row;
+      for (const part of parts) {
+        if (val == null) break;
+        val = val[part];
       }
-      if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-      return sortDir === 'asc' ? av - bv : bv - av;
+      return val !== undefined ? val : row[key];
     });
   }, [filteredLeads, sortKey, sortDir]);
 
@@ -1787,9 +1782,9 @@ const medicalOptions = [
   return (
     <div className="h-full flex flex-col gap-4">
 
-      {/* Floating Bottom-Right Action Panel */}
+      {/* Floating Right Action Panel */}
       <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-      <div className="fixed right-6 bottom-8 z-40 flex flex-row gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
         {/* Import CSV */}
         <button
           type="button"
@@ -1798,7 +1793,7 @@ const medicalOptions = [
           title="Import Leads CSV"
         >
           <Upload size={18} strokeWidth={2.2} />
-          <span className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
             Import Leads CSV
           </span>
         </button>
@@ -1811,7 +1806,7 @@ const medicalOptions = [
           title="New Lead"
         >
           <UserPlus size={18} strokeWidth={2.2} />
-          <span className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
             New Lead
           </span>
         </button>
@@ -4527,15 +4522,15 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
               {activeCols.map(col => (
                 <th key={col.key}
                   onClick={() => sortableKeys.includes(col.key) && onSort(col.key)}
-                  className={clsx('px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none',
+                  className={clsx('px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200',
                     sortableKeys.includes(col.key) && 'cursor-pointer hover:text-slate-900')}>
                   <span className="inline-flex items-center gap-1">
                     {col.label}
                     {sortableKeys.includes(col.key) && (
                       <span className="text-slate-400">
                         {sortKey === col.key
-                          ? sortDir === 'asc' ? <ChevronUp size={11} className="text-blue-500" /> : <ChevronDown size={11} className="text-blue-500" />
-                          : <ArrowUpDown size={11} className="opacity-25" />}
+                          ? sortDir === 'asc' ? <ChevronUp size={13} className="text-slate-900 stroke-[3]" /> : <ChevronDown size={13} className="text-slate-900 stroke-[3]" />
+                          : <ChevronUp size={13} className="text-slate-500 stroke-[2.5]" />}
                       </span>
                     )}
                   </span>
@@ -4548,7 +4543,7 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
               ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {activeCols.map(col => (
-                    <td key={col.key} className="px-5 py-4">
+                    <td key={col.key} className="px-5 py-4 border border-slate-200">
                       <div className="h-3.5 rounded-full animate-pulse bg-gray-100" style={{ width: `${55 + (i * 13 + col.label.length * 7) % 35}%` }} />
                     </td>
                   ))}
@@ -4570,11 +4565,11 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
                     </td>
                   </tr>
                 )
-                : data.map(row => (
+                : data.map((row, idx) => (
                   <tr key={row.id} onClick={() => onRowClick(row)}
-                    className="cursor-pointer hover:bg-blue-50/30 transition-colors duration-150">
+                    className={clsx("cursor-pointer transition-colors duration-150", idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white')}>
                     {activeCols.map(col => (
-                      <td key={col.key} className="px-5 py-3.5 text-gray-700 align-middle text-[13px] font-medium">
+                      <td key={col.key} className="px-5 py-3.5 text-gray-700 align-middle text-[13px] font-medium border border-slate-200">
                         {col.render(row)}
                       </td>
                     ))}

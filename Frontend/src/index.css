@@ -58,6 +58,19 @@
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   input[type='number'] { -moz-appearance: textfield; }
+  /* Global Table Styles */
+  table {
+    @apply w-full border-collapse border border-slate-200;
+  }
+  th, td {
+    @apply border border-slate-200;
+  }
+  tbody tr:nth-child(even) {
+    @apply bg-slate-50/80;
+  }
+  tbody tr:nth-child(odd) {
+    @apply bg-white;
+  }
 }
 
 /* ── Component layer ───────────────────────────────────────────────────────── */
