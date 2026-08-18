@@ -99,7 +99,7 @@ export default function DeletionRequests() {
           : name.slice(0, 2).toUpperCase();
 
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-xs shrink-0">
               {initials}
             </div>
@@ -124,7 +124,7 @@ export default function DeletionRequests() {
       label: 'Date',
       key: 'createdAt',
       render: (row: any) => (
-        <div className="text-sm text-gray-600 flex items-center gap-1.5">
+        <div className="text-sm text-gray-600 flex flex-wrap items-center gap-1.5">
           <CalendarIcon size={14} className="text-gray-400" />
           {format(new Date(row.createdAt), 'dd/MMM/yyyy, HH:mm')}
         </div>
@@ -154,15 +154,15 @@ export default function DeletionRequests() {
           return <div className="text-xs text-gray-400 font-medium tracking-wide px-2 uppercase">{row.status}</div>;
         }
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button 
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md transition-colors border border-emerald-100"
+              className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-md transition-colors border border-emerald-100"
               onClick={() => setResolveTarget({ ...row, action: 'APPROVED' })}
             >
               <Check size={14} /> Approve
             </button>
             <button 
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors border border-red-100"
+              className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 text-[10px] sm:text-xs font-medium bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors border border-red-100"
               onClick={() => setResolveTarget({ ...row, action: 'REJECTED' })}
             >
               <X size={14} /> Reject
@@ -177,13 +177,13 @@ export default function DeletionRequests() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-3">
             <Shield className="text-indigo-600" size={28} />
             Deletion Requests
           </h1>
           <p className="text-gray-500 mt-1">Review and manage delete requests submitted by employees.</p>
         </div>
-        <div className="flex items-center gap-2 bg-white rounded-lg p-1 border shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 bg-white rounded-lg p-1 border shadow-sm">
           {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
             <button
               key={tab}
@@ -238,7 +238,7 @@ export default function DeletionRequests() {
             <textarea name="reason" className="input" rows={3} placeholder={`Why are you ${resolveTarget?.action === 'APPROVED' ? 'approving' : 'rejecting'} this request?`}></textarea>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={() => setResolveTarget(null)}>Cancel</button>
             <button 
               type="submit" 

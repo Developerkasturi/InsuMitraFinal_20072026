@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLookupStore } from '@store/lookup.store';
 import Sidebar from './Sidebar';
 import Header  from './Header';
@@ -23,6 +23,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const section = pathname.split('/')[1] ?? '';
   const title   = TITLES[section] ?? '';
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     useLookupStore.getState().loadAll();
@@ -30,14 +31,13 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <Header title={title} />
-        <main className="flex-1 overflow-y-auto p-5 bg-[#f8fafc] custom-scrollbar">
+        <Header title={title} setMobileOpen={setMobileOpen} />
+        <main className="flex-1 overflow-y-auto p-3 md:p-5 bg-[#f8fafc] custom-scrollbar">
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
-

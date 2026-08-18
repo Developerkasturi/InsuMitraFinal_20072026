@@ -140,7 +140,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
           type="button"
           disabled={disabled}
           onClick={() => setIsOpen((prev) => !prev)}
-          className="flex items-center gap-1 px-2.5 py-1.5 border-r border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-xs rounded-l-xl transition-colors cursor-pointer select-none shrink-0"
+          className="flex flex-wrap items-center gap-1 px-2.5 py-1.5 border-r border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-xs rounded-l-xl transition-colors cursor-pointer select-none shrink-0"
         >
           <span>{currentOption.dialCode}</span>
           <ChevronDown size={13} className="text-slate-400" />
@@ -164,7 +164,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
           className="fixed w-52 max-h-56 bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] overflow-hidden flex flex-col animate-fadeIn"
         >
           {/* Small Search Box */}
-          <div className="p-1.5 border-b border-slate-100 bg-slate-50 flex items-center gap-1.5">
+          <div className="p-1.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-1.5">
             <Search size={13} className="text-slate-400 shrink-0 ml-1" />
             <input
               type="text"

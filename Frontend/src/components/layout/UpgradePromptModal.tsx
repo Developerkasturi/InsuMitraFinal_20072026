@@ -58,21 +58,21 @@ export default function UpgradePromptModal({ isOpen, onClose, featureName }: Upg
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={onClose}
-              className="btn-secondary w-full sm:w-auto px-5 py-2.5 rounded-xl justify-center font-medium cursor-pointer"
+              className="btn-secondary w-full sm:w-auto px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-xl justify-center font-medium cursor-pointer"
             >
               Maybe Later
             </button>
             {user?.role === 'OWNER' ? (
               <button
                 onClick={handleUpgradeClick}
-                className="btn-primary w-full sm:w-auto px-5 py-2.5 rounded-xl justify-center font-semibold bg-gradient-to-r from-primary-700 to-primary-600 hover:from-primary-800 hover:to-primary-750 text-white cursor-pointer flex items-center gap-1.5"
+                className="btn-primary w-full sm:w-auto px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-xl justify-center font-semibold bg-gradient-to-r from-primary-700 to-primary-600 hover:from-primary-800 hover:to-primary-750 text-white cursor-pointer flex flex-wrap items-center gap-1.5"
               >
                 <ShieldCheck className="w-4 h-4" /> Upgrade Plan
               </button>
             ) : (
               <button
                 onClick={onClose}
-                className="btn-primary w-full sm:w-auto px-5 py-2.5 rounded-xl justify-center font-semibold bg-primary-700 hover:bg-primary-800 text-white cursor-pointer"
+                className="btn-primary w-full sm:w-auto px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-xl justify-center font-semibold bg-primary-700 hover:bg-primary-800 text-white cursor-pointer"
               >
                 Got It
               </button>

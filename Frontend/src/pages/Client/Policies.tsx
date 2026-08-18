@@ -25,7 +25,7 @@ function PolicyCard({ p }: { p: any }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <Shield size={16} className="text-primary-500 shrink-0" />
             <p className="font-semibold text-gray-900 truncate">{p.policyNumber}</p>
           </div>
@@ -37,7 +37,7 @@ function PolicyCard({ p }: { p: any }) {
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
         <div>
           <p className="text-xs text-gray-400">Sum Assured</p>
           <p className="font-medium text-gray-800">₹{Number(p.sumAssured).toLocaleString('en-IN')}</p>
@@ -57,7 +57,7 @@ function PolicyCard({ p }: { p: any }) {
       </div>
 
       {p.nextDueDate && (
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1.5 text-xs text-orange-600">
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs text-orange-600">
           <Calendar size={12} />
           Next payment: {fmt(p.nextDueDate)}
         </div>
@@ -82,7 +82,7 @@ function PolicyDetail() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
@@ -94,10 +94,10 @@ function PolicyDetail() {
 
       {/* Key info */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <h3 className="font-semibold text-gray-800 mb-4 flex flex-wrap items-center gap-2">
           <Shield size={16} className="text-primary-500" /> Policy Details
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           {[
             ['Status',        p.status],
             ['Sum Assured',   `₹${Number(p.sumAssured).toLocaleString('en-IN')}`],
@@ -119,7 +119,7 @@ function PolicyDetail() {
       {/* Nominees */}
       {p.nominees?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <h3 className="font-semibold text-gray-800 mb-3 flex flex-wrap items-center gap-2">
             <Users size={16} className="text-primary-500" /> Nominees
           </h3>
           <div className="divide-y divide-gray-100">
@@ -139,7 +139,7 @@ function PolicyDetail() {
       {/* Recent payments */}
       {p.payments?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <h3 className="font-semibold text-gray-800 mb-3 flex flex-wrap items-center gap-2">
             <IndianRupee size={16} className="text-primary-500" /> Payment History
           </h3>
           <div className="divide-y divide-gray-100">

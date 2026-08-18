@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
-  FileCheck2, ShieldCheck, Clock
+  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutList, KanbanSquare
 } from 'lucide-react';
 import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from '@hooks/useClaims';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -64,11 +64,19 @@ const UI_TO_BACKEND: Record<string, string> = {
 };
 
 export function getClaimNotesData(notesField?: string | null) {
-  if (!notesField) return { diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: '', statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0 };
+  const defaultNotes = { 
+    diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: '', statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0, subClaimNo: '', uiClaimStatus: '', comment: '', insuranceCompanyCategory: '', insuranceCompany: '', insuranceProductName: '', agentName: '',
+    deathAdmissionDate: '', causeOfDeath: '', dateOfOccurance: '', dateOfDeath: '', wasInComa: '', deathSumInsured: '', deathTotalClaimedAmount: '', deathComment: '', nominees: '[]',
+    hospitalName: '', hospitalState: '', hospitalCity: '', hospitalPincode: '', hospitalContactNo: '', hospitalRating: '', hospitalType: '', claimsPerson1Name: '', claimsPerson1Contact: '', claimsPerson2Name: '', claimsPerson2Contact: '', hospitalComment: '', hospitalDoctors: '[]',
+    diagnosisSimple: '', roomCategory: '', typeOfManagement: '', typeOfAdmission: '', isMedicoLegalCase: '', hospitalisationComment: '', amtAnesthesia: 0, billingComment: '',
+    amtFinalBill: 0, amtNonPayables: 0, amtCopay: 0, amtDeductible: 0, amtBalanceEMIs: 0, amtNcdRecovery: 0, amtExcessSumInsured: 0, amtExcessAilmentLimit: 0, amtHigherRoomRent: 0, amtReasonableCost: 0, amtOtherRecoveries: 0, amtPatientToPay: 0, amtExcessAgreedPackage: 0, amtNetworkDiscount: 0, amtNotCollected: 0, amtPayableToInsured: 0, approvalComment: '', fileUploadComment: ''
+  };
+  if (!notesField) return defaultNotes;
   try {
     if (notesField.trim().startsWith('{')) {
       const parsed = JSON.parse(notesField);
       return {
+        ...defaultNotes,
         diagnosis: parsed.diagnosis || '',
         hospital: parsed.hospital || '',
         hospitalAddress: parsed.hospitalAddress || '',
@@ -84,12 +92,67 @@ export function getClaimNotesData(notesField?: string | null) {
         amtPreHosp: Number(parsed.amtPreHosp || 0),
         amtPostHosp: Number(parsed.amtPostHosp || 0),
         amtOthers: Number(parsed.amtOthers || 0),
+        subClaimNo: parsed.subClaimNo || '',
+        uiClaimStatus: parsed.uiClaimStatus || '',
+        comment: parsed.comment || '',
+        insuranceCompanyCategory: parsed.insuranceCompanyCategory || '',
+        insuranceCompany: parsed.insuranceCompany || '',
+        insuranceProductName: parsed.insuranceProductName || '',
+        agentName: parsed.agentName || '',
+        deathAdmissionDate: parsed.deathAdmissionDate || '',
+        causeOfDeath: parsed.causeOfDeath || '',
+        dateOfOccurance: parsed.dateOfOccurance || '',
+        dateOfDeath: parsed.dateOfDeath || '',
+        wasInComa: parsed.wasInComa || '',
+        deathSumInsured: parsed.deathSumInsured || '',
+        deathTotalClaimedAmount: parsed.deathTotalClaimedAmount || '',
+        deathComment: parsed.deathComment || '',
+        nominees: parsed.nominees || '[]',
+        hospitalName: parsed.hospitalName || '',
+        hospitalState: parsed.hospitalState || '',
+        hospitalCity: parsed.hospitalCity || '',
+        hospitalPincode: parsed.hospitalPincode || '',
+        hospitalContactNo: parsed.hospitalContactNo || '',
+        hospitalRating: parsed.hospitalRating || '',
+        hospitalType: parsed.hospitalType || '',
+        claimsPerson1Name: parsed.claimsPerson1Name || '',
+        claimsPerson1Contact: parsed.claimsPerson1Contact || '',
+        claimsPerson2Name: parsed.claimsPerson2Name || '',
+        claimsPerson2Contact: parsed.claimsPerson2Contact || '',
+        hospitalComment: parsed.hospitalComment || '',
+        hospitalDoctors: parsed.hospitalDoctors || '[]',
+        diagnosisSimple: parsed.diagnosisSimple || '',
+        roomCategory: parsed.roomCategory || '',
+        typeOfManagement: parsed.typeOfManagement || '',
+        typeOfAdmission: parsed.typeOfAdmission || '',
+        isMedicoLegalCase: parsed.isMedicoLegalCase || '',
+        hospitalisationComment: parsed.hospitalisationComment || '',
+        amtAnesthesia: Number(parsed.amtAnesthesia || 0),
+        billingComment: parsed.billingComment || '',
+        amtFinalBill: Number(parsed.amtFinalBill || 0),
+        amtNonPayables: Number(parsed.amtNonPayables || 0),
+        amtCopay: Number(parsed.amtCopay || 0),
+        amtDeductible: Number(parsed.amtDeductible || 0),
+        amtBalanceEMIs: Number(parsed.amtBalanceEMIs || 0),
+        amtNcdRecovery: Number(parsed.amtNcdRecovery || 0),
+        amtExcessSumInsured: Number(parsed.amtExcessSumInsured || 0),
+        amtExcessAilmentLimit: Number(parsed.amtExcessAilmentLimit || 0),
+        amtHigherRoomRent: Number(parsed.amtHigherRoomRent || 0),
+        amtReasonableCost: Number(parsed.amtReasonableCost || 0),
+        amtOtherRecoveries: Number(parsed.amtOtherRecoveries || 0),
+        amtPatientToPay: Number(parsed.amtPatientToPay || 0),
+        amtExcessAgreedPackage: Number(parsed.amtExcessAgreedPackage || 0),
+        amtNetworkDiscount: Number(parsed.amtNetworkDiscount || 0),
+        amtNotCollected: Number(parsed.amtNotCollected || 0),
+        amtPayableToInsured: Number(parsed.amtPayableToInsured || 0),
+        approvalComment: parsed.approvalComment || '',
+        fileUploadComment: parsed.fileUploadComment || ''
       };
     }
   } catch (e) {
     // ignore
   }
-  return { diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: notesField, statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0 };
+  return { ...defaultNotes, notes: notesField };
 }
 
 export function serializeNotes(data: any) {
@@ -119,6 +182,59 @@ const schema = z.object({
   notes: z.string().optional(),
   approvedAmount: z.coerce.number().optional().default(0),
   deductionsNotes: z.string().optional(),
+  subClaimNo: z.string().optional(),
+  uiClaimStatus: z.string().optional(),
+  comment: z.string().optional(),
+  insuranceCompanyCategory: z.string().optional(),
+  insuranceCompany: z.string().optional(),
+  insuranceProductName: z.string().optional(),
+  agentName: z.string().optional(),
+  deathAdmissionDate: z.string().optional(),
+  causeOfDeath: z.string().optional(),
+  dateOfOccurance: z.string().optional(),
+  dateOfDeath: z.string().optional(),
+  wasInComa: z.string().optional(),
+  deathSumInsured: z.string().optional(),
+  deathTotalClaimedAmount: z.string().optional(),
+  deathComment: z.string().optional(),
+  hospitalName: z.string().optional(),
+  hospitalState: z.string().optional(),
+  hospitalCity: z.string().optional(),
+  hospitalPincode: z.string().optional(),
+  hospitalContactNo: z.string().optional(),
+  hospitalRating: z.string().optional(),
+  hospitalType: z.string().optional(),
+  claimsPerson1Name: z.string().optional(),
+  claimsPerson1Contact: z.string().optional(),
+  claimsPerson2Name: z.string().optional(),
+  claimsPerson2Contact: z.string().optional(),
+  hospitalComment: z.string().optional(),
+  diagnosisSimple: z.string().optional(),
+  roomCategory: z.string().optional(),
+  typeOfManagement: z.string().optional(),
+  typeOfAdmission: z.string().optional(),
+  isMedicoLegalCase: z.string().optional(),
+  hospitalisationComment: z.string().optional(),
+  amtAnesthesia: z.coerce.number().default(0),
+  billingComment: z.string().optional(),
+  amtFinalBill: z.coerce.number().default(0),
+  amtNonPayables: z.coerce.number().default(0),
+  amtCopay: z.coerce.number().default(0),
+  amtDeductible: z.coerce.number().default(0),
+  amtBalanceEMIs: z.coerce.number().default(0),
+  amtNcdRecovery: z.coerce.number().default(0),
+  amtExcessSumInsured: z.coerce.number().default(0),
+  amtExcessAilmentLimit: z.coerce.number().default(0),
+  amtHigherRoomRent: z.coerce.number().default(0),
+  amtReasonableCost: z.coerce.number().default(0),
+  amtOtherRecoveries: z.coerce.number().default(0),
+  amtPatientToPay: z.coerce.number().default(0),
+  amtExcessAgreedPackage: z.coerce.number().default(0),
+  amtNetworkDiscount: z.coerce.number().default(0),
+  amtNotCollected: z.coerce.number().default(0),
+  amtPayableToInsured: z.coerce.number().default(0),
+  approvalComment: z.string().optional(),
+  fileUploadComment: z.string().optional()
 });
 type Form = z.infer<typeof schema>;
 
@@ -146,16 +262,50 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [approvedAmount, setApprovedAmount] = useState(String((initial as any).approvedAmount ?? ''));
   const [rejectionReason, setRejectionReason] = useState((initial as any).rejectionReason ?? '');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState((initial as any).assignedEmployeeId ?? '');
+  const [activeClaimTab, setActiveClaimTab] = useState('Claim Details');
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ proposer: true, claim: true, death: true, nominee: true, amounts: true, documents: true });
+  const toggleCollapse = (sec: string) => setCollapsedSections(prev => ({ ...prev, [sec]: !prev[sec] }));
+
+  // Nominee array state for edit form
+  const [nominees, setNominees] = useState<any[]>(() => {
+    try { return JSON.parse(notesData.nominees || '[]'); } catch { return []; }
+  });
+  const addNewNomineeRow = () => setNominees([...nominees, { name: '', relationship: '', phone: '', dob: '', percentage: '', comment: '' }]);
+  const removeNominee = (index: number) => setNominees(nominees.filter((_, i) => i !== index));
+  const handleNomineeChange = (index: number, field: string, val: string) => {
+    const updated = [...nominees];
+    updated[index][field] = val;
+    setNominees(updated);
+  };
+
+  // Doctors array state for edit form
+  const [doctors, setDoctors] = useState<any[]>(() => {
+    try { return JSON.parse(notesData.hospitalDoctors || '[]'); } catch { return []; }
+  });
+  const addNewDoctorRow = () => setDoctors([...doctors, { name: '', degree: '', contactNo: '', speciality: '' }]);
+  const removeDoctor = (index: number) => setDoctors(doctors.filter((_, i) => i !== index));
+  const handleDoctorChange = (index: number, field: string, val: string) => {
+    const updated = [...doctors];
+    updated[index][field] = val;
+    setDoctors(updated);
+  };
 
   // Document files state
   const [claimFormFile, setClaimFormFile] = useState<File | null>(null);
   const [dischargeSummaryFile, setDischargeSummaryFile] = useState<File | null>(null);
-  const [medicalReportsFile, setMedicalReportsFile] = useState<File | null>(null);
+  const [otNotesFile, setOtNotesFile] = useState<File | null>(null);
+  const [hospitalBillFile, setHospitalBillFile] = useState<File | null>(null);
+  const [pharmacyBillFile, setPharmacyBillFile] = useState<File | null>(null);
+  const [investigationBillFile, setInvestigationBillFile] = useState<File | null>(null);
+  const [bloodBagsBillFile, setBloodBagsBillFile] = useState<File | null>(null);
+  const [labReportsFile, setLabReportsFile] = useState<File | null>(null);
   const [billsFile, setBillsFile] = useState<File | null>(null);
   const [otherImpDocsFile, setOtherImpDocsFile] = useState<File | null>(null);
   const [queryLetterFile, setQueryLetterFile] = useState<File | null>(null);
   const [replyDocsFile, setReplyDocsFile] = useState<File | null>(null);
   const [settlementLetterFile, setSettlementLetterFile] = useState<File | null>(null);
+  const [rejectionLetterFile, setRejectionLetterFile] = useState<File | null>(null);
+  const [fileUploadComment, setFileUploadComment] = useState(notesData.fileUploadComment || '');
   const [uploading, setUploading] = useState(false);
 
   // Split expense charges
@@ -167,16 +317,92 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [amtOthers, setAmtOthers] = useState(notesData.amtOthers || 0);
 
   const [diagnosis, setDiagnosis] = useState(notesData.diagnosis);
+  const [patientName, setPatientName] = useState(notesData.patientName || '');
   const [hospital, setHospital] = useState(notesData.hospital);
   const [admissionAt, setAdmissionAt] = useState(notesData.admissionAt ? notesData.admissionAt.slice(0, 10) : '');
   const [dischargeAt, setDischargeAt] = useState(notesData.dischargeAt ? notesData.dischargeAt.slice(0, 10) : '');
   const [notesText, setNotesText] = useState(notesData.notes);
+  const [subClaimNo, setSubClaimNo] = useState(notesData.subClaimNo || '');
+  const [uiClaimStatus, setUiClaimStatus] = useState(notesData.uiClaimStatus || '');
+  const [comment, setComment] = useState(notesData.comment || '');
+  const [insuranceCompanyCategory, setInsuranceCompanyCategory] = useState(notesData.insuranceCompanyCategory || '');
+  const [insuranceCompany, setInsuranceCompany] = useState(notesData.insuranceCompany || '');
+  const [insuranceProductName, setInsuranceProductName] = useState(notesData.insuranceProductName || '');
+  const [agentName, setAgentName] = useState(notesData.agentName || '');
+
+  // Death claim state
+  const [deathAdmissionDate, setDeathAdmissionDate] = useState(notesData.deathAdmissionDate || '');
+  const [causeOfDeath, setCauseOfDeath] = useState(notesData.causeOfDeath || '');
+  const [dateOfOccurance, setDateOfOccurance] = useState(notesData.dateOfOccurance || '');
+  const [dateOfDeath, setDateOfDeath] = useState(notesData.dateOfDeath || '');
+  const [wasInComa, setWasInComa] = useState(notesData.wasInComa || '');
+  const [deathSumInsured, setDeathSumInsured] = useState(notesData.deathSumInsured || '');
+  const [deathTotalClaimedAmount, setDeathTotalClaimedAmount] = useState(notesData.deathTotalClaimedAmount || '');
+  const [deathComment, setDeathComment] = useState(notesData.deathComment || '');
+
+  // Hospital Details state
+  const [hospitalName, setHospitalName] = useState(notesData.hospitalName || '');
+  const [hospitalAddress, setHospitalAddress] = useState(notesData.hospitalAddress || '');
+  const [hospitalState, setHospitalState] = useState(notesData.hospitalState || '');
+  const [hospitalCity, setHospitalCity] = useState(notesData.hospitalCity || '');
+  const [hospitalPincode, setHospitalPincode] = useState(notesData.hospitalPincode || '');
+  const [hospitalContactNo, setHospitalContactNo] = useState(notesData.hospitalContactNo || '');
+  const [hospitalRating, setHospitalRating] = useState(notesData.hospitalRating || '');
+  const [hospitalType, setHospitalType] = useState(notesData.hospitalType || '');
+  const [claimsPerson1Name, setClaimsPerson1Name] = useState(notesData.claimsPerson1Name || '');
+  const [claimsPerson1Contact, setClaimsPerson1Contact] = useState(notesData.claimsPerson1Contact || '');
+  const [claimsPerson2Name, setClaimsPerson2Name] = useState(notesData.claimsPerson2Name || '');
+  const [claimsPerson2Contact, setClaimsPerson2Contact] = useState(notesData.claimsPerson2Contact || '');
+  const [hospitalComment, setHospitalComment] = useState(notesData.hospitalComment || '');
+  
+  // Hospitalisation Details
+  const [diagnosisSimple, setDiagnosisSimple] = useState(notesData.diagnosisSimple || '');
+  const [roomCategory, setRoomCategory] = useState(notesData.roomCategory || '');
+  const [typeOfManagement, setTypeOfManagement] = useState(notesData.typeOfManagement || '');
+  const [typeOfAdmission, setTypeOfAdmission] = useState(notesData.typeOfAdmission || '');
+  const [isMedicoLegalCase, setIsMedicoLegalCase] = useState(notesData.isMedicoLegalCase || '');
+  const [hospitalisationComment, setHospitalisationComment] = useState(notesData.hospitalisationComment || '');
+
+  // Billing Details (Anesthesia and Comment)
+  const [amtAnesthesia, setAmtAnesthesia] = useState(notesData.amtAnesthesia || 0);
+  const [billingComment, setBillingComment] = useState(notesData.billingComment || '');
+
+  // Claim Approval Details
+  const [amtFinalBill, setAmtFinalBill] = useState(notesData.amtFinalBill || 0);
+  const [amtNonPayables, setAmtNonPayables] = useState(notesData.amtNonPayables || 0);
+  const [amtCopay, setAmtCopay] = useState(notesData.amtCopay || 0);
+  const [amtDeductible, setAmtDeductible] = useState(notesData.amtDeductible || 0);
+  const [amtBalanceEMIs, setAmtBalanceEMIs] = useState(notesData.amtBalanceEMIs || 0);
+  const [amtNcdRecovery, setAmtNcdRecovery] = useState(notesData.amtNcdRecovery || 0);
+  const [amtExcessSumInsured, setAmtExcessSumInsured] = useState(notesData.amtExcessSumInsured || 0);
+  const [amtExcessAilmentLimit, setAmtExcessAilmentLimit] = useState(notesData.amtExcessAilmentLimit || 0);
+  const [amtHigherRoomRent, setAmtHigherRoomRent] = useState(notesData.amtHigherRoomRent || 0);
+  const [amtReasonableCost, setAmtReasonableCost] = useState(notesData.amtReasonableCost || 0);
+  const [amtOtherRecoveries, setAmtOtherRecoveries] = useState(notesData.amtOtherRecoveries || 0);
+  const [amtPatientToPay, setAmtPatientToPay] = useState(notesData.amtPatientToPay || 0);
+  const [amtExcessAgreedPackage, setAmtExcessAgreedPackage] = useState(notesData.amtExcessAgreedPackage || 0);
+  const [amtNetworkDiscount, setAmtNetworkDiscount] = useState(notesData.amtNetworkDiscount || 0);
+  const [amtNotCollected, setAmtNotCollected] = useState(notesData.amtNotCollected || 0);
+  const [amtPayableToInsured, setAmtPayableToInsured] = useState(notesData.amtPayableToInsured || 0);
+  const [approvalComment, setApprovalComment] = useState(notesData.approvalComment || '');
+
+  // Auto calculate sum for Claim Approval Details
+  useEffect(() => {
+    const totalPatientToPay = Number(amtNonPayables) + Number(amtCopay) + Number(amtDeductible) + Number(amtBalanceEMIs) + Number(amtNcdRecovery) + Number(amtExcessSumInsured) + Number(amtExcessAilmentLimit) + Number(amtHigherRoomRent) + Number(amtReasonableCost) + Number(amtOtherRecoveries);
+    setAmtPatientToPay(totalPatientToPay);
+    const totalNotCollected = Number(amtExcessAgreedPackage) + Number(amtNetworkDiscount);
+    setAmtNotCollected(totalNotCollected);
+    const payable = Number(amtFinalBill) - totalPatientToPay - totalNotCollected;
+    setAmtPayableToInsured(payable);
+  }, [amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtExcessAgreedPackage, amtNetworkDiscount]);
+
+
 
   // Auto calculate sum
   useEffect(() => {
-    const total = Number(amtHospital) + Number(amtMedicine) + Number(amtLab) + Number(amtPreHosp) + Number(amtPostHosp) + Number(amtOthers);
+    const total = Number(amtHospital) + Number(amtMedicine) + Number(amtLab) + Number(amtPreHosp) + Number(amtPostHosp) + Number(amtOthers) + Number(amtAnesthesia);
     setClaimAmount(String(total));
-  }, [amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers]);
+  }, [amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, amtAnesthesia]);
 
   const handleSave = async () => {
     setUploading(true);
@@ -199,11 +425,26 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
       if (dischargeSummaryFile) {
         uploadPromises.push(documentsService.upload(dischargeSummaryFile, getMeta('DISCHARGE_SUMMARY')).catch(e => console.error(e)));
       }
-      if (medicalReportsFile) {
-        uploadPromises.push(documentsService.upload(medicalReportsFile, getMeta('MEDICAL_REPORTS')).catch(e => console.error(e)));
+      if (otNotesFile) {
+        uploadPromises.push(documentsService.upload(otNotesFile, getMeta('OT_NOTES_IPD_PAPERS')).catch(e => console.error(e)));
+      }
+      if (hospitalBillFile) {
+        uploadPromises.push(documentsService.upload(hospitalBillFile, getMeta('HOSPITAL_BILL')).catch(e => console.error(e)));
+      }
+      if (pharmacyBillFile) {
+        uploadPromises.push(documentsService.upload(pharmacyBillFile, getMeta('PHARMACY_MEDICINES_BILL')).catch(e => console.error(e)));
+      }
+      if (investigationBillFile) {
+        uploadPromises.push(documentsService.upload(investigationBillFile, getMeta('INVESTIGATION_LAB_BILL')).catch(e => console.error(e)));
+      }
+      if (bloodBagsBillFile) {
+        uploadPromises.push(documentsService.upload(bloodBagsBillFile, getMeta('BLOOD_ANESTHESIA_BILL')).catch(e => console.error(e)));
+      }
+      if (labReportsFile) {
+        uploadPromises.push(documentsService.upload(labReportsFile, getMeta('IMPORTANT_LAB_REPORTS')).catch(e => console.error(e)));
       }
       if (billsFile) {
-        uploadPromises.push(documentsService.upload(billsFile, getMeta('BILLS')).catch(e => console.error(e)));
+        uploadPromises.push(documentsService.upload(billsFile, getMeta('IMP_BILLS')).catch(e => console.error(e)));
       }
       if (otherImpDocsFile) {
         uploadPromises.push(documentsService.upload(otherImpDocsFile, getMeta('OTHER_IMP_DOCUMENTS')).catch(e => console.error(e)));
@@ -217,6 +458,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
       if (settlementLetterFile) {
         uploadPromises.push(documentsService.upload(settlementLetterFile, getMeta('CLAIM_SETTLEMENT_LETTER')).catch(e => console.error(e)));
       }
+      if (rejectionLetterFile) {
+        uploadPromises.push(documentsService.upload(rejectionLetterFile, getMeta('REJECTION_LETTER')).catch(e => console.error(e)));
+      }
+
 
       if (uploadPromises.length > 0) {
         await Promise.all(uploadPromises);
@@ -240,7 +485,31 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
           amtPreHosp,
           amtPostHosp,
           amtOthers,
-          notes: notesText
+          notes: notesText,
+          subClaimNo,
+          uiClaimStatus,
+          comment,
+          insuranceCompanyCategory,
+          insuranceCompany,
+          insuranceProductName,
+          agentName,
+          deathAdmissionDate,
+          causeOfDeath,
+          dateOfOccurance,
+          dateOfDeath,
+          wasInComa,
+          deathSumInsured,
+          deathTotalClaimedAmount,
+          deathComment,
+          patientName,
+          nominees: JSON.stringify(nominees),
+          hospitalName, hospitalAddress, hospitalState, hospitalCity, hospitalPincode,
+          hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name,
+          claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
+          hospitalDoctors: JSON.stringify(doctors),
+          diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
+          amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, fileUploadComment
+
         })
       });
     } catch (err: any) {
@@ -251,16 +520,118 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+    <Modal 
+      open 
+      onClose={onCancel} 
+      title="Edit Claim" 
+      size="2xl"
+      actions={
+        <button
+          type="button"
+          className="btn-primary py-1.5 px-5 text-xs shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 border-0"
+          disabled={isPending || uploading}
+          onClick={handleSave}
+        >
+          {uploading ? 'Uploading Files...' : isPending ? 'Saving...' : 'Save Changes'}
+        </button>
+      }
+    >
+      <div className="space-y-3">
+      {/* Modal sub-navigation tabs */}
+      <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+        {['Claim Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads'].map(tab => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveClaimTab(tab)}
+            className={clsx(
+              'px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap',
+              activeClaimTab === tab
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            )}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
+        {activeClaimTab === 'Claim Details' && (
+          <div className="space-y-4 animate-fadeIn">
+            {/* Proposer Details Collapsible */}
+            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => toggleCollapse('proposer')}
+              >
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                  Proposer & Policy Details
+                </h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 font-semibold">Policy Data</span>
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['proposer'] ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              {!collapsedSections['proposer'] && (
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label className="label text-gray-500">Insurance Company Category</label>
+                    <input value={insuranceCompanyCategory} onChange={e => setInsuranceCompanyCategory(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="label text-gray-500">Insurance Company</label>
+                    <input value={insuranceCompany} onChange={e => setInsuranceCompany(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="label text-gray-500">Product Name</label>
+                    <input value={insuranceProductName} onChange={e => setInsuranceProductName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="label text-gray-500">Agent Name</label>
+                    <input value={agentName} onChange={e => setAgentName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-4">
+                    <label className="label text-gray-500">Patient / Insured Person</label>
+                    <input value={patientName} onChange={e => setPatientName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Claim Details Collapsible */}
+            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => toggleCollapse('claim')}
+              >
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                  Claim Details
+                </h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 font-semibold">Diagnosis & Status</span>
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['claim'] ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              {!collapsedSections['claim'] && (
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="label">Claim Type</label>
           <select className="input" value={claimType} onChange={e => setClaimType(e.target.value)}>
-            <option value="HEALTH">Health</option>
-            <option value="DEATH">Death</option>
-            <option value="ACCIDENTAL">Accidental</option>
-            <option value="MATURITY">Maturity</option>
+            <option value="Cashless">Cashless</option>
+            <option value="Reimbursement">Reimbursement</option>
+            <option value="Pre-Post Hospitalization">Pre-Post Hospitalization</option>
+            <option value="Accident">Accident</option>
+            <option value="Death Claim">Death Claim</option>
+            <option value="Other">Other</option>
           </select>
+        </div>
+        <div>
+          <label className="label">Sub Claim No</label>
+          <input className="input" value={subClaimNo} onChange={e => setSubClaimNo(e.target.value)} placeholder="Optional" />
         </div>
         {user?.role !== 'EMPLOYEE' && (
           <div>
@@ -277,163 +648,723 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="label">Diagnosis</label>
           <input className="input" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
         </div>
         <div>
-          <label className="label">Hospital / Clinic</label>
-          <input className="input" value={hospital} onChange={e => setHospital(e.target.value)} />
+          <label className="label">Claim Status</label>
+          <select className="input" value={uiClaimStatus} onChange={e => setUiClaimStatus(e.target.value)}>
+            <option value="">Select Status</option>
+            <option value="Intimated">Intimated</option>
+            <option value="Discharge Done">Discharge Done</option>
+            <option value="Pending Documents from Hospital/Customer">Pending Documents from Hospital/Customer</option>
+            <option value="Documents Collected from Hospital/Customer">Documents Collected from Hospital/Customer</option>
+            <option value="Submitted to Company">Submitted to Company</option>
+            <option value="Pending for approval">Pending for approval</option>
+            <option value="Query Raised">Query Raised</option>
+            <option value="Query Resolved">Query Resolved</option>
+            <option value="Partially Approved">Partially Approved</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="No Response from Customer">No Response from Customer</option>
+            <option value="Pre-Authorisation Approved">Pre-Authorisation Approved</option>
+            <option value="Pre-Authorisation Rejected">Pre-Authorisation Rejected</option>
+            <option value="Enhancement Approved">Enhancement Approved</option>
+            <option value="Enhancement Rejected">Enhancement Rejected</option>
+            <option value="Interim Authorisation Approved">Interim Authorisation Approved</option>
+            <option value="Interim Authorisation Rejected">Interim Authorisation Rejected</option>
+            <option value="Final Authorisation Approved">Final Authorisation Approved</option>
+            <option value="Final Authorisation Rejected">Final Authorisation Rejected</option>
+            <option value="Advised to go for Reimbursement">Advised to go for Reimbursement</option>
+            <option value="Treatment Cancelled/Changed">Treatment Cancelled/Changed</option>
+          </select>
         </div>
       </div>
 
-      {/* Hospitalization split costs */}
-      <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Expense Split Calculator (Auto-Sum)</span>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <label className="label text-[10px]">Hospital Room (₹)</label>
-            <input type="number" className="input py-1" value={amtHospital} onChange={e => setAmtHospital(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label text-[10px]">Medicines (₹)</label>
-            <input type="number" className="input py-1" value={amtMedicine} onChange={e => setAmtMedicine(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label text-[10px]">Lab Tests (₹)</label>
-            <input type="number" className="input py-1" value={amtLab} onChange={e => setAmtLab(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label text-[10px]">Pre-Hosp (₹)</label>
-            <input type="number" className="input py-1" value={amtPreHosp} onChange={e => setAmtPreHosp(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label text-[10px]">Post-Hosp (₹)</label>
-            <input type="number" className="input py-1" value={amtPostHosp} onChange={e => setAmtPostHosp(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="label text-[10px]">Others (₹)</label>
-            <input type="number" className="input py-1" value={amtOthers} onChange={e => setAmtOthers(Number(e.target.value))} />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
         <div>
-          <label className="label">Admission Date</label>
-          <DatePicker className="input mt-1" value={admissionAt} onDateChange={setAdmissionAt} />
-        </div>
-        <div>
-          <label className="label">Discharge Date</label>
-          <DatePicker className="input mt-1" value={dischargeAt} onDateChange={setDischargeAt} />
+          <label className="label">Comment / Notes</label>
+          <textarea className="input" rows={1} value={comment} onChange={e => setComment(e.target.value)} />
         </div>
       </div>
+                </div>
+              )}
+            </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Claimed Amount (₹)</label>
-          <input type="text" className="input bg-slate-50 font-bold" value={claimAmount} readOnly />
+      {claimType === 'Death Claim' && (
+        <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+          <div
+            className="bg-gradient-to-r from-red-50/80 via-white to-orange-50/30 px-4 py-2.5 border-b border-red-100 flex items-center justify-between cursor-pointer select-none"
+            onClick={() => toggleCollapse('death')}
+          >
+            <h4 className="text-xs font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">!</span>
+              Death Claim Details
+            </h4>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-red-400 font-semibold">Incident Info</span>
+              <ChevronDown size={16} className={`text-red-500 transition-transform duration-200 ${collapsedSections['death'] ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
+          {!collapsedSections['death'] && (
+            <div className="p-4 bg-red-50/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
+              <input type="date" className="input mt-1" value={deathAdmissionDate} onChange={e => setDeathAdmissionDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-gray-500">Cause of Death</label>
+              <select className="input mt-1" value={causeOfDeath} onChange={e => setCauseOfDeath(e.target.value)}>
+                <option value="">Select Cause</option>
+                <option value="Accidental">Accidental</option>
+                <option value="Non-Accidental">Non-Accidental</option>
+                <option value="Murder">Murder</option>
+                <option value="Natural">Natural</option>
+                <option value="Suicide">Suicide</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="label text-gray-500">Date of Occurance <br/><span className="text-[10px] font-normal">(Accident, Attack, etc)</span></label>
+              <input type="date" className="input mt-1" value={dateOfOccurance} onChange={e => setDateOfOccurance(e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-gray-500">Date of Death</label>
+              <input type="date" className="input mt-1" value={dateOfDeath} onChange={e => setDateOfDeath(e.target.value)} />
+            </div>
+            <div>
+              <label className="label text-gray-500">Was in Coma?</label>
+              <select className="input mt-1" value={wasInComa} onChange={e => setWasInComa(e.target.value)}>
+                <option value="">Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+            <div>
+              <label className="label text-gray-500">Sum Insured</label>
+              <input className="input mt-1 bg-white" value={deathSumInsured} onChange={e => setDeathSumInsured(e.target.value)} placeholder="Auto-fetch or manual" />
+            </div>
+            <div>
+              <label className="label text-gray-500">Total Claimed Amount</label>
+              <input className="input mt-1 bg-white" value={deathTotalClaimedAmount} onChange={e => setDeathTotalClaimedAmount(e.target.value)} placeholder="₹0" />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <label className="label text-gray-500">Comment</label>
+              <textarea className="input mt-1" rows={1} value={deathComment} onChange={e => setDeathComment(e.target.value)} />
+            </div>
+          </div>
+          )}
         </div>
-        <div>
-          <label className="label">Approved Amount (₹)</label>
-          <input type="number" className="input" value={approvedAmount} onChange={e => setApprovedAmount(e.target.value)} />
+      )}
+
+        {/* Nominee Details Collapsible */}
+        <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+          <div
+            className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+            onClick={() => toggleCollapse('nominee')}
+          >
+            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+              Nominee Details
+            </h4>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 font-semibold">Multiple allowed</span>
+              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['nominee'] ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
+          {!collapsedSections['nominee'] && (
+            <div className="p-4 space-y-4">
+              {nominees.map((nom, index) => (
+                <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                  <div>
+                    <label className="label text-[10px]">Nominee Name</label>
+                    <input value={nom.name} onChange={e => handleNomineeChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Relationship</label>
+                    <input value={nom.relationship} onChange={e => handleNomineeChange(index, 'relationship', e.target.value)} className="input mt-1 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Contact No.</label>
+                    <input value={nom.phone} onChange={e => handleNomineeChange(index, 'phone', e.target.value)} className="input mt-1 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">DoB</label>
+                    <input type="date" value={nom.dob} onChange={e => handleNomineeChange(index, 'dob', e.target.value)} className="input mt-1 py-1 text-xs" />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Percentage (%)</label>
+                    <input type="number" value={nom.percentage} onChange={e => handleNomineeChange(index, 'percentage', e.target.value)} className="input mt-1 py-1 text-xs" />
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={nom.comment} onChange={e => handleNomineeChange(index, 'comment', e.target.value)} placeholder="Comment" className="input mt-1 py-1 text-xs flex-1" />
+                    <button type="button" onClick={() => removeNominee(index)} className="mt-1 bg-red-50 text-red-500 hover:bg-red-100 px-2 rounded-lg text-xs font-bold transition-colors">X</button>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={addNewNomineeRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                + Add Nominee
+              </button>
+            </div>
+          )}
         </div>
       </div>
+    )}
 
-      <div>
-        <label className="label">Rejection Reason</label>
-        <input className="input border-red-200" value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} placeholder="If applicable" />
-      </div>
+      {activeClaimTab === 'Hospital Details' && (
+        <div className="space-y-4 animate-fadeIn">
+          <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+              onClick={() => toggleCollapse('newHospital')}
+            >
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">H</span>
+                Hospital Details
+              </h4>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 font-semibold">Location & Contact</span>
+                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newHospital'] ? 'rotate-180' : ''}`} />
+              </div>
+            </div>
+            {!collapsedSections['newHospital'] && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label text-[10px]">Hospital Name</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalName} onChange={e => setHospitalName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Address</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalAddress} onChange={e => setHospitalAddress(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital State</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalState} onChange={e => setHospitalState(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital City</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalCity} onChange={e => setHospitalCity(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Pincode</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalPincode} onChange={e => setHospitalPincode(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Contact No</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalContactNo} onChange={e => setHospitalContactNo(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Rating</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalRating} onChange={e => setHospitalRating(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Type</label>
+                    <select className="input mt-1 py-1 text-xs" value={hospitalType} onChange={e => setHospitalType(e.target.value)}>
+                      <option value="">Select Type</option>
+                      <option value="Network">Network</option>
+                      <option value="Non-Network">Non-Network</option>
+                      <option value="Blacklisted">Blacklisted</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
 
-      <div>
-        <label className="label">Remarks / Notes</label>
-        <textarea className="input" rows={2} value={notesText} onChange={e => setNotesText(e.target.value)} />
-      </div>
+                <div className="pt-2 border-t border-slate-100">
+                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Doctors / Consulting Providers</h5>
+                  {doctors.map((doc, index) => (
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                      <div>
+                        <label className="label text-[10px]">Doctor Name</label>
+                        <input value={doc.name} onChange={e => handleDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Doctor Degree</label>
+                        <input value={doc.degree} onChange={e => handleDoctorChange(index, 'degree', e.target.value)} className="input mt-1 py-1 text-xs" />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Doctor Contact No</label>
+                        <input value={doc.contactNo} onChange={e => handleDoctorChange(index, 'contactNo', e.target.value)} className="input mt-1 py-1 text-xs" />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Doctor Speciality</label>
+                        <input value={doc.speciality} onChange={e => handleDoctorChange(index, 'speciality', e.target.value)} className="input mt-1 py-1 text-xs" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => removeDoctor(index)} className="mt-1 bg-red-50 text-red-500 hover:bg-red-100 px-2 rounded-lg text-xs font-bold transition-colors">X</button>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" onClick={addNewDoctorRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                    + Add Doctor
+                  </button>
+                </div>
 
-      {/* Add Files / Documents Upload Card (Same as Add Claim form) */}
-      <div className="bg-slate-50/70 border border-slate-200 p-4 rounded-2xl space-y-3">
-        <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block">Add Files / Documents</span>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div>
-            <label className="label text-[11px]">Claim Form</label>
-            <input
-              type="file"
-              onChange={e => setClaimFormFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Discharge Summary</label>
-            <input
-              type="file"
-              onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Imp Medical Reports</label>
-            <input
-              type="file"
-              onChange={e => setMedicalReportsFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Imp Bills</label>
-            <input
-              type="file"
-              onChange={e => setBillsFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Other IMP Documents</label>
-            <input
-              type="file"
-              onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Claim Query Letter</label>
-            <input
-              type="file"
-              onChange={e => setQueryLetterFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Reply Documents</label>
-            <input
-              type="file"
-              onChange={e => setReplyDocsFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-          <div>
-            <label className="label text-[11px]">Claim Settlement Letter</label>
-            <input
-              type="file"
-              onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)}
-              className="input w-full bg-white mt-1 text-xs py-1"
-            />
-          </div>
-        </div>
-      </div>
+                <div className="pt-2 border-t border-slate-100">
+                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Claims Department Contact</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="label text-[10px]">Person 1 Name</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={claimsPerson1Name} onChange={e => setClaimsPerson1Name(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Person 1 Contact No</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={claimsPerson1Contact} onChange={e => setClaimsPerson1Contact(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Person 2 Name</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={claimsPerson2Name} onChange={e => setClaimsPerson2Name(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Person 2 Contact No</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={claimsPerson2Contact} onChange={e => setClaimsPerson2Contact(e.target.value)} />
+                    </div>
+                    <div className="md:col-span-4">
+                      <label className="label text-[10px]">Comment</label>
+                      <textarea className="input mt-1 py-1 text-xs" rows={2} value={hospitalComment} onChange={e => setHospitalComment(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={isPending || uploading}
-          onClick={handleSave}
-        >
-          {uploading ? 'Uploading Files...' : isPending ? 'Saving...' : 'Save'}
-        </button>
+                <div className="pt-2 border-t border-slate-100">
+                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Hospitalisation Details</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="label text-[10px]">Date of Admission</label>
+                      <input type="date" className="input mt-1 py-1 text-xs" value={admissionAt} onChange={e => setAdmissionAt(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Date of Discharge</label>
+                      <input type="date" className="input mt-1 py-1 text-xs" value={dischargeAt} onChange={e => setDischargeAt(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Diagnosis / Ailment (Exact as written on DS)</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Diagnosis in simple words</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={diagnosisSimple} onChange={e => setDiagnosisSimple(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Room Category</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={roomCategory} onChange={e => setRoomCategory(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Type of Management</label>
+                      <select className="input mt-1 py-1 text-xs" value={typeOfManagement} onChange={e => setTypeOfManagement(e.target.value)}>
+                        <option value="">Select Option</option>
+                        <option value="Surgical">Surgical</option>
+                        <option value="Medicinal">Medicinal</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Type of Admission</label>
+                      <select className="input mt-1 py-1 text-xs" value={typeOfAdmission} onChange={e => setTypeOfAdmission(e.target.value)}>
+                        <option value="">Select Option</option>
+                        <option value="Emergency">Emergency</option>
+                        <option value="Planned">Planned</option>
+                        <option value="Day-Care">Day-Care</option>
+                        <option value="Maternity">Maternity</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Is Medico Legal Case?</label>
+                      <select className="input mt-1 py-1 text-xs" value={isMedicoLegalCase} onChange={e => setIsMedicoLegalCase(e.target.value)}>
+                        <option value="">Select Option</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Comment</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={hospitalisationComment} onChange={e => setHospitalisationComment(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Billing Details</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="label text-[10px]">Pre Hospitalisation Bill</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtPreHosp} onChange={e => setAmtPreHosp(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Hospital Final Bill</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtHospital} onChange={e => setAmtHospital(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Anesthesia Bill</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtAnesthesia} onChange={e => setAmtAnesthesia(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Medicine Bill Total</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtMedicine} onChange={e => setAmtMedicine(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Lab Bill Total</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtLab} onChange={e => setAmtLab(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Post Hospitalisation Bill</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtPostHosp} onChange={e => setAmtPostHosp(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Others (Amount)</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtOthers} onChange={e => setAmtOthers(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Total Claimed Amount</label>
+                      <input type="number" className="input mt-1 py-1 text-xs bg-slate-50 cursor-not-allowed" value={claimAmount} readOnly />
+                    </div>
+                    <div>
+                      <label className="label text-[10px]">Comment</label>
+                      <input type="text" className="input mt-1 py-1 text-xs" value={billingComment} onChange={e => setBillingComment(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Hospitalisation Details Collapsible */}
+          <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+            <div
+              className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+              onClick={() => toggleCollapse('hospitalisation')}
+            >
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">H</span>
+                Hospitalisation Details
+              </h4>
+              <div className="flex items-center gap-2">
+                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['hospitalisation'] ? 'rotate-180' : ''}`} />
+              </div>
+            </div>
+            {!collapsedSections['hospitalisation'] && (
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label text-[10px]">Date of Admission</label>
+                    <input type="date" className="input mt-1 py-1 text-xs" value={admissionAt} onChange={e => setAdmissionAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Date of Discharge</label>
+                    <input type="date" className="input mt-1 py-1 text-xs" value={dischargeAt} onChange={e => setDischargeAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Diagnosis / Ailment (Exact as written on DS)</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Diagnosis in simple words</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={diagnosisSimple} onChange={e => setDiagnosisSimple(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Room Category</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={roomCategory} onChange={e => setRoomCategory(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Type of Management</label>
+                    <select className="input mt-1 py-1 text-xs" value={typeOfManagement} onChange={e => setTypeOfManagement(e.target.value)}>
+                      <option value="">Select Option</option>
+                      <option value="Surgical">Surgical</option>
+                      <option value="Medicinal">Medicinal</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Type of Admission</label>
+                    <select className="input mt-1 py-1 text-xs" value={typeOfAdmission} onChange={e => setTypeOfAdmission(e.target.value)}>
+                      <option value="">Select Option</option>
+                      <option value="Emergency">Emergency</option>
+                      <option value="Planned">Planned</option>
+                      <option value="Day-Care">Day-Care</option>
+                      <option value="Maternity">Maternity</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Is Medico Legal Case?</label>
+                    <select className="input mt-1 py-1 text-xs" value={isMedicoLegalCase} onChange={e => setIsMedicoLegalCase(e.target.value)}>
+                      <option value="">Select Option</option>
+                      <option value="Yes">Yes</option>
+                      <option value="No">No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Comment</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalisationComment} onChange={e => setHospitalisationComment(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Billing Details Collapsible */}
+          <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+            <div
+              className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+              onClick={() => toggleCollapse('billing')}
+            >
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">B</span>
+                Billing Details
+              </h4>
+              <div className="flex items-center gap-2">
+                <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['billing'] ? 'rotate-180' : ''}`} />
+              </div>
+            </div>
+            {!collapsedSections['billing'] && (
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="label text-[10px]">Pre Hospitalisation Bill</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtPreHosp} onChange={e => setAmtPreHosp(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Final Bill</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtHospital} onChange={e => setAmtHospital(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Anesthesia Bill</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtAnesthesia} onChange={e => setAmtAnesthesia(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Medicine Bill Total</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtMedicine} onChange={e => setAmtMedicine(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Lab Bill Total</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtLab} onChange={e => setAmtLab(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Post Hospitalisation Bill</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtPostHosp} onChange={e => setAmtPostHosp(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Others (Amount)</label>
+                    <input type="number" className="input mt-1 py-1 text-xs" value={amtOthers} onChange={e => setAmtOthers(Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Total Claimed Amount</label>
+                    <input type="number" className="input mt-1 py-1 text-xs bg-slate-50 cursor-not-allowed" value={claimAmount} readOnly />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Comment</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={billingComment} onChange={e => setBillingComment(e.target.value)} />
+                  </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeClaimTab === 'Claim Approval Details' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+              <div
+                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => toggleCollapse('claimApproval')}
+              >
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">CA</span>
+                  Claim Approval Details
+                </h4>
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['claimApproval'] ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              {!collapsedSections['claimApproval'] && (
+                <div className="p-4 space-y-4">
+                  {/* Final Bill Amount */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="label text-[10px]">Final Bill Amount</label>
+                      <input type="number" className="input mt-1 py-1 text-xs" value={amtFinalBill} onChange={e => setAmtFinalBill(Number(e.target.value))} />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <h5 className="text-[11px] font-bold text-slate-700 mb-2">Less: To be Paid by the Patient / Insured</h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="label text-[10px]">Non-Payables as per policy terms</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtNonPayables} onChange={e => setAmtNonPayables(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Co-pay, if applicable as per policy</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtCopay} onChange={e => setAmtCopay(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Policy Deductible / Defined Limits / Voluntary Deductible</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtDeductible} onChange={e => setAmtDeductible(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Balance EMIs to be paid by the insured (if applicable)</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtBalanceEMIs} onChange={e => setAmtBalanceEMIs(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Recovery towards No Claim Discount in the renewed policy</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtNcdRecovery} onChange={e => setAmtNcdRecovery(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Excess Over Sum Insured / Sublimit</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtExcessSumInsured} onChange={e => setAmtExcessSumInsured(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Excess Over Defined ailment / procedure Sub-limit</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtExcessAilmentLimit} onChange={e => setAmtExcessAilmentLimit(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Higher room rent occupancy and related medical services</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtHigherRoomRent} onChange={e => setAmtHigherRoomRent(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Reasonable cost</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtReasonableCost} onChange={e => setAmtReasonableCost(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Other recoveries, if any</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtOtherRecoveries} onChange={e => setAmtOtherRecoveries(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-semibold text-blue-600">Total amount to be paid by the patient / insured</label>
+                        <input type="number" className="input mt-1 py-1 text-xs bg-blue-50 cursor-not-allowed font-semibold text-blue-700" value={amtPatientToPay} readOnly />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <h5 className="text-[11px] font-bold text-slate-700 mb-2">Less: Amounts NOT to be Collected from the Patient</h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="label text-[10px]">Excess amount charged over the agreed package / SOC</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtExcessAgreedPackage} onChange={e => setAmtExcessAgreedPackage(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Network hospital discount (not to be collected from the patient)</label>
+                        <input type="number" className="input mt-1 py-1 text-xs" value={amtNetworkDiscount} onChange={e => setAmtNetworkDiscount(Number(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-semibold text-green-600">Total Amount NOT to be collected from the patient</label>
+                        <input type="number" className="input mt-1 py-1 text-xs bg-green-50 cursor-not-allowed font-semibold text-green-700" value={amtNotCollected} readOnly />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="label text-[10px] font-bold text-indigo-700">Amount payable by Insurance Company to the Insured/Hospital</label>
+                        <input type="number" className="input mt-1 py-1 text-xs bg-indigo-50 border-indigo-200 cursor-not-allowed font-bold text-indigo-700" value={amtPayableToInsured} readOnly />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Comment</label>
+                        <input type="text" className="input mt-1 py-1 text-xs" value={approvalComment} onChange={e => setApprovalComment(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeClaimTab === 'File Uploads' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+              <div
+                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => toggleCollapse('documents')}
+              >
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">F</span>
+                  File Uploads
+                </h4>
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['documents'] ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              {!collapsedSections['documents'] && (
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="label text-[11px]">Claim Form</label>
+                      <input type="file" onChange={e => setClaimFormFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Discharge Summary</label>
+                      <input type="file" onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Operation Theatre Notes / IPD Papers</label>
+                      <input type="file" onChange={e => setOtNotesFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Hospital Bill, Breakup Bill</label>
+                      <input type="file" onChange={e => setHospitalBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Pharmacy, Medicines</label>
+                      <input type="file" onChange={e => setPharmacyBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Investigation, Lab Reports</label>
+                      <input type="file" onChange={e => setInvestigationBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Blood Bags, Anesthesia, Other</label>
+                      <input type="file" onChange={e => setBloodBagsBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Reports - Important Lab Reports</label>
+                      <input type="file" onChange={e => setLabReportsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Imp Bills</label>
+                      <input type="file" onChange={e => setBillsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Other IMP Documents</label>
+                      <input type="file" onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Claim Query Letter</label>
+                      <input type="file" onChange={e => setQueryLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Reply Documents</label>
+                      <input type="file" onChange={e => setReplyDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Claim Settlement Letter</label>
+                      <input type="file" onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Rejection Letter</label>
+                      <input type="file" onChange={e => setRejectionLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div className="col-span-1 sm:col-span-2">
+                      <label className="label text-[11px]">Comment</label>
+                      <input type="text" value={fileUploadComment} onChange={e => setFileUploadComment(e.target.value)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+  </div>
+
+
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -457,6 +1388,28 @@ export default function Claims() {
   // Claim Detail sheet
   const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ newProposer: true, newClaim: true, newDeath: true, newNominee: true, newHospital: true });
+  const toggleCollapse = (sec: string) => setCollapsedSections(prev => ({ ...prev, [sec]: !prev[sec] }));
+
+  // Doctor array state for new claim
+  const [newDoctors, setNewDoctors] = useState<any[]>([]);
+  const addNewDoctorRow = () => setNewDoctors([...newDoctors, { name: '', degree: '', contactNo: '', speciality: '' }]);
+  const removeNewDoctor = (index: number) => setNewDoctors(newDoctors.filter((_, i) => i !== index));
+  const handleNewDoctorChange = (index: number, field: string, val: string) => {
+    const updated = [...newDoctors];
+    updated[index][field] = val;
+    setNewDoctors(updated);
+  };
+
+  // Nominee array state for new claim
+  const [newNominees, setNewNominees] = useState<any[]>([]);
+  const addNewNomineeRow = () => setNewNominees([...newNominees, { name: '', relationship: '', phone: '', dob: '', percentage: '', comment: '' }]);
+  const removeNewNominee = (index: number) => setNewNominees(newNominees.filter((_, i) => i !== index));
+  const handleNewNomineeChange = (index: number, field: string, val: string) => {
+    const updated = [...newNominees];
+    updated[index][field] = val;
+    setNewNominees(updated);
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const employees = useLookupStore(s => s.employees);
@@ -475,8 +1428,12 @@ export default function Claims() {
   const [filterCompany, setFilterCompany] = useState('');
   const [filterHospital, setFilterHospital] = useState('');
   const [filterClaimType, setFilterClaimType] = useState('ALL');
+  const [filterAgent, setFilterAgent] = useState('');
   const [analyticsDuration, setAnalyticsDuration] = useState('ALL');
   const [showAnalytics, setShowAnalytics] = useState(false);
+
+  // View Mode
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
   // Sorting
   const [sortKey, setSortKey] = useState<string>('');
@@ -540,9 +1497,12 @@ export default function Claims() {
         if (year !== new Date().getFullYear()) return false;
       }
 
+      // 8. Agent Filter
+      if (filterAgent && c.assignedEmployeeId !== filterAgent) return false;
+
       return true;
     });
-  }, [rawClaims, search, filterStatus, filterStartDate, filterEndDate, filterCompany, filterHospital, filterClaimType, analyticsDuration]);
+  }, [rawClaims, search, filterStatus, filterStartDate, filterEndDate, filterCompany, filterHospital, filterClaimType, analyticsDuration, filterAgent]);
 
   // Client-side Sorting
   const sortedClaims = useMemo(() => {
@@ -675,8 +1635,9 @@ export default function Claims() {
 
   // Contact picker state
   const [contactSearch, setContactSearch] = useState('');
-  const [selectedContact, setSelectedContact] = useState<{ id: string; firstName: string; lastName: string; phone: string } | null>(null);
   const [contactDropdown, setContactDropdown] = useState(false);
+  const [activeClaimTab, setActiveClaimTab] = useState('Claim Details');
+  const [selectedContact, setSelectedContact] = useState<{ id: string; firstName: string; lastName: string; phone: string } | null>(null);
 
   // Policy picker
   const [selectedPolicy, setSelectedPolicy] = useState<{ id: string; policyNumber: string; plan?: { name: string } } | null>(null);
@@ -685,12 +1646,18 @@ export default function Claims() {
   // Selected document files
   const [claimFormFile, setClaimFormFile] = useState<File | null>(null);
   const [dischargeSummaryFile, setDischargeSummaryFile] = useState<File | null>(null);
-  const [medicalReportsFile, setMedicalReportsFile] = useState<File | null>(null);
+  const [otNotesFile, setOtNotesFile] = useState<File | null>(null);
+  const [hospitalBillFile, setHospitalBillFile] = useState<File | null>(null);
+  const [pharmacyBillFile, setPharmacyBillFile] = useState<File | null>(null);
+  const [investigationBillFile, setInvestigationBillFile] = useState<File | null>(null);
+  const [bloodBagsBillFile, setBloodBagsBillFile] = useState<File | null>(null);
+  const [labReportsFile, setLabReportsFile] = useState<File | null>(null);
   const [billsFile, setBillsFile] = useState<File | null>(null);
   const [otherImpDocsFile, setOtherImpDocsFile] = useState<File | null>(null);
   const [queryLetterFile, setQueryLetterFile] = useState<File | null>(null);
   const [replyDocsFile, setReplyDocsFile] = useState<File | null>(null);
   const [settlementLetterFile, setSettlementLetterFile] = useState<File | null>(null);
+  const [rejectionLetterFile, setRejectionLetterFile] = useState<File | null>(null);
 
   const { data: contactResults } = useQuery({
     queryKey: ['contact-search-claim', contactSearch],
@@ -728,17 +1695,42 @@ export default function Claims() {
   const amtPreHosp = watch('amtPreHosp');
   const amtPostHosp = watch('amtPostHosp');
   const amtOthers = watch('amtOthers');
+  const amtAnesthesia = watch('amtAnesthesia');
+
+  const amtFinalBill = watch('amtFinalBill');
+  const amtNonPayables = watch('amtNonPayables');
+  const amtCopay = watch('amtCopay');
+  const amtDeductible = watch('amtDeductible');
+  const amtBalanceEMIs = watch('amtBalanceEMIs');
+  const amtNcdRecovery = watch('amtNcdRecovery');
+  const amtExcessSumInsured = watch('amtExcessSumInsured');
+  const amtExcessAilmentLimit = watch('amtExcessAilmentLimit');
+  const amtHigherRoomRent = watch('amtHigherRoomRent');
+  const amtReasonableCost = watch('amtReasonableCost');
+  const amtOtherRecoveries = watch('amtOtherRecoveries');
+  const amtExcessAgreedPackage = watch('amtExcessAgreedPackage');
+  const amtNetworkDiscount = watch('amtNetworkDiscount');
 
   const watchClaimNumber = watch('claimNumber');
   const watchPolicyId = watch('policyId');
   const watchAdmissionAt = watch('admissionAt');
   const watchDischargeAt = watch('dischargeAt');
   const watchIntimatedAt = watch('intimatedAt');
+  const watchClaimType = watch('claimType');
 
   useEffect(() => {
-    const tot = Number(amtHospital || 0) + Number(amtMedicine || 0) + Number(amtLab || 0) + Number(amtPreHosp || 0) + Number(amtPostHosp || 0) + Number(amtOthers || 0);
+    const tot = Number(amtHospital || 0) + Number(amtMedicine || 0) + Number(amtLab || 0) + Number(amtPreHosp || 0) + Number(amtPostHosp || 0) + Number(amtOthers || 0) + Number(amtAnesthesia || 0);
     setValue('claimAmount', tot);
-  }, [amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers]);
+  }, [amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, amtAnesthesia]);
+
+  useEffect(() => {
+    const totalPatientToPay = Number(amtNonPayables || 0) + Number(amtCopay || 0) + Number(amtDeductible || 0) + Number(amtBalanceEMIs || 0) + Number(amtNcdRecovery || 0) + Number(amtExcessSumInsured || 0) + Number(amtExcessAilmentLimit || 0) + Number(amtHigherRoomRent || 0) + Number(amtReasonableCost || 0) + Number(amtOtherRecoveries || 0);
+    setValue('amtPatientToPay', totalPatientToPay);
+    const totalNotCollected = Number(amtExcessAgreedPackage || 0) + Number(amtNetworkDiscount || 0);
+    setValue('amtNotCollected', totalNotCollected);
+    const payable = Number(amtFinalBill || 0) - totalPatientToPay - totalNotCollected;
+    setValue('amtPayableToInsured', payable);
+  }, [amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtExcessAgreedPackage, amtNetworkDiscount]);
 
   // Auto-fill from existing claim entries with same claim number
   useEffect(() => {
@@ -771,20 +1763,33 @@ export default function Claims() {
     setSelectedPolicy(null);
     setClaimFormFile(null);
     setDischargeSummaryFile(null);
-    setMedicalReportsFile(null);
+    setOtNotesFile(null);
+    setHospitalBillFile(null);
+    setPharmacyBillFile(null);
+    setInvestigationBillFile(null);
+    setBloodBagsBillFile(null);
+    setLabReportsFile(null);
     setBillsFile(null);
     setOtherImpDocsFile(null);
     setQueryLetterFile(null);
     setReplyDocsFile(null);
     setSettlementLetterFile(null);
+    setRejectionLetterFile(null);
   };
 
   const onSubmit = async (body: Form) => {
     try {
-      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, ...rest } = body;
+      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName, deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment, hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment, diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment, amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, ...rest } = body;
       const notesJson = serializeNotes({
         diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes,
-        amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers
+        amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers,
+        subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName,
+        deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment,
+        nominees: JSON.stringify(newNominees),
+        hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
+        hospitalDoctors: JSON.stringify(newDoctors),
+        diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
+        amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment
       });
       const res = await createClaim.mutateAsync({
         ...rest,
@@ -795,70 +1800,20 @@ export default function Claims() {
 
       if (claimId) {
         const uploadPromises: Promise<any>[] = [];
-        if (claimFormFile) {
-          uploadPromises.push(documentsService.upload(claimFormFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'CLAIM_FORM',
-          }).catch(err => console.error('Failed to upload Claim Form:', err)));
-        }
-        if (dischargeSummaryFile) {
-          uploadPromises.push(documentsService.upload(dischargeSummaryFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'DISCHARGE_SUMMARY',
-          }).catch(err => console.error('Failed to upload Discharge Summary:', err)));
-        }
-        if (medicalReportsFile) {
-          uploadPromises.push(documentsService.upload(medicalReportsFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'MEDICAL_REPORTS',
-          }).catch(err => console.error('Failed to upload Medical Reports:', err)));
-        }
-        if (billsFile) {
-          uploadPromises.push(documentsService.upload(billsFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'BILLS',
-          }).catch(err => console.error('Failed to upload Bills:', err)));
-        }
-        if (otherImpDocsFile) {
-          uploadPromises.push(documentsService.upload(otherImpDocsFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'OTHER_IMP_DOCUMENTS',
-          }).catch(err => console.error('Failed to upload Other IMP Documents:', err)));
-        }
-        if (queryLetterFile) {
-          uploadPromises.push(documentsService.upload(queryLetterFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'CLAIM_QUERY_LETTER',
-          }).catch(err => console.error('Failed to upload Query Letter:', err)));
-        }
-        if (replyDocsFile) {
-          uploadPromises.push(documentsService.upload(replyDocsFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'REPLY_DOCUMENTS',
-          }).catch(err => console.error('Failed to upload Reply Documents:', err)));
-        }
-        if (settlementLetterFile) {
-          uploadPromises.push(documentsService.upload(settlementLetterFile, {
-            claimId,
-            contactId: rest.contactId,
-            policyId: rest.policyId,
-            type: 'CLAIM_SETTLEMENT_LETTER',
-          }).catch(err => console.error('Failed to upload Settlement Letter:', err)));
-        }
+        if (claimFormFile) uploadPromises.push(documentsService.upload(claimFormFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'CLAIM_FORM' }).catch(err => console.error(err)));
+        if (dischargeSummaryFile) uploadPromises.push(documentsService.upload(dischargeSummaryFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'DISCHARGE_SUMMARY' }).catch(err => console.error(err)));
+        if (otNotesFile) uploadPromises.push(documentsService.upload(otNotesFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'OT_NOTES_IPD_PAPERS' }).catch(err => console.error(err)));
+        if (hospitalBillFile) uploadPromises.push(documentsService.upload(hospitalBillFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'HOSPITAL_BILL' }).catch(err => console.error(err)));
+        if (pharmacyBillFile) uploadPromises.push(documentsService.upload(pharmacyBillFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'PHARMACY_MEDICINES_BILL' }).catch(err => console.error(err)));
+        if (investigationBillFile) uploadPromises.push(documentsService.upload(investigationBillFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'INVESTIGATION_LAB_BILL' }).catch(err => console.error(err)));
+        if (bloodBagsBillFile) uploadPromises.push(documentsService.upload(bloodBagsBillFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'BLOOD_ANESTHESIA_BILL' }).catch(err => console.error(err)));
+        if (labReportsFile) uploadPromises.push(documentsService.upload(labReportsFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'IMPORTANT_LAB_REPORTS' }).catch(err => console.error(err)));
+        if (billsFile) uploadPromises.push(documentsService.upload(billsFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'IMP_BILLS' }).catch(err => console.error(err)));
+        if (otherImpDocsFile) uploadPromises.push(documentsService.upload(otherImpDocsFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'OTHER_IMP_DOCUMENTS' }).catch(err => console.error(err)));
+        if (queryLetterFile) uploadPromises.push(documentsService.upload(queryLetterFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'CLAIM_QUERY_LETTER' }).catch(err => console.error(err)));
+        if (replyDocsFile) uploadPromises.push(documentsService.upload(replyDocsFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'REPLY_DOCUMENTS' }).catch(err => console.error(err)));
+        if (settlementLetterFile) uploadPromises.push(documentsService.upload(settlementLetterFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'CLAIM_SETTLEMENT_LETTER' }).catch(err => console.error(err)));
+        if (rejectionLetterFile) uploadPromises.push(documentsService.upload(rejectionLetterFile, { claimId, contactId: rest.contactId, policyId: rest.policyId, type: 'REJECTION_LETTER' }).catch(err => console.error(err)));
         if (uploadPromises.length > 0) {
           await Promise.all(uploadPromises);
         }
@@ -934,7 +1889,7 @@ export default function Claims() {
       key: 'actions' as any,
       label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
           <button
             title="Edit Claim"
             className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
@@ -957,6 +1912,7 @@ export default function Claims() {
   const genClaimNumber = () => `CLM-${Date.now().toString().slice(-8)}`;
 
   return (
+    <>
     <div className="space-y-4">
       {/* Floating Right Action Panel */}
       <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
@@ -989,10 +1945,26 @@ export default function Claims() {
       </div>
 
       {/* Actions Toolbar */}
-      <div className="flex justify-end items-center gap-3 pb-2">
+      <div className="flex justify-between items-center gap-3 pb-2">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'table' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Table View"
+          >
+            <LayoutList size={16} />
+          </button>
+          <button
+            onClick={() => setViewMode('kanban')}
+            className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'kanban' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            title="Kanban View"
+          >
+            <KanbanSquare size={16} />
+          </button>
+        </div>
         <button
           onClick={() => setShowAnalytics(!showAnalytics)}
-          className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer bg-white text-slate-700 hover:bg-slate-50"
+          className="btn-secondary h-9 py-0 px-3 text-xs flex flex-wrap items-center gap-1.5 font-bold cursor-pointer bg-white text-slate-700 hover:bg-slate-50"
         >
           {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
         </button>
@@ -1005,7 +1977,7 @@ export default function Claims() {
           {/* Header & Main Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
-              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+              <h3 className="text-sm font-bold text-gray-800 flex flex-wrap items-center gap-1.5">
                 <FileCheck2 size={16} className="text-blue-600" />
                 Claims Analytics Dashboard
               </h3>
@@ -1014,7 +1986,7 @@ export default function Claims() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={exportAnalytics}
-                className="btn-primary h-8 py-0 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 font-bold flex items-center gap-1.5 shadow-sm rounded-lg"
+                className="btn-primary h-8 py-0 px-3 text-[10px] sm:text-xs bg-emerald-600 hover:bg-emerald-700 font-bold flex flex-wrap items-center gap-1.5 shadow-sm rounded-lg"
               >
                 <FileCheck2 size={13} /> Export Report (CSV)
               </button>
@@ -1022,7 +1994,7 @@ export default function Claims() {
           </div>
 
           {/* Advanced Filters Panel */}
-          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
               <DatePicker
@@ -1073,10 +2045,41 @@ export default function Claims() {
                 <option value="ACCIDENTAL">Accidental</option>
               </select>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Agent</label>
+              <select
+                value={filterAgent}
+                onChange={e => setFilterAgent(e.target.value)}
+                className="input h-8 text-xs py-0 px-2 rounded-lg bg-slate-50 border border-slate-200 w-full"
+              >
+                <option value="">All Agents</option>
+                {employees.map((emp: any) => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Claim Stage Count Cards Row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            {['Pending', 'In Progress', 'Approved', 'Settled', 'Rejected'].map(status => {
+              const statusData = stats.statuses.find(s => s.name === status);
+              const count = statusData ? statusData.count : 0;
+              return (
+                <div key={status} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between items-center text-center">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{status}</span>
+                  <span className="text-xl font-bold text-indigo-600 mt-1">{count}</span>
+                </div>
+              );
+            })}
+            <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between items-center text-center">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Claims</span>
+              <span className="text-xl font-bold text-slate-800 mt-1">{stats.totalClaims}</span>
+            </div>
           </div>
 
           {/* 6 KPI Cards Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
             <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Claims</span>
               <span className="text-xl font-bold text-slate-800 mt-1">{stats.totalClaims}</span>
@@ -1099,7 +2102,7 @@ export default function Claims() {
 
             <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Settlement %</span>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <span className="text-xl font-bold text-slate-800">{stats.settlementRatio.toFixed(1)}%</span>
               </div>
             </div>
@@ -1201,7 +2204,7 @@ export default function Claims() {
                     const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-pink-500', 'bg-indigo-500'];
                     const pct = stats.totalClaims > 0 ? (t.count / stats.totalClaims) * 100 : 0;
                     return (
-                      <div key={t.name} className="flex items-center gap-1.5 text-[9px] text-slate-600">
+                      <div key={t.name} className="flex flex-wrap items-center gap-1.5 text-[9px] text-slate-600">
                         <span className={`w-2 h-2 rounded-full ${colors[idx % colors.length]}`} />
                         <span className="truncate font-medium flex-1">{t.name}</span>
                         <span className="font-bold text-slate-800">{pct.toFixed(0)}%</span>
@@ -1428,7 +2431,7 @@ export default function Claims() {
       {/* Search and Tabs Row */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         {/* Left Side: Search Bar ONLY */}
-        <div className="flex items-center gap-2 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <div className="relative w-full lg:w-64">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -1470,380 +2473,1146 @@ export default function Claims() {
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <DataTable
-          columns={COLS.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
-          data={sortedClaims}
-          total={sortedClaims.length}
-          page={page}
-          pageSize={20}
-          loading={isLoading}
-          rowKey={r => r.id}
-          onPageChange={setPage}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          onSort={(k) => {
-            if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-            else { setSortKey(k); setSortDir('asc'); }
-          }}
-          onRowClick={r => {
-            setSelectedClaim(r);
-            setDetailOpen(true);
-          }}
-        />
-      </div>
+      {viewMode === 'table' ? (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <DataTable
+            columns={COLS.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
+            data={sortedClaims}
+            total={sortedClaims.length}
+            page={page}
+            pageSize={20}
+            loading={isLoading}
+            rowKey={r => r.id}
+            onPageChange={setPage}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={(k) => {
+              if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+              else { setSortKey(k); setSortDir('asc'); }
+            }}
+            onRowClick={r => {
+              setSelectedClaim(r);
+              setDetailOpen(true);
+            }}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 pb-4 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+          {['Pending', 'In Progress', 'Approved', 'Rejected', 'Settled'].map(stage => {
+            const stageClaims = sortedClaims.filter(c => (BACKEND_TO_UI[c.status] || 'Pending') === stage);
+            const totalClaimed = stageClaims.reduce((sum, curr) => sum + Number(curr.claimAmount || 0), 0);
+            const AVATAR_BG: Record<string, string> = {
+              'Pending': 'bg-slate-500', 'In Progress': 'bg-blue-500', 'Approved': 'bg-purple-500',
+              'Rejected': 'bg-red-500', 'Settled': 'bg-emerald-500',
+            };
+            const BORDER_TOP: Record<string, string> = {
+              'Pending': 'border-t-4 border-t-slate-400', 'In Progress': 'border-t-4 border-t-blue-500',
+              'Approved': 'border-t-4 border-t-purple-500', 'Rejected': 'border-t-4 border-t-red-500',
+              'Settled': 'border-t-4 border-t-emerald-500',
+            };
+            const SHADOW_HOVER: Record<string, string> = {
+              'Pending': 'hover:shadow-md hover:shadow-slate-500/10 hover:border-slate-400',
+              'In Progress': 'hover:shadow-md hover:shadow-blue-500/10 hover:border-blue-400',
+              'Approved': 'hover:shadow-md hover:shadow-purple-500/10 hover:border-purple-400',
+              'Rejected': 'hover:shadow-md hover:shadow-red-500/10 hover:border-red-400',
+              'Settled': 'hover:shadow-md hover:shadow-emerald-500/10 hover:border-emerald-400',
+            };
+            const RING_COLOR: Record<string, string> = {
+              'Pending': 'ring-slate-500/20', 'In Progress': 'ring-blue-500/20', 'Approved': 'ring-purple-500/20',
+              'Rejected': 'ring-red-500/20', 'Settled': 'ring-emerald-500/20',
+            };
+            return (
+              <div
+                key={stage}
+                className="flex flex-col min-w-0"
+              >
+                <div className="flex items-center justify-between mb-2 px-1.5 py-1 select-none">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                    <span className={clsx('h-2 w-2 rounded-full shrink-0',
+                      stage === 'Pending' && 'bg-slate-500',
+                      stage === 'In Progress' && 'bg-blue-500',
+                      stage === 'Approved' && 'bg-purple-500',
+                      stage === 'Rejected' && 'bg-red-500',
+                      stage === 'Settled' && 'bg-emerald-500'
+                    )} />
+                    <span className="text-xs font-bold text-slate-800 truncate">{stage}</span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1 py-0.5 rounded-md shrink-0">{stageClaims.length}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[9px] text-slate-400 font-bold shrink-0">
+                      ₹{totalClaimed >= 100000 ? `${(totalClaimed / 100000).toFixed(1)}L` : `${(totalClaimed / 1000).toFixed(1)}K`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-h-[350px] rounded-xl border p-1.5 space-y-1.5 transition-all duration-200 overflow-y-auto custom-scrollbar bg-slate-50/50">
+                  {stageClaims.map(c => {
+                    const notes = getClaimNotesData(c.notes);
+                    const emp = employees.find((e: any) => e.id === c.assignedEmployeeId);
+                    const assigneeName = emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned';
+                    return (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedClaim(c);
+                          setDetailOpen(true);
+                        }}
+                        className={clsx(
+                          'bg-white rounded-2xl p-4 shadow-sm border border-slate-100 cursor-pointer hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-150 flex flex-col gap-3 group relative overflow-hidden',
+                          BORDER_TOP[stage] ?? 'border-t-4 border-t-slate-300',
+                          SHADOW_HOVER[stage] ?? 'hover:shadow-slate-500/10'
+                        )}
+                      >
+                        <div className="flex items-center justify-between min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <div className={clsx('h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ring-4',
+                              AVATAR_BG[stage] ?? 'bg-slate-500', RING_COLOR[stage] ?? 'ring-slate-500/20')}>
+                              {`${c.contact?.firstName?.[0] ?? ''}${c.contact?.lastName?.[0] ?? ''}`.toUpperCase() || 'CL'}
+                            </div>
+                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-slate-200 text-[9px] font-bold text-slate-600 bg-slate-50 tracking-wider">
+                              {c.claimNumber || 'NO-ID'}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-1.5" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setEditTarget(c)} className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-slate-50 transition-colors" title="Edit Claim">
+                              <Pencil size={11} />
+                            </button>
+                            <button onClick={() => setDeleteTarget(c)} className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-slate-50 transition-colors" title="Delete Claim">
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="min-w-0">
+                          <h4 className="text-[13px] font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors truncate">
+                            {c.contact?.firstName} {c.contact?.lastName}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">Filed {c.intimatedAt ? format(new Date(c.intimatedAt), 'dd/MMM/yyyy') : ''}</p>
+                        </div>
+
+                        <div className="border-t border-slate-100/80 my-0.5" />
+
+                        <div className="space-y-1.5 text-xs text-slate-700 font-medium">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <MapPin size={12} className="text-slate-500 shrink-0" />
+                            <span className="truncate">{notes.hospital || 'Unknown Hospital'}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <Shield size={12} className="text-slate-500 shrink-0" />
+                            <span className="truncate font-semibold text-slate-800">{c.policy?.plan?.name || c.claimType || 'No Plan'}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-900 mt-1">
+                            <span className="text-[11px] text-emerald-700 font-medium">Claimed</span>
+                            <span className="font-bold text-emerald-800 text-xs">
+                              ₹{Number(c.claimAmount || 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between bg-blue-50/80 border border-blue-200/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-blue-900 mt-1">
+                            <span className="text-[11px] text-blue-700 font-medium">Settled</span>
+                            <span className="font-bold text-blue-800 text-xs">
+                              {c.approvedAmount ? `₹${Number(c.approvedAmount).toLocaleString('en-IN')}` : '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-0.5 gap-2" onClick={e => e.stopPropagation()}>
+                          <div className="flex flex-wrap items-center gap-1 text-slate-500 text-[9px] font-semibold truncate">
+                            <UserCircle2 size={10} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{assigneeName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {stageClaims.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                      <KanbanSquare size={32} className="opacity-20 mb-2" />
+                      <p className="text-xs font-medium">No claims</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Create Modal */}
-      <Modal open={modalOpen} onClose={closeModal} title="Add New Claim" size="2xl">
-        <div className="pb-3 text-xs text-slate-400 font-semibold -mt-1 mb-4 border-b border-slate-100">
-          Enter details for the new insurance claim.
-        </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          
-          {/* CUSTOMER DETAILS Card */}
-          <div className="bg-slate-50/70 border border-slate-100 p-5 rounded-2xl space-y-3.5">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Customer Details</span>
+      <Modal 
+        open={modalOpen} 
+        onClose={closeModal} 
+        title="Add New Claim" 
+        size="2xl"
+        actions={
+          <button type="submit" form="add-claim-form" className="btn-primary py-1.5 px-5 text-xs shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 border-0" disabled={createClaim.isPending}>
+            {createClaim.isPending ? 'Saving...' : 'Save Claim'}
+          </button>
+        }
+      >
+        <>
+          <div className="pb-3 text-xs text-slate-400 font-semibold -mt-1 mb-4 border-b border-slate-100">
+            Enter details for the new insurance claim.
+          </div>
+          <form id="add-claim-form" onSubmit={handleSubmit(onSubmit)} className="space-y-3">
             
-            {/* Select Customer */}
-            <div className="relative">
-              <label className="label">Select Customer <span className="text-red-500">*</span></label>
-              <input type="hidden" {...register('contactId')} />
-              <div className="relative mt-1">
-                <input
-                  value={selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} (${selectedContact.phone})` : contactSearch}
-                  onChange={e => {
-                    if (selectedContact) {
-                      setSelectedContact(null);
-                      setValue('contactId', '');
-                      setSelectedPolicy(null);
-                      setValue('policyId', '');
-                      setContactSearch(e.target.value);
-                    }
-                    setContactSearch(e.target.value);
-                    setContactDropdown(true);
-                  }}
-                  onFocus={() => setContactDropdown(true)}
-                  onBlur={() => setTimeout(() => setContactDropdown(false), 200)}
-                  placeholder="Choose a customer..."
-                  className="input w-full pl-10 pr-10 bg-white"
-                />
-                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
-              </div>
-              {contactDropdown && !selectedContact && (
-                <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
-                  {(contactResults?.data ?? []).length === 0 ? (
-                    <li className="px-3 py-2 text-sm text-gray-400">No contacts found</li>
-                  ) : (
-                    (contactResults?.data ?? []).map((c: any) => (
-                      <li key={c.id} onMouseDown={() => {
-                        setSelectedContact(c);
-                        setValue('contactId', c.id, { shouldValidate: true });
-                        setContactDropdown(false);
-                        setContactSearch('');
-                      }} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
-                        <span className="font-semibold">{c.firstName} {c.lastName}</span>
-                        <span className="text-gray-400 text-xs ml-auto">{c.phone}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              )}
-            </div>
+            {/* Modal sub-navigation tabs */}
+          <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+            {['Claim Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads'].map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveClaimTab(tab)}
+                className={clsx(
+                  'px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap',
+                  activeClaimTab === tab
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
 
-            {/* Select Policy & Patient / Insured Person */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Select Policy */}
-              <div className="relative">
-                <label className="label">Select Policy <span className="text-red-500">*</span></label>
-                <input type="hidden" {...register('policyId')} />
-                <button
-                  type="button"
-                  onClick={() => setPolicyDropdown(v => !v)}
-                  className="input w-full text-left text-gray-700 bg-white mt-1 flex justify-between items-center"
-                >
-                  <span className={!selectedPolicy ? "text-gray-400" : ""}>
-                    {selectedPolicy ? selectedPolicy.policyNumber : 'Select Policy'}
-                  </span>
-                  <span className="text-gray-400">▼</span>
-                </button>
-                {policyDropdown && (
-                  <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
-                    {activeContactPolicies.length === 0 ? (
-                      <li className="px-3 py-2 text-sm text-gray-400">No active policies</li>
-                    ) : (
-                      activeContactPolicies.map((p: any) => (
-                        <li key={p.id} onMouseDown={() => {
-                          setSelectedPolicy(p);
-                          setValue('policyId', p.id, { shouldValidate: true });
-                          setPolicyDropdown(false);
-                        }} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
-                          <span className="font-medium">{p.policyNumber}</span>
-                          {p.plan && <span className="text-gray-400 text-xs ml-auto">{p.plan.name}</span>}
-                        </li>
-                      ))
+          <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
+            {activeClaimTab === 'Claim Details' && (
+              <div className="space-y-4 animate-fadeIn">
+                
+                {/* Proposer Details Collapsible */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newProposer')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                      Proposer & Policy Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Customer & Policy Data</span>
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newProposer'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newProposer'] && (
+                    <div className="p-4 space-y-4">
+                      {/* Select Customer */}
+                  <div className="relative">
+                    <label className="label">Select Customer <span className="text-red-500">*</span></label>
+                    <input type="hidden" {...register('contactId')} />
+                    <div className="relative mt-1">
+                      <input
+                        value={selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} (${selectedContact.phone})` : contactSearch}
+                        onChange={e => {
+                          if (selectedContact) {
+                            setSelectedContact(null);
+                            setValue('contactId', '');
+                            setSelectedPolicy(null);
+                            setValue('policyId', '');
+                            setContactSearch(e.target.value);
+                          }
+                          setContactSearch(e.target.value);
+                          setContactDropdown(true);
+                        }}
+                        onFocus={() => setContactDropdown(true)}
+                        onBlur={() => setTimeout(() => setContactDropdown(false), 200)}
+                        placeholder="Choose a customer..."
+                        className="input w-full pl-10 pr-10 bg-white"
+                      />
+                      <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
+                    </div>
+                    {contactDropdown && !selectedContact && (
+                      <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                        {(contactResults?.data ?? []).length === 0 ? (
+                          <li className="px-3 py-2 text-sm text-gray-400">No contacts found</li>
+                        ) : (
+                          (contactResults?.data ?? []).map((c: any) => (
+                            <li key={c.id} onMouseDown={() => {
+                              setSelectedContact(c);
+                              setValue('contactId', c.id, { shouldValidate: true });
+                              setContactDropdown(false);
+                              setContactSearch('');
+                            }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
+                              <span className="font-semibold">{c.firstName} {c.lastName}</span>
+                              <span className="text-gray-400 text-xs ml-auto">{c.phone}</span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
                     )}
-                  </ul>
+                  </div>
+
+                  {/* Select Policy & Patient / Insured Person */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Select Policy */}
+                    <div className="relative">
+                      <label className="label">Select Policy <span className="text-red-500">*</span></label>
+                      <input type="hidden" {...register('policyId')} />
+                      <button
+                        type="button"
+                        onClick={() => setPolicyDropdown(v => !v)}
+                        className="input w-full text-left text-gray-700 bg-white mt-1 flex justify-between items-center"
+                      >
+                        <span className={!selectedPolicy ? "text-gray-400" : ""}>
+                          {selectedPolicy ? selectedPolicy.policyNumber : 'Select Policy'}
+                        </span>
+                        <span className="text-gray-400">▼</span>
+                      </button>
+                      {policyDropdown && (
+                        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                          {activeContactPolicies.length === 0 ? (
+                            <li className="px-3 py-2 text-sm text-gray-400">No active policies</li>
+                          ) : (
+                            activeContactPolicies.map((p: any) => (
+                              <li key={p.id} onMouseDown={() => {
+                                setSelectedPolicy(p);
+                                setValue('policyId', p.id, { shouldValidate: true });
+                                setValue('insuranceCompany', p.plan?.company?.name || '');
+                                setValue('insuranceCompanyCategory', p.plan?.company?.category || 'Health');
+                                setValue('insuranceProductName', p.plan?.name || '');
+                                setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : '');
+                                setValue('deathSumInsured', String(p.sumInsured || p.plan?.sumInsured || ''));
+                                setPolicyDropdown(false);
+                                
+                                const pNominees = Array.isArray(p.nominees) ? p.nominees : [];
+                                setNewNominees(pNominees.map((n: any) => ({
+                                  name: n.name || '',
+                                  relationship: n.relationship || '',
+                                  phone: n.phone || '',
+                                  dob: n.dob ? n.dob.substring(0, 10) : '',
+                                  percentage: n.percentage || '',
+                                  comment: n.comment || ''
+                                })));
+                              }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
+                                <span className="font-medium">{p.policyNumber}</span>
+                                {p.plan && <span className="text-gray-400 text-xs ml-auto">{p.plan.name}</span>}
+                              </li>
+                            ))
+                          )}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Patient / Insured Person */}
+                    <div>
+                      <label className="label">Patient / Insured Person</label>
+                      <select
+                        disabled={!selectedContact}
+                        className="input w-full bg-white mt-1"
+                        {...register('patientName')}
+                      >
+                        <option value="">Select Patient</option>
+                        {selectedContact && (
+                          <>
+                            <option value={`${selectedContact.firstName} ${selectedContact.lastName}`}>
+                              SELF - {selectedContact.firstName} {selectedContact.lastName}
+                            </option>
+                            {(contactDetail?.data?.relationships || []).map((r: any) => {
+                              const c = r.relatedContact;
+                              if (!c) return null;
+                              const fullName = `${c.firstName} ${c.lastName}`;
+                              return (
+                                <option key={c.id} value={fullName}>
+                                  {r.relationshipType} - {fullName}
+                                </option>
+                              );
+                            })}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Auto-Fetched Policy Details & Assigned Employee */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="label text-gray-500">Insurance Company Category</label>
+                      <input {...register('insuranceCompanyCategory')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="label text-gray-500">Insurance Company</label>
+                      <input {...register('insuranceCompany')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="label text-gray-500">Product Name</label>
+                      <input {...register('insuranceProductName')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="label text-gray-500">Agent Name</label>
+                      <input {...register('agentName')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="label">Assigned Employee</label>
+                      <select {...register('assignedEmployeeId')} className="input mt-1 bg-white">
+                        <option value="">Unassigned</option>
+                        {employees.map((e: any) => (
+                          <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    </div>
+                  </div>
                 )}
               </div>
+              
+              {/* Claim Details Collapsible */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newClaim')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                      Claim Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Diagnosis & Status</span>
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newClaim'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newClaim'] && (
+                    <div className="p-4 space-y-4">
+                      {/* Row: Claim Type | Claim Number | Sub Claim No */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="label">Claim Type <span className="text-red-500">*</span></label>
+                      <select {...register('claimType')} className="input mt-1">
+                        <option value="Cashless">Cashless</option>
+                        <option value="Reimbursement">Reimbursement</option>
+                        <option value="Pre-Post Hospitalization">Pre-Post Hospitalization</option>
+                        <option value="Accident">Accident</option>
+                        <option value="Death Claim">Death Claim</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Claim Number <span className="text-red-500">*</span></label>
+                      <input {...register('claimNumber')} className="input mt-1" placeholder="CLM-XXXXXXXX" />
+                    </div>
+                    <div>
+                      <label className="label">Sub Claim No</label>
+                      <input {...register('subClaimNo')} className="input mt-1" placeholder="Optional" />
+                    </div>
+                  </div>
 
-              {/* Patient / Insured Person */}
-              <div>
-                <label className="label">Patient / Insured Person</label>
-                <select
-                  disabled={!selectedContact}
-                  className="input w-full bg-white mt-1"
-                  {...register('patientName')}
-                >
-                  <option value="">Select Patient</option>
-                  {selectedContact && (
-                    <>
-                      <option value={`${selectedContact.firstName} ${selectedContact.lastName}`}>
-                        SELF - {selectedContact.firstName} {selectedContact.lastName}
-                      </option>
-                      {(contactDetail?.data?.relationships || []).map((r: any) => {
-                        const c = r.relatedContact;
-                        if (!c) return null;
-                        const fullName = `${c.firstName} ${c.lastName}`;
-                        return (
-                          <option key={c.id} value={fullName}>
-                            {r.relationshipType} - {fullName}
-                          </option>
-                        );
-                      })}
-                    </>
+                  {/* Row: Status | Intimation Date */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Claim Status</label>
+                      <select {...register('uiClaimStatus')} className="input mt-1">
+                        <option value="">Select Status</option>
+                        <option value="Intimated">Intimated</option>
+                        <option value="Discharge Done">Discharge Done</option>
+                        <option value="Pending Documents from Hospital/Customer">Pending Documents from Hospital/Customer</option>
+                        <option value="Documents Collected from Hospital/Customer">Documents Collected from Hospital/Customer</option>
+                        <option value="Submitted to Company">Submitted to Company</option>
+                        <option value="Pending for approval">Pending for approval</option>
+                        <option value="Query Raised">Query Raised</option>
+                        <option value="Query Resolved">Query Resolved</option>
+                        <option value="Partially Approved">Partially Approved</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="No Response from Customer">No Response from Customer</option>
+                        <option value="Pre-Authorisation Approved">Pre-Authorisation Approved</option>
+                        <option value="Pre-Authorisation Rejected">Pre-Authorisation Rejected</option>
+                        <option value="Enhancement Approved">Enhancement Approved</option>
+                        <option value="Enhancement Rejected">Enhancement Rejected</option>
+                        <option value="Interim Authorisation Approved">Interim Authorisation Approved</option>
+                        <option value="Interim Authorisation Rejected">Interim Authorisation Rejected</option>
+                        <option value="Final Authorisation Approved">Final Authorisation Approved</option>
+                        <option value="Final Authorisation Rejected">Final Authorisation Rejected</option>
+                        <option value="Advised to go for Reimbursement">Advised to go for Reimbursement</option>
+                        <option value="Treatment Cancelled/Changed">Treatment Cancelled/Changed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Intimation Date <span className="text-red-500">*</span></label>
+                      <DatePicker {...register('intimatedAt')} className="input mt-1" />
+                    </div>
+                  </div>
+
+                  {/* Row: Diagnosis | Comment */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Diagnosis / Ailment</label>
+                      <input {...register('diagnosis')} className="input mt-1" placeholder="e.g. Dengue Fever" />
+                    </div>
+                    <div>
+                      <label className="label">Comment</label>
+                      <textarea {...register('comment')} className="input mt-1" rows={2} placeholder="Add a comment..." />
+                    </div>
+                  </div>
+                    </div>
                   )}
-                </select>
-              </div>
-            </div>
-          </div>
+                </div>
 
-          {/* Row: Claim Type | Diagnosis / Ailment */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Claim Type <span className="text-red-500">*</span></label>
-              <select {...register('claimType')} className="input mt-1">
-                <option value="Cashless">Cashless</option>
-                <option value="Reimbursement">Reimbursement</option>
-                <option value="DEATH">Death</option>
-                <option value="ACCIDENTAL">Accidental</option>
-                <option value="MATURITY">Maturity</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Diagnosis / Ailment</label>
-              <input {...register('diagnosis')} className="input mt-1" placeholder="e.g. Dengue Fever" />
-            </div>
-          </div>
+                {watchClaimType === 'Death Claim' && (
+                  <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-red-50/80 via-white to-orange-50/30 px-4 py-2.5 border-b border-red-100 flex items-center justify-between cursor-pointer select-none"
+                      onClick={() => toggleCollapse('newDeath')}
+                    >
+                      <h4 className="text-xs font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">!</span>
+                        Death Claim Details
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-red-400 font-semibold">Incident Info</span>
+                        <ChevronDown size={16} className={`text-red-500 transition-transform duration-200 ${collapsedSections['newDeath'] ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+                    {!collapsedSections['newDeath'] && (
+                      <div className="p-4 bg-red-50/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
+                        <input type="date" {...register('deathAdmissionDate')} className="input mt-1" />
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Cause of Death</label>
+                        <select {...register('causeOfDeath')} className="input mt-1">
+                          <option value="">Select Cause</option>
+                          <option value="Accidental">Accidental</option>
+                          <option value="Non-Accidental">Non-Accidental</option>
+                          <option value="Murder">Murder</option>
+                          <option value="Natural">Natural</option>
+                          <option value="Suicide">Suicide</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Date of Occurance <br/><span className="text-[10px] font-normal">(Accident, Attack, etc)</span></label>
+                        <input type="date" {...register('dateOfOccurance')} className="input mt-1" />
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Date of Death</label>
+                        <input type="date" {...register('dateOfDeath')} className="input mt-1" />
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Was in Coma?</label>
+                        <select {...register('wasInComa')} className="input mt-1">
+                          <option value="">Select</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Sum Insured</label>
+                        <input {...register('deathSumInsured')} className="input mt-1 bg-white" placeholder="Auto-fetch or manual" />
+                      </div>
+                      <div>
+                        <label className="label text-gray-500">Total Claimed Amount</label>
+                        <input {...register('deathTotalClaimedAmount')} className="input mt-1 bg-white" placeholder="₹0" />
+                      </div>
+                      <div className="sm:col-span-2 lg:col-span-1">
+                        <label className="label text-gray-500">Comment</label>
+                        <textarea {...register('deathComment')} className="input mt-1" rows={1} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                )}
 
-          {/* Row: Hospital Name | Hospital Address */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Hospital Name</label>
-              <input {...register('hospital')} className="input mt-1" placeholder="Hospital Name" />
-            </div>
-            <div>
-              <label className="label">Hospital Address</label>
-              <input {...register('hospitalAddress')} className="input mt-1" placeholder="Location" />
-            </div>
-          </div>
-
-          {/* Row: Date of Admission | Date of Discharge */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Date of Admission</label>
-              <DatePicker {...register('admissionAt')} className="input mt-1" />
-            </div>
-            <div>
-              <label className="label">Date of Discharge</label>
-              <DatePicker {...register('dischargeAt')} className="input mt-1" />
-            </div>
-          </div>
-
-          {/* Row: Claim Number | Intimation Date */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Claim Number <span className="text-red-500">*</span></label>
-              <input {...register('claimNumber')} className="input mt-1" placeholder="CLM-XXXXXXXX" />
-            </div>
-            <div>
-              <label className="label">Intimation Date <span className="text-red-500">*</span></label>
-              <DatePicker {...register('intimatedAt')} className="input mt-1" />
-            </div>
-          </div>
-
-          {/* CLAIMED AMOUNT BREAKDOWN Card */}
-          <div className="bg-emerald-50/20 border border-emerald-100/50 p-5 rounded-2xl space-y-4">
-            <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest block">Claimed Amount Breakdown</span>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="label">Hospital Amount</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtHospital')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                {/* Nominee Details Collapsible */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newNominee')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+                      Nominee Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Multiple allowed</span>
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newNominee'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newNominee'] && (
+                    <div className="p-4 space-y-4">
+                      {newNominees.map((nom, index) => (
+                        <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                          <div>
+                            <label className="label text-[10px]">Nominee Name</label>
+                            <input value={nom.name} onChange={e => handleNewNomineeChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Relationship</label>
+                            <input value={nom.relationship} onChange={e => handleNewNomineeChange(index, 'relationship', e.target.value)} className="input mt-1 py-1 text-xs" />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Contact No.</label>
+                            <input value={nom.phone} onChange={e => handleNewNomineeChange(index, 'phone', e.target.value)} className="input mt-1 py-1 text-xs" />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">DoB</label>
+                            <input type="date" value={nom.dob} onChange={e => handleNewNomineeChange(index, 'dob', e.target.value)} className="input mt-1 py-1 text-xs" />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Percentage (%)</label>
+                            <input type="number" value={nom.percentage} onChange={e => handleNewNomineeChange(index, 'percentage', e.target.value)} className="input mt-1 py-1 text-xs" />
+                          </div>
+                          <div className="flex gap-2">
+                            <input value={nom.comment} onChange={e => handleNewNomineeChange(index, 'comment', e.target.value)} placeholder="Comment" className="input mt-1 py-1 text-xs flex-1" />
+                            <button type="button" onClick={() => removeNewNominee(index)} className="mt-1 bg-red-50 text-red-500 hover:bg-red-100 px-2 rounded-lg text-xs font-bold transition-colors">X</button>
+                          </div>
+                        </div>
+                      ))}
+                      <button type="button" onClick={addNewNomineeRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                        + Add Nominee
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
-                <label className="label">Medicine Amount</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtMedicine')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+            )}
+
+            {activeClaimTab === 'Hospital Details' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newHospital')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">H</span>
+                      Hospital Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-semibold">Location & Contact</span>
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newHospital'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newHospital'] && (
+                    <div className="p-4 space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="label text-[10px]">Hospital Name</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalName')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Address</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalAddress')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital State</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalState')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital City</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalCity')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Pincode</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalPincode')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Contact No</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalContactNo')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Rating</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalRating')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Type</label>
+                          <select className="input mt-1 py-1 text-xs" {...register('hospitalType')}>
+                            <option value="">Select Type</option>
+                            <option value="Network">Network</option>
+                            <option value="Non-Network">Non-Network</option>
+                            <option value="Blacklisted">Blacklisted</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Doctors / Consulting Providers</h5>
+                        {newDoctors.map((doc, index) => (
+                          <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                            <div>
+                              <label className="label text-[10px]">Doctor Name</label>
+                              <input value={doc.name} onChange={e => handleNewDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Doctor Degree</label>
+                              <input value={doc.degree} onChange={e => handleNewDoctorChange(index, 'degree', e.target.value)} className="input mt-1 py-1 text-xs" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Doctor Contact No</label>
+                              <input value={doc.contactNo} onChange={e => handleNewDoctorChange(index, 'contactNo', e.target.value)} className="input mt-1 py-1 text-xs" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Doctor Speciality</label>
+                              <input value={doc.speciality} onChange={e => handleNewDoctorChange(index, 'speciality', e.target.value)} className="input mt-1 py-1 text-xs" />
+                            </div>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => removeNewDoctor(index)} className="mt-1 bg-red-50 text-red-500 hover:bg-red-100 px-2 rounded-lg text-xs font-bold transition-colors">X</button>
+                            </div>
+                          </div>
+                        ))}
+                        <button type="button" onClick={addNewDoctorRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                          + Add Doctor
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Claims Department Contact</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          <div>
+                            <label className="label text-[10px]">Person 1 Name</label>
+                            <input type="text" className="input mt-1 py-1 text-xs" {...register('claimsPerson1Name')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Person 1 Contact No</label>
+                            <input type="text" className="input mt-1 py-1 text-xs" {...register('claimsPerson1Contact')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Person 2 Name</label>
+                            <input type="text" className="input mt-1 py-1 text-xs" {...register('claimsPerson2Name')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Person 2 Contact No</label>
+                            <input type="text" className="input mt-1 py-1 text-xs" {...register('claimsPerson2Contact')} />
+                          </div>
+                          <div className="md:col-span-4">
+                            <label className="label text-[10px]">Comment</label>
+                            <textarea className="input mt-1 py-1 text-xs" rows={2} {...register('hospitalComment')} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hospitalisation Details Collapsible */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newHospitalisation')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">H</span>
+                      Hospitalisation Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newHospitalisation'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newHospitalisation'] && (
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="label text-[10px]">Date of Admission</label>
+                          <input type="date" className="input mt-1 py-1 text-xs" {...register('admissionAt')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Date of Discharge</label>
+                          <input type="date" className="input mt-1 py-1 text-xs" {...register('dischargeAt')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Diagnosis / Ailment (Exact as written on DS)</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('diagnosis')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Diagnosis in simple words</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('diagnosisSimple')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Room Category</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('roomCategory')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Type of Management</label>
+                          <select className="input mt-1 py-1 text-xs" {...register('typeOfManagement')}>
+                            <option value="">Select Option</option>
+                            <option value="Surgical">Surgical</option>
+                            <option value="Medicinal">Medicinal</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Type of Admission</label>
+                          <select className="input mt-1 py-1 text-xs" {...register('typeOfAdmission')}>
+                            <option value="">Select Option</option>
+                            <option value="Emergency">Emergency</option>
+                            <option value="Planned">Planned</option>
+                            <option value="Day-Care">Day-Care</option>
+                            <option value="Maternity">Maternity</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Is Medico Legal Case?</label>
+                          <select className="input mt-1 py-1 text-xs" {...register('isMedicoLegalCase')}>
+                            <option value="">Select Option</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Comment</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalisationComment')} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Billing Details Collapsible */}
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newBilling')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">B</span>
+                      Billing Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newBilling'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newBilling'] && (
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="label text-[10px]">Pre Hospitalisation Bill</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtPreHosp')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Final Bill</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtHospital')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Anesthesia Bill</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtAnesthesia')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Medicine Bill Total</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtMedicine')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Lab Bill Total</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtLab')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Post Hospitalisation Bill</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtPostHosp')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Others (Amount)</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtOthers')} />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Total Claimed Amount</label>
+                          <input type="number" className="input mt-1 py-1 text-xs bg-slate-50 cursor-not-allowed" {...register('claimAmount')} readOnly />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Comment</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('billingComment')} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
-                <label className="label">Lab Amount</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtLab')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+            )}
+
+            {activeClaimTab === 'Claim Approval Details' && (
+              <div className="space-y-4 animate-fadeIn">
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+                  <div
+                    className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newClaimApproval')}
+                  >
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">CA</span>
+                      Claim Approval Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newClaimApproval'] ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                  {!collapsedSections['newClaimApproval'] && (
+                    <div className="p-4 space-y-4">
+                      {/* Final Bill Amount */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="label text-[10px]">Final Bill Amount</label>
+                          <input type="number" className="input mt-1 py-1 text-xs" {...register('amtFinalBill')} />
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Less: To be Paid by the Patient / Insured</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="label text-[10px]">Non-Payables as per policy terms</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtNonPayables')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Co-pay, if applicable as per policy</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtCopay')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Policy Deductible / Defined Limits / Voluntary Deductible</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtDeductible')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Balance EMIs to be paid by the insured (if applicable)</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtBalanceEMIs')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Recovery towards No Claim Discount in the renewed policy</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtNcdRecovery')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Excess Over Sum Insured / Sublimit</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtExcessSumInsured')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Excess Over Defined ailment / procedure Sub-limit</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtExcessAilmentLimit')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Higher room rent occupancy and related medical services</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtHigherRoomRent')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Reasonable cost</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtReasonableCost')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Other recoveries, if any</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtOtherRecoveries')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px] font-semibold text-blue-600">Total amount to be paid by the patient / insured</label>
+                            <input type="number" className="input mt-1 py-1 text-xs bg-blue-50 cursor-not-allowed font-semibold text-blue-700" {...register('amtPatientToPay')} readOnly />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Less: Amounts NOT to be Collected from the Patient</h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="label text-[10px]">Excess amount charged over the agreed package / SOC</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtExcessAgreedPackage')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Network hospital discount (not to be collected from the patient)</label>
+                            <input type="number" className="input mt-1 py-1 text-xs" {...register('amtNetworkDiscount')} />
+                          </div>
+                          <div>
+                            <label className="label text-[10px] font-semibold text-green-600">Total Amount NOT to be collected from the patient</label>
+                            <input type="number" className="input mt-1 py-1 text-xs bg-green-50 cursor-not-allowed font-semibold text-green-700" {...register('amtNotCollected')} readOnly />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="label text-[10px] font-bold text-indigo-700">Amount payable by Insurance Company to the Insured/Hospital</label>
+                            <input type="number" className="input mt-1 py-1 text-xs bg-indigo-50 border-indigo-200 cursor-not-allowed font-bold text-indigo-700" {...register('amtPayableToInsured')} readOnly />
+                          </div>
+                          <div>
+                            <label className="label text-[10px]">Comment</label>
+                            <input type="text" className="input mt-1 py-1 text-xs" {...register('approvalComment')} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
-                <label className="label">Pre Hospitalisation Bill</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtPreHosp')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+            )}
+
+            {activeClaimTab === 'Amounts' && (
+              <div className="space-y-4 animate-fadeIn">
+                {/* CLAIMED AMOUNT BREAKDOWN Card */}
+                <div className="bg-emerald-50/20 border border-emerald-100/50 p-5 rounded-2xl space-y-4">
+                  <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest block">Claimed Amount Breakdown</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="label">Hospital Amount</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtHospital')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Medicine Amount</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtMedicine')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Lab Amount</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtLab')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Pre Hospitalisation Bill</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtPreHosp')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Post Hospitalisation Bill</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtPostHosp')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Others</label>
+                      <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
+                        <input {...register('amtOthers')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Amount Green Banner */}
+                  <div className="bg-emerald-50 border border-emerald-100 px-4 py-3 rounded-lg flex items-center justify-between text-sm font-bold text-emerald-800">
+                    <span>Total Amount</span>
+                    <span>₹{Number(watch('claimAmount') || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+
+                {/* Approved Amount & Other/Deductions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Approved Amount</label>
+                    <input {...register('approvedAmount')} type="number" className="input mt-1" placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="label">Other/Deductions</label>
+                    <input {...register('deductionsNotes')} className="input mt-1" placeholder="Notes on deductions..." />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="label">Notes / Remarks</label>
+                  <textarea {...register('notes')} className="input mt-1" rows={2} placeholder="Timeline logs details..." />
                 </div>
               </div>
-              <div>
-                <label className="label">Post Hospitalisation Bill</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtPostHosp')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+            )}
+
+        {activeClaimTab === 'File Uploads' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+              <div
+                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                onClick={() => toggleCollapse('newDocuments')}
+              >
+                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">F</span>
+                  File Uploads
+                </h4>
+                <div className="flex items-center gap-2">
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newDocuments'] ? 'rotate-180' : ''}`} />
                 </div>
               </div>
-              <div>
-                <label className="label">Others</label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">₹</span>
-                  <input {...register('amtOthers')} type="number" className="input pl-7 w-full bg-white" placeholder="0" />
+              {!collapsedSections['newDocuments'] && (
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="label text-[11px]">Claim Form</label>
+                      <input type="file" onChange={e => setClaimFormFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Discharge Summary</label>
+                      <input type="file" onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Operation Theatre Notes / IPD Papers</label>
+                      <input type="file" onChange={e => setOtNotesFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Hospital Bill, Breakup Bill</label>
+                      <input type="file" onChange={e => setHospitalBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Pharmacy, Medicines</label>
+                      <input type="file" onChange={e => setPharmacyBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Investigation, Lab Reports</label>
+                      <input type="file" onChange={e => setInvestigationBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Bill - Blood Bags, Anesthesia, Other</label>
+                      <input type="file" onChange={e => setBloodBagsBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Reports - Important Lab Reports</label>
+                      <input type="file" onChange={e => setLabReportsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Imp Bills</label>
+                      <input type="file" onChange={e => setBillsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Other IMP Documents</label>
+                      <input type="file" onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Claim Query Letter</label>
+                      <input type="file" onChange={e => setQueryLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Reply Documents</label>
+                      <input type="file" onChange={e => setReplyDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Claim Settlement Letter</label>
+                      <input type="file" onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div>
+                      <label className="label text-[11px]">Rejection Letter</label>
+                      <input type="file" onChange={e => setRejectionLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                    <div className="col-span-1 sm:col-span-2">
+                      <label className="label text-[11px]">Comment</label>
+                      <input type="text" {...register('fileUploadComment')} className="input w-full bg-white mt-1 text-xs py-1" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Total Amount Green Banner */}
-            <div className="bg-emerald-50 border border-emerald-100 px-4 py-3 rounded-lg flex items-center justify-between text-sm font-bold text-emerald-800">
-              <span>Total Amount</span>
-              <span>₹{Number(watch('claimAmount') || 0).toLocaleString('en-IN')}</span>
+              )}
             </div>
           </div>
-
-          {/* Approved Amount & Other/Deductions */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Approved Amount</label>
-              <input {...register('approvedAmount')} type="number" className="input mt-1" placeholder="0" />
-            </div>
-            <div>
-              <label className="label">Other/Deductions</label>
-              <input {...register('deductionsNotes')} className="input mt-1" placeholder="Notes on deductions..." />
-            </div>
+        )}
           </div>
 
-          {/* Notes */}
-          <div>
-            <label className="label">Notes / Remarks</label>
-            <textarea {...register('notes')} className="input mt-1" rows={2} placeholder="Timeline logs details..." />
-          </div>
-
-          {/* DOCUMENTS Card */}
-          <div className="bg-slate-50/70 border border-slate-100 p-5 rounded-2xl space-y-3.5">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Documents</span>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">Claim Form</label>
-                <input
-                  type="file"
-                  onChange={e => setClaimFormFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Discharge Summary</label>
-                <input
-                  type="file"
-                  onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Imp Medical Reports</label>
-                <input
-                  type="file"
-                  onChange={e => setMedicalReportsFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Imp Bills</label>
-                <input
-                  type="file"
-                  onChange={e => setBillsFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Other IMP Documents</label>
-                <input
-                  type="file"
-                  onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Claim Query Letter</label>
-                <input
-                  type="file"
-                  onChange={e => setQueryLetterFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Reply Documents</label>
-                <input
-                  type="file"
-                  onChange={e => setReplyDocsFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-              <div>
-                <label className="label">Claim Settlement Letter</label>
-                <input
-                  type="file"
-                  onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)}
-                  className="input w-full bg-white mt-1 text-xs py-1.5"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button type="button" className="btn-secondary px-8 py-2.5" onClick={closeModal}>Cancel</button>
-            <button type="submit" className="btn-primary px-12 py-2.5 bg-blue-600 hover:bg-blue-700 font-bold rounded-lg shadow-sm" disabled={createClaim.isPending || !selectedContact || !selectedPolicy}>
-              {createClaim.isPending ? 'Saving...' : 'Save Claim'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </>
       </Modal>
 
       {/* Edit Claim */}
       {editTarget && (
-        <Modal open onClose={() => setEditTarget(null)} title="Edit Claim" size="2xl">
-          <ClaimEditForm
-            key={editTarget.id}
-            initial={editTarget}
-            isPending={updateClaim.isPending}
-            onSave={body => updateClaim.mutate({ id: editTarget.id, body })}
-            onCancel={() => setEditTarget(null)}
-            employees={employees}
-          />
-        </Modal>
+        <ClaimEditForm
+          key={editTarget.id}
+          initial={editTarget}
+          isPending={updateClaim.isPending}
+          onSave={body => updateClaim.mutate({ id: editTarget.id, body })}
+          onCancel={() => setEditTarget(null)}
+          employees={employees}
+        />
       )}
 
       {/* Delete Confirmation */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Claim" size="sm">
         <p className="text-sm text-gray-600 mb-4">Delete claim <strong>{deleteTarget?.claimNumber}</strong>?</p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" onClick={async () => {
             const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
@@ -1873,6 +3642,7 @@ export default function Claims() {
       </Modal>
 
     </div>
+    </>
   );
 }
 
@@ -1916,38 +3686,38 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
           </div>
         </div>
         {onEdit && (
-          <button onClick={onEdit} className="btn-secondary text-xs flex items-center gap-1">
+          <button onClick={onEdit} className="btn-secondary text-[10px] sm:text-xs flex flex-wrap items-center gap-1">
             <Pencil size={12}/> Update Claim
           </button>
         )}
       </div>
 
       {/* Info Grid */}
-      <div className="grid grid-cols-2 gap-4 text-sm bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div>
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Patient / Client</label>
-          <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <UserCircle2 size={14} className="text-gray-400" />
             <span>{claim.contact ? `${claim.contact.firstName} ${claim.contact.lastName}` : 'Unknown'}</span>
           </div>
         </div>
         <div>
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Policy Reference</label>
-          <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <FileText size={14} className="text-gray-400" />
             <span>{claim.policy?.policyNumber || 'N/A'}</span>
           </div>
         </div>
         <div>
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Hospital / Location</label>
-          <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <MapPin size={14} className="text-gray-400" />
             <span>{notesData.hospital || 'N/A'}</span>
           </div>
         </div>
         <div>
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Date Filed</label>
-          <div className="flex items-center gap-1.5 font-semibold text-gray-800">
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <Calendar size={14} className="text-gray-400" />
             <span>{claim.intimatedAt ? format(new Date(claim.intimatedAt), 'dd/MMM/yyyy') : '—'}</span>
           </div>
@@ -1957,7 +3727,7 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
       {/* Expense breakdown calculator sums */}
       <div className="space-y-2">
         <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Expense Breakdown Calculator Sums</label>
-        <div className="grid grid-cols-2 gap-3 text-xs bg-gray-50/50 border border-gray-100 rounded-xl p-4 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-gray-50/50 border border-gray-100 rounded-xl p-4 shadow-sm">
           <div className="flex justify-between border-b pb-1">
             <span className="text-gray-500">Hospital Room / Bed:</span>
             <span className="font-bold text-gray-800">₹{(notesData.amtHospital || 0).toLocaleString('en-IN')}</span>

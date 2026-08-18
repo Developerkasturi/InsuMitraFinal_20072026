@@ -248,7 +248,7 @@ function BulkExportPanel() {
       {/* Entity selector */}
       <div>
         <p className="label mb-2">Select Entity</p>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {(['contacts', 'leads', 'policies', 'claims'] as const).map(e => {
             const Icon = ENTITY_ICONS[e];
             return (
@@ -271,11 +271,11 @@ function BulkExportPanel() {
 
       {/* Filters */}
       <div className="card p-4 space-y-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
           <Filter size={13} />
           Filters
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label">Date From</label>
             <DatePicker className="input" value={dateFrom} onChange={setDateFrom} />
@@ -302,9 +302,9 @@ function BulkExportPanel() {
             <button onClick={() => setCols(new Set())} className="text-[11px] text-gray-400 hover:underline">None</button>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {columns.map(col => (
-            <label key={col.key} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
+            <label key={col.key} className="flex flex-wrap items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
               <input
                 type="checkbox"
                 className="rounded text-primary-600"
@@ -512,7 +512,7 @@ export default function Insurance() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 flex flex-wrap items-center gap-2">
             <Briefcase size={18} className="text-primary-600" />
             Operations
           </h2>
@@ -554,17 +554,17 @@ export default function Insurance() {
           {companyList.map((co: any) => (
             <div key={co.id} className="card p-0 overflow-hidden">
               {/* Company row */}
-              <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
                 onClick={() => setExpandedCompany(expandedCompany === co.id ? null : co.id)}>
                 <Building2 size={16} className="text-primary-500 shrink-0"/>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900">{co.name}</p>
                   {co.code && <p className="text-xs text-gray-400">{co.code}</p>}
                 </div>
-                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
                   {co.phone && <span className="text-xs text-gray-400">{co.phone}</span>}
                   <button onClick={() => { setPlanModal({ companyId: co.id, company: co.name }); planForm.reset({ isActive: true, category: 'LIFE' }); }}
-                    className="btn-sm text-xs px-2 py-1 border border-primary-300 text-primary-700 rounded hover:bg-primary-50 flex items-center gap-1">
+                    className="btn-sm text-xs px-2 py-1 border border-primary-300 text-primary-700 rounded hover:bg-primary-50 flex flex-wrap items-center gap-1">
                     <Plus size={11}/> Plan
                   </button>
                   <button
@@ -590,7 +590,7 @@ export default function Insurance() {
                 <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-2">
                   {planList.length === 0 && <p className="text-xs text-gray-400">No plans. Click "+ Plan" to add one.</p>}
                   {planList.map((pl: any) => (
-                    <div key={pl.id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-100 group">
+                    <div key={pl.id} className="flex flex-wrap items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-100 group">
                       <Shield size={13} className="text-green-500 shrink-0"/>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-800">{pl.name}</p>
@@ -656,7 +656,7 @@ export default function Insurance() {
           ? updateCompany.mutate({ id: editCompany.id, body })
           : createCompany.mutate(body)
         )} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Company Name *</label>
               <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" />
@@ -687,7 +687,7 @@ export default function Insurance() {
               <textarea {...companyForm.register('notes')} className="input" rows={2} />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => { setCompanyModal(false); setEditCompany(null); companyForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createCompany.isPending || updateCompany.isPending}>
               {editCompany ? 'Save Changes' : 'Create Company'}
@@ -706,7 +706,7 @@ export default function Insurance() {
           ? updatePlan.mutate({ planId: editPlan.id, body })
           : createPlan.mutate({ companyId: planModal!.companyId, body })
         )} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Plan Name *</label>
               <input {...planForm.register('name')} className="input" placeholder="e.g. Jeevan Anand" />
@@ -746,12 +746,12 @@ export default function Insurance() {
               <label className="label">Description</label>
               <textarea {...planForm.register('description')} className="input" rows={2} />
             </div>
-            <div className="col-span-2 flex items-center gap-2">
+            <div className="col-span-2 flex flex-wrap items-center gap-2">
               <input {...planForm.register('isActive')} type="checkbox" id="planActive" className="rounded" />
               <label htmlFor="planActive" className="text-sm text-gray-700">Active (available for new policies)</label>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => { setPlanModal(null); setEditPlan(null); planForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createPlan.isPending || updatePlan.isPending}>
               {editPlan ? 'Save Changes' : 'Create Plan'}
@@ -763,7 +763,7 @@ export default function Insurance() {
       {/* ── Delete Company Confirm ─────────────────────────────────────────── */}
       <Modal open={!!deleteCompany} onClose={() => setDeleteCompany(null)} title="Delete Company" size="sm">
         <p className="text-sm text-gray-600 mb-4">Delete <strong>{deleteCompany?.name}</strong>? All associated plans will also be deleted.</p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteCompany(null)}>Cancel</button>
           <button className="btn-danger" disabled={removeCompany.isPending} onClick={async () => {
             const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';
@@ -788,7 +788,7 @@ export default function Insurance() {
       {/* ── Delete Plan Confirm ────────────────────────────────────────────── */}
       <Modal open={!!deletePlan} onClose={() => setDeletePlan(null)} title="Delete Plan" size="sm">
         <p className="text-sm text-gray-600 mb-4">Delete plan <strong>{deletePlan?.name}</strong>?</p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeletePlan(null)}>Cancel</button>
           <button className="btn-danger" disabled={removePlan.isPending} onClick={async () => {
             const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';

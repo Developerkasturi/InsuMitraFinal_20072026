@@ -183,7 +183,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                   <button
                     onClick={() => inviteToPortal.mutate()}
                     disabled={inviteToPortal.isPending}
-                    className="btn-secondary flex items-center gap-1 text-xs px-2.5 py-1.5 disabled:opacity-60 cursor-pointer"
+                    className="btn-secondary flex flex-wrap items-center gap-1 text-xs px-2.5 py-1.5 disabled:opacity-60 cursor-pointer"
                   >
                     <UserPlus size={13} />
                     {inviteToPortal.isPending ? 'Sending…' : 'Invite'}
@@ -191,7 +191,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 )}
                 <button
                   onClick={() => onEditClick?.(c)}
-                  className="px-2.5 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all shadow-xs"
+                  className="px-2.5 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg cursor-pointer flex flex-wrap items-center gap-1.5 transition-all shadow-xs"
                 >
                   <Edit2 size={12} /> Edit Profile
                 </button>
@@ -236,7 +236,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 {/* Addresses */}
                 <div className="card space-y-2 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><MapPin size={12} />Addresses</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5"><MapPin size={12} />Addresses</h3>
                     <button onClick={() => setAddrModal(true)} className="p-1 rounded hover:bg-gray-150 text-gray-400 hover:text-blue-600 cursor-pointer"><Plus size={13} /></button>
                   </div>
                   {(c.addresses ?? []).length === 0 && <p className="text-[11px] text-gray-400">No addresses added</p>}
@@ -256,7 +256,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 {/* Occupations */}
                 <div className="card space-y-2 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Briefcase size={12} />Occupations</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5"><Briefcase size={12} />Occupations</h3>
                     <button onClick={() => setOccModal(true)} className="p-1 rounded hover:bg-gray-150 text-gray-400 hover:text-blue-600 cursor-pointer"><Plus size={13} /></button>
                   </div>
                   {(c.occupations ?? []).length === 0 && <p className="text-[11px] text-gray-400">No occupations added</p>}
@@ -276,7 +276,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 {/* Relationships / Family Members */}
                 <div className="card space-y-2 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5">
                       <Users size={12} /> Family & Relationships
                     </h3>
                     <button onClick={() => setRelModal(true)} className="p-1 rounded hover:bg-gray-150 text-gray-400 hover:text-blue-600 cursor-pointer">
@@ -304,7 +304,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
               <div className="lg:col-span-2 space-y-4">
                 {/* Policies */}
                 <div className="card p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2"><Shield size={12} />Policies</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5 mb-2"><Shield size={12} />Policies</h3>
                   {(policies?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No active policies found.</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(policies?.data ?? []).map((p: any) => (
@@ -324,7 +324,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
 
                 {/* Claims */}
                 <div className="card p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2"><FileText size={12} />Claims</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5 mb-2"><FileText size={12} />Claims</h3>
                   {(claims?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(claims?.data ?? []).map((cl: any) => (
@@ -344,7 +344,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
 
                 {/* Leads / Interests */}
                 <div className="card p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2"><TrendingUp size={12} />Leads & Interests</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5 mb-2"><TrendingUp size={12} />Leads & Interests</h3>
                   {(leads?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No leads associated.</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(leads?.data ?? []).map((l: any) => (
@@ -361,7 +361,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
 
                 {/* Activity & Update Timeline */}
                 <div className="card p-4 rounded-xl border border-slate-100">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2"><FileText size={12} />Update Log & History</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5 mb-2"><FileText size={12} />Update Log & History</h3>
                   {(!activityRes?.data || activityRes.data.length === 0) && <p className="text-xs text-gray-400">No activities logged.</p>}
                   <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                     {(activityRes?.data ?? []).map((log: any) => (
@@ -398,7 +398,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                   <label className="label">Address Line 2</label>
                   <input {...addrForm.register('line2')} className="input" />
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <label className="label">City *</label>
                     <input {...addrForm.register('city')} className="input" />
@@ -412,7 +412,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     <input {...addrForm.register('pincode')} className="input" maxLength={6} />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
                   <button type="button" className="btn-secondary" onClick={() => { setAddrModal(false); addrForm.reset(); }}>Cancel</button>
                   <button type="submit" className="btn-primary" disabled={addAddress.isPending}>
                     {addAddress.isPending ? 'Adding…' : 'Add Address'}
@@ -424,7 +424,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
             {/* Occupation Form Modal overlay */}
             <Modal open={occModal} onClose={() => { setOccModal(false); occForm.reset(); }} title="Add Occupation">
               <form onSubmit={occForm.handleSubmit(d => addOccupation.mutate(d))} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="label">Company</label>
                     <input {...occForm.register('company')} className="input" />
@@ -434,7 +434,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     <input {...occForm.register('designation')} className="input" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="label">Industry</label>
                     <input {...occForm.register('industry')} className="input" />
@@ -444,7 +444,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     <input {...occForm.register('annualIncome')} type="number" className="input" min="0" />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
                   <button type="button" className="btn-secondary" onClick={() => { setOccModal(false); occForm.reset(); }}>Cancel</button>
                   <button type="submit" className="btn-primary" disabled={addOccupation.isPending}>
                     {addOccupation.isPending ? 'Adding…' : 'Add Occupation'}
@@ -474,7 +474,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                   {selectedRelContact ? (
                     <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
                       <span className="text-sm font-semibold">{selectedRelContact.firstName} {selectedRelContact.lastName}</span>
-                      <button type="button" className="text-xs text-red-500 font-bold" onClick={() => { setSelectedRelContact(null); relForm.setValue('relatedContactId', ''); }}>Remove</button>
+                      <button type="button" className="text-[10px] sm:text-xs text-red-500 font-bold" onClick={() => { setSelectedRelContact(null); relForm.setValue('relatedContactId', ''); }}>Remove</button>
                     </div>
                   ) : (
                     <div className="relative">
@@ -501,7 +501,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 </div>
                 <div className="border-t pt-3">
                   <p className="text-xs text-gray-400 mb-2">Or enter details manually:</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="label">Name</label>
                       <input {...relForm.register('name')} className="input" placeholder="Full name" />
@@ -516,7 +516,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     <DatePicker {...relForm.register('dateOfBirth')} className="input" />
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
                   <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }}>Cancel</button>
                   <button type="submit" className="btn-primary" disabled={addRelationship.isPending}>
                     {addRelationship.isPending ? 'Adding…' : 'Add Relationship'}

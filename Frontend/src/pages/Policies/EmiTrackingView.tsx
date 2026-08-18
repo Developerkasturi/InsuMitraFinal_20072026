@@ -459,7 +459,7 @@ function EmiKanbanCard({ card, onOpen, onCall, onWhatsApp }: EmiKanbanCardProps)
     >
       {/* Top Header: Avatar Initials + Policy Number & Tag */}
       <div className="flex items-center justify-between min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <div className={clsx('h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white shrink-0 shadow-xs ring-4', AVATAR_BG[card.status] ?? 'bg-slate-500 ring-slate-500/20')}>
             {initials}
           </div>
@@ -477,7 +477,7 @@ function EmiKanbanCard({ card, onOpen, onCall, onWhatsApp }: EmiKanbanCardProps)
         <h4 className="text-[13px] font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors truncate">
           {card.customerName}
         </h4>
-        <p className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate">
+        <p className="text-[10px] text-slate-500 font-medium mt-0.5 flex flex-wrap items-center gap-1 truncate">
           <Shield size={11} className="text-slate-400 shrink-0" />
           <span>{card.product}</span>
         </p>
@@ -503,11 +503,11 @@ function EmiKanbanCard({ card, onOpen, onCall, onWhatsApp }: EmiKanbanCardProps)
 
       {/* Footer: Assignee & Action Buttons */}
       <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-0.5 gap-2" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-1 text-slate-500 text-[10px] font-bold truncate">
+        <div className="flex flex-wrap items-center gap-1 text-slate-500 text-[10px] font-bold truncate">
           <User size={11} className="text-slate-400 shrink-0" />
           <span className="truncate">{card.employee}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => onCall(card)}
             className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer transition-colors"
@@ -585,7 +585,7 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
             >
               <ChevronLeft size={15} />
             </button>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-xs font-black text-slate-900 tracking-wide">{pickerYear}</span>
               <span className="text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">Year</span>
             </div>
@@ -600,7 +600,7 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
           </div>
 
           {/* 12 Months Grid (3x4) */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {MONTHS.map(m => {
               const fullMonthStr = `${m} ${pickerYear}`;
               const isSelected = selectedMonth === fullMonthStr;
@@ -631,7 +631,7 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
                 setPickerYear(2026);
                 setOpen(false);
               }}
-              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100"
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex flex-wrap items-center gap-1 cursor-pointer bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100"
             >
               <Sparkles size={11} className="text-blue-600" />
               <span>Current Month</span>
@@ -863,7 +863,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         
         {/* Card 1: Total Installments Due */}
-        <div className="bg-white rounded-2xl p-4 border border-blue-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-blue-100/80 shadow-xs flex flex-wrap items-center gap-3.5 hover:shadow-md transition-all">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
             <FileText size={22} />
           </div>
@@ -877,7 +877,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
         </div>
 
         {/* Card 2: Due Today */}
-        <div className="bg-white rounded-2xl p-4 border border-amber-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-amber-100/80 shadow-xs flex flex-wrap items-center gap-3.5 hover:shadow-md transition-all">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
             <Calendar size={22} />
           </div>
@@ -891,7 +891,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
         </div>
 
         {/* Card 3: Pending / Overdue */}
-        <div className="bg-white rounded-2xl p-4 border border-rose-100/80 shadow-xs flex items-center gap-3.5 hover:shadow-md transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-rose-100/80 shadow-xs flex flex-wrap items-center gap-3.5 hover:shadow-md transition-all">
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
             <AlertTriangle size={22} />
           </div>
@@ -908,7 +908,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
         <div className="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-100 shadow-xs flex flex-col justify-between hover:shadow-md transition-all">
           <div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                   <CheckCircle2 size={14} />
                 </div>
@@ -932,7 +932,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
       <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
           {/* Left Side: Search Box */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full sm:w-80 lg:w-64">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -948,7 +948,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           {/* Right Side: Status Filter Pills + Filter Icon */}
           <div className="flex flex-wrap items-center gap-2.5 justify-end">
             {/* Status Filter Pills */}
-            <div className="bg-slate-100/80 p-1 rounded-xl flex items-center gap-1 border border-slate-200/50">
+            <div className="bg-slate-100/80 p-1 rounded-xl flex flex-wrap items-center gap-1 border border-slate-200/50">
               {['All', 'Due', 'Paid'].map(st => (
                 <button
                   key={st}
@@ -1165,13 +1165,13 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           {/* Table Pagination */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/30">
             <span className="text-xs text-slate-400 font-semibold">Showing 1 to {filteredData.length} of 84 entries</span>
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <button className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-100 disabled:opacity-40"><ChevronLeft size={14}/></button>
-              <button className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white">1</button>
-              <button className="px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-100 text-slate-600">2</button>
-              <button className="px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-100 text-slate-600">3</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-blue-600 text-white">1</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">2</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">3</button>
               <span className="text-xs text-slate-400 px-1">...</span>
-              <button className="px-3 py-1 rounded-lg text-xs font-bold hover:bg-slate-100 text-slate-600">17</button>
+              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">17</button>
               <button className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronRight size={14}/></button>
             </div>
           </div>
@@ -1185,7 +1185,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
         subtitle={`View installment schedule, collections, and customer follow-ups for ${drawerRecord?.customerName || ''}`}
         size="2xl"
         actions={
-          <div className="flex items-center gap-2 mr-1">
+          <div className="flex flex-wrap items-center gap-2 mr-1">
             {drawerRecord && (
               <button
                 type="button"
@@ -1208,12 +1208,12 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           <div className="space-y-3">
             {/* Customer Profile Banner Card */}
             <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5 shadow-2xs">
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
                   <User size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-xs text-slate-900 truncate">{drawerRecord.customerName}</h3>
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {drawerRecord.customerTag}
@@ -1224,7 +1224,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
               </div>
 
               {/* Sub details grid */}
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer</span>
                   <span className="font-bold text-slate-800 text-[11px] truncate block">{drawerRecord.insurer}</span>
@@ -1241,7 +1241,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
             </div>
 
             {/* Modal sub-navigation tabs (styled like Add New Contact modal tabs) */}
-            <div className="grid grid-cols-4 bg-slate-200/60 p-1.5 rounded-xl gap-2 border border-slate-200/80 shadow-2xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-slate-200/60 p-1.5 rounded-xl gap-2 border border-slate-200/80 shadow-2xs">
               {[
                 { key: 'overview', label: 'Installment Overview' },
                 { key: 'schedule', label: 'Installment Schedule' },
@@ -1285,7 +1285,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                   </div>
 
                   {/* Stat Cards 3 Columns */}
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div className="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-lg text-center">
                       <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Paid</span>
                       <span className="text-xs font-extrabold text-emerald-900 block mt-0.5">{drawerRecord.paidEmis}</span>
@@ -1308,7 +1308,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                   {/* Current Installment Due Box */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
                     <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block">Current Installment (Due)</span>
-                    <div className="grid grid-cols-4 gap-2 text-xs items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs items-center">
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 block">Installment No.</span>
                         <span className="font-bold text-slate-800 text-[11px]">{drawerRecord.paidEmis + 1} of {drawerRecord.totalEmis}</span>
@@ -1333,7 +1333,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                   {/* Quick Actions */}
                   <div className="space-y-1.5">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Quick Actions</span>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => handleSendReminder(drawerRecord)}
@@ -1364,7 +1364,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     {statusUpdateOpen && (
                       <div className="p-2.5 bg-white border border-slate-200 rounded-lg shadow-md space-y-1.5 text-xs">
                         <p className="font-bold text-slate-600 text-[10px] uppercase">Select New Status</p>
-                        <div className="grid grid-cols-2 gap-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                           {['DUE', 'PAID', 'UPCOMING', 'OVERDUE', 'MESSAGE SENT', 'CUSTOMER CONTACTED'].map(st => (
                             <button
                               key={st}
@@ -1432,7 +1432,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                 <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs animate-fadeIn">
                   {/* Header */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                         <MessageCircle size={13} />
                       </div>
@@ -1457,11 +1457,11 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                       drawerRecord.history.map((cmt, ci) => (
                         <div key={cmt.id || ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                            <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                               {cmt.author}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-semibold flex flex-wrap items-center gap-1">
                               {cmt.date}
                             </span>
                           </div>
@@ -1476,7 +1476,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                   {/* Add Call Summary & Consultation Comment Box */}
                   <form onSubmit={handleAddNote} className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex flex-wrap items-center gap-1.5">
                         <MessageCircle size={12} className="text-blue-600" />
                         Add Call Summary / Comment
                       </label>
@@ -1492,7 +1492,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     <div className="flex justify-end pt-1">
                       <button
                         type="submit"
-                        className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-extrabold text-[11px] shadow-xs cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-extrabold text-[11px] shadow-xs cursor-pointer transition-all hover:scale-[1.02] flex flex-wrap items-center gap-1.5"
                       >
                         <Send size={12} />
                         <span>Add Comment</span>
@@ -1542,12 +1542,12 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                 </button>
               </div>
               <div className="p-5 bg-slate-50/70 border-b border-slate-100 space-y-4 shrink-0">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl bg-slate-200/80 text-slate-600 flex items-center justify-center font-extrabold text-base shrink-0 border border-slate-300/60">
                     <User size={22} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-extrabold text-base text-slate-900 truncate">{drawerRecord.customerName}</h3>
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {drawerRecord.customerTag}
@@ -1556,7 +1556,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     <p className="text-xs font-semibold text-slate-500">{drawerRecord.policyNo}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-xs">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Insurer</span>
                     <span className="font-bold text-slate-800 text-xs truncate block">{drawerRecord.insurer}</span>
@@ -1608,7 +1608,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div className="bg-emerald-50/60 border border-emerald-100 p-2.5 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Paid</span>
                         <span className="text-sm font-extrabold text-emerald-900 block mt-0.5">{drawerRecord.paidEmis}</span>
@@ -1627,7 +1627,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     </div>
                     <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-2">
                       <span className="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider block">Current EMI (Due)</span>
-                      <div className="grid grid-cols-4 gap-2 text-xs items-center">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs items-center">
                         <div>
                           <span className="text-[10px] font-bold text-slate-400 block">EMI No.</span>
                           <span className="font-bold text-slate-800">{drawerRecord.paidEmis + 1} of {drawerRecord.totalEmis}</span>
@@ -1650,7 +1650,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     </div>
                     <div className="space-y-2">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Quick Actions</span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => handleSendReminder(drawerRecord)}
                           className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20 cursor-pointer"
@@ -1675,7 +1675,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                       {statusUpdateOpen && (
                         <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-lg space-y-2 text-xs">
                           <p className="font-bold text-slate-600 text-[10px] uppercase">Select New Status</p>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                             {['DUE', 'PAID', 'UPCOMING', 'OVERDUE', 'MESSAGE SENT', 'CUSTOMER CONTACTED'].map(st => (
                               <button
                                 key={st}
@@ -1743,7 +1743,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                         placeholder="Enter details of customer call, WhatsApp response or note..."
                         className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none"
                       />
-                      <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 shadow-xs cursor-pointer">
+                      <button type="submit" className="w-full py-2 bg-blue-600 text-white rounded-xl font-bold text-[10px] sm:text-xs hover:bg-blue-700 shadow-xs cursor-pointer">
                         Add Communication Log
                       </button>
                     </form>

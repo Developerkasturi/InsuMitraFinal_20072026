@@ -258,14 +258,14 @@ export default function Workspace() {
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary-800 to-primary-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
         <div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-wrap items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold">
               {selectedEmployeeUserId && selectedEmployeeObj
                 ? `Viewing ${selectedEmployeeObj.firstName} ${selectedEmployeeObj.lastName}'s Workspace`
                 : `Welcome back, ${user?.firstName}!`}
             </h1>
             {selectedEmployeeUserId && (
-              <span className="px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 text-xs font-bold flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 text-xs font-bold flex flex-wrap items-center gap-1">
                 <Eye className="w-3.5 h-3.5" /> View Only Mode
               </span>
             )}
@@ -279,7 +279,7 @@ export default function Workspace() {
           </p>
         </div>
 
-        <div className="mt-4 md:mt-0 flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm">
+        <div className="mt-4 md:mt-0 flex flex-wrap items-center gap-2 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm">
           <Clock className="w-5 h-5 text-primary-200" />
           <span className="text-sm font-medium">
             Shift Status: {activeIsClockedOut ? 'Attendance Ended (Locked)' : activeIsClockedIn ? 'Attendance Marked (On Duty)' : 'Attendance Not Marked'}
@@ -292,7 +292,7 @@ export default function Workspace() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <h3 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                 <Users className="w-5 h-5 text-primary-600" /> Select Employee Workspace
               </h3>
               <button
@@ -327,7 +327,7 @@ export default function Workspace() {
                           : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-800 font-semibold'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
                           {emp.firstName?.[0] || 'E'}
                         </div>
@@ -356,7 +356,7 @@ export default function Workspace() {
       )}
 
       {/* Workspace Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-200 pb-1 overflow-x-auto">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-1 overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
@@ -397,18 +397,18 @@ export default function Workspace() {
 
         {/* Admin "View Employee Workspace" Button Next to My Targets Tab */}
         {(user?.role === 'OWNER' || user?.role === 'SUPERADMIN') && (
-          <div className="relative ml-auto flex items-center gap-2">
+          <div className="relative ml-auto flex flex-wrap items-center gap-2">
             {selectedEmployeeUserId ? (
               <button
                 onClick={() => setSelectedEmployeeUserId(null)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+                className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
               >
                 <X className="w-4 h-4 text-amber-700" /> Clear Employee Filter
               </button>
             ) : (
               <button
                 onClick={() => setIsEmployeeModalOpen(!isEmployeeModalOpen)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+                className="flex flex-wrap items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
               >
                 <Users className="w-4 h-4 text-primary-600" /> View Employee Workspace <ChevronDown className="w-3.5 h-3.5" />
               </button>
@@ -421,12 +421,12 @@ export default function Workspace() {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           {/* Quick Metrics Grid - Clickable with Assigned to Me filter */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <Link
               to="/leads?assignedTo=me"
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer hover:no-underline group"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <TrendingUp className="w-5 h-5" />
                 </div>
@@ -442,7 +442,7 @@ export default function Workspace() {
               to="/contacts?assignedTo=me"
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer hover:no-underline group"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-purple-50 p-2.5 rounded-xl text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
                   <Users className="w-5 h-5" />
                 </div>
@@ -458,7 +458,7 @@ export default function Workspace() {
               to="/policies?assignedTo=me"
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer hover:no-underline group"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-green-50 p-2.5 rounded-xl text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
                   <Shield className="w-5 h-5" />
                 </div>
@@ -474,7 +474,7 @@ export default function Workspace() {
               to="/claims?assignedTo=me"
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer hover:no-underline group"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-orange-50 p-2.5 rounded-xl text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors">
                   <FileText className="w-5 h-5" />
                 </div>
@@ -491,7 +491,7 @@ export default function Workspace() {
               onClick={() => setActiveTab('tasks')}
               className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition-all hover:scale-[1.02] cursor-pointer text-left group"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                   <ListTodo className="w-5 h-5" />
                 </div>
@@ -515,7 +515,7 @@ export default function Workspace() {
             
             {/* Attendance & EOD Form Card */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
+              <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2 mb-4">
                 <Clock className="w-5 h-5 text-primary-600" /> Attendance & Daily Log
               </h2>
 
@@ -529,14 +529,14 @@ export default function Workspace() {
                       <button
                         onClick={handleClockIn}
                         disabled={clockInMutation.isPending || isClockedOut}
-                        className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all disabled:opacity-50"
+                        className="btn-primary flex items-center justify-center gap-2 w-full px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white text-[10px] sm:text-xs font-semibold cursor-pointer shadow-sm transition-all disabled:opacity-50"
                       >
                         <Play className="w-4 h-4" /> {clockInMutation.isPending ? 'Marking...' : 'Mark Attendance'}
                       </button>
                     </div>
                   ) : isClockedIn ? (
                     <div className="space-y-3">
-                      <div className="p-3 bg-green-50 rounded-xl border border-green-100 flex items-center gap-3">
+                      <div className="p-3 bg-green-50 rounded-xl border border-green-100 flex flex-wrap items-center gap-3">
                         <div className="bg-green-500 p-2 rounded-lg text-white">
                           <Clock className="w-4 h-4" />
                         </div>
@@ -551,13 +551,13 @@ export default function Workspace() {
                       <button
                         onClick={handleClockOut}
                         disabled={clockOutMutation.isPending}
-                        className="btn-primary flex items-center justify-center gap-2 w-full px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
+                        className="btn-primary flex items-center justify-center gap-2 w-full px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[10px] sm:text-xs font-semibold cursor-pointer shadow-sm transition-all"
                       >
                         <Square className="w-4 h-4" /> {clockOutMutation.isPending ? 'Ending...' : 'End Attendance'}
                       </button>
                     </div>
                   ) : (
-                    <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3">
+                    <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-wrap items-center gap-3">
                       <div className="bg-gray-400 p-2 rounded-lg text-white">
                         <Lock className="w-4 h-4" />
                       </div>
@@ -585,7 +585,7 @@ export default function Workspace() {
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Calls Made</label>
                       <input
@@ -639,7 +639,7 @@ export default function Workspace() {
                   <button
                     type="submit"
                     disabled={saveLogMutation.isPending}
-                    className="btn-primary w-full text-xs font-semibold py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white transition-all cursor-pointer shadow-sm"
+                    className="btn-primary w-full text-[10px] sm:text-xs font-semibold py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white transition-all cursor-pointer shadow-sm"
                   >
                     {saveLogMutation.isPending ? 'Saving EOD...' : 'Save EOD'}
                   </button>
@@ -650,7 +650,7 @@ export default function Workspace() {
             {/* EOD History Table Preview */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                   <ClipboardList className="w-5 h-5 text-primary-600" /> Recent Daily Logs
                 </h2>
               </div>
@@ -707,10 +707,10 @@ export default function Workspace() {
             {/* Active Tasks Tracker */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                   <ListTodo className="w-5 h-5 text-primary-600" /> Active Tasks
                 </h2>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setShowAddTask(!showAddTask)}
                     className="bg-primary-50 text-primary-700 hover:bg-primary-100 p-1.5 rounded-lg transition-colors cursor-pointer"
@@ -747,7 +747,7 @@ export default function Workspace() {
                         <div>
                           <p className="text-sm font-semibold text-gray-800">{task.title}</p>
                           {task.dueDate && (
-                            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                            <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               Target: {format(new Date(task.dueDate), 'dd MMM')}
                             </p>
@@ -769,7 +769,7 @@ export default function Workspace() {
             {/* Targets Summary */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                   <Target className="w-5 h-5 text-primary-600" /> Target Progress
                 </h2>
                 <button
@@ -783,7 +783,7 @@ export default function Workspace() {
               {/* Sales Target */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-600">
-                  <span className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-green-600" /> Sales Progress</span>
+                  <span className="flex flex-wrap items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-green-600" /> Sales Progress</span>
                   <span className="text-primary-700">{target.monthlyTarget > 0 ? target.percentage : 0}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
@@ -801,7 +801,7 @@ export default function Workspace() {
               {/* Calls Target */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-600">
-                  <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-blue-600" /> Calls Progress</span>
+                  <span className="flex flex-wrap items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-blue-600" /> Calls Progress</span>
                   <span className="text-primary-700">
                     {target.callsTarget > 0 ? Math.min(100, Math.round(((target.callsProgress || 0) / target.callsTarget) * 100)) : 0}%
                   </span>
@@ -830,16 +830,16 @@ export default function Workspace() {
           <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-800 flex flex-wrap items-center gap-2">
                   <ListTodo className="w-5 h-5 text-primary-600" /> My Tasks
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">Manage and track work items with complete assignment, timing, and multi-filter control</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => setShowAddTask(!showAddTask)}
-                  className="btn-primary flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  className="btn-primary flex flex-wrap items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" /> Add Task
                 </button>
@@ -849,7 +849,7 @@ export default function Workspace() {
             {/* Task Filters Bar: Status, Priority, Datewise Filter */}
             <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 mb-6 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
                   <Filter className="w-4 h-4 text-primary-600" />
                   <span>Filter Tasks</span>
                 </div>
@@ -861,7 +861,7 @@ export default function Workspace() {
                       setTaskFilterDateFrom('');
                       setTaskFilterDateTo('');
                     }}
-                    className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline flex flex-wrap items-center gap-1 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" /> Clear Filters
                   </button>
@@ -1038,7 +1038,7 @@ export default function Workspace() {
                   <button
                     type="submit"
                     disabled={createTaskMutation.isPending}
-                    className="btn-primary px-5 py-2 rounded-xl bg-primary-600 text-white text-xs font-semibold cursor-pointer"
+                    className="btn-primary px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl bg-primary-600 text-white text-[10px] sm:text-xs font-semibold cursor-pointer"
                   >
                     {createTaskMutation.isPending ? 'Creating Task...' : 'Save Task'}
                   </button>
@@ -1172,7 +1172,7 @@ export default function Workspace() {
             
             {/* Target Meters */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6 lg:col-span-2">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                 <Target className="w-5 h-5 text-primary-600" /> Monthly Target Progress (Auto-Calculated from Policies & Lead Movements)
               </h2>
 
@@ -1180,7 +1180,7 @@ export default function Workspace() {
                 {/* Sales Progress Card */}
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                       <Shield className="w-4 h-4 text-green-600" /> Sales Target
                     </span>
                     <span className="text-xs font-bold text-green-600">{target.monthlyTarget > 0 ? target.percentage : 0}%</span>
@@ -1206,7 +1206,7 @@ export default function Workspace() {
                 {/* Calls Progress Card */}
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                       <Phone className="w-4 h-4 text-blue-600" /> Calls Target
                     </span>
                     <span className="text-xs font-bold text-blue-600">
@@ -1234,7 +1234,7 @@ export default function Workspace() {
                 {/* Proposal Progress Card */}
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                       <Users className="w-4 h-4 text-purple-600" /> Proposal Target
                     </span>
                     <span className="text-xs font-bold text-purple-600">
@@ -1263,7 +1263,7 @@ export default function Workspace() {
 
             {/* Compensation Overview (Backend Sourced) */}
             <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                 <DollarSign className="w-5 h-5 text-green-600" /> Real Backend Compensation
               </h2>
 
@@ -1293,10 +1293,10 @@ export default function Workspace() {
             return (
               <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                  <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                  <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
                     <DollarSign className="w-5 h-5 text-green-600" /> Commission History (Backend Sourced)
                   </h2>
-                  <div className="flex items-center gap-4 text-xs">
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
                     <span className="text-gray-500">Total: <span className="font-bold text-gray-800">₹{totalCommission.toLocaleString('en-IN')}</span></span>
                     <span className="text-gray-500">Paid: <span className="font-bold text-green-600">₹{paidCommission.toLocaleString('en-IN')}</span></span>
                   </div>

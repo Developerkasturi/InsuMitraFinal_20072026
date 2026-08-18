@@ -1,4 +1,4 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp } from 'lucide-react';
+import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsService, searchService } from '@api/index';
@@ -15,7 +15,7 @@ const SECTION_META: Record<string, { label: string; Icon: React.ElementType; col
   leads: { label: 'Leads', Icon: TrendingUp, color: 'text-purple-600', iconBg: 'bg-purple-50' },
 };
 
-export default function Header({ title }: { title?: string }) {
+export default function Header({ title, setMobileOpen }: { title?: string, setMobileOpen: (v: boolean) => void }) {
   const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -65,9 +65,17 @@ export default function Header({ title }: { title?: string }) {
     <header className="h-16 bg-white/75 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0 transition-all duration-200"
       style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
 
+      {/* Hamburger Menu (Mobile) */}
+      <button 
+        className="md:hidden p-1.5 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+        onClick={() => setMobileOpen(true)}
+      >
+        <Menu size={20} />
+      </button>
+
       {/* Page title / breadcrumb */}
       {title && (
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 hidden sm:flex">
           <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">Insumitra</span>
           <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
             <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -150,7 +158,7 @@ export default function Header({ title }: { title?: string }) {
                             <button
                               key={item.id}
                               type="button"
-                              className="w-full text-left px-4 py-2.5 text-xs transition-all hover:bg-blue-50/60 flex items-center gap-3 cursor-pointer group"
+                              className="w-full text-left px-3 sm:px-4 py-1.5 sm:py-2.5 text-[10px] sm:text-xs transition-all hover:bg-blue-50/60 flex flex-wrap items-center gap-3 cursor-pointer group"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 setShowSearch(false);
@@ -211,7 +219,7 @@ export default function Header({ title }: { title?: string }) {
       )}
 
       {/* Right actions */}
-      <div className="flex items-center gap-2 ml-auto">
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
 
 
         {/* Notification bell */}
@@ -235,7 +243,7 @@ export default function Header({ title }: { title?: string }) {
               <div className="fixed inset-0 z-40" onClick={() => setShowNotifPop(false)} />
               <div className="absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 animate-fade-in">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Bell size={14} className="text-blue-600" />
                     <h4 className="text-xs font-bold text-slate-800">Notifications</h4>
                     {unreadCount > 0 && (
@@ -309,7 +317,7 @@ export default function Header({ title }: { title?: string }) {
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-2.5 pl-1.5 pr-3.5 py-1.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 hover:shadow-sm transition-all duration-200 group"
+            className="flex flex-wrap items-center gap-2.5 pl-1.5 pr-3.5 py-1.5 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50/70 hover:shadow-sm transition-all duration-200 group"
           >
             <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center
                             text-white text-xs font-bold shrink-0 shadow-sm shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
@@ -356,21 +364,21 @@ export default function Header({ title }: { title?: string }) {
                 <div className="w-full flex flex-col gap-1">
                   <button
                     onClick={() => { navigate('/settings'); setShowDropdown(false); }}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-slate-650 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors text-left"
+                    className="flex flex-wrap items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-slate-650 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors text-left"
                   >
                     <User size={14} className="text-slate-450" />
                     Edit Profile
                   </button>
                   <button
                     onClick={() => { navigate('/settings'); setShowDropdown(false); }}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-slate-650 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors text-left"
+                    className="flex flex-wrap items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-slate-650 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors text-left"
                   >
                     <Settings size={14} className="text-slate-450" />
                     Settings
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-semibold text-slate-650 hover:text-red-650 hover:bg-red-50/50 rounded-xl transition-colors text-left"
+                    className="flex flex-wrap items-center gap-2.5 w-full px-3 py-2 text-[10px] sm:text-xs font-semibold text-slate-650 hover:text-red-650 hover:bg-red-50/50 rounded-xl transition-colors text-left"
                   >
                     <LogOut size={14} className="text-slate-450" />
                     Sign out

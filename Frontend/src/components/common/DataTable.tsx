@@ -64,17 +64,17 @@ export default function DataTable<T>({
                 <th
                   key={String(col.key)}
                   className={clsx(
-                    'px-5 py-3.5 text-left text-[10px] font-black uppercase tracking-wider border border-slate-200/80',
-                    'text-slate-500 whitespace-nowrap select-none',
+                    'px-3 sm:px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider border border-slate-200/80',
+                    'text-slate-500 whitespace-normal sm:whitespace-nowrap min-w-[100px] sm:min-w-0 select-none',
                     col.sortable && 'cursor-pointer hover:text-blue-600 transition-colors duration-150',
                     col.className,
                   )}
                   onClick={() => col.sortable && handleSort(String(col.key))}
                 >
-                  <span className="inline-flex items-center gap-1.5">
-                    {col.label}
+                  <div className="flex items-start sm:items-center justify-between sm:justify-start gap-1.5 w-full">
+                    <span className="break-words line-clamp-2 sm:line-clamp-none">{col.label}</span>
                     {col.sortable && (
-                      <span className="text-slate-400 transition-colors duration-150">
+                      <span className="text-slate-400 shrink-0 mt-0.5 sm:mt-0 transition-colors duration-150">
                         {sortKey === String(col.key)
                           ? sortDir === 'asc'
                             ? <ChevronUp size={14} className="text-slate-900 stroke-[3]" />
@@ -83,7 +83,7 @@ export default function DataTable<T>({
                         }
                       </span>
                     )}
-                  </span>
+                  </div>
                 </th>
               ))}
             </tr>
@@ -95,7 +95,7 @@ export default function DataTable<T>({
               ? Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="even:bg-slate-50/30">
                     {columns.map(col => (
-                      <td key={String(col.key)} className="px-5 py-4">
+                      <td key={String(col.key)} className="px-3 py-2.5">
                         <div
                           className="h-3.5 rounded-full animate-pulse bg-slate-100"
                           style={{
@@ -109,7 +109,7 @@ export default function DataTable<T>({
               : data.length === 0
               ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-5 py-16 text-center">
+                  <td colSpan={columns.length} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-3 text-slate-400">
                       <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-200/60 shadow-2xs">
                         <Inbox size={22} className="text-slate-400" />
@@ -134,7 +134,7 @@ export default function DataTable<T>({
                   {columns.map(col => (
                     <td
                       key={String(col.key)}
-                      className={clsx('px-5 py-3.5 text-slate-700 align-middle text-xs font-medium border border-slate-200/80', col.className)}
+                      className={clsx('px-3 sm:px-4 py-2.5 text-slate-700 align-middle text-xs font-medium border border-slate-200/80', col.className)}
                     >
                       {col.render ? col.render(row) : String((row as any)[col.key] ?? '')}
                     </td>
@@ -155,7 +155,7 @@ export default function DataTable<T>({
             {' '}of{' '}
             <span className="font-extrabold text-slate-800">{total}</span> records
           </p>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               disabled={page === 1}
               onClick={() => onPageChange?.(page - 1)}

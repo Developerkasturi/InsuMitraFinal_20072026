@@ -62,7 +62,7 @@ const fmt = (n: number) => `₹${Number(n).toLocaleString('en-IN', { minimumFrac
 // ── Section header inside modal ────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 mb-2">
+    <div className="flex flex-wrap items-center gap-2 mb-2">
       <div className="h-px flex-1 bg-gray-100" />
       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 px-1">{children}</span>
       <div className="h-px flex-1 bg-gray-100" />
@@ -230,7 +230,7 @@ export default function Commissions() {
           <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Commissions</h2>
           <p className="text-sm text-gray-500 mt-1">Track and manage agent commission payouts</p>
         </div>
-        <button className="btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer" onClick={() => setModalOpen(true)}>
+        <button className="btn-primary h-9 py-0 px-3 text-[10px] sm:text-xs flex flex-wrap items-center gap-1.5 font-bold cursor-pointer" onClick={() => setModalOpen(true)}>
           <Plus size={13} /> Add Commission
         </button>
       </div>
@@ -239,7 +239,7 @@ export default function Commissions() {
       {summary && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {STAT_CARDS.map(({ label, value, icon: Icon, bg, text }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+            <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap items-center gap-4">
               <div className={clsx('w-12 h-12 rounded-xl flex items-center justify-center shrink-0', bg)}>
                 <Icon size={22} className={text} />
               </div>
@@ -279,7 +279,7 @@ export default function Commissions() {
                       else { setSortKey(h); setSortDir('asc'); }
                     }}
                   >
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex flex-wrap items-center gap-1">
                       {h}
                       {h !== 'ACTIONS' && (
                         <span className="text-slate-400">
@@ -335,9 +335,9 @@ export default function Commissions() {
                         </span>
                       </td>
                       <td className="px-5 py-4 border border-slate-200" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           {!r.isPaid && (
-                            <button className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap transition-colors" onClick={() => setPayConfirm(r)}>
+                            <button className="px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 whitespace-nowrap transition-colors" onClick={() => setPayConfirm(r)}>
                               Mark Paid
                             </button>
                           )}
@@ -372,13 +372,13 @@ export default function Commissions() {
         <form onSubmit={handleSubmit(d => createCommission.mutateAsync(d))} className="space-y-4 mt-2">
 
           {/* ── Row 1: Policy + Agent ──────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Policy picker */}
             <div>
               <label className="label">Policy *</label>
               <input type="hidden" {...register('policyId')} />
               {selectedPolicy ? (
-                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-blue-100 bg-blue-50/30 h-10 w-full relative">
+                <div className="flex flex-wrap items-center gap-2.5 px-3 py-2 rounded-xl border border-blue-100 bg-blue-50/30 h-10 w-full relative">
                   <Shield size={15} className="text-blue-500 shrink-0" />
                   <span className="text-xs font-semibold text-blue-800 truncate flex-1">{selectedPolicy.policyNumber}</span>
                   <button type="button" onClick={() => { setSelectedPolicy(null); setValue('policyId', ''); }} className="text-blue-400 hover:text-blue-700 text-xs shrink-0 pr-1">✕</button>
@@ -399,7 +399,7 @@ export default function Commissions() {
                       ) : (
                         (policyResults?.data ?? []).map((p: any) => (
                           <li key={p.id} onMouseDown={() => { setSelectedPolicy(p); setValue('policyId', p.id, { shouldValidate: true }); setPolicyDrop(false); setPolicySearch(''); }}
-                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
+                            className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
                             <FileText size={12} className="text-gray-400" /><span>{p.policyNumber}</span>
                           </li>
                         ))
@@ -413,7 +413,7 @@ export default function Commissions() {
 
             {/* Readonly Auto-filled Fields */}
             {selectedPolicy && (
-              <div className="col-span-2 grid grid-cols-3 gap-4 p-3 bg-blue-50/20 border border-blue-100 rounded-xl mb-2">
+              <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 p-3 bg-blue-50/20 border border-blue-100 rounded-xl mb-2">
                 <div>
                   <label className="text-[10px] text-gray-500 font-semibold uppercase">Customer</label>
                   <div className="text-xs font-bold text-gray-800">
@@ -442,7 +442,7 @@ export default function Commissions() {
               <label className="label">Agent *</label>
               <input type="hidden" {...register('beneficiaryId')} />
               {selectedEmp ? (
-                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-green-100 bg-green-50/30 h-10 w-full relative">
+                <div className="flex flex-wrap items-center gap-2.5 px-3 py-2 rounded-xl border border-green-100 bg-green-50/30 h-10 w-full relative">
                   <User size={15} className="text-green-500 shrink-0" />
                   <span className="text-xs font-semibold text-green-800 truncate flex-1">{selectedEmp.firstName} {selectedEmp.lastName}</span>
                   <button type="button" onClick={() => { setSelectedEmp(null); setValue('beneficiaryId', ''); }} className="text-green-400 hover:text-green-700 text-xs shrink-0 pr-1">✕</button>
@@ -466,7 +466,7 @@ export default function Commissions() {
                             setSelectedEmp({ id: e.id, userId: e.userId, firstName: e.firstName, lastName: e.lastName });
                             setValue('beneficiaryId', e.userId, { shouldValidate: true });
                             setEmpDrop(false); setEmpSearch('');
-                          }} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-green-50 cursor-pointer">
+                          }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-green-50 cursor-pointer">
                             <User size={12} className="text-gray-400" /><span>{e.firstName} {e.lastName}</span>
                           </li>
                         ))
@@ -481,13 +481,13 @@ export default function Commissions() {
 
           {/* ── Commission Split Inputs ────────────────────────────────────── */}
           <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-4">
-            <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-slate-700 font-bold text-xs">
               <Coins size={15} className="text-blue-500" />
               <span>Detailed Breakdown</span>
             </div>
             
             {/* Table-like headers for alignment */}
-            <div className="grid grid-cols-4 gap-4 text-xs font-semibold text-slate-500 mb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-semibold text-slate-500 mb-2">
               <div>Type</div>
               <div>Premium / Base</div>
               <div>Rate (%)</div>
@@ -495,7 +495,7 @@ export default function Commissions() {
             </div>
 
             {/* Base Premium */}
-            <div className="grid grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <span className="text-xs font-medium">Base Premium</span>
               <input {...register('basePremium')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
               <input {...register('baseCommissionRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
@@ -505,7 +505,7 @@ export default function Commissions() {
             </div>
 
             {/* Addon Premium */}
-            <div className="grid grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <span className="text-xs font-medium">Addon Premium</span>
               <input {...register('addonPremium')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
               <input {...register('addonCommissionRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
@@ -515,7 +515,7 @@ export default function Commissions() {
             </div>
 
             {/* Monthly Grid */}
-            <div className="grid grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <span className="text-xs font-medium">Monthly Grid</span>
               <div className="text-[10px] text-gray-400">on Total Prem: {fmt(totalPremium)}</div>
               <input {...register('monthlyGridRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
@@ -525,7 +525,7 @@ export default function Commissions() {
             </div>
 
             {/* Other */}
-            <div className="grid grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <span className="text-xs font-medium">Other</span>
               <div className="text-[10px] text-gray-400">on Total Prem: {fmt(totalPremium)}</div>
               <input {...register('otherRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
@@ -535,7 +535,7 @@ export default function Commissions() {
             </div>
 
             {/* Renewal */}
-            <div className="grid grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
               <span className="text-xs font-medium">Renewal</span>
               <div className="text-[10px] text-gray-400">on Total Prem: {fmt(totalPremium)}</div>
               <input {...register('renewalRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-slate-200" />
@@ -545,7 +545,7 @@ export default function Commissions() {
             </div>
 
             {/* Deductible */}
-            <div className="grid grid-cols-4 gap-4 items-center pt-2 border-t border-slate-200 border-dashed">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center pt-2 border-t border-slate-200 border-dashed">
               <span className="text-xs font-bold text-red-500">Deductible (-)</span>
               <div className="text-[10px] text-gray-400">on Total Prem: {fmt(totalPremium)}</div>
               <input {...register('deductibleRate')} type="number" step="0.01" placeholder="0" className="input h-9 text-xs rounded-lg w-full bg-white border border-red-200" />
@@ -564,7 +564,7 @@ export default function Commissions() {
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-4">
-                <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-slate-700 font-bold text-xs">
                   <Calendar size={15} className="text-blue-500" />
                   <span>Commission Year & Breakdown</span>
                 </div>
@@ -575,14 +575,14 @@ export default function Commissions() {
                   {newYearInput ? (
                     <div className="flex gap-2 items-center">
                       <input type="number" value={newYearVal} onChange={e => setNewYearVal(Number(e.target.value))} className="input w-28 h-10 text-xs rounded-xl bg-white border border-slate-200" />
-                      <button type="button" className="btn-primary text-xs py-2 px-3 rounded-xl" disabled={createYear.isPending}
+                      <button type="button" className="btn-primary text-[10px] sm:text-xs py-2 px-3 rounded-xl" disabled={createYear.isPending}
                         onClick={async () => {
                           await createYear.mutateAsync({ name: `FY ${newYearVal}-${String(newYearVal + 1).slice(-2)}`, year: newYearVal });
                           setNewYearInput(false);
                         }}>
                         {createYear.isPending ? 'Creating…' : 'Create'}
                       </button>
-                      <button type="button" className="btn-secondary text-xs py-2 px-3 rounded-xl" onClick={() => setNewYearInput(false)}>Cancel</button>
+                      <button type="button" className="btn-secondary text-[10px] sm:text-xs py-2 px-3 rounded-xl" onClick={() => setNewYearInput(false)}>Cancel</button>
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -590,7 +590,7 @@ export default function Commissions() {
                         <option value="">Select year…</option>
                         {years.map((y: any) => <option key={y.id} value={y.id}>{y.name} ({y.year})</option>)}
                       </select>
-                      <button type="button" className="btn-secondary text-xs px-4 h-10 shrink-0 rounded-xl border border-slate-200" onClick={() => setNewYearInput(true)}>+ New Year</button>
+                      <button type="button" className="btn-secondary text-[10px] sm:text-xs px-4 h-10 shrink-0 rounded-xl border border-slate-200" onClick={() => setNewYearInput(true)}>+ New Year</button>
                     </div>
                   )}
                   {errors.commissionYearId && <p className="text-xs text-red-500 mt-1">{errors.commissionYearId.message}</p>}
@@ -676,9 +676,9 @@ export default function Commissions() {
           )}
 
           {/* ── Actions ───────────────────────────────────────────────────── */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-5">
+          <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-slate-100 mt-5">
             <button type="button" className="btn-secondary px-6 py-2.5 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50" onClick={closeModal}>Cancel</button>
-            <button type="submit" className="btn-primary px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1.5 shadow-sm shadow-blue-500/10" disabled={createCommission.isPending || !selectedPolicy || !selectedEmp}>
+            <button type="submit" className="btn-primary px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex flex-wrap items-center gap-1.5 shadow-sm shadow-blue-500/10" disabled={createCommission.isPending || !selectedPolicy || !selectedEmp}>
               {createCommission.isPending ? 'Saving…' : 'Add Commission'}
               <ArrowRight size={14} />
             </button>
@@ -692,7 +692,7 @@ export default function Commissions() {
           <p className="text-sm text-gray-600 mb-4">
             Mark commission of <span className="font-semibold">₹{Number(payConfirm.amount).toLocaleString('en-IN')}</span> for policy <span className="font-semibold">{payConfirm.policy?.policyNumber}</span> as paid?
           </p>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={() => setPayConfirm(null)}>Cancel</button>
             <button className="btn-primary" onClick={() => markPaid.mutate(payConfirm.id)} disabled={markPaid.isPending}>
               {markPaid.isPending ? 'Updating…' : 'Mark as Paid'}
@@ -706,7 +706,7 @@ export default function Commissions() {
         <p className="text-sm text-gray-600 mb-4">
           Delete commission of <strong>₹{Number(deleteTarget?.amount ?? 0).toLocaleString('en-IN')}</strong> for policy <strong>{deleteTarget?.policy?.policyNumber}</strong>? This cannot be undone.
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" disabled={deleteCommission.isPending} onClick={async () => {
             const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';

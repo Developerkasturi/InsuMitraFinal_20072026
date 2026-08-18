@@ -55,7 +55,7 @@ export default function Login() {
       <div className="relative z-10 w-full max-w-md my-auto flex flex-col items-center">
 
         {/* Top Centered Portal Switcher Tabs */}
-        <div className="inline-flex items-center gap-1 p-1 bg-white/90 backdrop-blur-xl border border-white rounded-full shadow-md shadow-teal-900/5 mb-3 text-[11px] font-semibold">
+        <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-white/90 backdrop-blur-xl border border-white rounded-full shadow-md shadow-teal-900/5 mb-3 text-[11px] font-semibold">
           <span className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-sm">
             Agency Login
           </span>
@@ -86,14 +86,14 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => handleQuickFill('owner@demo-agency.com')}
-                className="px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200/80 text-teal-800 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                className="px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200/80 text-teal-800 text-[11px] font-semibold transition-all flex flex-wrap items-center gap-1 cursor-pointer shadow-2xs"
               >
                 <Users className="w-3 h-3 text-teal-600" /> Broker-Owner
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickFill('employee@demo-agency.com')}
-                className="px-3 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-800 text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                className="px-3 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-800 text-[11px] font-semibold transition-all flex flex-wrap items-center gap-1 cursor-pointer shadow-2xs"
               >
                 <Layers className="w-3 h-3 text-indigo-600" /> Employee
               </button>
@@ -120,7 +120,7 @@ export default function Login() {
                 />
               </div>
               {errors.email && (
-                <p className="text-[10px] text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                <p className="text-[10px] text-rose-500 font-semibold mt-1 flex flex-wrap items-center gap-1">
                   <span>•</span> {errors.email.message}
                 </p>
               )}
@@ -152,7 +152,7 @@ export default function Login() {
                 </button>
               </div>
               {errors.password && (
-                <p className="text-[10px] text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                <p className="text-[10px] text-rose-500 font-semibold mt-1 flex flex-wrap items-center gap-1">
                   <span>•</span> {errors.password.message}
                 </p>
               )}
@@ -162,7 +162,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-1 py-3 px-5 rounded-xl bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-bold shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/30 transition-all hover:scale-[1.005] active:scale-[0.995] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full mt-1 py-3 px-5 rounded-xl bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-700 hover:from-teal-700 hover:to-emerald-700 text-white text-[10px] sm:text-xs font-bold shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/30 transition-all hover:scale-[1.005] active:scale-[0.995] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
                 <>

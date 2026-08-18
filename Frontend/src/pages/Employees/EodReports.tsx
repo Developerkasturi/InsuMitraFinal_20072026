@@ -174,7 +174,7 @@ export default function EmployeeEodReports() {
       key: 'actions' as any,
       label: 'ACTION',
       render: r => (
-        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
           <button
             title="Add / Edit EOD"
             className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
@@ -207,7 +207,7 @@ export default function EmployeeEodReports() {
         <button
           type="button"
           onClick={handleExportAllReports}
-          className="btn-secondary h-8 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer hover:bg-slate-100"
+          className="btn-secondary h-8 py-0 px-3 text-[10px] sm:text-xs flex flex-wrap items-center gap-1.5 font-bold cursor-pointer hover:bg-slate-100"
           title="Export all employee reports to Excel"
         >
           <Download size={13} /> Export All Reports
@@ -260,7 +260,7 @@ export default function EmployeeEodReports() {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)}>
               Cancel
             </button>

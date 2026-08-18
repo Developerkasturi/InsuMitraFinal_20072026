@@ -167,7 +167,7 @@ export default function Employees() {
       key: 'actions' as any,
       label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1.5 justify-start" onClick={e => e.stopPropagation()}>
           {canEditEmployees && (
             <button
               title="Edit Employee"
@@ -222,7 +222,7 @@ export default function Employees() {
       {/* Edit Modal */}
       <Modal open={!!editTarget} onClose={() => { setEditTarget(null); resetEdit(); }} title="Edit Employee" size="xl">
         <form onSubmit={handleEditSubmit(body => updateEmployee.mutateAsync({ id: editTarget!.id, body }))} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">First Name *</label>
               <input {...regEdit('firstName')} className="input" />
@@ -287,7 +287,7 @@ export default function Employees() {
               <label className="label">Daily Visits Target</label>
               <input {...regEdit('visitsTarget')} type="number" className="input" />
             </div>
-            <div className="col-span-2 border-t border-slate-100 pt-3 grid grid-cols-3 gap-3">
+            <div className="col-span-2 border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bank Details</h3>
               </div>
@@ -317,7 +317,7 @@ export default function Employees() {
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setEditTarget(null); resetEdit(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={updateEmployee.isPending}>
               {updateEmployee.isPending ? 'Saving…' : 'Save Changes'}
@@ -338,7 +338,7 @@ export default function Employees() {
             )}
           </p>
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeactivateTarget(null)}>Cancel</button>
           <button
             className={deactivateTarget?.isActive ? "btn-danger" : "btn-primary"}

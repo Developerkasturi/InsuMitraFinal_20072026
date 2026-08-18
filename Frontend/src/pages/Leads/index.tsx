@@ -318,7 +318,7 @@ function MultiSelectBox({
                 return (
                   <label
                     key={opt}
-                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
+                    className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <input
@@ -1866,14 +1866,14 @@ const medicalOptions = [
             <div className="relative" ref={colMenuRef}>
               <button
                 onClick={() => setColMenuOpen(!colMenuOpen)}
-                className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg"
+                className="btn-secondary h-9 py-0 px-3 text-xs flex flex-wrap items-center gap-1.5 font-bold cursor-pointer rounded-lg"
               >
                 <Columns size={13} /> <span>Columns</span>
               </button>
               {colMenuOpen && (
                 <div className="absolute right-0 mt-1.5 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[180px] space-y-1.5">
                   {ALL_TABLE_COLUMNS.filter(c => c.key !== 'actions').map(col => (
-                    <label key={col.key} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-gray-900">
+                    <label key={col.key} className="flex flex-wrap items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-gray-900">
                       <input
                         type="checkbox"
                         checked={visibleColumns[col.key]}
@@ -1894,7 +1894,7 @@ const medicalOptions = [
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="card-panel grid grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50/50 p-4 border rounded-xl">
+        <div className="card-panel grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50/50 p-4 border rounded-xl">
           {/* Lead Stage Filter */}
           <div>
             <label className="label text-[11px] font-bold text-gray-700">Lead Stage (Multi-Select)</label>
@@ -1914,7 +1914,7 @@ const medicalOptions = [
                     { value: 'PAYMENT_DONE', label: 'Payment Done' },
                     { value: 'PROCESS_COMPLETED', label: 'Process Completed' },
                   ].map(opt => (
-                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                    <label key={opt.value} className="flex flex-wrap items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterStages.includes(opt.value)}
                         onChange={() => setFilterStages(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
                         className="rounded accent-blue-600" />
@@ -1945,7 +1945,7 @@ const medicalOptions = [
                     { value: 'RENEWAL', label: 'Renewal' },
                     { value: 'PORTING', label: 'Porting' },
                   ].map(opt => (
-                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                    <label key={opt.value} className="flex flex-wrap items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterTypes.includes(opt.value)}
                         onChange={() => setFilterTypes(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
                         className="rounded accent-blue-600" />
@@ -1972,7 +1972,7 @@ const medicalOptions = [
               {planFilterOpen && (
                 <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
                   {PLAN_CATEGORIES.map(opt => (
-                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                    <label key={opt.value} className="flex flex-wrap items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterPlans.includes(opt.value)}
                         onChange={() => setFilterPlans(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
                         className="rounded accent-blue-600" />
@@ -2001,7 +2001,7 @@ const medicalOptions = [
               {statusFilterOpen && (
                 <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
                   {LEAD_STATUS_OPTIONS.map(opt => (
-                    <label key={opt.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
+                    <label key={opt.value} className="flex flex-wrap items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 text-xs text-gray-700 cursor-pointer">
                       <input type="checkbox" checked={filterStatuses.includes(opt.value)}
                         onChange={() => setFilterStatuses(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
                         className="rounded accent-blue-600" />
@@ -2034,7 +2034,7 @@ const medicalOptions = [
 
           <div className="space-y-2">
             <label className="label text-[11px]">Next Follow-up Date</label>
-            <div className="grid grid-cols-2 gap-2 min-w-[280px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-[280px]">
               <DatePicker value={filterDateFrom} onChange={setFilterDateFrom} className="input text-xs min-w-[130px]" />
               <DatePicker value={filterDateTo} onChange={setFilterDateTo} className="input text-xs min-w-[130px]" />
             </div>
@@ -2044,7 +2044,7 @@ const medicalOptions = [
             <div className="col-span-2 lg:col-span-3 flex justify-end">
               <button
                 onClick={() => { setFilterPlans([]); setFilterStatuses([]); setFilterStages([]); setFilterTypes([]); setFilterEmployee(''); setFilterDateFrom(''); setFilterDateTo(''); }}
-                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 font-bold"
+                className="text-xs text-red-500 hover:text-red-700 flex flex-wrap items-center gap-1 font-bold"
               >
                 <X size={11} /> Clear all filters
               </button>
@@ -2093,7 +2093,7 @@ const medicalOptions = [
                 }}
               >
                 <div className="flex items-center justify-between mb-2 px-1.5 py-1 select-none">
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     <span className={clsx('h-2 w-2 rounded-full shrink-0',
                       stage === 'New' && 'bg-blue-500',
                       stage === 'Contacted' && 'bg-indigo-500',
@@ -2106,7 +2106,7 @@ const medicalOptions = [
                     <span className="text-xs font-bold text-slate-800 truncate">{stage}</span>
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1 py-0.5 rounded-md shrink-0">{cards.length}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <span className="text-[9px] text-slate-400 font-bold shrink-0">
                       ₹{totalBudget >= 100000 ? `${(totalBudget / 100000).toFixed(1)}L` : `${(totalBudget / 1000).toFixed(1)}K`}
                     </span>
@@ -2177,7 +2177,7 @@ const medicalOptions = [
           <div className="flex gap-2.5 mr-1">
             <button
               type="button"
-              className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
               onClick={(e) => handleLeadSubmit(e, false)}
             >
               {editTarget || editContactId ? 'Update Profile' : 'Save'}
@@ -2208,7 +2208,7 @@ const medicalOptions = [
 
           {editContactId && !editTarget && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 rounded-xl text-xs font-bold mb-3 flex items-center justify-between shadow-2xs animate-fadeIn">
-              <span className="flex items-center gap-1.5">
+              <span className="flex flex-wrap items-center gap-1.5">
                 <span className="h-2 w-2 bg-emerald-500 rounded-full animate-ping shrink-0" />
                 Existing Contact Found – Details Loaded.
               </span>
@@ -2294,7 +2294,7 @@ const medicalOptions = [
                         className={`bg-gradient-to-r ${headerGradient} px-4 py-3 flex items-center justify-between cursor-pointer select-none`}
                         onClick={() => toggleProductCollapse(card.id)}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 min-w-0">
                           <div className="w-6 h-6 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
                             <span className="text-white font-black text-[11px]">{idx + 1}</span>
                           </div>
@@ -2314,7 +2314,7 @@ const medicalOptions = [
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {!isExisting && (
                             <button
                               type="button"
@@ -2410,7 +2410,7 @@ const medicalOptions = [
                           </div>
                           {/* Description Details Box */}
                           <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                                 <FileText size={13} />
                               </div>
@@ -2556,7 +2556,7 @@ const medicalOptions = [
                           <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs">
                             {/* Header */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                                   <MessageCircle size={13} />
                                 </div>
@@ -2581,11 +2581,11 @@ const medicalOptions = [
                                 (card.showAllComments ? card.comments : card.comments.slice(0, 2)).map((cmt, ci) => (
                                   <div key={ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                                      <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
                                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                                         {cmt.author}
                                       </span>
-                                      <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                                      <span className="text-[10px] text-slate-400 font-semibold flex flex-wrap items-center gap-1">
                                         {cmt.datetime}
                                       </span>
                                     </div>
@@ -2603,7 +2603,7 @@ const medicalOptions = [
                                 <button
                                   type="button"
                                   onClick={() => updateProductInterest(card.id, 'showAllComments', !card.showAllComments)}
-                                  className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
+                                  className="inline-flex flex-wrap items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
                                 >
                                   {card.showAllComments ? (
                                     <>
@@ -2621,7 +2621,7 @@ const medicalOptions = [
                             {/* Add Call Summary & Consultation Comment Box */}
                             <div className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
                               <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex flex-wrap items-center gap-1.5">
                                   <MessageCircle size={12} className="text-blue-600" />
                                   Add Call Summary / Comment
                                 </label>
@@ -2645,7 +2645,7 @@ const medicalOptions = [
                                   type="button"
                                   onClick={() => addProductComment(card.id)}
                                   disabled={!card.newComment.trim()}
-                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex items-center gap-1.5"
+                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex flex-wrap items-center gap-1.5"
                                 >
                                   <Send size={12} />
                                   Save Call Summary
@@ -2705,13 +2705,13 @@ const medicalOptions = [
                   {/* 1. Personal Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                         Personal Details
                       </h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
                     </div>
-                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name <span className="text-red-500">*</span></label>
                         <input
@@ -2850,13 +2850,13 @@ const medicalOptions = [
                   {/* 2. Contact Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                         Contact Details
                       </h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
                     </div>
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
                         <input
@@ -2894,7 +2894,7 @@ const medicalOptions = [
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Calling Number</label>
-                          <label className="flex items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
+                          <label className="flex flex-wrap items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
                             <input
                               type="checkbox"
                               className="accent-blue-600 w-3 h-3 rounded"
@@ -2928,13 +2928,13 @@ const medicalOptions = [
                   {/* 3. Education & Occupation */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                         Education &amp; Occupation
                       </h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
                     </div>
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
                         <DatalistInput
@@ -2986,13 +2986,13 @@ const medicalOptions = [
                   {/* 4. Address Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
                         Address Details
                       </h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
                     </div>
-                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
                         <select
@@ -3057,13 +3057,13 @@ const medicalOptions = [
                   {/* 5. Bank Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                         Bank Details
                       </h4>
                       <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
                     </div>
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
                         <input
@@ -3110,7 +3110,7 @@ const medicalOptions = [
                   {/* 6. Lifestyle Habits */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                         Lifestyle Habits
                       </h4>
@@ -3150,7 +3150,7 @@ const medicalOptions = [
                   {/* 7. Health History / Medical History */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
                         Health History / Medical History
                       </h4>
@@ -3192,7 +3192,7 @@ const medicalOptions = [
                   {/* 8. Any Surgery Done / Advised */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">8</span>
                         Any Surgery Done / Advised
                       </h4>
@@ -3213,7 +3213,7 @@ const medicalOptions = [
                   {/* 9. Current Medicines / Prescription */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">9</span>
                         Current Medicines / Prescription
                       </h4>
@@ -3249,7 +3249,7 @@ const medicalOptions = [
                     <button
                       type="button"
                       onClick={() => setFamilyMembers(prev => [...prev, { firstName: '', middleName: '', lastName: '', dob: '', relation: '', whatsapp: '', occupation: '', education: '', medicalHistory: [], declaredMedicalHistory: [], notDeclaredMedicalHistory: [], medicalHistoryDetails: '' }])}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                      className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                     >
                       + Add Member
                     </button>
@@ -3281,7 +3281,7 @@ const medicalOptions = [
                           </div>
 
                           {/* Row 1: First Name | Middle Name | Last Name */}
-                          <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                             <div>
                               <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
                               <input
@@ -3316,7 +3316,7 @@ const medicalOptions = [
 
                           {/* Row 2: DOB | Relation */}
                           {/* Row 2: DOB | Relation | Occupation */}
-                          <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                             <div>
                               <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">DOB</label>
                               <DatePicker
@@ -3383,7 +3383,7 @@ const medicalOptions = [
                           </div>
 
                           {/* Row 3: Whatsapp | Calling Number | Education */}
-                          <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                             <div>
                               <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Whatsapp</label>
                               <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all mt-1">
@@ -3436,7 +3436,7 @@ const medicalOptions = [
                           </div>
 
                           {/* Row 4: Medical History */}
-                          <div className="grid grid-cols-3 gap-3 px-4 pt-3 pb-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3 pb-3">
                             {/* Generic Medical History */}
                             <div className="col-span-3">
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Medical History (Select if applicable)</label>
@@ -3448,7 +3448,7 @@ const medicalOptions = [
                                     ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
                                     : current.includes(condition);
                                   return (
-                                    <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <label key={condition} className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none">
                                       <input
                                         type="checkbox"
                                         className="accent-blue-600 w-3.5 h-3.5"
@@ -3520,7 +3520,7 @@ const medicalOptions = [
                                     ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
                                     : current.includes(condition);
                                   return (
-                                    <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <label key={condition} className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none">
                                       <input
                                         type="checkbox"
                                         className="accent-blue-600 w-3.5 h-3.5"
@@ -3592,7 +3592,7 @@ const medicalOptions = [
                                     ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
                                     : current.includes(condition);
                                   return (
-                                    <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <label key={condition} className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none">
                                       <input
                                         type="checkbox"
                                         className="accent-orange-500 w-3.5 h-3.5"
@@ -3686,7 +3686,7 @@ const medicalOptions = [
                     <button
                       type="button"
                       onClick={() => setPolicies(prev => [...prev, { policyType: 'Health', entries: [{ company: '', planName: '', policyNo: '', startDate: '', duration: '1 Year', endDate: '', premium: '', sumInsured: '', deductible: '', sumAssured: '', maturityDate: '', paymentTerm: '', entryType: 'New' }] }])}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                      className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                     >
                       + Add Policy Type Card
                     </button>
@@ -3703,7 +3703,7 @@ const medicalOptions = [
                       policies.map((pGroup, gIdx) => (
                         <div key={gIdx} className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
                           <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-gray-100">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="text-xs font-extrabold text-slate-600">Type:</span>
                               <select
                                 value={pGroup.policyType}
@@ -3741,7 +3741,7 @@ const medicalOptions = [
                                   )}
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                   <div>
                                     <label className="label text-[10px]">Company</label>
                                     <input
@@ -3851,7 +3851,7 @@ const medicalOptions = [
                   ].map((campaign) => (
                     <label
                       key={campaign}
-                      className="flex items-center gap-3 p-3 bg-gray-50/50 border border-gray-150 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex flex-wrap items-center gap-3 p-3 bg-gray-50/50 border border-gray-150 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -3874,7 +3874,7 @@ const medicalOptions = [
               <div className="space-y-4">
                 {/* Tab Header */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                       <History size={13} />
                     </div>
@@ -3891,7 +3891,7 @@ const medicalOptions = [
                   {/* 1. Personal Details Log Card */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                           <UserCircle2 size={13} />
                         </div>
@@ -3948,7 +3948,7 @@ const medicalOptions = [
                   {/* 2. Family Members Created & Linked Log Card */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                           <Users size={13} />
                         </div>
@@ -3972,7 +3972,7 @@ const medicalOptions = [
                         {familyMembers.map((member, idx) => (
                           <div key={idx} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 space-y-2 text-xs hover:border-blue-200 transition-all">
                             <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
                                   {idx + 1}
                                 </span>
@@ -4023,7 +4023,7 @@ const medicalOptions = [
                   {/* 3. Particular Contact Audit Log Card */}
                   {loadedContact && (
                     <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-2 text-xs">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
                         <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Calendar size={13} />
                         </div>
@@ -4063,7 +4063,7 @@ const medicalOptions = [
         <p className="text-sm text-gray-600 mb-4">
           Delete Lead for <strong>{deleteTarget?.contact?.firstName} {deleteTarget?.contact?.lastName}</strong>?
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" onClick={executeDelete} disabled={deleteLead.isPending}>Delete</button>
         </div>
@@ -4098,12 +4098,12 @@ const medicalOptions = [
         size="xl"
       >
         <form onSubmit={handleSubmitPolicy(handlePolicyFormSubmit)} className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {/* Customer (Read-only display) */}
             <div className="col-span-2 flex flex-col gap-1 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-extrabold">Customer Details</label>
-              <div className="flex items-center gap-3 mt-1.5">
+              <div className="flex flex-wrap items-center gap-3 mt-1.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
                   {policyLead?.contact?.firstName?.[0] || 'C'}
                 </div>
@@ -4251,17 +4251,17 @@ const medicalOptions = [
 
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex flex-wrap justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button
               type="button"
-              className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer transition-all"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer transition-all"
               onClick={() => setPolicyModalOpen(false)}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
             >
               Issue Policy & Complete Lead
             </button>
@@ -4324,7 +4324,7 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
       )}
     >
       <div className="flex items-center justify-between min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <div className={clsx('h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ring-4',
             AVATAR_BG[card.stage] ?? 'bg-slate-500', RING_COLOR[card.stage] ?? 'ring-slate-500/20')}>
             {initials}
@@ -4333,7 +4333,7 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
             <HotnessIcon level={hotness} /> {hotnessConf.label}
           </span>
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-1.5" onClick={e => e.stopPropagation()}>
           <button onClick={() => onEdit(card)} className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-slate-50 transition-colors">
             <Pencil size={11} />
           </button>
@@ -4354,18 +4354,18 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
 
       <div className="space-y-1.5 text-xs text-slate-700 font-medium">
         {card.contact?.phone && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Phone size={12} className="text-slate-500 shrink-0" />
             <span className="truncate">{card.contact.phone}</span>
           </div>
         )}
         {card.contact?.email && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Mail size={12} className="text-slate-500 shrink-0" />
             <span className="truncate">{card.contact.email}</span>
           </div>
         )}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <Shield size={12} className="text-slate-500 shrink-0" />
           <span className="truncate font-semibold text-slate-800">{card.plan?.name || (card.interests && card.interests.length > 0 ? card.interests.join(', ') : 'No Product')}</span>
         </div>
@@ -4379,7 +4379,7 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
         </div>
 
         {followUp && (
-          <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded px-2 py-0.5 w-fit font-bold mt-1">
+          <div className="flex flex-wrap items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded px-2 py-0.5 w-fit font-bold mt-1">
             <Calendar size={10} className="shrink-0 text-amber-600" />
             <span>Follow-up: {followUp}</span>
           </div>
@@ -4387,11 +4387,11 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-0.5 gap-2" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-1 text-slate-500 text-[9px] font-semibold truncate">
+        <div className="flex flex-wrap items-center gap-1 text-slate-500 text-[9px] font-semibold truncate">
           <UserCircle2 size={10} className="text-slate-400 shrink-0" />
           <span className="truncate">{assigneeName}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button onClick={() => onCall(card.contact?.phone)}
             className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer" title="Call">
             <Phone size={11} />
@@ -4465,7 +4465,7 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
           ? `${r.assignedEmployee.employeeProfile.firstName} ${r.assignedEmployee.employeeProfile.lastName}`
           : r.assignedEmployee?.name || '—';
         return (
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
               {name !== '—' ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : '—'}
             </div>
@@ -4501,7 +4501,7 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
     {
       key: 'actions', label: '',
       render: (r: any) => (
-        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
           <button title="Call" className="p-1 rounded hover:bg-gray-100 text-gray-500" onClick={() => onCall(r.contact?.phone)}><Phone size={13} /></button>
           <button title="WhatsApp" className="p-1 rounded hover:bg-green-50 text-green-500" onClick={() => onWhatsApp(r.contact?.phone)}><MessageCircle size={13} /></button>
           <button title="Edit" className="p-1.5 rounded hover:bg-gray-100 text-gray-500" onClick={() => onEdit(r)}><Pencil size={13} /></button>
@@ -4524,7 +4524,7 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
                   onClick={() => sortableKeys.includes(col.key) && onSort(col.key)}
                   className={clsx('px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200',
                     sortableKeys.includes(col.key) && 'cursor-pointer hover:text-slate-900')}>
-                  <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex flex-wrap items-center gap-1">
                     {col.label}
                     {sortableKeys.includes(col.key) && (
                       <span className="text-slate-400">
@@ -4729,13 +4729,13 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl p-4 border border-slate-100">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-lg font-bold">
             {c?.firstName?.[0]?.toUpperCase() ?? '?'}
           </div>
           <div>
             <h3 className="text-base font-bold text-gray-900">{c?.firstName} {c?.lastName}</h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2 mt-1 flex-wrap">
               <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[fullLead.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
                 {STAGE_LABELS[fullLead.stage] ?? fullLead.stage}
               </span>
@@ -4746,7 +4746,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
             </div>
           </div>
         </div>
-        <button onClick={onEdit} className="btn-secondary text-xs flex items-center gap-1">
+        <button onClick={onEdit} className="btn-secondary text-[10px] sm:text-xs flex flex-wrap items-center gap-1">
           <Pencil size={12} /> Contact
         </button>
       </div>
@@ -4803,7 +4803,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                   return (
                     <div key={pi.id || idx} className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
                       <div className="flex items-center justify-between border-b border-blue-100/80 pb-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs text-xs">
                             <Shield size={15} />
                           </div>
@@ -4812,13 +4812,13 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                             <h4 className="text-xs font-extrabold text-slate-800">Selected Product Interest Details</h4>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {pi.stage && (
                             <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[pi.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
                               {STAGE_LABELS[pi.stage] ?? pi.stage}
                             </span>
                           )}
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-200/80 text-slate-600 border border-slate-300/60 flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-200/80 text-slate-600 border border-slate-300/60 flex flex-wrap items-center gap-1">
                             <Lock size={9} className="text-slate-500" /> Non-Editable
                           </span>
                         </div>
@@ -4901,7 +4901,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
             return (
               <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
                       <Shield size={16} />
                     </div>
@@ -4917,7 +4917,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Type</span>
                     <p className="font-bold text-slate-700 mt-0.5 uppercase tracking-wide">
@@ -4927,7 +4927,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
                   <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry / End Date</span>
-                    <p className="font-bold text-rose-600 mt-0.5 flex items-center gap-1">
+                    <p className="font-bold text-rose-600 mt-0.5 flex flex-wrap items-center gap-1">
                       <Calendar size={12} />
                       {connectedPolicyData?.endDate ? new Date(connectedPolicyData.endDate).toLocaleDateString('en-IN') : (parsedLeadNotes.endDate ? new Date(parsedLeadNotes.endDate).toLocaleDateString('en-IN') : '—')}
                     </p>
@@ -4958,9 +4958,9 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
           })()}
           {/* Directly Editable Lead Management Details */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-100 pb-2 gap-3 sm:gap-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
                   <Pencil size={14} />
                 </div>
                 <div>
@@ -4971,9 +4971,9 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
               <button
                 onClick={() => handleUpdateLeadDetails()}
                 disabled={savingLeadDetails}
-                className="btn-primary text-xs px-3.5 py-1.5 h-auto flex items-center gap-1.5 font-bold shadow-2xs"
+                className="btn-primary text-xs px-3.5 py-1.5 h-auto flex flex-nowrap items-center justify-center gap-1.5 font-bold shadow-2xs w-full sm:w-auto shrink-0"
               >
-                {savingLeadDetails ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} Save Lead Details
+                {savingLeadDetails ? <RefreshCw size={12} className="animate-spin shrink-0" /> : <Save size={12} className="shrink-0" />} Save Lead Details
               </button>
             </div>
 
@@ -5112,7 +5112,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
               <button
                 onClick={() => commentText.trim() && addConsultationMutation.mutate(commentText.trim())}
                 disabled={!commentText.trim() || addConsultationMutation.isPending}
-                className="btn-primary px-3.5 self-end h-8 text-xs flex items-center gap-1 font-bold shadow-2xs"
+                className="btn-primary px-3.5 self-end h-8 text-xs flex flex-wrap items-center gap-1 font-bold shadow-2xs"
               >
                 {addConsultationMutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />} Save
               </button>
@@ -5131,7 +5131,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                 return (
                   <div key={c.id} className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                      <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                         {authorName}
                       </span>
@@ -5141,7 +5141,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                     </div>
                     <p className="text-xs text-slate-800 leading-relaxed font-medium">{c.notes}</p>
                     {c.scheduledAt && (
-                      <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                      <p className="text-[10px] text-amber-600 mt-1 flex flex-wrap items-center gap-1">
                         <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
                       </p>
                     )}

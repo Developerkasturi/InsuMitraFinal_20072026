@@ -7,7 +7,7 @@ function StatCard({
   label, value, icon: Icon, color,
 }: { label: string; value: number | string; icon: React.ElementType; color: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-wrap items-center gap-4">
       <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${color}`}>
         <Icon size={20} className="text-white" />
       </div>
@@ -121,7 +121,7 @@ export default function SuperAdminDashboard() {
 
       {/* Feature Feedback — all tenants */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center gap-2">
           <MessageSquare size={16} className="text-primary-600" />
           <h2 className="text-base font-semibold text-gray-900">Feature Feedback</h2>
           {feedbackData?.meta?.total != null && (
@@ -136,11 +136,11 @@ export default function SuperAdminDashboard() {
               <div key={fb.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="text-xs font-semibold text-gray-800">{fb.tenant?.name ?? 'Unknown Agency'}</span>
                       <span className="text-[10px] text-gray-400">@{fb.tenant?.slug}</span>
                       {fb.rating && (
-                        <div className="flex items-center gap-0.5 ml-1">
+                        <div className="flex flex-wrap items-center gap-0.5 ml-1">
                           {[...Array(5)].map((_, i) => (
                             <Star
                               key={i}

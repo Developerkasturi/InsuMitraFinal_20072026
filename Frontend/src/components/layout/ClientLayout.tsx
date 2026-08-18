@@ -23,7 +23,7 @@ export default function ClientLayout() {
       {/* Top nav */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 transition-all duration-200">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg shadow-sm border border-blue-100/50">
               <Shield size={18} strokeWidth={2.5} />
             </div>
@@ -33,7 +33,7 @@ export default function ClientLayout() {
             </div>
           </div>
 
-          <nav className="hidden sm:flex items-center gap-1.5">
+          <nav className="hidden sm:flex flex-wrap items-center gap-1.5">
             {NAV.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
@@ -52,13 +52,13 @@ export default function ClientLayout() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <span className="text-xs font-bold text-slate-700 hidden sm:block bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
               {user?.firstName} {user?.lastName}
             </span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-red-50/50"
+              className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-red-50/50"
             >
               <LogOut size={14} strokeWidth={2} />
               <span className="hidden sm:block">Logout</span>

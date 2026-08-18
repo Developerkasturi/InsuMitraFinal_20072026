@@ -122,7 +122,7 @@ export default function SuperAdminTenants() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative w-64">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -135,7 +135,7 @@ export default function SuperAdminTenants() {
           </div>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+            className="flex flex-wrap items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
           >
             <Plus size={15} /> Create Tenant
           </button>
@@ -151,7 +151,7 @@ export default function SuperAdminTenants() {
               <button onClick={() => { setShowCreate(false); createForm.reset(); }} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
             <form onSubmit={createForm.handleSubmit(d => createTenant.mutate(d))} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Agency Name *</label>
                   <input {...createForm.register('tenantName')} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Demo Insurance Agency" />
@@ -188,9 +188,9 @@ export default function SuperAdminTenants() {
                 </div>
               </div>
               <p className="text-xs text-gray-400">A 14-day trial subscription will be auto-assigned.</p>
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
                 <button type="button" onClick={() => { setShowCreate(false); createForm.reset(); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={createTenant.isPending} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-60">
+                <button type="submit" disabled={createTenant.isPending} className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-60">
                   {createTenant.isPending ? 'Creating…' : 'Create Tenant'}
                 </button>
               </div>
@@ -269,7 +269,7 @@ export default function SuperAdminTenants() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         onClick={() => openEdit(t)}
                         title="Edit tenant"
@@ -328,9 +328,9 @@ export default function SuperAdminTenants() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
                 <input {...editForm.register('phone')} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="+91 9000000000" />
               </div>
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
                 <button type="button" onClick={() => { setEditTarget(null); editForm.reset(); }} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={updateTenant.isPending} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-60">
+                <button type="submit" disabled={updateTenant.isPending} className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-60">
                   {updateTenant.isPending ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
@@ -352,7 +352,7 @@ export default function SuperAdminTenants() {
                 This will irreversibly remove all users, policies, contacts, claims, and data for this agency.
               </p>
             </div>
-            <div className="flex justify-end gap-2 px-6 pb-5">
+            <div className="flex flex-wrap justify-end gap-2 px-6 pb-5">
               <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
               <button
                 onClick={() => deleteTenant.mutate(deleteTarget.id)}
@@ -376,14 +376,14 @@ export default function SuperAdminTenants() {
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex flex-wrap items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={14} /> Prev
             </button>
             <button
               onClick={() => setPage(p => Math.min(totalPgs, p + 1))}
               disabled={page === totalPgs}
-              className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex flex-wrap items-center gap-1 px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next <ChevronRight size={14} />
             </button>

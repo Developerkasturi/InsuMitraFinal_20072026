@@ -244,12 +244,12 @@ export default function PolicyDetail() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">{p.policyNumber}</h2>
             <span className={STATUS_BADGE[p.status] ?? 'badge-gray'}>{p.status}</span>
           </div>
@@ -287,8 +287,8 @@ export default function PolicyDetail() {
           {/* Payments */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><CreditCard size={14}/>Payment Schedule</h3>
-              <button onClick={() => setPaymentModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Plus size={12}/>Record</button>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><CreditCard size={14}/>Payment Schedule</h3>
+              <button onClick={() => setPaymentModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Plus size={12}/>Record</button>
             </div>
             {payList.length === 0 && <p className="text-sm text-gray-400">No payments recorded yet.</p>}
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
@@ -315,10 +315,10 @@ export default function PolicyDetail() {
           </div>
 
           {/* Commissions & Loans */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Shield size={14}/>Commissions</h3>
+                <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Shield size={14}/>Commissions</h3>
               </div>
               {p.commissions?.length === 0 && <p className="text-sm text-gray-400">No commissions recorded.</p>}
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -333,7 +333,7 @@ export default function PolicyDetail() {
             
             <div className="card space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Shield size={14}/>Loans / Installments</h3>
+                <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Shield size={14}/>Loans / Installments</h3>
               </div>
               {p.loans?.length === 0 && <p className="text-sm text-gray-400">No loans recorded.</p>}
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -351,8 +351,8 @@ export default function PolicyDetail() {
           {/* Members */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Users size={14}/>Insured Members</h3>
-              <button onClick={() => setMemberModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Plus size={12}/>Add</button>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Users size={14}/>Insured Members</h3>
+              <button onClick={() => setMemberModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Plus size={12}/>Add</button>
             </div>
             {memberList.length === 0 && <p className="text-sm text-gray-400">No members added.</p>}
             <div className="space-y-2">
@@ -371,8 +371,8 @@ export default function PolicyDetail() {
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Award size={14}/>Nominees</h3>
-              <button onClick={() => setNomineeModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Plus size={12}/>Add</button>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Award size={14}/>Nominees</h3>
+              <button onClick={() => setNomineeModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Plus size={12}/>Add</button>
             </div>
             {p.nominees?.length === 0 && <p className="text-sm text-gray-400">No nominees added.</p>}
             <div className="space-y-2">
@@ -395,21 +395,21 @@ export default function PolicyDetail() {
           {/* Documents */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><FileText size={14}/>Documents</h3>
-              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Upload size={12}/>Upload</button>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14}/>Documents</h3>
+              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Upload size={12}/>Upload</button>
             </div>
             {docList.length === 0 && <p className="text-sm text-gray-400">No documents uploaded.</p>}
             <div className="space-y-2">
               {docList.map((doc: any) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 group">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <FileText size={14} className="text-gray-400 shrink-0"/>
                     <div className="min-w-0">
                       <p className="text-sm text-gray-900 truncate">{doc.fileName ?? doc.originalName ?? 'Document'}</p>
                       <p className="text-xs text-gray-400">{doc.tag} · {doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 shrink-0">
                     <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
                     <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13}/></button>
                   </div>
@@ -423,7 +423,7 @@ export default function PolicyDetail() {
       {/* Record Payment Modal */}
       <Modal open={paymentModal} onClose={() => { setPaymentModal(false); paymentForm.reset({ mode: 'UPI', paidDate: format(new Date(), 'yyyy-MM-dd') }); }} title="Record Payment" size="xl">
         <form onSubmit={paymentForm.handleSubmit(d => addPayment.mutate(d))} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Amount (₹) *</label>
               <input {...paymentForm.register('amount')} type="number" step="0.01" className="input" placeholder="12000" />
@@ -434,7 +434,7 @@ export default function PolicyDetail() {
               <DatePicker {...paymentForm.register('paidDate')} className="input" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Mode</label>
               <select {...paymentForm.register('mode')} className="input">
@@ -456,7 +456,7 @@ export default function PolicyDetail() {
             <label className="label">Notes</label>
             <textarea {...paymentForm.register('notes')} className="input" rows={2} />
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => { setPaymentModal(false); paymentForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addPayment.isPending}>
               {addPayment.isPending ? 'Saving…' : 'Record Payment'}
@@ -473,7 +473,7 @@ export default function PolicyDetail() {
             <input {...memberForm.register('name')} className="input" />
             {memberForm.formState.errors.name && <p className="text-xs text-red-500">{memberForm.formState.errors.name.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Relationship <span className="text-red-500">*</span></label>
               <select {...memberForm.register('relationship')} className="input">
@@ -497,7 +497,7 @@ export default function PolicyDetail() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Date of Birth</label>
               <DatePicker {...memberForm.register('dateOfBirth')} className="input" />
@@ -507,7 +507,7 @@ export default function PolicyDetail() {
               <input {...memberForm.register('sumInsured')} type="number" className="input" placeholder="Optional" />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => { setMemberModal(false); memberForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addMember.isPending}>
               {addMember.isPending ? 'Adding…' : 'Add Member'}
@@ -524,7 +524,7 @@ export default function PolicyDetail() {
             <input {...nomineeForm.register('name')} className="input" />
             {nomineeForm.formState.errors.name && <p className="text-xs text-red-500">{nomineeForm.formState.errors.name.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Relationship <span className="text-red-500">*</span></label>
               <select {...nomineeForm.register('relationship')} className="input">
@@ -546,7 +546,7 @@ export default function PolicyDetail() {
             <label className="label">Share Percentage (%)</label>
             <input {...nomineeForm.register('sharePercent')} type="number" min="0" max="100" className="input" placeholder="e.g. 100" />
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => { setNomineeModal(false); nomineeForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addNominee.isPending}>
               {addNominee.isPending ? 'Adding…' : 'Add Nominee'}
@@ -574,14 +574,14 @@ export default function PolicyDetail() {
               onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
           </div>
           {uploadFile && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded p-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded p-2">
               <FileText size={14} className="text-gray-400"/>
               <span className="truncate">{uploadFile.name}</span>
               <span className="text-xs text-gray-400 ml-auto">{(uploadFile.size / 1024).toFixed(1)} KB</span>
               <button onClick={() => setUploadFile(null)} className="text-red-400 hover:text-red-600"><X size={13}/></button>
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button className="btn-secondary" onClick={() => { setUploadModal(false); setUploadFile(null); setUploadTag(''); }}>Cancel</button>
             <button className="btn-primary" disabled={!uploadFile || uploadUploading} onClick={handleUpload}>
               {uploadUploading ? 'Uploading…' : 'Upload'}
@@ -594,7 +594,7 @@ export default function PolicyDetail() {
         <p className="text-sm text-gray-600 mb-4">
           Delete <strong>{deleteDocTarget?.fileName ?? deleteDocTarget?.originalName ?? 'this document'}</strong>?
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteDocTarget(null)}>Cancel</button>
           <button
             className="btn-danger"

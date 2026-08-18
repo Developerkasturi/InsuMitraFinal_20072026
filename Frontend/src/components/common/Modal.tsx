@@ -54,37 +54,37 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
           >
             <Dialog.Panel
               className={[
-                'w-full bg-white flex flex-col rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden font-sans text-slate-800',
+                'w-[95vw] sm:w-full bg-white flex flex-col rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden font-sans text-slate-800',
                 sizeClass[size],
-                heightClass || 'max-h-[88vh]',
+                heightClass || 'max-h-[95vh] sm:max-h-[88vh]',
               ].join(' ')}
             >
               {/* Top Accent Gradient Bar */}
               <div className="h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 w-full shrink-0" />
 
               {/* Header */}
-              <div className="flex items-center justify-between px-8 py-3.5 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/90 border-b border-slate-200/80 shrink-0">
-                <div className="flex items-center gap-3.5">
+              <div className="flex items-start sm:items-center justify-between px-4 sm:px-8 py-3.5 bg-gradient-to-r from-slate-50/90 via-white to-slate-50/90 border-b border-slate-200/80 shrink-0">
+                <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0 pr-2 sm:pr-4">
                   {icon && (
                     <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-50 to-indigo-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/80 shadow-2xs">
                       {icon}
                     </div>
                   )}
-                  <div className="flex flex-col">
-                    <Dialog.Title className="text-base font-black text-slate-900 tracking-tight">
+                  <div className="flex flex-col min-w-0">
+                    <Dialog.Title className="text-base font-black text-slate-900 tracking-tight whitespace-normal break-words">
                       {title}
                     </Dialog.Title>
                     {subtitle && (
-                      <p className="text-xs text-slate-500 font-semibold leading-normal mt-0.5">{subtitle}</p>
+                      <p className="text-xs text-slate-500 font-semibold leading-normal mt-0.5 whitespace-normal break-words">{subtitle}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0 pl-1">
                   {actions}
                   <button
                     onClick={onClose}
                     className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100
-                               transition-all duration-150 border border-slate-200/60 hover:border-slate-300 cursor-pointer shadow-2xs"
+                               transition-all duration-150 border border-slate-200/60 hover:border-slate-300 cursor-pointer shadow-2xs shrink-0"
                     aria-label="Close"
                   >
                     <X size={16} strokeWidth={2.2} />
@@ -93,7 +93,7 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
               </div>
 
               {/* Body */}
-              <div className="overflow-y-auto flex-1 custom-scrollbar px-8 pt-3 pb-5 bg-slate-50/30">
+              <div className="overflow-y-auto flex-1 custom-scrollbar px-4 sm:px-8 pt-3 pb-5 bg-slate-50/30">
                 {children}
               </div>
             </Dialog.Panel>

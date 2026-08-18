@@ -91,14 +91,14 @@ function UsageBar({
         />
       </div>
       {isWarn && !isBlock && (
-        <div className="flex items-center gap-1.5 text-[11px] text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-2.5 py-1.5">
           <AlertTriangle size={12} />
           You've used {pct}% of your {label.toLowerCase()} limit. Consider upgrading soon.
           <button onClick={onUpgrade} className="ml-auto underline font-semibold">Upgrade</button>
         </div>
       )}
       {isBlock && (
-        <div className="flex items-center gap-1.5 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
           <AlertOctagon size={12} />
           {label} limit reached. You cannot add more until you upgrade.
           <button onClick={onUpgrade} className="ml-auto underline font-semibold">Upgrade Now</button>
@@ -122,7 +122,7 @@ function FeedbackForm() {
 
   return (
     <div className="card space-y-4">
-      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3">
         <div className="w-7 h-7 rounded-lg bg-primary-50 flex items-center justify-center">
           <MessageSquare size={13} className="text-primary-600" />
         </div>
@@ -236,7 +236,7 @@ export default function Subscription() {
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900 flex flex-wrap items-center gap-2">
             <CreditCard size={18} className="text-primary-600" />
             Subscription & Billing
           </h2>
@@ -249,7 +249,7 @@ export default function Subscription() {
           )}
         </div>
         {/* Billing cycle toggle */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-1 bg-gray-100 rounded-xl p-1 text-xs font-semibold">
           <button
             onClick={() => setBillingCycle('monthly')}
             className={`px-3 py-1.5 rounded-lg transition-all ${billingCycle === 'monthly' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
@@ -289,7 +289,7 @@ export default function Subscription() {
       {/* ── Plan cards ─────────────────────────────────────────────────────── */}
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Subscription Plans</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {activePlans.map((plan: any) => {
             const isCurrent  = current?.planId === plan.id || currentPlanName === plan.name;
             const price      = billingCycle === 'monthly' ? plan.priceMonthly : plan.priceYearly;
@@ -361,7 +361,7 @@ export default function Subscription() {
                 const Icon = mod.Icon;
                 return (
                   <tr key={mod.key} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-2.5 text-xs text-gray-700 flex items-center gap-2">
+                    <td className="px-4 py-2.5 text-xs text-gray-700 flex flex-wrap items-center gap-2">
                       <Icon size={13} className="text-gray-400 shrink-0" />
                       {mod.label}
                     </td>
