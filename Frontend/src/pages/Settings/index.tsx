@@ -114,7 +114,7 @@ export default function Settings() {
               </div>
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-0.5">Current Plan</span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/50 text-blue-600 border border-blue-100/30 text-xs font-bold">
+                <span className="inline-flex flex-wrap items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/50 text-blue-600 border border-blue-100/30 text-xs font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                   {planName} Plan
                 </span>
@@ -153,7 +153,7 @@ export default function Settings() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md shadow-blue-500/10"
+                  className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md shadow-blue-500/10"
                 >
                   {loading ? 'Updating…' : 'Update Password'}
                 </button>
@@ -241,7 +241,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={updateTenant.isPending}
-                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md shadow-blue-500/10"
+                    className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md shadow-blue-500/10"
                   >
                     {updateTenant.isPending ? 'Saving…' : 'Save Tenant Profile'}
                   </button>

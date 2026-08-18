@@ -79,7 +79,7 @@ function BrandingPreview({
               </div>
             </div>
             {/* Fake KPI row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {['Contacts', 'Policies', 'Claims'].map(l => (
                 <div key={l} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md hover:border-gray-200">
                   <p className="text-base font-black text-gray-800">12</p>
@@ -111,7 +111,7 @@ function BrandingPreview({
 function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-3xl border border-gray-200/50 shadow-sm overflow-hidden group">
-      <div className="flex items-center gap-3.5 px-7 py-5 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
+      <div className="flex flex-wrap items-center gap-3.5 px-7 py-5 border-b border-gray-100/80 bg-gradient-to-r from-gray-50/80 to-transparent">
         <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
           <Icon size={16} className="text-gray-700" />
         </div>
@@ -273,7 +273,7 @@ export default function FirmProfile() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-md flex items-center justify-center flex-shrink-0 ring-1 ring-black/5">
             <Building2 size={22} className="text-white" />
           </div>
@@ -288,7 +288,7 @@ export default function FirmProfile() {
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 p-1.5 bg-gray-100/60 backdrop-blur-md rounded-2xl max-w-fit border border-gray-200/50 shadow-inner">
+      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-gray-100/60 backdrop-blur-md rounded-2xl max-w-fit border border-gray-200/50 shadow-inner">
         {(['company', 'agency', 'banners'] as const).map(tab => (
           <button
             key={tab}
@@ -320,16 +320,16 @@ export default function FirmProfile() {
                   <label className="label">Tagline</label>
                   <input {...form.register('tagline')} className="input" placeholder="e.g. Trusted protection for your future" maxLength={120} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="label flex items-center gap-1">
+                    <label className="label flex flex-wrap items-center gap-1">
                       <ImageIcon size={11} /> Logo URL
                     </label>
                     <input {...form.register('logoUrl')} className="input" placeholder="https://example.com/logo.png" />
                     {form.formState.errors.logoUrl && <p className="text-xs text-red-500 mt-1">{form.formState.errors.logoUrl.message}</p>}
                   </div>
                   <div>
-                    <label className="label flex items-center gap-1">
+                    <label className="label flex flex-wrap items-center gap-1">
                       <ImageIcon size={11} /> Agent Photo URL
                     </label>
                     <input {...form.register('agentPhotoUrl')} className="input" placeholder="https://example.com/photo.png" />
@@ -337,10 +337,10 @@ export default function FirmProfile() {
                   </div>
                 </div>
                 <div>
-                  <label className="label flex items-center gap-2">
+                  <label className="label flex flex-wrap items-center gap-2">
                     <Palette size={11} /> Primary Brand Color
                   </label>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <input type="color" {...form.register('primaryColor')} className="h-9 w-14 rounded-lg border border-gray-300 cursor-pointer p-0.5" />
                     <input type="text" {...form.register('primaryColor')} className="input max-w-[120px] font-mono text-sm" placeholder="#4f46e5" />
                   </div>
@@ -349,7 +349,7 @@ export default function FirmProfile() {
             </Section>
 
             <Section icon={Shield} title="Agency Credentials">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">GSTIN</label>
                   <input {...form.register('gstNumber')} className="input font-mono" placeholder="22AAAAA0000A1Z5" />
@@ -366,7 +366,7 @@ export default function FirmProfile() {
             </Section>
 
             <Section icon={Phone} title="Contact & Address">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Phone</label>
                   <input {...form.register('phone')} className="input" placeholder="+91 98765 43210" />
@@ -399,7 +399,7 @@ export default function FirmProfile() {
             </Section>
 
             <Section icon={Globe} title="Social Media">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {['linkedin', 'facebook', 'twitter', 'instagram'].map(label => (
                   <div key={label}>
                     <label className="label capitalize">{label}</label>
@@ -412,7 +412,7 @@ export default function FirmProfile() {
 
           <div className="space-y-4">
             <div className="card p-4 sticky top-4">
-              <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
+              <div className="flex flex-wrap items-center gap-2 mb-3 text-xs font-semibold text-gray-600">
                 <Eye size={13} />
                 Live Branding Preview
               </div>
@@ -437,7 +437,7 @@ export default function FirmProfile() {
               <h3 className="text-base font-bold text-gray-900">Registered Agency Details</h3>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">Manage multiple agency codes for commission tracking.</p>
             </div>
-            <button className="btn-primary text-sm font-bold shadow-md shadow-primary-500/20" onClick={() => setAgencyModal({ open: true })}>
+            <button className="btn-primary text-xs sm:text-sm font-bold shadow-md shadow-primary-500/20" onClick={() => setAgencyModal({ open: true })}>
               <Plus size={16} className="mr-1" /> Add Detail
             </button>
           </div>
@@ -445,7 +445,7 @@ export default function FirmProfile() {
             {agencyDetails.map((a: any) => (
               <div key={a.id} className="bg-white rounded-2xl border border-gray-200/80 p-5 flex flex-col gap-3 relative group hover:border-primary-300 hover:shadow-lg hover:shadow-primary-500/5 transition-all duration-300">
                 <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg border border-blue-100 flex-shrink-0">
                       {a.brokerName?.charAt(0).toUpperCase() || 'B'}
                     </div>
@@ -459,7 +459,7 @@ export default function FirmProfile() {
                   </button>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3 mt-2 bg-gray-50/50 rounded-xl p-3 border border-gray-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 bg-gray-50/50 rounded-xl p-3 border border-gray-100">
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-1">Agent Details</p>
                     <p className="text-xs font-semibold text-gray-800 truncate">{a.agentName || 'N/A'}</p>
@@ -476,7 +476,7 @@ export default function FirmProfile() {
                   </div>
                 </div>
                 
-                <button className="text-sm text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-100/50 py-2 rounded-xl flex items-center justify-center gap-1.5 mt-1 font-semibold transition-colors w-full" onClick={() => {
+                <button className="text-xs sm:text-sm text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-100/50 py-2 rounded-xl flex items-center justify-center gap-1.5 mt-1 font-semibold transition-colors w-full" onClick={() => {
                     setAgencyModal({ open: true, data: a });
                 }}>
                   <Edit2 size={14} /> Edit Detail
@@ -501,7 +501,7 @@ export default function FirmProfile() {
               <h3 className="text-base font-bold text-gray-900">Client App Banners</h3>
               <p className="text-xs text-gray-500 mt-0.5 font-medium">Showcase posters and promotions on the client application.</p>
             </div>
-            <button className="btn-primary text-sm font-bold shadow-md shadow-primary-500/20" onClick={() => setBannerModal({ open: true })}>
+            <button className="btn-primary text-xs sm:text-sm font-bold shadow-md shadow-primary-500/20" onClick={() => setBannerModal({ open: true })}>
               <Plus size={16} className="mr-1" /> Add Banner
             </button>
           </div>
@@ -513,7 +513,7 @@ export default function FirmProfile() {
                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 via-gray-900/20 to-transparent opacity-60" />
                   
                   {/* Action Overlay */}
-                  <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">
+                  <div className="absolute top-3 right-3 flex flex-wrap items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">
                     <button onClick={() => setBannerModal({ open: true, data: b })} className="w-8 h-8 flex items-center justify-center bg-white/90 hover:bg-white text-gray-700 rounded-full shadow-lg backdrop-blur-sm transition-all">
                       <Edit2 size={14} />
                     </button>
@@ -543,7 +543,7 @@ export default function FirmProfile() {
         <p className="text-sm text-gray-600 mb-4">
           Delete <strong>{deleteAgencyTarget?.brokerName || 'this agency detail'}</strong>?
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteAgencyTarget(null)}>Cancel</button>
           <button
             className="btn-danger"
@@ -573,7 +573,7 @@ export default function FirmProfile() {
         <p className="text-sm text-gray-600 mb-4">
           Delete <strong>{deleteBannerTarget?.title || 'this banner'}</strong>?
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteBannerTarget(null)}>Cancel</button>
           <button
             className="btn-danger"

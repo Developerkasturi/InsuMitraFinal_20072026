@@ -385,7 +385,7 @@ export default function Calendar() {
           <label className="label">Title *</label>
           <input {...reg('title')} className="input" placeholder="Event title" required />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label">Event Type</label>
             <select {...reg('eventType')} className="input">
@@ -395,14 +395,14 @@ export default function Calendar() {
             </select>
           </div>
           <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex flex-wrap items-center gap-2 cursor-pointer">
               <input {...reg('isAllDay')} type="checkbox" className="rounded accent-blue-600" />
               <span className="text-sm text-gray-600 font-medium">All Day</span>
             </label>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="label">Start Date *</label>
             <DatePicker {...reg('startDate')} className="input w-full" />
@@ -439,7 +439,7 @@ export default function Calendar() {
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
 
           {/* Left: nav + title */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handlePrev}
               aria-label="Previous"
@@ -469,7 +469,7 @@ export default function Calendar() {
 
             <button
               onClick={goToToday}
-              className="ml-1 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/20 backdrop-blur-sm transition-all"
+              className="ml-1 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[10px] sm:text-xs font-bold border border-white/20 backdrop-blur-sm transition-all"
             >
               Today
             </button>
@@ -495,9 +495,9 @@ export default function Calendar() {
           </div>
 
           {/* Right: New event & Add Task buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
+              className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-xl bg-white text-blue-600 font-bold text-xs sm:text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
               onClick={() => {
                 const dateStr = format(selectedDate, 'yyyy-MM-dd');
                 reset({
@@ -517,7 +517,7 @@ export default function Calendar() {
               New Event
             </button>
             <button
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-600 font-bold text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
+              className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-xl bg-white text-blue-600 font-bold text-xs sm:text-sm hover:bg-blue-50 transition-all shadow-lg shadow-blue-900/20"
               onClick={() => {
                 const dateStr = format(selectedDate, 'yyyy-MM-dd');
                 setTaskStartDate(dateStr);
@@ -575,7 +575,7 @@ export default function Calendar() {
           {/* Day-of-week header row */}
           <div className={clsx(
             'grid border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-100/60',
-            viewMode === 'threeDays' ? 'grid-cols-3' : 'grid-cols-7'
+            viewMode === 'threeDays' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-7'
           )}>
             {viewMode === 'threeDays' ? (
               days.map((d: Date) => (
@@ -595,7 +595,7 @@ export default function Calendar() {
           {/* Days grid */}
           <div className={clsx(
             'grid',
-            viewMode === 'threeDays' ? 'grid-cols-3' : 'grid-cols-7'
+            viewMode === 'threeDays' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-7'
           )}>
             {/* Prefix blanks */}
             {viewMode === 'month' && Array.from({ length: prefixDays }).map((_, i) => (
@@ -683,7 +683,7 @@ export default function Calendar() {
           {/* Agenda card */}
           <div className="rounded-2xl border border-slate-100 shadow-sm bg-white overflow-hidden">
             {/* Agenda header */}
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-gradient-to-r from-slate-50 to-white">
+            <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 bg-gradient-to-r from-slate-50 to-white">
               <CalendarDays size={13} className="text-blue-500" />
               <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-500">
                 Agenda — {format(selectedDate, 'dd/MMM/yyyy')}
@@ -790,7 +790,7 @@ export default function Calendar() {
           createEvent.mutate(payload);
         })} className="space-y-4">
           <EventFormFields reg={register} watch={watch} />
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" className="btn-secondary" onClick={() => { setModalOpen(false); reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createEvent.isPending}>
               {createEvent.isPending ? 'Creating…' : 'Create Event'}
@@ -908,7 +908,7 @@ export default function Calendar() {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-gray-100">
             <button
               type="button"
               className="btn-secondary"
@@ -933,7 +933,7 @@ export default function Calendar() {
       {viewTarget && (
         <Modal open onClose={() => setViewTarget(null)} title={viewTarget.title}>
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className={clsx('badge border text-xs', EVENT_BADGE[viewTarget.eventType] ?? 'bg-gray-50 text-gray-600 border-gray-200')}>
                 <Tag size={10} /> {EVENT_TYPE_LABELS[viewTarget.eventType] ?? viewTarget.eventType}
               </span>
@@ -952,7 +952,7 @@ export default function Calendar() {
               {viewTarget.isTask ? (
                 <>
                   {viewTarget.startAt && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Clock size={14} className="text-gray-400 shrink-0" />
                       <span><span className="font-medium">Due Date:</span> {format(new Date(viewTarget.startAt), 'dd/MMM/yyyy')}</span>
                     </div>
@@ -961,13 +961,13 @@ export default function Calendar() {
               ) : (
                 <>
                   {(viewTarget.startAt ?? viewTarget.startTime) && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Clock size={14} className="text-gray-400 shrink-0" />
                       <span><span className="font-medium">Start:</span> {format(new Date(viewTarget.startAt ?? viewTarget.startTime), 'dd/MMM/yyyy, HH:mm')}</span>
                     </div>
                   )}
                   {(viewTarget.endAt ?? viewTarget.endTime) && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Clock size={14} className="text-gray-400 shrink-0" />
                       <span><span className="font-medium">End:</span> {format(new Date(viewTarget.endAt ?? viewTarget.endTime), 'dd/MMM/yyyy, HH:mm')}</span>
                     </div>
@@ -1032,7 +1032,7 @@ export default function Calendar() {
             updateEvent.mutate({ id: editTarget.id, body: payload });
           })} className="space-y-4">
             <EventFormFields reg={regEdit} watch={watchEdit} />
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
               <button type="button" className="btn-secondary" onClick={() => { setEditTarget(null); resetEdit(); }}>Cancel</button>
               <button type="submit" className="btn-primary" disabled={updateEvent.isPending}>
                 {updateEvent.isPending ? 'Saving…' : 'Save Changes'}
@@ -1048,7 +1048,7 @@ export default function Calendar() {
           Are you sure you want to delete <strong className="text-gray-900">"{deleteTarget?.title}"</strong>?
           This cannot be undone.
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button
             className="btn-danger"
@@ -1102,7 +1102,7 @@ function AgendaSection({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
           {icon}
           <span>{title}</span>
         </div>

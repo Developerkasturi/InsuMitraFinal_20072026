@@ -51,7 +51,7 @@ export default function ClientProfile() {
 
       {/* Profile card */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center">
             <User className="text-primary-600" size={28} />
           </div>
@@ -78,7 +78,7 @@ export default function ClientProfile() {
               <textarea {...register('notes')} rows={3} className="input w-full" />
             </div>
             <div className="flex gap-3 pt-2">
-              <button type="submit" disabled={isSubmitting} className="btn-primary text-sm px-4 py-2 disabled:opacity-60">
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 disabled:opacity-60">
                 Save changes
               </button>
               <button type="button" onClick={() => { setEditing(false); reset(); }} className="btn-secondary text-sm px-4 py-2">
@@ -89,22 +89,22 @@ export default function ClientProfile() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2 text-gray-700">
+              <div className="flex flex-wrap items-center gap-2 text-gray-700">
                 <Phone size={15} className="text-gray-400" />
                 <span>{profile.phone ?? '—'}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-700">
+              <div className="flex flex-wrap items-center gap-2 text-gray-700">
                 <Mail size={15} className="text-gray-400" />
                 <span>{profile.email ?? '—'}</span>
               </div>
               {profile.panNumber && (
-                <div className="flex items-center gap-2 text-gray-700">
+                <div className="flex flex-wrap items-center gap-2 text-gray-700">
                   <FileText size={15} className="text-gray-400" />
                   <span>PAN: {profile.panNumber}</span>
                 </div>
               )}
               {profile.annualIncome && (
-                <div className="flex items-center gap-2 text-gray-700">
+                <div className="flex flex-wrap items-center gap-2 text-gray-700">
                   <FileText size={15} className="text-gray-400" />
                   <span>Income: ₹{Number(profile.annualIncome).toLocaleString('en-IN')}</span>
                 </div>
@@ -126,14 +126,14 @@ export default function ClientProfile() {
       {/* Agency info */}
       {agency && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <h3 className="font-semibold text-gray-800 mb-4 flex flex-wrap items-center gap-2">
             <Building size={16} className="text-primary-500" />
             Your Agency
           </h3>
           <div className="space-y-2 text-sm text-gray-700">
             <p className="font-medium text-gray-900">{agency.name}</p>
-            {agency.phone   && <p className="flex items-center gap-2"><Phone size={13} className="text-gray-400" /> {agency.phone}</p>}
-            {agency.email   && <p className="flex items-center gap-2"><Mail  size={13} className="text-gray-400" />{agency.email}</p>}
+            {agency.phone   && <p className="flex flex-wrap items-center gap-2"><Phone size={13} className="text-gray-400" /> {agency.phone}</p>}
+            {agency.email   && <p className="flex flex-wrap items-center gap-2"><Mail  size={13} className="text-gray-400" />{agency.email}</p>}
             {agency.website && <p className="text-primary-600 text-xs">{agency.website}</p>}
           </div>
         </div>

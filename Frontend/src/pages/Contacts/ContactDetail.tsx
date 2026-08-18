@@ -247,7 +247,7 @@ export default function ContactDetail() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
@@ -266,7 +266,7 @@ export default function ContactDetail() {
             <button
               onClick={() => inviteToPortal.mutate()}
               disabled={inviteToPortal.isPending}
-              className="btn-secondary flex items-center gap-1.5 text-sm px-3 py-1.5 disabled:opacity-60"
+              className="btn-secondary flex flex-wrap items-center gap-1.5 text-sm px-3 py-1.5 disabled:opacity-60"
               title="Send client portal invitation"
             >
               <UserPlus size={15} />
@@ -284,7 +284,7 @@ export default function ContactDetail() {
               <button
                 onClick={() => saveProfile(c)}
                 disabled={updateContactMutation.isPending}
-                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer flex items-center gap-1 animate-fadeIn"
+                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer flex flex-wrap items-center gap-1 animate-fadeIn"
               >
                 {updateContactMutation.isPending ? 'Saving…' : 'Save'}
               </button>
@@ -292,7 +292,7 @@ export default function ContactDetail() {
           ) : (
             <button
               onClick={() => startEdit(c)}
-              className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg cursor-pointer flex items-center gap-1.5 animate-fadeIn"
+              className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg cursor-pointer flex flex-wrap items-center gap-1.5 animate-fadeIn"
             >
               <Edit2 size={13} /> Edit Profile
             </button>
@@ -309,7 +309,7 @@ export default function ContactDetail() {
             
             {editMode ? (
               <div className="space-y-3 text-xs">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="label text-[10px] font-bold text-gray-500">First Name</label>
                     <input
@@ -453,7 +453,7 @@ export default function ContactDetail() {
                     {['Diabetes', 'Hypertension', 'Asthma', 'Heart Condition', 'Thyroid'].map((cond) => {
                       const has = selectedMedHistory.includes(cond);
                       return (
-                        <label key={cond} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[10px] font-semibold cursor-pointer select-none">
+                        <label key={cond} className="inline-flex flex-wrap items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md text-[10px] font-semibold cursor-pointer select-none">
                           <input
                             type="checkbox"
                             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -474,19 +474,19 @@ export default function ContactDetail() {
             ) : (
               <div className="space-y-3">
                 {c.phone && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                     <Phone size={14} className="text-gray-400" />
                     <span>{c.phone}</span>
                   </div>
                 )}
                 {c.alternatePhone && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                     <Phone size={14} className="text-gray-400" />
                     <span>{c.alternatePhone} <span className="text-xs text-gray-400">(alt)</span></span>
                   </div>
                 )}
                 {c.email && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                     <Mail size={14} className="text-gray-400" />
                     <span>{c.email}</span>
                   </div>
@@ -537,7 +537,7 @@ export default function ContactDetail() {
           {/* Addresses Card */}
           <div className="card space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><MapPin size={14} />Addresses</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><MapPin size={14} />Addresses</h3>
               <button onClick={() => setAddrModal(true)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-primary-600"><Plus size={14} /></button>
             </div>
             {(c.addresses ?? []).length === 0 && <p className="text-xs text-gray-400">No addresses added</p>}
@@ -557,7 +557,7 @@ export default function ContactDetail() {
           {/* Occupation Card */}
           <div className="card space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Briefcase size={14} />Occupations</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Briefcase size={14} />Occupations</h3>
               <button onClick={() => setOccModal(true)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-primary-600"><Plus size={14} /></button>
             </div>
             {(c.occupations ?? []).length === 0 && <p className="text-xs text-gray-400">No occupation added</p>}
@@ -578,7 +578,7 @@ export default function ContactDetail() {
           {/* Relationships Card */}
           <div className="card space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Users size={14} />Relationships</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Users size={14} />Relationships</h3>
               <button onClick={() => setRelModal(true)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-primary-600"><Plus size={14} /></button>
             </div>
             {(c.relationships ?? []).length === 0 && <p className="text-xs text-gray-400">No relationships added</p>}
@@ -603,7 +603,7 @@ export default function ContactDetail() {
           {/* Policies */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Shield size={14} />Policies</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Shield size={14} />Policies</h3>
               <Link to="/policies" className="text-xs text-primary-600 hover:underline">+ New Policy</Link>
             </div>
             {(policies?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No policies for this contact.</p>}
@@ -627,7 +627,7 @@ export default function ContactDetail() {
           {/* Claims */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><FileText size={14} />Claims</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14} />Claims</h3>
               <Link to="/claims" className="text-xs text-primary-600 hover:underline">+ New Claim</Link>
             </div>
             {(claims?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No claims for this contact.</p>}
@@ -651,7 +651,7 @@ export default function ContactDetail() {
           {/* Leads */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><TrendingUp size={14} />Leads</h3>
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><TrendingUp size={14} />Leads</h3>
             </div>
             {(leads?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No leads for this contact.</p>}
             <div className="space-y-2">
@@ -672,7 +672,7 @@ export default function ContactDetail() {
 
           {/* Activity & Update History Card */}
           <div className="card space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
               <FileText size={14} /> Activity & Update History
             </h3>
             {(!activityRes?.data || activityRes.data.length === 0) && (
@@ -715,7 +715,7 @@ export default function ContactDetail() {
             <label className="label">Address Line 2</label>
             <input {...addrForm.register('line2')} className="input" />
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="label">City *</label>
               <input {...addrForm.register('city')} className="input" />
@@ -729,7 +729,7 @@ export default function ContactDetail() {
               <input {...addrForm.register('pincode')} className="input" maxLength={6} />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setAddrModal(false); addrForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addAddress.isPending}>
               {addAddress.isPending ? 'Adding…' : 'Add Address'}
@@ -741,7 +741,7 @@ export default function ContactDetail() {
       {/* Add Occupation Modal */}
       <Modal open={occModal} onClose={() => { setOccModal(false); occForm.reset(); }} title="Add Occupation">
         <form onSubmit={occForm.handleSubmit(d => addOccupation.mutate(d))} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Company</label>
               <input {...occForm.register('company')} className="input" />
@@ -751,7 +751,7 @@ export default function ContactDetail() {
               <input {...occForm.register('designation')} className="input" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Industry</label>
               <input {...occForm.register('industry')} className="input" />
@@ -761,7 +761,7 @@ export default function ContactDetail() {
               <input {...occForm.register('annualIncome')} type="number" className="input" min="0" />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setOccModal(false); occForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addOccupation.isPending}>
               {addOccupation.isPending ? 'Adding…' : 'Add Occupation'}
@@ -791,7 +791,7 @@ export default function ContactDetail() {
             {selectedRelContact ? (
               <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
                 <span className="text-sm">{selectedRelContact.firstName} {selectedRelContact.lastName}</span>
-                <button type="button" className="text-xs text-red-500" onClick={() => { setSelectedRelContact(null); relForm.setValue('relatedContactId', ''); }}>Remove</button>
+                <button type="button" className="text-[10px] sm:text-xs text-red-500" onClick={() => { setSelectedRelContact(null); relForm.setValue('relatedContactId', ''); }}>Remove</button>
               </div>
             ) : (
               <div className="relative">
@@ -818,7 +818,7 @@ export default function ContactDetail() {
           </div>
           <div className="border-t pt-3">
             <p className="text-xs text-gray-400 mb-2">Or enter details manually:</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">Name</label>
                 <input {...relForm.register('name')} className="input" placeholder="Full name" />
@@ -833,7 +833,7 @@ export default function ContactDetail() {
               <DatePicker {...relForm.register('dateOfBirth')} className="input" />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addRelationship.isPending}>
               {addRelationship.isPending ? 'Adding…' : 'Add Relationship'}

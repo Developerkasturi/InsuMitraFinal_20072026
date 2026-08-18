@@ -153,7 +153,7 @@ export default function EmployeesLayout() {
       {/* Near-limit warning */}
       {isNearLimit && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl flex items-center justify-between text-sm shadow-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
             <span>
               <span className="font-semibold">Capacity Warning:</span> You have used {activeUsersCount} of your {maxUsers === -1 ? 'unlimited' : maxUsers} seats ({Math.round(usagePercentage)}%).
@@ -168,7 +168,7 @@ export default function EmployeesLayout() {
       {/* Limit-reached error */}
       {isLimitReached && (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-center justify-between text-sm shadow-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
             <span>
               <span className="font-semibold">Limit Reached:</span> You have reached your limit of {maxUsers} user/employee seats.
@@ -186,7 +186,7 @@ export default function EmployeesLayout() {
         {isOverview && canEditEmployees && (
           <button
             className={clsx(
-              'btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer',
+              'btn-primary h-9 py-0 px-3 text-[10px] sm:text-xs flex items-center gap-1.5 font-bold cursor-pointer',
               isLimitReached && 'bg-gray-400 border-gray-400 hover:bg-gray-400 hover:border-gray-400 cursor-not-allowed opacity-60'
             )}
             onClick={() => setModalOpen(true)}
@@ -199,7 +199,7 @@ export default function EmployeesLayout() {
       </div>
 
       {/* Sub-page Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto custom-scrollbar">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto custom-scrollbar">
         {[
           { label: 'Directory', path: '/employees', icon: Users },
           { label: 'Targets', path: '/employees/targets', icon: Target },
@@ -236,7 +236,7 @@ export default function EmployeesLayout() {
       {/* ── Create Employee Modal ──────────────────────────────────────────── */}
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); reset(); setSelectedContactId(''); setContactSearch(''); setIsContactDropdownOpen(false); }} title="New Employee" size="xl">
         <form onSubmit={handleSubmit(async body => { try { await createEmployee.mutateAsync(body); } catch {} })} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2 bg-slate-50 p-3 rounded-xl border border-slate-200/60 relative">
               <label className="label font-bold text-slate-700 block mb-1.5">
                 Link Existing Contact (Promote Contact to Employee)
@@ -398,7 +398,7 @@ export default function EmployeesLayout() {
               <label className="label">Proposal Target</label>
               <input {...register('visitsTarget')} type="number" className="input" placeholder="e.g. 5" />
             </div>
-            <div className="col-span-2 border-t border-slate-100 pt-3 grid grid-cols-3 gap-3">
+            <div className="col-span-2 border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="col-span-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bank Details</h3>
               </div>
@@ -428,7 +428,7 @@ export default function EmployeesLayout() {
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setModalOpen(false); reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createEmployee.isPending}>
               {createEmployee.isPending ? 'Saving…' : 'Create Employee'}

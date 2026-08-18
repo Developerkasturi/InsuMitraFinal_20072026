@@ -69,7 +69,7 @@ export default function ClientClaims() {
                   </span>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-gray-400">Claim Amount</p>
                     <p className="font-medium text-gray-800">₹{Number(c.claimAmount).toLocaleString('en-IN')}</p>

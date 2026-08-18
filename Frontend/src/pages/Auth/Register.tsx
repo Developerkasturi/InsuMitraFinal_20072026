@@ -46,7 +46,7 @@ export default function Register() {
         <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-xl p-8 space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Create your agency account</h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">First Name</label>
               <input {...register('firstName')} className="input" />

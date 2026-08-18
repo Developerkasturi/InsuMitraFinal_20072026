@@ -294,12 +294,12 @@ export default function EmployeeDetail() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">{emp.firstName} {emp.lastName}</h2>
             <span className={emp.isActive ? 'badge-green' : 'badge-gray'}>{emp.isActive ? 'Active' : 'Inactive'}</span>
           </div>
@@ -308,11 +308,11 @@ export default function EmployeeDetail() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={openTargetEdit} className="btn-secondary flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200">
+          <button onClick={openTargetEdit} className="btn-secondary flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200">
             <Target size={14} className="text-slate-500" /> Targets
           </button>
           {isOwner && (
-            <button onClick={openPermEdit} className="btn-secondary flex items-center gap-1.5 text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200">
+            <button onClick={openPermEdit} className="btn-secondary flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-semibold py-2 px-3 rounded-lg border border-slate-200">
               <Key size={14} className="text-slate-500" /> Permissions
             </button>
           )}
@@ -436,7 +436,7 @@ export default function EmployeeDetail() {
             <div className="card bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-gray-800">Tasks Pipeline</h3>
-                <button onClick={() => setTaskModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Plus size={12}/>Add Task</button>
+                <button onClick={() => setTaskModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Plus size={12}/>Add Task</button>
               </div>
 
               {pendingTasks.length === 0 && doneTasks.length === 0 && (
@@ -468,12 +468,12 @@ export default function EmployeeDetail() {
             <div className="card bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-gray-800">Daily Activity Logs</h3>
-                <button onClick={() => setLogModal(true)} className="btn-sm btn-primary flex items-center gap-1"><Plus size={12}/>Add Log</button>
+                <button onClick={() => setLogModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Plus size={12}/>Add Log</button>
               </div>
 
               {/* Lazy loading Date Filters */}
               <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200/50">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-gray-600">
                   <Calendar size={13} className="text-slate-400" /> Filter:
                 </div>
                 <DatePicker
@@ -588,7 +588,7 @@ export default function EmployeeDetail() {
             <label className="label">Description</label>
             <textarea {...taskForm.register('description')} className="input" rows={2} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Due Date</label>
               <DatePicker {...taskForm.register('dueDate')} className="input mt-1" />
@@ -602,7 +602,7 @@ export default function EmployeeDetail() {
               </select>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setTaskModal(false); taskForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addTask.isPending}>
               {addTask.isPending ? 'Adding…' : 'Add Task'}
@@ -618,7 +618,7 @@ export default function EmployeeDetail() {
             <label className="label">Date *</label>
             <DatePicker {...logForm.register('date')} className="input" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Calls Made</label>
               <input {...logForm.register('callsMade')} type="number" min="0" className="input" placeholder="0" />
@@ -656,7 +656,7 @@ export default function EmployeeDetail() {
             <label className="label font-semibold text-orange-600">Admin Remarks (Flagged as Edited by Admin)</label>
             <textarea {...logForm.register('adminRemarks')} className="input border-orange-200 focus:border-orange-500" rows={2} placeholder="Explain why this entry is remarked/changed..." />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => { setLogModal(false); setSelectedLog(null); logForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addLog.isPending}>
               {addLog.isPending ? 'Saving…' : 'Save Log'}
@@ -684,7 +684,7 @@ export default function EmployeeDetail() {
             <label className="label">Proposal Target *</label>
             <input {...targetForm.register('visitsTarget')} type="number" className="input" />
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setTargetModal(false)}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={updateTargets.isPending}>
               {updateTargets.isPending ? 'Saving…' : 'Save Targets'}
@@ -718,7 +718,7 @@ export default function EmployeeDetail() {
                 <div key={mod.key} className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl space-y-2">
                   <div className="text-[13px] font-black text-slate-900 tracking-tight">{mod.label}</div>
                   <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
+                    <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
                       <input
                         type="checkbox"
                         value={viewKey}
@@ -727,7 +727,7 @@ export default function EmployeeDetail() {
                       />
                       <span className="text-emerald-800">View</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
+                    <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
                       <input
                         type="checkbox"
                         value={editKey}
@@ -736,7 +736,7 @@ export default function EmployeeDetail() {
                       />
                       <span>Edit</span>
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
+                    <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
                       <input
                         type="checkbox"
                         value={allKey}
@@ -751,7 +751,7 @@ export default function EmployeeDetail() {
             })}
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setPermModal(false)}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={updatePermissions.isPending}>
               {updatePermissions.isPending ? 'Saving…' : 'Save Permissions'}
@@ -776,14 +776,14 @@ function TaskCard({ task, done, onToggle }: { task: any; done?: boolean; onToggl
       <div className="flex-1 min-w-0">
         <p className={clsx('text-sm font-semibold', done ? 'line-through text-gray-400' : 'text-gray-800')}>{task.title}</p>
         {task.description && <p className="text-xs text-gray-400 mt-0.5">{task.description}</p>}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 mt-2 flex-wrap">
           {task.priority && (
             <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider', PRIORITY_BADGE[task.priority] ?? 'bg-gray-100 text-gray-500')}>
               {task.priority}
             </span>
           )}
           {task.dueDate && (
-            <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+            <span className="text-[10px] text-gray-400 flex flex-wrap items-center gap-0.5">
               <Clock size={10}/>{format(new Date(task.dueDate), 'dd/MMM/yyyy')}
             </span>
           )}

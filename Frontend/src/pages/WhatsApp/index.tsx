@@ -223,7 +223,7 @@ export default function WhatsApp() {
 
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <MessageSquare size={18} className="text-white/80" />
               <h2 className="text-xl font-extrabold text-white tracking-tight">WhatsApp Campaigns</h2>
             </div>
@@ -232,11 +232,11 @@ export default function WhatsApp() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             {/* Wallet balance always visible */}
             <button
               onClick={() => { setTab('wallet'); isOwner && setModal('topup'); }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 backdrop-blur-sm transition-all"
+              className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 backdrop-blur-sm transition-all"
             >
               <Wallet size={14} className="text-white/80" />
               <span className="text-white text-xs font-bold">
@@ -250,13 +250,13 @@ export default function WhatsApp() {
             {isOwner && (
               <>
                 <button
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-bold backdrop-blur-sm transition-all"
+                  className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-[10px] sm:text-xs font-bold backdrop-blur-sm transition-all"
                   onClick={() => setModal('template')}
                 >
                   <Plus size={13} /> Template
                 </button>
                 <button
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-emerald-700 text-xs font-extrabold hover:bg-emerald-50 shadow-lg transition-all"
+                  className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white text-emerald-700 text-[10px] sm:text-xs font-extrabold hover:bg-emerald-50 shadow-lg transition-all"
                   onClick={() => setModal('campaign')}
                 >
                   <Send size={13} /> New Campaign
@@ -269,7 +269,7 @@ export default function WhatsApp() {
 
       {/* Employee view-only notice */}
       {!isOwner && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
           <AlertTriangle size={14} />
           You have view-only access. Contact your workspace owner to create or launch campaigns.
         </div>
@@ -309,7 +309,7 @@ export default function WhatsApp() {
               </div>
               <p className="text-sm font-semibold text-slate-600">No campaigns yet</p>
               {isOwner && (
-                <button className="btn-primary mt-4 text-xs" onClick={() => setModal('campaign')}>
+                <button className="btn-primary mt-4 text-[10px] sm:text-xs" onClick={() => setModal('campaign')}>
                   <Plus size={13} /> Create First Campaign
                 </button>
               )}
@@ -317,12 +317,12 @@ export default function WhatsApp() {
           )}
           {campaigns.map((c: any) => (
             <div key={c.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all overflow-hidden">
-              <div className="flex items-center gap-4 p-4">
+              <div className="flex flex-wrap items-center gap-4 p-4">
                 {/* Status colour bar */}
                 <div className={`w-1.5 self-stretch rounded-full bg-gradient-to-b ${STATUS_GRADIENT[c.status] ?? 'from-slate-400 to-slate-500'}`} />
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <p className="text-sm font-bold text-slate-800 truncate">{c.name}</p>
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                       c.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
@@ -337,7 +337,7 @@ export default function WhatsApp() {
                     {c.scheduledAt && (
                       <span>Scheduled: <span className="text-slate-600 font-semibold">{format(new Date(c.scheduledAt), 'dd MMM yyyy HH:mm')}</span></span>
                     )}
-                    <span className="flex items-center gap-1">
+                    <span className="flex flex-wrap items-center gap-1">
                       <BarChart2 size={10} />
                       Sent {c.sentCount ?? 0}/{c.totalCount ?? 0}
                       {c.failedCount > 0 && <span className="text-red-500 font-semibold"> · Failed {c.failedCount}</span>}
@@ -345,17 +345,17 @@ export default function WhatsApp() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     onClick={() => setExpandedCampaignId(expandedCampaignId === c.id ? null : c.id)}
-                    className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 font-semibold transition-all"
+                    className="flex flex-wrap items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 font-semibold transition-all"
                   >
                     <Users size={12} /> Logs
                     {expandedCampaignId === c.id ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                   </button>
                   {isOwner && (c.status === 'DRAFT' || c.status === 'SCHEDULED') && (
                     <button
-                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-all"
+                      className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold transition-all"
                       onClick={() => launchCampaign.mutate(c.id)}
                       disabled={launchCampaign.isPending}
                     >
@@ -374,18 +374,18 @@ export default function WhatsApp() {
                     <p className="text-xs text-slate-400 italic py-3 text-center">No delivery logs yet for this campaign.</p>
                   ) : (
                     <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
-                      <div className="grid grid-cols-4 gap-2 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 pb-1.5 border-b border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[9px] font-extrabold uppercase tracking-widest text-slate-400 pb-1.5 border-b border-slate-200">
                         <span>Contact / Phone</span>
                         <span>Status</span>
                         <span>Sent At</span>
                         <span className="text-right">Action</span>
                       </div>
                       {logs.map((log: any) => (
-                        <div key={log.id} className="grid grid-cols-4 gap-2 items-center py-1.5 hover:bg-white rounded-lg px-1 transition-all">
+                        <div key={log.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-center py-1.5 hover:bg-white rounded-lg px-1 transition-all">
                           <span className="text-xs font-semibold text-slate-700 truncate">
                             {log.contactName ?? log.phone ?? '—'}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-1">
                             <LogStatusIcon status={log.status} />
                             <span className={`text-[10px] font-semibold ${
                               log.status === 'DELIVERED' || log.status === 'READ' ? 'text-emerald-600' :
@@ -400,7 +400,7 @@ export default function WhatsApp() {
                               <button
                                 onClick={() => handleMarkAsLead(log)}
                                 disabled={createLead.isPending}
-                                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 font-bold transition-all"
+                                className="flex flex-wrap items-center gap-1 text-[10px] px-2 py-1 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 font-bold transition-all"
                               >
                                 <UserPlus size={10} /> Lead
                               </button>
@@ -427,7 +427,7 @@ export default function WhatsApp() {
               </div>
               <p className="text-sm font-semibold text-slate-600">No templates yet</p>
               {isOwner && (
-                <button className="btn-secondary mt-4 text-xs" onClick={() => setModal('template')}>
+                <button className="btn-secondary mt-4 text-[10px] sm:text-xs" onClick={() => setModal('template')}>
                   <Plus size={13} /> Create Template
                 </button>
               )}
@@ -506,7 +506,7 @@ export default function WhatsApp() {
       {/* ── Conversations Tab ─────────────────────────────────────────────────── */}
       {tab === 'conversations' && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 font-medium">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 font-medium">
             <MessageSquare size={13} className="text-blue-500" />
             Select any campaign below to view delivery logs and mark interested contacts as leads.
           </div>
@@ -521,7 +521,7 @@ export default function WhatsApp() {
                 onClick={() => setExpandedCampaignId(expandedCampaignId === c.id ? null : c.id)}
                 className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-all text-left"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${STATUS_GRADIENT[c.status] ?? 'from-slate-400 to-slate-500'}`} />
                   <div>
                     <p className="text-sm font-bold text-slate-800">{c.name}</p>
@@ -531,7 +531,7 @@ export default function WhatsApp() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                     c.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
                     c.status === 'RUNNING'   ? 'bg-blue-100 text-blue-700' :
@@ -552,7 +552,7 @@ export default function WhatsApp() {
                       {logs.map((log: any) => (
                         <div
                           key={log.id}
-                          className="bg-white rounded-xl border border-slate-100 px-4 py-3 flex items-center gap-4 hover:shadow-sm transition-all"
+                          className="bg-white rounded-xl border border-slate-100 px-4 py-3 flex flex-wrap items-center gap-4 hover:shadow-sm transition-all"
                         >
                           {/* Avatar */}
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -569,8 +569,8 @@ export default function WhatsApp() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="flex items-center gap-1">
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <div className="flex flex-wrap items-center gap-1">
                               <LogStatusIcon status={log.status} />
                               <span className={`text-[10px] font-semibold ${
                                 log.status === 'DELIVERED' || log.status === 'READ' ? 'text-emerald-600' :
@@ -585,7 +585,7 @@ export default function WhatsApp() {
                                 onClick={() => handleMarkAsLead(log)}
                                 disabled={createLead.isPending}
                                 title="Create lead from this contact"
-                                className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 font-bold transition-all"
+                                className="flex flex-wrap items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 font-bold transition-all"
                               >
                                 <UserPlus size={11} /> Mark Lead
                               </button>
@@ -607,7 +607,7 @@ export default function WhatsApp() {
         <div className="grid md:grid-cols-2 gap-5">
           {/* Balance card */}
           <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg shadow-emerald-200/40">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <Wallet size={18} className="text-white/80" />
               <span className="text-xs font-extrabold uppercase tracking-widest text-white/70">WhatsApp Wallet</span>
             </div>
@@ -622,7 +622,7 @@ export default function WhatsApp() {
               {isOwner && (
                 <button
                   onClick={() => setModal('topup')}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-emerald-700 text-xs font-extrabold hover:bg-emerald-50 shadow-md transition-all"
+                  className="flex flex-wrap items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-emerald-700 text-xs font-extrabold hover:bg-emerald-50 shadow-md transition-all"
                 >
                   <CreditCard size={13} /> Add Balance
                 </button>
@@ -632,7 +632,7 @@ export default function WhatsApp() {
 
           {/* Cost calculator */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-            <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-1.5">
+            <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex flex-wrap items-center gap-1.5">
               <Zap size={12} className="text-amber-500" /> Cost Calculator
             </h3>
             <div className="space-y-3">
@@ -678,7 +678,7 @@ export default function WhatsApp() {
           {createTemplate.isError && (
             <p className="text-sm text-red-500">{(createTemplate.error as any)?.response?.data?.message ?? 'Error'}</p>
           )}
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" className="btn-secondary" onClick={() => { setModal(null); tForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createTemplate.isPending}>
               {createTemplate.isPending ? 'Creating…' : 'Create Template'}
@@ -730,7 +730,7 @@ export default function WhatsApp() {
           </div>
 
           {/* Trigger Type + Message Type + Recurrence */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Trigger Type</label>
               <select
@@ -754,7 +754,7 @@ export default function WhatsApp() {
 
           {/* Conditional Event-based fields */}
           {triggerType === 'event' && (
-            <div className="grid grid-cols-2 gap-3 border border-slate-100 bg-slate-50/50 p-3 rounded-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-100 bg-slate-50/50 p-3 rounded-xl">
               <div>
                 <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Event Trigger</label>
                 <select
@@ -799,7 +799,7 @@ export default function WhatsApp() {
 
           {/* Recurrence & Frequency (If Recurring Type is chosen) */}
           {campaignType === 'recurring' && (
-            <div className="grid grid-cols-2 gap-3 border border-slate-100 bg-slate-50/50 p-3 rounded-xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-100 bg-slate-50/50 p-3 rounded-xl">
               <div>
                 <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Recurrence</label>
                 <select {...cForm.register('recurrence')} className="input w-full mt-1.5">
@@ -868,7 +868,7 @@ export default function WhatsApp() {
 
               {/* Search input */}
               <div className="relative">
-                <div className="flex items-center gap-2 input">
+                <div className="flex flex-wrap items-center gap-2 input">
                   <Search size={13} className="text-slate-400 shrink-0" />
                   <input
                     className="flex-1 outline-none bg-transparent text-sm"
@@ -894,7 +894,7 @@ export default function WhatsApp() {
                           key={c.id}
                           type="button"
                           onClick={() => addContact(c)}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
+                          className="w-full flex flex-wrap items-center gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
                         >
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                             {(c.firstName ?? c.phone ?? '?')[0].toUpperCase()}
@@ -938,7 +938,7 @@ export default function WhatsApp() {
 
               {/* Deduplication warning */}
               {dupCount > 0 && (
-                <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 mt-2 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
                   <AlertTriangle size={11} />
                   {dupCount} duplicate number(s) detected — will be skipped on send
                 </div>
@@ -990,10 +990,10 @@ export default function WhatsApp() {
 
           {/* Dynamic Cost Estimation */}
           <div className="border border-emerald-100 bg-emerald-50/30 p-4 rounded-xl space-y-3">
-            <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider block flex items-center gap-1">
+            <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider block flex flex-wrap items-center gap-1">
               <BarChart2 size={11} /> Campaign Cost Estimate
             </span>
-            <div className="grid grid-cols-3 gap-4 text-xs pb-3 border-b border-emerald-100/50">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pb-3 border-b border-emerald-100/50">
               <div>
                 <span className="text-[10px] text-gray-400 block uppercase font-bold">Recipients</span>
                 <span className="text-base font-extrabold text-gray-800 mt-0.5 block">{deduped.length}</span>
@@ -1030,14 +1030,14 @@ export default function WhatsApp() {
           <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
-              className="btn-secondary text-xs"
+              className="btn-secondary text-[10px] sm:text-xs"
               onClick={() => { setModal(null); cForm.reset(); setSelectedContacts([]); }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-8 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-60"
+              className="px-8 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] sm:text-xs font-bold rounded-xl shadow-sm flex flex-wrap items-center gap-1.5 transition-colors disabled:opacity-60"
               disabled={createCampaign.isPending || !hasSufficientBal}
             >
               {createCampaign.isPending ? 'Creating…' : <><Send size={13} /> Create Campaign</>}
@@ -1068,7 +1068,7 @@ export default function WhatsApp() {
             <input {...topupForm.register('notes')} className="input" placeholder="Razorpay txn #12345" />
           </div>
           {topup.isError && <p className="text-sm text-red-500">{(topup.error as any)?.response?.data?.message ?? 'Error'}</p>}
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" className="btn-secondary" onClick={() => { setModal(null); topupForm.reset(); }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={topup.isPending}>
               {topup.isPending ? 'Processing…' : 'Add Credits'}

@@ -92,7 +92,7 @@ export default function BannerModal({ open, onClose, onSave, isSaving, initialDa
             <input type="number" {...form.register('order', { valueAsNumber: true })} className="input" placeholder="0" />
             <p className="text-[10px] text-gray-400 mt-1">Lower numbers appear first</p>
           </div>
-          <div className="flex items-center gap-3 mt-7">
+          <div className="flex flex-wrap items-center gap-3 mt-7">
             <input type="checkbox" {...form.register('isActive')} id="isActive" className="w-4 h-4 text-primary-600 rounded border-gray-300" />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700 cursor-pointer">Active</label>
           </div>

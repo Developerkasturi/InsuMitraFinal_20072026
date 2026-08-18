@@ -166,12 +166,12 @@ export default function ClaimDetail() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">{cl.claimNumber}</h2>
             <span className={STATUS_BADGE[displayStatus] ?? 'badge-gray'}>{displayStatus.replace('_', ' ')}</span>
           </div>
@@ -250,16 +250,16 @@ export default function ClaimDetail() {
           {/* Expense Breakdown Card */}
           <div className="card space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                 <DollarSign size={14} /> Expense Breakdown
               </h3>
-              <button onClick={() => setExpenseModal(true)} className="btn-sm btn-primary flex items-center gap-1">
+              <button onClick={() => setExpenseModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1">
                 <Plus size={12} /> Record Expense
               </button>
             </div>
 
             {/* Categorized Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-gray-50/50 p-3 rounded-lg text-xs font-medium">
+            <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-2 bg-gray-50/50 p-3 rounded-lg text-xs font-medium">
               <div className="p-2 border border-gray-100 rounded bg-white">
                 <span className="text-gray-400">Hospitalization</span>
                 <p className="text-sm font-bold text-gray-800 mt-0.5">₹{hospitalizationTotal.toLocaleString('en-IN')}</p>
@@ -299,7 +299,7 @@ export default function ClaimDetail() {
                         {exp.category} · {exp.date ? format(new Date(exp.date), 'dd/MMM/yyyy') : '—'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-gray-800">₹{Number(exp.amount).toLocaleString('en-IN')}</span>
                       <button onClick={() => removeExpense.mutate(exp.id)}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400 transition-opacity">
@@ -315,10 +315,10 @@ export default function ClaimDetail() {
           {/* Documents Card */}
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                 <FileText size={14} /> Documents
               </h3>
-              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex items-center gap-1">
+              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1">
                 <Upload size={12} /> Upload
               </button>
             </div>
@@ -326,14 +326,14 @@ export default function ClaimDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {docList.map((doc: any) => (
                 <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 group">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <FileText size={14} className="text-gray-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm text-gray-900 truncate">{doc.fileName ?? doc.originalName ?? 'Document'}</p>
                       <p className="text-xs text-gray-400">{doc.tag}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1 shrink-0">
                     <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
                     <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
                   </div>
@@ -352,7 +352,7 @@ export default function ClaimDetail() {
             <input {...expenseForm.register('description')} className="input" placeholder="e.g. ICU Room Charges" />
             {expenseForm.formState.errors.description && <p className="text-xs text-red-500 mt-0.5">{expenseForm.formState.errors.description.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Amount (₹) *</label>
               <input {...expenseForm.register('amount')} type="number" className="input" placeholder="15000" />
@@ -374,7 +374,7 @@ export default function ClaimDetail() {
             <DatePicker {...expenseForm.register('date')} className="input" />
             {expenseForm.formState.errors.date && <p className="text-xs text-red-500 mt-0.5">{expenseForm.formState.errors.date.message}</p>}
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setExpenseModal(false)}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={addExpense.isPending}>
               {addExpense.isPending ? 'Recording…' : 'Record Expense'}
@@ -404,7 +404,7 @@ export default function ClaimDetail() {
               <textarea className="input" rows={2} value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} />
             </div>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={() => setStatusModal(false)}>Cancel</button>
             <button className="btn-primary" disabled={updateStatus.isPending}
               onClick={() => updateStatus.mutate({
@@ -436,13 +436,13 @@ export default function ClaimDetail() {
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="input" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
           </div>
           {uploadFile && (
-            <div className="flex items-center gap-2 text-sm bg-gray-50 rounded p-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm bg-gray-50 rounded p-2">
               <FileText size={14} className="text-gray-400" />
               <span className="truncate">{uploadFile.name}</span>
               <button onClick={() => setUploadFile(null)} className="ml-auto text-red-400"><X size={13} /></button>
             </div>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={() => { setUploadModal(false); setUploadFile(null); }}>Cancel</button>
             <button className="btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
               {uploading ? 'Uploading…' : 'Upload'}
@@ -455,7 +455,7 @@ export default function ClaimDetail() {
         <p className="text-sm text-gray-600 mb-4">
           Delete <strong>{deleteDocTarget?.fileName ?? deleteDocTarget?.originalName ?? 'this document'}</strong>?
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteDocTarget(null)}>Cancel</button>
           <button
             className="btn-danger"

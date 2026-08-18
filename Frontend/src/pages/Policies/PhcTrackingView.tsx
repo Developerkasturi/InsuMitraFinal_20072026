@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Eye, X, User, Shield,
   Heart, TrendingUp, Wallet, BarChart2,
   ChevronDown, Users, Layers, ArrowRight,
-  RotateCcw, SlidersHorizontal, History, ChevronUp
+  RotateCcw, SlidersHorizontal, History, ChevronUp, Plus
 } from 'lucide-react';
 import clsx from 'clsx';
 import { sortData } from '../../utils/sortUtils';
@@ -179,8 +179,11 @@ function StatusBadge({ status }: { status: PhcStatus }) {
 }
 
 // ── PHC Year Card ────────────────────────────────────────────────────────────────
+type PhcEntryState = { id: number; status: string };
+
 function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
   const [selPerson, setSelPerson] = useState('All Family Members');
+  const [entries, setEntries] = useState<PhcEntryState[]>([{ id: Date.now(), status: 'Unutilised' }]);
   const pct = yr.eligibleAmount > 0 ? Math.round((yr.utilizedAmount / yr.eligibleAmount) * 100) : 0;
   const persons = selPerson === 'All Family Members' ? yr.insuredPersons : yr.insuredPersons.filter(p => p.name === selPerson);
 
@@ -196,7 +199,7 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden hover:shadow-md transition-all">
       <div className="flex items-center justify-between px-4 py-3 bg-slate-50/80 border-b border-slate-100">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-extrabold text-sm text-slate-900">{yr.label}</span>
           {yr.isCurrent && <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded-md uppercase tracking-wide">Current</span>}
         </div>
@@ -219,7 +222,7 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
         </div>
 
         {/* Amounts Grid */}
-        <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-center">
           <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Eligible</p>
             <p className="text-[11px] font-extrabold text-slate-800 mt-0.5">{fmtCurr(yr.eligibleAmount)}</p>
@@ -241,7 +244,7 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
         {/* Insured Person Dropdown */}
         {yr.insuredPersons.length > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Users size={12} className="text-slate-400 shrink-0" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Insured Person</span>
             </div>
@@ -256,11 +259,11 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
 
             {/* Breakdown Table */}
             <div className="border border-slate-100 rounded-lg overflow-hidden">
-              <div className="grid grid-cols-3 bg-slate-50/80 border-b border-slate-100 px-3 py-1.5 text-[9px] font-extrabold text-slate-500 uppercase tracking-wide">
+              <div className="grid grid-cols-1 sm:grid-cols-3 bg-slate-50/80 border-b border-slate-100 px-3 py-1.5 text-[9px] font-extrabold text-slate-500 uppercase tracking-wide">
                 <span>Family Member</span><span className="text-center">Utilized</span><span className="text-center">PHC Count</span>
               </div>
               {persons.map(p => (
-                <div key={p.name} className="grid grid-cols-3 px-3 py-2 text-xs border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                <div key={p.name} className="grid grid-cols-1 sm:grid-cols-3 px-3 py-2 text-xs border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
                   <span className="font-semibold text-slate-700 text-[11px] truncate pr-1">{p.name}</span>
                   <span className="text-center font-bold text-blue-700 text-[11px]">{fmtCurr(p.utilizedAmount)}</span>
                   <span className="text-center font-bold text-violet-700 text-[11px]">{p.phcCount}</span>
@@ -270,142 +273,200 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
           </div>
         )}
 
-        {/* Detailed PHC Booking & Utilization form fields (Variable fields in a year) */}
-        {selPerson !== 'All Family Members' && (
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-3 mt-2">
-            <p className="text-[10px] font-black text-blue-700 uppercase tracking-wide">PHC Entry Details - {selPerson}</p>
+        {/* Multiple PHC Entries Section */}
+        <div className="mt-4 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wide">PHC Entries by Status</h4>
+            <button
+              type="button"
+              onClick={() => setEntries([...entries, { id: Date.now() + Math.random(), status: 'Unutilised' }])}
+              className="flex flex-wrap items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-md text-[10px] font-bold transition-colors border border-blue-200 cursor-pointer shadow-sm"
+            >
+              <Plus size={11} /> Add Entry
+            </button>
+          </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Booking Date</label>
-                <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Appointment Date</label>
-                <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-            </div>
+          {['Under Process', 'Test Booked', 'Reports Pending', 'Settled', 'Unutilised'].map(groupStatus => {
+            const groupEntries = entries.filter(e => e.status === groupStatus);
+            if (groupEntries.length === 0) return null;
+            return (
+              <div key={groupStatus} className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-xs">
+                <div className="flex flex-wrap items-center gap-2 mb-3 border-b border-slate-100 pb-2">
+                  <span className={clsx('w-2 h-2 rounded-full', 
+                    groupStatus === 'Settled' ? 'bg-emerald-500' :
+                    groupStatus === 'Unutilised' ? 'bg-slate-400' :
+                    groupStatus === 'Under Process' ? 'bg-amber-500' :
+                    groupStatus === 'Test Booked' ? 'bg-blue-500' :
+                    'bg-violet-500'
+                  )} />
+                  <h5 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">{groupStatus}</h5>
+                  <span className="bg-slate-100 text-slate-500 text-[9px] font-bold px-1.5 py-0.5 rounded-md">{groupEntries.length}</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {groupEntries.map((entry) => {
+                    const globalIdx = entries.findIndex(e => e.id === entry.id) + 1;
+                    return (
+                      <div key={entry.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-3 relative group shadow-sm transition-all hover:border-blue-200">
+                        <button
+                          type="button"
+                          onClick={() => setEntries(entries.filter(e => e.id !== entry.id))}
+                          className="absolute top-2 right-2 p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                          title="Remove Entry"
+                        >
+                          <X size={14} />
+                        </button>
+                        <div className="flex items-center justify-between mb-1 pr-6">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Entry #{globalIdx}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Assignee:</label>
+                            <div className="relative">
+                              <select
+                                className="bg-white border border-slate-200 rounded-md px-2 py-0.5 text-[10px] font-bold text-blue-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-5 cursor-pointer shadow-sm hover:border-blue-300 transition-colors"
+                                defaultValue="Amit Sharma"
+                              >
+                                <option value="Amit Sharma">Amit Sharma</option>
+                                <option value="Neha Joshi">Neha Joshi</option>
+                                <option value="Sagar More">Sagar More</option>
+                                <option value="Unassigned">Unassigned</option>
+                              </select>
+                              <ChevronDown size={10} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                          </div>
+                        </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab Name</label>
-                <input type="text" placeholder="e.g. Apollo Diagnostics" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab City</label>
-                <input type="text" placeholder="e.g. Mumbai" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Insured Person</label>
+                            <div className="relative">
+                              <select className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6">
+                                <option value="">Select Person...</option>
+                                {yr.insuredPersons.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                              </select>
+                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">PHC Stage</label>
+                            <div className="relative">
+                              <select 
+                                value={entry.status}
+                                onChange={(e) => setEntries(entries.map(ent => ent.id === entry.id ? { ...ent, status: e.target.value } : ent))}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
+                              >
+                                {['Under Process', 'Test Booked', 'Reports Pending', 'Settled', 'Unutilised'].map(stg => (
+                                  <option key={stg} value={stg}>{stg}</option>
+                                ))}
+                              </select>
+                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                          </div>
+                        </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Utilized Amount</label>
-                <input type="number" placeholder="₹3,500" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Report Received (By Cust)</label>
-                <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
-              </div>
-            </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Booking Date</label>
+                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Appointment Date</label>
+                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                        </div>
 
-            {/* Reimbursement or Cashless Selector State (Uses a local component state) */}
-            <div className="space-y-2">
-              <div>
-                <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Reimbursement or Cashless</label>
-                <div className="relative">
-                  <select
-                    id="reimb-select"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
-                    defaultValue="Cashless"
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const div = document.getElementById('reimb-fields-container');
-                      if (div) {
-                        if (val === 'Reimbursement') {
-                          div.classList.remove('hidden');
-                        } else {
-                          div.classList.add('hidden');
-                        }
-                      }
-                    }}
-                  >
-                    <option value="Cashless">Cashless</option>
-                    <option value="Reimbursement">Reimbursement</option>
-                  </select>
-                  <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab Name</label>
+                            <input type="text" placeholder="e.g. Apollo Diagnostics" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab City</label>
+                            <input type="text" placeholder="e.g. Mumbai" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Utilized Amount</label>
+                            <input type="number" placeholder="₹3,500" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Report Received (By Cust)</label>
+                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                        </div>
+
+                        {/* Reimbursement or Cashless */}
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Reimbursement or Cashless</label>
+                            <div className="relative">
+                              <select
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
+                                defaultValue="Cashless"
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const div = document.getElementById(`reimb-fields-container-${entry.id}`);
+                                  if (div) {
+                                    if (val === 'Reimbursement') div.classList.remove('hidden');
+                                    else div.classList.add('hidden');
+                                  }
+                                }}
+                              >
+                                <option value="Cashless">Cashless</option>
+                                <option value="Reimbursement">Reimbursement</option>
+                              </select>
+                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
+                          </div>
+
+                          {/* Conditional Reimbursement Fields */}
+                          <div id={`reimb-fields-container-${entry.id}`} className="hidden space-y-2 bg-slate-100 p-2.5 rounded-lg border border-slate-200/50">
+                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Reimbursement Actions</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Received (Office)</label>
+                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Submitted (Comp)</label>
+                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Settled Date</label>
+                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Follow-up per Entry */}
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-100 mt-2">
+                          <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Follow-up Date</label>
+                          <input
+                            type="date"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Conditional Reimbursement Fields */}
-              <div id="reimb-fields-container" className="hidden space-y-2 bg-slate-100 p-2.5 rounded-lg border border-slate-200/50">
-                <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Reimbursement Actions</p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Received (Office)</label>
-                    <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Submitted (Comp)</label>
-                    <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Settled Date</label>
-                    <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* PHC Stage Selector */}
-            <div>
-              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">PHC Stage</label>
-              <div className="relative">
-                <select className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6">
-                  {['TO_CONTACT', 'CONTACTED', 'Test Booked', 'Test Done', 'Reports Received - Customer', 'Reports Received - Our Office', 'Reports Submitted to Company', 'Bill Approved', 'PROCESS_COMPLETED'].map(stg => (
-                    <option key={stg} value={stg}>{stg}</option>
-                  ))}
-                </select>
-                <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-        )}
-
-
-        {/* Follow-up Date & Employee Assignment Section */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Follow-up Date</label>
-            <div className="relative">
-              <input
-                type="date"
-                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500"
-                defaultValue="2026-08-15"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Assign Employee</label>
-            <div className="relative">
-              <select
-                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
-                defaultValue="Amit Sharma"
-              >
-                <option value="Amit Sharma">Amit Sharma</option>
-                <option value="Neha Joshi">Neha Joshi</option>
-                <option value="Sagar More">Sagar More</option>
-              </select>
-              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-2 pt-1">
-          <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg cursor-pointer transition-colors">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-[10px] sm:text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg cursor-pointer transition-colors">
             <Eye size={12} /> View Details <ArrowRight size={11} className="ml-auto" />
           </button>
-          <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer transition-colors">
+          <button type="button" className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-[10px] sm:text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer transition-colors">
             <History size={12} /> View History
           </button>
         </div>
@@ -433,23 +494,28 @@ function PhcDrawer({ record, onClose }: PhcModalProps) {
       title="Policy PHC Details"
       subtitle={`View year-wise preventive health checkups, eligible amounts, and family member breakdown for ${record.customerName}`}
       size="2xl"
+      actions={
+        <button type="button" onClick={onClose} className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold shadow-xs hover:bg-blue-700 transition-colors cursor-pointer">
+          Save
+        </button>
+      }
     >
       <div className="space-y-3">
         {/* Policy Summary Banner */}
         <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2.5 shadow-2xs">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className={clsx('w-8 h-8 rounded-lg text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs', record.companyColor)}>
               {record.companyInitials.slice(0, 4)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-xs text-slate-900 truncate">{record.policyNo}</h3>
               </div>
               <p className="text-[11px] font-semibold text-slate-500">{record.planName}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"><User size={12} /></div>
             <div>
               <p className="text-xs font-bold text-slate-800">{record.customerName}</p>
@@ -457,7 +523,7 @@ function PhcDrawer({ record, onClose }: PhcModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 border-t border-slate-200/60 pt-2.5 text-[11px]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-slate-200/60 pt-2.5 text-[11px]">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Start Date</span>
               <span className="font-bold text-slate-800 block mt-0.5">{record.policyStartDate}</span>
@@ -498,13 +564,6 @@ function PhcDrawer({ record, onClose }: PhcModalProps) {
             .filter(yr => yr.yearNo === selectedYearTab)
             .map(yr => <PhcYearCard key={yr.yearNo} yr={yr} />)}
         </div>
-
-        {/* Footer actions inside Modal */}
-        <div className="pt-2 border-t border-slate-100 flex justify-end">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 cursor-pointer">
-            Close
-          </button>
-        </div>
       </div>
     </Modal>
   );
@@ -512,7 +571,7 @@ function PhcDrawer({ record, onClose }: PhcModalProps) {
 
 // ── Main Component ────────────────────────────────────────────────────────────────
 export default function PhcTrackingView() {
-  const [activeTab, setActiveTab] = useState<'all' | 'due-this-month' | 'upcoming' | 'completed'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'dependencies' | 'due-this-month' | 'upcoming' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [policyTypeFilter, setPolicyTypeFilter] = useState('All');
   const [phcStatusFilter, setPhcStatusFilter] = useState('All');
@@ -526,6 +585,7 @@ export default function PhcTrackingView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [drawerRecord, setDrawerRecord] = useState<PhcPolicyRecord | null>(null);
+  const [showDateFilter, setShowDateFilter] = useState(false);
 
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -586,7 +646,45 @@ export default function PhcTrackingView() {
     return sortedFilteredData.slice(start, start + rowsPerPage);
   }, [sortedFilteredData, currentPage, rowsPerPage]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
+  const dependenciesData = useMemo(() => {
+    const depsMap = new Map<string, any>();
+    
+    filteredData.forEach(policy => {
+      policy.years.forEach(yr => {
+        yr.insuredPersons.forEach(person => {
+          if (person.relationship === 'Self') return;
+          
+          const key = `${policy.id}-${person.name}`;
+          if (!depsMap.has(key)) {
+            depsMap.set(key, {
+              id: key,
+              policyRecord: policy,
+              name: person.name,
+              relationship: person.relationship,
+              utilizedAmount: 0,
+              phcCount: 0,
+            });
+          }
+          const dep = depsMap.get(key)!;
+          dep.utilizedAmount += person.utilizedAmount;
+          dep.phcCount += person.phcCount;
+        });
+      });
+    });
+
+    let depsList = Array.from(depsMap.values());
+    return sortData(depsList, sortKey, sortDir, (row: any, key: string) => {
+      if (key === 'policyNo' || key === 'customerName' || key === 'planName') return row.policyRecord[key];
+      return row[key];
+    });
+  }, [filteredData, sortKey, sortDir]);
+
+  const paginatedDependencies = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    return dependenciesData.slice(start, start + rowsPerPage);
+  }, [dependenciesData, currentPage, rowsPerPage]);
+
+  const totalPages = Math.max(1, Math.ceil((activeTab === 'dependencies' ? dependenciesData.length : filteredData.length) / rowsPerPage));
 
   const handleQuickFilter = (key: string) => {
     setQuickFilter(key);
@@ -597,10 +695,11 @@ export default function PhcTrackingView() {
   };
 
   const TABS = [
-    { key: 'all', label: 'All Policies' },
-    { key: 'due-this-month', label: 'Due This Month' },
-    { key: 'upcoming', label: 'Upcoming' },
-    { key: 'completed', label: 'Completed' },
+    { key: 'all', label: 'All PHC Policies' },
+    { key: 'dependencies', label: 'Dependencies' },
+    { key: 'due-this-month', label: 'Due this Month' },
+    { key: 'upcoming', label: 'Under Process PHC' },
+    { key: 'completed', label: 'Completed PHC' },
   ] as const;
 
   const SUMMARY_CARDS = [
@@ -631,57 +730,6 @@ export default function PhcTrackingView() {
         ))}
       </div>
 
-      {/* ── Date Wise Filter ──────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 space-y-3">
-        <p className="text-xs font-extrabold text-blue-700 flex items-center gap-1.5">
-          <Calendar size={13} className="text-blue-500" />
-          Date Wise Filter
-        </p>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filter By</label>
-            <div className="relative">
-              <select value={dateFilterType} onChange={e => setDateFilterType(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none">
-                {['PHC Year End Date', 'PHC Start Date', 'Policy End Date'].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">From Date</label>
-            <div className="relative">
-              <input type="text" value={fromDate} onChange={e => { setFromDate(e.target.value); setQuickFilter(null); }}
-                className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36" placeholder="DD/MM/YYYY" />
-              <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">To Date</label>
-            <div className="relative">
-              <input type="text" value={toDate} onChange={e => { setToDate(e.target.value); setQuickFilter(null); }}
-                className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36" placeholder="DD/MM/YYYY" />
-              <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[{ key: 'this-month', label: 'This Month' }, { key: 'last-month', label: 'Last Month' }, { key: 'this-quarter', label: 'This Quarter' }, { key: 'this-year', label: 'This Year' }].map(qf => (
-              <button key={qf.key} type="button" onClick={() => handleQuickFilter(qf.key)}
-                className={clsx('px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border', quickFilter === qf.key ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100')}>
-                {qf.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => { setFromDate(''); setToDate(''); setQuickFilter(null); }}
-              className="px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border border-slate-200 bg-white text-slate-500 hover:bg-slate-50">Clear</button>
-          </div>
-        </div>
-        {fromDate && toDate && (
-          <p className="text-[11px] font-medium text-slate-500 italic">
-            Showing policies whose {dateFilterType} is between {fromDate} and {toDate}
-          </p>
-        )}
-      </div>
-
       {/* ── Main Table Card ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         {/* Tabs */}
@@ -704,7 +752,7 @@ export default function PhcTrackingView() {
               className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-4 py-2 text-xs font-semibold text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" />
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2 flex-wrap">
             {[
               { val: policyTypeFilter, setter: setPolicyTypeFilter, label: 'Policy Type', opts: [['All', 'Policy Type'], ['HEALTH', 'Health'], ['LIFE', 'Life'], ['TERM', 'Term']] },
               { val: phcStatusFilter, setter: setPhcStatusFilter, label: 'PHC Status', opts: [['All', 'PHC Status'], ['Interested', 'Interested'], ['Partial Utilized', 'Partial Utilized'], ['Fully Utilized', 'Fully Utilized'], ['Not Interested', 'Not Interested'], ['Upcoming', 'Upcoming'], ['Completed', 'Completed']] },
@@ -721,20 +769,133 @@ export default function PhcTrackingView() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
             <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setActiveTab('all'); setCurrentPage(1); }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+              className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
               <RotateCcw size={12} /> Reset
             </button>
-            <button type="button"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border bg-blue-600 text-white border-blue-600">
-              <SlidersHorizontal size={12} /> Filter
+            <button type="button" onClick={() => setShowDateFilter(!showDateFilter)}
+              className={clsx("flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold cursor-pointer transition-all border", showDateFilter ? "bg-blue-700 text-white border-blue-700" : "bg-blue-600 text-white border-blue-600")}>
+              <SlidersHorizontal size={12} /> Filter {showDateFilter ? '▲' : '▼'}
             </button>
           </div>
         </div>
 
+        {/* ── Collapsible Date Wise Filter ──────────────────────────────────────── */}
+        {showDateFilter && (
+          <div className="bg-slate-50/50 border-b border-slate-200/80 p-4 space-y-3 animate-fadeIn">
+            <p className="text-xs font-extrabold text-blue-700 flex flex-wrap items-center gap-1.5">
+              <Calendar size={13} className="text-blue-500" />
+              Advanced Date Filter
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filter By</label>
+                <div className="relative">
+                  <select value={dateFilterType} onChange={e => setDateFilterType(e.target.value)}
+                    className="bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none">
+                    {['PHC Year End Date', 'PHC Start Date', 'Policy End Date'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">From Date</label>
+                <div className="relative">
+                  <input type="text" value={fromDate} onChange={e => { setFromDate(e.target.value); setQuickFilter(null); }}
+                    className="bg-white border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36" placeholder="DD/MM/YYYY" />
+                  <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">To Date</label>
+                <div className="relative">
+                  <input type="text" value={toDate} onChange={e => { setToDate(e.target.value); setQuickFilter(null); }}
+                    className="bg-white border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36" placeholder="DD/MM/YYYY" />
+                  <Calendar size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 flex-wrap">
+                {[{ key: 'this-month', label: 'This Month' }, { key: 'last-month', label: 'Last Month' }, { key: 'this-quarter', label: 'This Quarter' }, { key: 'this-year', label: 'This Year' }].map(qf => (
+                  <button key={qf.key} type="button" onClick={() => handleQuickFilter(qf.key)}
+                    className={clsx('px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border', quickFilter === qf.key ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50')}>
+                    {qf.label}
+                  </button>
+                ))}
+                <button type="button" onClick={() => { setFromDate(''); setToDate(''); setQuickFilter(null); }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border border-slate-200 bg-white text-slate-500 hover:bg-slate-50">Clear</button>
+              </div>
+            </div>
+            {fromDate && toDate && (
+              <p className="text-[11px] font-medium text-slate-500 italic">
+                Showing policies whose {dateFilterType} is between {fromDate} and {toDate}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Table */}
         <div className="overflow-x-auto">
+          {activeTab === 'dependencies' ? (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="px-3 py-3 border border-slate-200 text-center w-10">Sr No.</th>
+                  {[
+                    { key: 'customerName', label: 'Customer Name' },
+                    { key: 'policyNo', label: 'Policy no.' },
+                    { key: 'planName', label: 'Product name' },
+                    { key: 'name', label: 'Dependent Name' },
+                    { key: 'relationship', label: 'Relationship' },
+                    { key: 'utilizedAmount', label: 'Total Utilised' },
+                    { key: 'phcCount', label: 'Total PHC Count' },
+                    { key: 'Actions', label: 'Action', align: 'right' },
+                  ].map(h => (
+                    <th key={h.key} 
+                      className={clsx(`px-3 py-3 border border-slate-200 whitespace-nowrap select-none ${h.align === 'right' ? 'text-right' : ''}`, h.key !== 'Actions' && 'cursor-pointer hover:text-slate-900')}
+                      onClick={() => {
+                        if (h.key === 'Actions') return;
+                        if (sortKey === h.key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                        else { setSortKey(h.key); setSortDir('asc'); }
+                      }}
+                    >
+                      <span className={clsx("inline-flex items-center gap-1", h.align === 'right' && "justify-end w-full")}>
+                        {h.label}
+                        {h.key !== 'Actions' && (
+                          <span className="text-slate-400">
+                            {sortKey === h.key
+                              ? sortDir === 'asc' ? <ChevronUp size={13} className="text-slate-900 stroke-[3]" /> : <ChevronDown size={13} className="text-slate-900 stroke-[3]" />
+                              : <ChevronUp size={13} className="text-slate-500 stroke-[2.5]" />}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100/80 font-medium">
+                {paginatedDependencies.length === 0 ? (
+                  <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400 font-semibold">No dependents match the selected filters.</td></tr>
+                ) : paginatedDependencies.map((r, idx) => (
+                  <tr key={r.id} onClick={() => setDrawerRecord(r.policyRecord)} className={clsx("transition-colors cursor-pointer", idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white', 'hover:bg-blue-50/50')}>
+                    <td className="px-3 py-3 border border-slate-200 text-center font-bold text-slate-500">{(currentPage - 1) * rowsPerPage + idx + 1}</td>
+                    <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.policyRecord.customerName}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap"><span className="font-bold text-slate-800 text-[11px]">{r.policyRecord.policyNo}</span></td>
+                    <td className="px-3 py-3 border border-slate-200"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.policyRecord.planName}</p></td>
+                    <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.name}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.relationship}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-blue-700 text-[11px]">{fmtCurr(r.utilizedAmount)}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-violet-700 text-[11px]">{r.phcCount}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => setDrawerRecord(r.policyRecord)} className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 cursor-pointer transition-colors" title="View Policy Details">
+                        <Eye size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -810,10 +971,7 @@ export default function PhcTrackingView() {
                   <td className="px-3 py-3 border border-slate-200"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.planName}</p></td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-700">{fmtCurr(r.sumInsured)}</td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <div className={clsx('w-7 h-7 rounded-lg text-white font-black text-[9px] flex items-center justify-center shrink-0', r.companyColor)}>{r.companyInitials.slice(0, 4)}</div>
-                      <span className="font-bold text-slate-800 text-[11px]">{r.policyNo}</span>
-                    </div>
+                    <span className="font-bold text-slate-800 text-[11px]">{r.policyNo}</span>
                   </td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold text-[11px]">{r.policyEndDate}</td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
@@ -842,12 +1000,15 @@ export default function PhcTrackingView() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/30 flex-wrap gap-2">
-          <span className="text-xs text-slate-400 font-semibold">Showing {Math.min(1, filteredData.length)} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries</span>
-          <div className="flex items-center gap-1">
+          <span className="text-xs text-slate-400 font-semibold">
+            Showing {Math.min(1, activeTab === 'dependencies' ? dependenciesData.length : filteredData.length)} to {Math.min(currentPage * rowsPerPage, activeTab === 'dependencies' ? dependenciesData.length : filteredData.length)} of {activeTab === 'dependencies' ? dependenciesData.length : filteredData.length} entries
+          </span>
+          <div className="flex flex-wrap items-center gap-1">
             <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"><ChevronLeft size={13} /></button>
             {Array.from({ length: Math.min(4, totalPages) }, (_, i) => i + 1).map(p => (
@@ -858,7 +1019,7 @@ export default function PhcTrackingView() {
             <button type="button" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
               className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-40"><ChevronRight size={13} /></button>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span className="font-semibold">Rows per page</span>
             <div className="relative">
               <select value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}

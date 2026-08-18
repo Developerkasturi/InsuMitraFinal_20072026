@@ -35,7 +35,7 @@ export function SuperAdminLayout() {
         {/* Sidebar */}
         <aside className="w-56 flex flex-col bg-gray-900 text-white shrink-0">
           {/* Brand */}
-          <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/10">
+          <div className="flex flex-wrap items-center gap-2.5 px-4 py-5 border-b border-white/10">
             <img src="/InsumitraLogo.png" alt="Insumitra" className="h-8 w-auto object-contain" />
             <p className="text-[10px] text-gray-400 leading-tight">Super Admin</p>
           </div>
@@ -65,14 +65,14 @@ export function SuperAdminLayout() {
           <div className="px-3 py-4 border-t border-white/10 space-y-1">
             <a
               href="/login"
-              className="flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-white/8 transition-colors"
+              className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white rounded-lg hover:bg-white/8 transition-colors"
             >
               <ChevronLeft size={16} />
               Tenant Login
             </a>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-red-400 rounded-lg hover:bg-white/8 transition-colors"
+              className="w-full flex flex-wrap items-center gap-3 px-3 py-2 text-xs sm:text-sm text-gray-400 hover:text-red-400 rounded-lg hover:bg-white/8 transition-colors"
             >
               <LogOut size={16} />
               Logout

@@ -194,7 +194,7 @@ function MultiSelectBox({
                 return (
                   <label
                     key={opt}
-                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
+                    className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs select-none"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <input
@@ -1855,7 +1855,7 @@ export default function Contacts() {
       render: r => {
         const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
         return (
-          <div className="flex items-center gap-3 py-0.5">
+          <div className="flex flex-wrap items-center gap-3 py-0.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
               {initials}
             </div>
@@ -1921,8 +1921,8 @@ export default function Contacts() {
         const empName = getEmployeeName(r.assignedEmployeeId, r.assignedEmployee, r);
         if (empName === 'Unassigned') {
           return (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <div className="flex flex-wrap items-center gap-1.5 flex-wrap">
+              <span className="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
                 Unassigned
               </span>
               {user?.role === 'EMPLOYEE' && (
@@ -1961,7 +1961,7 @@ export default function Contacts() {
             {showPickButton && (
               <button
                 onClick={() => handlePickContact(r.id)}
-                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs shadow-xs hover:from-blue-700 hover:to-indigo-700 transition-all hover:scale-105 cursor-pointer flex items-center gap-1 shrink-0"
+                className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs shadow-xs hover:from-blue-700 hover:to-indigo-700 transition-all hover:scale-105 cursor-pointer flex flex-wrap items-center gap-1 shrink-0"
                 title="Pick and assign this contact to yourself"
               >
                 <UserCheck size={13} />
@@ -2037,7 +2037,7 @@ export default function Contacts() {
       render: r => {
         const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
         return (
-          <div className="flex items-center gap-3 py-0.5">
+          <div className="flex flex-wrap items-center gap-3 py-0.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
               {initials}
             </div>
@@ -2083,11 +2083,11 @@ export default function Contacts() {
           p.endDate && new Date(p.endDate) <= new Date(Date.now() + 30 * 86400000)
         );
         return due ? (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs shadow-orange-500/20 border border-orange-400">
+          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs shadow-orange-500/20 border border-orange-400">
             <Flame size={11} /> Due
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> OK
           </span>
         );
@@ -2116,7 +2116,7 @@ export default function Contacts() {
             INTIMATED: 'Intimated', FILED: 'Filed', IN_REVIEW: 'In Review',
           };
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+            <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
               <Star size={11} className="text-amber-500" /> {CLAIM_LABELS[active.status] ?? active.status}
             </span>
           );
@@ -2224,7 +2224,7 @@ export default function Contacts() {
       render: r => {
         const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
         return (
-          <div className="flex items-center gap-3 py-0.5">
+          <div className="flex flex-wrap items-center gap-3 py-0.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
               {initials}
             </div>
@@ -2388,7 +2388,7 @@ export default function Contacts() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
 
           {/* Left Side: Search Bar ONLY */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -2401,7 +2401,7 @@ export default function Contacts() {
           </div>
 
           {/* Right Side: Active/Inactive Badges, All Products Filter, Date Range Selector & Column Settings */}
-          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 flex-wrap justify-end">
             {/* Active / Inactive Status Badges */}
             <button
               type="button"
@@ -2468,7 +2468,7 @@ export default function Contacts() {
                   </div>
 
                   {/* All Products Checkbox */}
-                  <label className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-extrabold text-slate-700 select-none">
+                  <label className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-extrabold text-slate-700 select-none">
                     <input
                       type="checkbox"
                       checked={filterProducts.length === 0}
@@ -2488,7 +2488,7 @@ export default function Contacts() {
                     ].map(prod => {
                       const isChecked = filterProducts.includes(prod.id);
                       return (
-                        <label key={prod.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-bold text-slate-700 select-none">
+                        <label key={prod.id} className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-bold text-slate-700 select-none">
                           <input
                             type="checkbox"
                             checked={isChecked}
@@ -2529,7 +2529,7 @@ export default function Contacts() {
             )}
 
             {/* Date Range Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+            <div className="flex flex-nowrap items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
               <Calendar size={14} className="text-slate-400 shrink-0" />
               <DatePicker
                 value={dateFrom}
@@ -2564,7 +2564,7 @@ export default function Contacts() {
                   {CONTACT_COLS.map(c => {
                     if (c.key === 'actions') return null;
                     return (
-                      <label key={String(c.key)} className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
+                      <label key={String(c.key)} className="flex flex-wrap items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
                         <input
                           type="checkbox"
                           checked={visibleColumns[String(c.key)] !== false}
@@ -2631,7 +2631,7 @@ export default function Contacts() {
           </div>
           <div>
             <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Type</label>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <select
                 value={filterProducts[0] || 'ALL'}
                 onChange={e => setFilterProducts(e.target.value === 'ALL' ? [] : [e.target.value])}
@@ -2644,7 +2644,7 @@ export default function Contacts() {
                 <option value="ACCIDENT">Accident</option>
                 <option value="OTHER">Other</option>
               </select>
-              <label className="flex items-center gap-1.5 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 bg-white border border-slate-200 px-2 py-1.5 rounded-lg shadow-2xs shrink-0 hover:bg-slate-50 transition-colors">
+              <label className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 bg-white border border-slate-200 px-2 py-1.5 rounded-lg shadow-2xs shrink-0 hover:bg-slate-50 transition-colors">
                 <input
                   type="checkbox"
                   checked={excludeProduct}
@@ -2690,7 +2690,7 @@ export default function Contacts() {
       {/* Delete Confirm */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Contact" size="sm">
         <p className="text-sm text-gray-600 mb-4">Delete <strong>{deleteTarget?.firstName} {deleteTarget?.lastName}</strong>? This cannot be undone.</p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" onClick={confirmDelete} disabled={deleteContact.isPending}>
             {deleteContact.isPending ? 'Deleting…' : 'Delete'}
@@ -2730,7 +2730,7 @@ export default function Contacts() {
                 <label className="label">Interaction Type</label>
                 <div className="flex gap-4 mt-1">
                   {['Call', 'WhatsApp', 'Meeting'].map((t) => (
-                    <label key={t} className="inline-flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                    <label key={t} className="inline-flex flex-wrap items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
                       <input
                         type="radio"
                         name="interactionType"
@@ -2808,7 +2808,7 @@ export default function Contacts() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
               <button
                 type="button"
                 className="btn-secondary"
@@ -2849,7 +2849,7 @@ export default function Contacts() {
                         <span>{format(new Date(act.createdAt), 'dd/MMM/yyyy hh:mm a')}</span>
                         <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">{creatorName}</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className={clsx(
                           'px-1.5 py-0.25 rounded text-[9px] font-bold uppercase tracking-wider',
                           act.action === 'WHATSAPP' ? 'bg-green-100 text-green-700' :
@@ -2888,7 +2888,7 @@ export default function Contacts() {
             {isViewMode ? (
                 <button
                   type="button"
-                  className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                   onClick={() => setIsViewMode(false)}
                 >
                   Edit
@@ -2896,7 +2896,7 @@ export default function Contacts() {
             ) : (
               <button
                 type="button"
-                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                 onClick={(e) => handleLeadSubmit(e, false)}
               >
                 Save
@@ -2972,7 +2972,7 @@ export default function Contacts() {
                         className={`bg-gradient-to-r ${headerGradient} px-4 py-3 flex items-center justify-between cursor-pointer select-none`}
                         onClick={() => toggleProductCollapse(card.id)}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 min-w-0">
                           <div className="w-6 h-6 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
                             <span className="text-white font-black text-[11px]">{idx + 1}</span>
                           </div>
@@ -2992,7 +2992,7 @@ export default function Contacts() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {!isExisting && (
                             <button
                               type="button"
@@ -3074,7 +3074,7 @@ export default function Contacts() {
 
                           {/* Description Details Box */}
                           <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-2 shadow-xs">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
                                 <FileText size={13} />
                               </div>
@@ -3142,7 +3142,7 @@ export default function Contacts() {
                           {/* Prominent Dependent Details Textbox when Depend is selected */}
                           {card.dependencyType === 'DEPENDENT' && (
                             <div className="bg-blue-50/80 border-2 border-blue-200 rounded-xl p-3 space-y-1.5 animate-fadeIn">
-                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1">
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex flex-wrap items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
                                 Dependent Details / Name / Relation *
                               </label>
@@ -3224,7 +3224,7 @@ export default function Contacts() {
                           <div className="bg-slate-50/90 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-xs">
                             {/* Header */}
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                                   <MessageCircle size={13} />
                                 </div>
@@ -3249,11 +3249,11 @@ export default function Contacts() {
                                 (card.showAllComments ? card.comments : card.comments.slice(0, 2)).map((cmt, ci) => (
                                   <div key={ci} className="bg-white rounded-xl border border-slate-200/80 p-3 shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all space-y-1.5 relative overflow-hidden group">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                                      <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
                                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
                                         {cmt.author}
                                       </span>
-                                      <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                                      <span className="text-[10px] text-slate-400 font-semibold flex flex-wrap items-center gap-1">
                                         {cmt.datetime}
                                       </span>
                                     </div>
@@ -3271,7 +3271,7 @@ export default function Contacts() {
                                 <button
                                   type="button"
                                   onClick={() => updateProductInterest(card.id, 'showAllComments', !card.showAllComments)}
-                                  className="inline-flex items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
+                                  className="inline-flex flex-wrap items-center gap-1 text-xs font-extrabold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-all"
                                 >
                                   {card.showAllComments ? (
                                     <>
@@ -3289,7 +3289,7 @@ export default function Contacts() {
                             {/* Add Call Summary & Consultation Comment Box */}
                             <div className="bg-white rounded-xl border-2 border-blue-200/90 p-3 space-y-2 shadow-2xs focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all mt-1">
                               <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <label className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex flex-wrap items-center gap-1.5">
                                   <MessageCircle size={12} className="text-blue-600" />
                                   Add Call Summary / Comment
                                 </label>
@@ -3313,7 +3313,7 @@ export default function Contacts() {
                                   type="button"
                                   onClick={() => addProductComment(card.id)}
                                   disabled={!card.newComment.trim()}
-                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex items-center gap-1.5"
+                                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-xs flex flex-wrap items-center gap-1.5"
                                 >
                                   <Send size={12} />
                                   Save Call Summary
@@ -3333,7 +3333,7 @@ export default function Contacts() {
                 <button
                   type="button"
                   onClick={addProductInterest}
-                  className="w-full mt-1 py-3 rounded-2xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50 text-blue-600 hover:text-blue-700 text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                  className="w-full mt-1 py-3 rounded-2xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50 text-blue-600 hover:text-blue-700 text-[10px] sm:text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer group"
                 >
                   + Add Product Interest
                 </button>
@@ -3348,11 +3348,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('personalDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                       Personal Details
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Basic Demographics</span>
                       <ChevronDown
                         size={16}
@@ -3361,7 +3361,7 @@ export default function Contacts() {
                     </div>
                   </div>
                   {!personalCollapsed['personalDetails'] && (
-                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">First Name <span className="text-red-500">*</span></label>
                       <input
@@ -3519,11 +3519,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('contactDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                       Contact Details
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Communication Info</span>
                       <ChevronDown
                         size={16}
@@ -3532,7 +3532,7 @@ export default function Contacts() {
                     </div>
                   </div>
                   {!personalCollapsed['contactDetails'] && (
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
                       <input
@@ -3572,7 +3572,7 @@ export default function Contacts() {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">Calling Number</label>
-                        <label className="flex items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
+                        <label className="flex flex-wrap items-center gap-1 text-[10px] text-blue-600 font-semibold cursor-pointer select-none">
                           <input
                             type="checkbox"
                             className="accent-blue-600 w-3 h-3 rounded"
@@ -3610,11 +3610,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('educationOccupation')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                       Education &amp; Occupation
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Professional Profile</span>
                       <ChevronDown
                         size={16}
@@ -3623,7 +3623,7 @@ export default function Contacts() {
                     </div>
                   </div>
                   {!personalCollapsed['educationOccupation'] && (
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Education</label>
                       <DatalistInput
@@ -3679,11 +3679,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('addressDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
                       Address Details
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Location &amp; Residence</span>
                       <ChevronDown
                         size={16}
@@ -3692,7 +3692,7 @@ export default function Contacts() {
                     </div>
                   </div>
                   {!personalCollapsed['addressDetails'] && (
-                    <div className="p-4 grid grid-cols-3 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
                       <select
@@ -3761,11 +3761,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('bankDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                       Bank Details
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Banking Information</span>
                       <ChevronDown
                         size={16}
@@ -3774,7 +3774,7 @@ export default function Contacts() {
                     </div>
                   </div>
                   {!personalCollapsed['bankDetails'] && (
-                    <div className="p-4 grid grid-cols-2 gap-3.5">
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Bank Name</label>
                       <input
@@ -3825,11 +3825,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('lifestyleHabits')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                       Lifestyle Habits
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Personal Habits</span>
                       <ChevronDown
                         size={16}
@@ -3876,11 +3876,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('healthHistory')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
                       Health History / Medical History
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Medical Records</span>
                       <ChevronDown
                         size={16}
@@ -3929,11 +3929,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('surgeryDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">8</span>
                       Any Surgery Done / Advised
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Surgical History</span>
                       <ChevronDown
                         size={16}
@@ -3961,11 +3961,11 @@ export default function Contacts() {
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('prescriptionDetails')}
                   >
-                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">9</span>
                       Current Medicines / Prescription
                     </h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Ongoing Medications</span>
                       <ChevronDown
                         size={16}
@@ -3998,7 +3998,7 @@ export default function Contacts() {
                   <button
                     type="button"
                     onClick={addFamilyMember}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                    className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                   >
                     + Add Member
                   </button>
@@ -4026,7 +4026,7 @@ export default function Contacts() {
                         </div>
 
                         {/* Row 1: First Name | Middle Name | Last Name | DOB | Relation */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
                             <input
@@ -4060,7 +4060,7 @@ export default function Contacts() {
                         </div>
 
                         {/* Row 2: DOB | Relation | Occupation */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">DOB</label>
                             <DatePicker
@@ -4108,7 +4108,7 @@ export default function Contacts() {
                         </div>
 
                         {/* Row 3: WhatsApp | Calling Number | Education */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">WhatsApp</label>
                             <div className="mt-1">
@@ -4146,7 +4146,7 @@ export default function Contacts() {
                         </div>
 
                         {/* Row 3.5: Marital Status | Wedding Anniversary & Age (if married) | Height & Weight */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                           <div>
                             <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Marital Status</label>
                             <input
@@ -4225,7 +4225,7 @@ export default function Contacts() {
                         </div>
 
                         {/* Row 4: Medical History */}
-                        <div className="grid grid-cols-3 gap-3 px-4 pt-3 pb-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3 pb-3">
                           {/* Generic Medical History */}
                           <div className="col-span-3">
                             <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Medical History (Select if applicable)</label>
@@ -4237,7 +4237,7 @@ export default function Contacts() {
                                   ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
                                   : current.includes(condition);
                                 return (
-                                  <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                  <label key={condition} className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none">
                                     <input
                                       type="checkbox"
                                       className="accent-blue-600 w-3.5 h-3.5"
@@ -4392,7 +4392,7 @@ export default function Contacts() {
                         <div key={policy.id} className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md transition-all`}>
                           <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/80">{typeLabel}</span>
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusTone}`}>{policy.status || 'ACTIVE'}</span>
                               </div>
@@ -4404,7 +4404,7 @@ export default function Contacts() {
                           </div>
 
                           <div className="p-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div className="rounded-xl bg-slate-50 px-3 py-2">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company</p>
                                 <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.company?.name || '—'}</p>
@@ -4423,15 +4423,15 @@ export default function Contacts() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
                                 <Calendar size={13} className="text-slate-400 shrink-0" />
                                 <div>
                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start</p>
                                   <p className="text-xs font-semibold text-slate-700">{policy.startDate ? new Date(policy.startDate).toLocaleDateString('en-IN') : '—'}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
                                 <Calendar size={13} className="text-slate-400 shrink-0" />
                                 <div>
                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End</p>
@@ -4466,7 +4466,7 @@ export default function Contacts() {
                         <div key={pIdx} className={`border ${accentBorder} rounded-xl bg-white shadow-sm`}>
                           {/* Portfolio header */}
                           <div className={`flex items-center justify-between px-4 py-2.5 border-b ${accentHeader} rounded-t-xl`}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className={`text-sm ${accentIcon}`}>☆</span>
                               <span className="text-xs font-bold text-gray-700">{portfolioTitle}</span>
                               <span className="text-gray-300 text-xs">›</span>
@@ -4498,7 +4498,7 @@ export default function Contacts() {
                                 {/* Entry header */}
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Entry #{eIdx + 1}</span>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <select
                                       className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 cursor-pointer bg-white"
                                       value={entry.entryType}
@@ -4518,7 +4518,7 @@ export default function Contacts() {
                                 </div>
 
                                 {/* Row 1: Insurance Company | Plan Name */}
-                                <div className="grid grid-cols-2 gap-3 mb-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
                                   <div>
                                     <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Insurance Company</label>
                                     <select
@@ -4610,7 +4610,7 @@ export default function Contacts() {
                                 </div>
 
                                 {/* Row 3: Start Date | Duration | End Date */}
-                                <div className="grid grid-cols-3 gap-3 mb-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                                   <div>
                                     <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Date</label>
                                     <DatePicker
@@ -4648,7 +4648,7 @@ export default function Contacts() {
                                 </div>
 
                                 {/* Row 4: Premium | Sum Insured | Deductible */}
-                                <div className="grid grid-cols-3 gap-3 mb-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
                                   <div>
                                     <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Premium (₹)</label>
                                     <div className="flex mt-1">
@@ -4686,7 +4686,7 @@ export default function Contacts() {
 
                                 {/* Upload Policy Document */}
                                 <div className="mt-1">
-                                  <label className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 cursor-pointer font-medium">
+                                  <label className="flex flex-wrap items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 cursor-pointer font-medium">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                                       <polyline points="17 8 12 3 7 8" />
@@ -4724,7 +4724,7 @@ export default function Contacts() {
                   ].map((campaign) => (
                     <label
                       key={campaign}
-                      className="flex items-center gap-3 p-3 bg-gray-50/50 border border-gray-150 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex flex-wrap items-center gap-3 p-3 bg-gray-50/50 border border-gray-150 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -4747,7 +4747,7 @@ export default function Contacts() {
               <div className="space-y-4">
                 {/* Tab Header */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                       <History size={13} />
                     </div>
@@ -4764,7 +4764,7 @@ export default function Contacts() {
                   {/* 1. Personal Details Log Card */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                           <UserCircle2 size={13} />
                         </div>
@@ -4823,7 +4823,7 @@ export default function Contacts() {
                   {/* 2. Family Members Created & Linked Log Card */}
                   <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                           <Users size={13} />
                         </div>
@@ -4847,7 +4847,7 @@ export default function Contacts() {
                         {familyMembers.map((member, idx) => (
                           <div key={idx} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 space-y-2 text-xs hover:border-blue-200 transition-all">
                             <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
                                   {idx + 1}
                                 </span>
@@ -4898,7 +4898,7 @@ export default function Contacts() {
                   {/* 3. Particular Contact Audit Log Card */}
                   {loadedContact && (
                     <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-2 text-xs">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
                         <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                           <Calendar size={13} />
                         </div>
@@ -4947,11 +4947,11 @@ export default function Contacts() {
             value={dirText}
             onChange={e => setDirText(e.target.value)}
           />
-          <div className="flex justify-end gap-2">
-            <button type="button" className="btn-secondary text-xs h-9" onClick={() => setDirImportOpen(false)}>Cancel</button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="btn-secondary text-[10px] sm:text-xs h-9" onClick={() => setDirImportOpen(false)}>Cancel</button>
             <button
               type="button"
-              className="btn-primary text-xs h-9"
+              className="btn-primary text-[10px] sm:text-xs h-9"
               onClick={async () => {
                 const lines = dirText.split('\n').filter(l => l.trim());
                 const contactsToImport = lines.map(l => {

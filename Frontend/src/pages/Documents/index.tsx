@@ -76,7 +76,7 @@ export default function Documents() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center gap-3 flex-wrap">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -119,7 +119,7 @@ export default function Documents() {
                 <p className="text-sm font-medium text-gray-900 truncate" title={doc.fileName ?? doc.originalName}>
                   {doc.fileName ?? doc.originalName ?? 'Document'}
                 </p>
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${TAG_BADGE[doc.tag] ?? 'badge-gray'}`}>
                     {doc.tag}
                   </span>
@@ -163,7 +163,7 @@ export default function Documents() {
               className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-primary-300 transition-colors cursor-pointer"
               onClick={() => document.getElementById('doc-file-input')?.click()}>
               {uploadFile ? (
-                <div className="flex items-center gap-2 justify-center">
+                <div className="flex flex-wrap items-center gap-2 justify-center">
                   <FileText size={18} className="text-primary-500"/>
                   <div className="text-left">
                     <p className="text-sm font-medium text-gray-900">{uploadFile.name}</p>
@@ -189,7 +189,7 @@ export default function Documents() {
                 onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-secondary" onClick={() => { setUploadModal(false); setUploadFile(null); setUploadTag('POLICY'); }}>Cancel</button>
             <button className="btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
               {uploading ? 'Uploading…' : 'Upload'}
@@ -203,7 +203,7 @@ export default function Documents() {
         <p className="text-sm text-gray-600 mb-4">
           Delete <strong>{deleteTarget?.fileName ?? deleteTarget?.originalName ?? 'this document'}</strong>? This cannot be undone.
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" disabled={removeDoc.isPending} onClick={async () => {
             const isAdmin = authUser?.role === 'SUPERADMIN' || authUser?.role === 'OWNER';

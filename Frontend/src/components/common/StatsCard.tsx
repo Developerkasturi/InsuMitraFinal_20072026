@@ -38,7 +38,7 @@ export default function StatsCard({ label, value, sub, icon, trend, color = 'blu
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">{label}</p>
         <p className="text-2xl font-bold text-gray-900 mt-0.5 tabular-nums">{value}</p>
         {(sub !== undefined || trend !== undefined) && (
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
             {trend !== undefined && (
               <span className={clsx(
                 'inline-flex items-center text-xs font-semibold px-1.5 py-0.5 rounded-md',

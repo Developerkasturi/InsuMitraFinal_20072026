@@ -222,12 +222,12 @@ export default function LeadDetail() {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">
               {l.contact?.firstName} {l.contact?.lastName}
             </h2>
@@ -237,13 +237,13 @@ export default function LeadDetail() {
           </div>
           {l.plan && <p className="text-sm text-gray-500 mt-0.5">{l.plan.name} · {l.plan.company?.name}</p>}
         </div>
-        <button onClick={openEdit} className="btn-secondary flex items-center gap-1"><Edit2 size={14}/>Edit</button>
+        <button onClick={openEdit} className="btn-secondary flex flex-wrap items-center gap-1"><Edit2 size={14}/>Edit</button>
       </div>
 
       {/* Stage Pipeline */}
       <div className="card">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Stage Pipeline</h3>
-        <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex flex-wrap items-center gap-1 flex-wrap">
           {STAGES.map((s, idx) => (
             <div key={s} className="flex items-center">
               <button
@@ -331,7 +331,7 @@ export default function LeadDetail() {
           });
           updateLead.mutate(cleaned);
         })} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label className="label">Sum Assured Required (₹)</label>
               <input {...register('sumAssuredRequired')} type="number" className="input" min="0" />
@@ -353,7 +353,7 @@ export default function LeadDetail() {
             <label className="label">Notes</label>
             <textarea {...register('notes')} className="input" rows={3} />
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
             <button type="button" className="btn-secondary" onClick={() => setEditModal(false)}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={updateLead.isPending}>
               {updateLead.isPending ? 'Saving…' : 'Save'}
@@ -371,12 +371,12 @@ export default function LeadDetail() {
         size="xl"
       >
         <form onSubmit={handleSubmitPolicy(handlePolicyFormSubmit)} className="space-y-4 mt-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* Customer (Read-only display) */}
             <div className="col-span-2 flex flex-col gap-1 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-extrabold">Customer Details</label>
-              <div className="flex items-center gap-3 mt-1.5">
+              <div className="flex flex-wrap items-center gap-3 mt-1.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
                   {(lead?.data ?? lead)?.contact?.firstName?.[0] || 'C'}
                 </div>
@@ -524,17 +524,17 @@ export default function LeadDetail() {
 
           </div>
 
-          <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex flex-wrap justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button 
               type="button" 
-              className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer transition-all"
+              className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer transition-all"
               onClick={() => setPolicyModalOpen(false)}
             >
               Cancel
             </button>
             <button 
               type="submit" 
-              className="px-5 py-2 text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
             >
               Issue Policy & Complete Lead
             </button>

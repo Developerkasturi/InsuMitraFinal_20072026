@@ -179,6 +179,25 @@ const editSchema = z.object({
 });
 type EditForm = z.infer<typeof editSchema>;
 
+const ExpandableComment = ({ text }: { text: string }) => {
+  if (!text || text.trim() === '') return <span className="text-slate-400">—</span>;
+  if (text.length <= 60) return <span className="whitespace-normal break-words leading-relaxed block min-w-[150px] max-w-[250px]">{text}</span>;
+  
+  return (
+    <div className="relative group flex flex-col items-start min-w-[150px] max-w-[250px]">
+      <span className="line-clamp-2 whitespace-normal break-words leading-relaxed cursor-help border-b border-dashed border-slate-300">
+        {text}
+      </span>
+      
+      {/* Custom Hover Tooltip */}
+      <div className="absolute z-[100] left-0 top-full mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-[300px] bg-slate-900 text-white text-xs rounded-xl p-3.5 shadow-2xl break-words whitespace-normal pointer-events-none border border-slate-700">
+        <div className="absolute -top-1.5 left-4 w-3 h-3 bg-slate-900 rotate-45 border-l border-t border-slate-700" />
+        <span className="relative z-10 leading-relaxed block">{text}</span>
+      </div>
+    </div>
+  );
+};
+
 export default function Policies() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -650,6 +669,10 @@ export default function Policies() {
     // Map specific table column keys to object paths for sorting
     if (key === 'renewAssign') key = 'assignedEmployee.employeeProfile.firstName';
     if (key === 'clientName') key = 'contact.firstName';
+    if (key === 'proposerName') key = 'contact.firstName';
+    if (key === 'proposerContact') key = 'contact.phone';
+    if (key === 'city') key = 'contact.address.city';
+    if (key === 'companyCategory') key = 'plan.company.category';
     return sortData(filteredPolicies, key, sortOrder);
   }, [filteredPolicies, sortBy, sortOrder]);
 
@@ -886,21 +909,25 @@ export default function Policies() {
       {
         key: 'proposerName',
         label: 'Proposer Name',
+        sortable: true,
         render: r => r.contact ? `${r.contact.firstName} ${r.contact.lastName || ''}`.trim() : '—'
       },
       {
         key: 'proposerContact',
         label: 'Proposer Contact No.',
+        sortable: true,
         render: r => r.contact?.phone || '—'
       },
       {
         key: 'city',
         label: 'City',
+        sortable: true,
         render: r => (r.contact as any)?.address?.city || (r.contact as any)?.city || '—'
       },
       {
         key: 'companyCategory',
         label: 'Insurance Company Category',
+        sortable: true,
         render: r => r.plan?.company?.category || (r as any).insuranceCompanyCategory || '—'
       },
       {
@@ -966,7 +993,7 @@ export default function Policies() {
       {
         key: 'comment',
         label: 'Comment',
-        render: r => r.notes ? (parseExtraNotes(r.notes).cleanNotes || r.notes) : '—'
+        render: r => <ExpandableComment text={r.notes ? (parseExtraNotes(r.notes).cleanNotes || r.notes) : ''} />
       },
       {
         key: 'firstYearPremium',
@@ -1001,7 +1028,7 @@ export default function Policies() {
     cols.push({
       key: 'actions' as any, label: 'ACTIONS',
       render: r => (
-        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-nowrap items-center gap-1.5 w-max" onClick={e => e.stopPropagation()}>
           <button
             title="Download Policy Document"
             className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
@@ -1206,7 +1233,7 @@ export default function Policies() {
     <div className="space-y-4">
       {/* Top View Switcher Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => navigate('/policies?tab=list')}
@@ -1249,7 +1276,7 @@ export default function Policies() {
 
         {/* PHC History Button - Rendered inline with tabs when on PHC Tracker */}
         {currentTab === 'phc' && (
-          <button type="button" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs cursor-pointer transition-colors whitespace-nowrap">
+          <button type="button" className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-bold text-[10px] sm:text-xs cursor-pointer transition-colors whitespace-nowrap">
             <History size={14} /> PHC History (All Policies)
           </button>
         )}
@@ -1295,7 +1322,7 @@ export default function Policies() {
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               {/* Left Side: Search Bar ONLY */}
-              <div className="flex items-center gap-2 w-full lg:w-auto">
+              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                 <div className="relative w-full lg:w-64">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -1309,7 +1336,7 @@ export default function Policies() {
               </div>
 
               {/* Right Side: Quick Select Category Filters, Column Picker & Filters Toggle */}
-              <div className="flex items-center gap-2.5 flex-wrap justify-end">
+              <div className="flex flex-wrap items-center gap-2.5 flex-wrap justify-end">
                 {/* Quick Type Filters */}
                 <button
                   onClick={() => { setSelectedQuickFilter('ALL'); setPage(1); }}
@@ -1368,7 +1395,7 @@ export default function Policies() {
                         { key: 'claimStatus', label: 'Claim Status' },
                         { key: 'claimAssign', label: 'Claim Assign' },
                       ].map(col => (
-                        <label key={col.key} className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
+                        <label key={col.key} className="flex flex-wrap items-center gap-2 cursor-pointer font-bold text-slate-700 hover:text-blue-600 transition-colors">
                           <input
                             type="checkbox"
                             checked={visibleColumns[col.key] !== false}
@@ -1402,7 +1429,7 @@ export default function Policies() {
               <span className="font-medium text-blue-800">
                 {selectedIds.length} policies selected
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={assignTarget}
                   onChange={e => setAssignTarget(e.target.value)}
@@ -1419,7 +1446,7 @@ export default function Policies() {
                 <button
                   onClick={handleBulkAssign}
                   disabled={!assignTarget || bulkAssignMutation.isPending}
-                  className="btn-primary py-1.5 px-3 text-xs cursor-pointer disabled:opacity-50"
+                  className="btn-primary py-1.5 px-3 text-[10px] sm:text-xs cursor-pointer disabled:opacity-50"
                 >
                   {bulkAssignMutation.isPending ? 'Assigning...' : 'Assign'}
                 </button>
@@ -1437,7 +1464,7 @@ export default function Policies() {
           {filtersOpen && (
             <div className="card bg-gray-50/50 p-5 rounded-xl border border-slate-200 shadow-sm mt-2 mb-4 animate-fadeIn">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/70">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 flex flex-wrap items-center gap-2">
                   <Filter size={16} className="text-blue-600" />
                   Advanced Filters
                 </h3>
@@ -1544,7 +1571,7 @@ export default function Policies() {
               </div>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
+              <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
                 <button
                   type="button"
                   onClick={() => { setTempFilters(defaultFilters); setAppliedFilters(defaultFilters); setPage(1); }}
@@ -1590,11 +1617,11 @@ export default function Policies() {
         subtitle={isViewMode ? "View policy details and plan information." : (editTarget ? "Update policy details and plan information." : "Enter policy details matching client profile standards.")}
         size="2xl"
         actions={
-          <div className="flex items-center gap-2.5 mr-1">
+          <div className="flex flex-wrap items-center gap-2.5 mr-1">
             {isViewMode ? (
               <button
                 type="button"
-                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                 onClick={() => setIsViewMode(false)}
               >
                 Edit
@@ -1602,7 +1629,7 @@ export default function Policies() {
             ) : (
               <button
                 type="button"
-                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+                className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                 onClick={handleSubmit(onSubmit)}
               >
                 {editTarget ? 'Update Policy' : 'Save Policy'}
@@ -1705,11 +1732,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPolicyDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                         Policy Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Base Policy Configuration</span>
                         <ChevronDown
                           size={16}
@@ -1755,7 +1782,7 @@ export default function Policies() {
                                   setValue('contactId', c.id, { shouldValidate: true });
                                   setContactDropdown(false);
                                   setContactSearch('');
-                                }} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
+                                }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
                                   <User size={13} className="text-gray-400" />
                                   <span className="font-medium">{c.firstName} {c.lastName}</span>
                                   <span className="text-gray-400 text-xs ml-auto">{c.phone}</span>
@@ -1917,11 +1944,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-indigo-50/80 via-slate-50 to-purple-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPlanDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                         Plan Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Coverage & Plan Options</span>
                         <ChevronDown
                           size={16}
@@ -2093,7 +2120,7 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
                             Riders / Addons
                           </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                             {[
                               { id: 'CRITICAL_ILLNESS', label: 'Critical Illness' },
                               { id: 'ACCIDENTAL_DEATH', label: 'Accidental Death Rider' },
@@ -2102,7 +2129,7 @@ export default function Policies() {
                               { id: 'OPD_BENEFIT', label: 'OPD Benefit Rider' },
                               { id: 'WAIVER_OF_PREMIUM', label: 'Waiver of Premium' },
                             ].map(rider => (
-                              <label key={rider.id} className="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-blue-600 transition-colors">
+                              <label key={rider.id} className="flex flex-wrap items-center gap-2 cursor-pointer text-gray-700 hover:text-blue-600 transition-colors">
                                 <input
                                   type="checkbox"
                                   value={rider.id}
@@ -2129,11 +2156,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPremiumBreakdownCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                         Premium Breakdown & Instalments
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Premium Amounts & Frequency</span>
                         <ChevronDown
                           size={16}
@@ -2256,11 +2283,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsTenureDatesCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                         Tenure, Maturity & Term Dates
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Tenure & Policy Dates</span>
                         <ChevronDown
                           size={16}
@@ -2389,11 +2416,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsEmiDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-600 to-blue-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                         Installment / EMI Gateway Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Gateway & Installment Case</span>
                         <ChevronDown
                           size={16}
@@ -2472,11 +2499,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPaymentModeLoanCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
                         Payment Mode & Loan Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Payment Method & Financed Loan</span>
                         <ChevronDown
                           size={16}
@@ -2600,11 +2627,11 @@ export default function Policies() {
                         className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                         onClick={() => setIsPhcCollapsed(prev => !prev)}
                       >
-                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                           Preventive Health Checkup Details
                         </h4>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Status</span>
                           <ChevronDown
                             size={16}
@@ -2676,11 +2703,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPaymentAccountCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                         Payment Account Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Bank & Account Specifications</span>
                         <ChevronDown
                           size={16}
@@ -2768,11 +2795,11 @@ export default function Policies() {
                       className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsGstDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
                         GST No Details
                       </h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] text-slate-400 font-semibold">Firm Name, PAN & GST Registration</span>
                         <ChevronDown
                           size={16}
@@ -2835,7 +2862,7 @@ export default function Policies() {
                   {/* Header & Add Button */}
                   <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/90 to-indigo-50/50 rounded-2xl border border-blue-100 shadow-2xs">
                     <div>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <Users size={16} className="text-blue-600" />
                         Connected Persons & Nominee Details
                       </h4>
@@ -2844,7 +2871,7 @@ export default function Policies() {
                     <button
                       type="button"
                       onClick={addConnectedPerson}
-                      className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer"
+                      className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-[10px] sm:text-xs rounded-xl flex flex-wrap items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer"
                     >
                       <Plus size={14} /> Add Connected Person
                     </button>
@@ -2860,7 +2887,7 @@ export default function Policies() {
                           : 'bg-amber-50 border-amber-200 text-amber-900'
                       )}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {totalNomineePercentage === 100 ? (
                           <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                         ) : (
@@ -2896,7 +2923,7 @@ export default function Policies() {
                       <button
                         type="button"
                         onClick={addConnectedPerson}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer inline-flex flex-wrap items-center gap-1.5"
                       >
                         <Plus size={14} /> Add First Connected Person
                       </button>
@@ -2910,7 +2937,7 @@ export default function Policies() {
                         >
                           {/* Header Bar per Person */}
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-extrabold text-xs flex items-center justify-center border border-slate-200">
                                 {idx + 1}
                               </span>
@@ -2918,12 +2945,12 @@ export default function Policies() {
                                 {person.name || `Connected Person #${idx + 1}`}
                               </span>
                               {person.isCovered && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <span className="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                   Covered under policy
                                 </span>
                               )}
                               {person.isNominee && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                                <span className="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
                                   Nominee ({person.nomineePercentage}%)
                                 </span>
                               )}
@@ -3004,8 +3031,8 @@ export default function Policies() {
                           </div>
 
                           {/* Covered & Nominee Toggles */}
-                          <div className="flex items-center gap-6 pt-1 border-t border-slate-100">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <div className="flex flex-wrap items-center gap-6 pt-1 border-t border-slate-100">
+                            <label className="flex flex-wrap items-center gap-2 cursor-pointer select-none">
                               <input
                                 type="checkbox"
                                 checked={person.isCovered}
@@ -3015,7 +3042,7 @@ export default function Policies() {
                               <span className="text-xs font-bold text-slate-700">Covered under this policy</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <label className="flex flex-wrap items-center gap-2 cursor-pointer select-none">
                               <input
                                 type="checkbox"
                                 checked={person.isNominee}
@@ -3029,7 +3056,7 @@ export default function Policies() {
                           {/* Dynamic Nominee Fields Box */}
                           {person.isNominee && (
                             <div className="p-3 bg-purple-50/40 rounded-xl border border-purple-100 space-y-2.5 animate-fadeIn">
-                              <h6 className="text-[11px] font-extrabold text-purple-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <h6 className="text-[11px] font-extrabold text-purple-800 uppercase tracking-wider flex flex-wrap items-center gap-1.5">
                                 Nominee Specification
                               </h6>
                               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -3100,11 +3127,11 @@ export default function Policies() {
                           className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                           onClick={() => setIsPhcCollapsed(prev => !prev)}
                         >
-                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                             <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                             PHC Configuration & Eligibility
                           </h4>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Eligibility</span>
                             <ChevronDown
                               size={16}
@@ -3221,11 +3248,11 @@ export default function Policies() {
                             className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                             onClick={() => setIsPhcBookingCollapsed(prev => !prev)}
                           >
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                               PHC Booking & Centre Details
                             </h4>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[10px] text-slate-400 font-semibold">Appointment & Lab Information</span>
                               <ChevronDown
                                 size={16}
@@ -3298,11 +3325,11 @@ export default function Policies() {
                             className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                             onClick={() => setIsPhcSettlementCollapsed(prev => !prev)}
                           >
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                               PHC Claim & Settlement Details
                             </h4>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="text-[10px] text-slate-400 font-semibold">Reports, Submissions & Stage</span>
                               <ChevronDown
                                 size={16}
@@ -3418,7 +3445,7 @@ export default function Policies() {
                 <div className="space-y-4 animate-fadeIn">
                   <div className="flex items-center justify-between bg-gradient-to-r from-slate-100/80 via-slate-50 to-slate-100/50 p-4 border border-slate-200/90 rounded-2xl shadow-2xs">
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <FileText size={16} className="text-blue-600" />
                         Policy Documents Upload
                       </h4>
@@ -3431,7 +3458,7 @@ export default function Policies() {
                         e.stopPropagation();
                         setIsDocUploadModalOpen(true);
                       }}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl flex items-center gap-2 shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer"
+                      className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl flex flex-wrap items-center gap-2 shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer"
                     >
                       <Upload size={14} /> Upload Document
                     </button>
@@ -3468,7 +3495,7 @@ export default function Policies() {
                   {/* Header Banner */}
                   <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 via-indigo-50/50 to-slate-50 p-3.5 rounded-2xl border border-blue-100/80">
                     <div>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <FileCheck2 size={16} className="text-blue-600" />
                         Policy Claims History
                       </h4>
@@ -3515,13 +3542,13 @@ export default function Policies() {
                           return (
                             <div key={c.id} className="p-3.5 bg-white border border-slate-200/90 rounded-2xl shadow-2xs hover:shadow-xs transition-all space-y-2">
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <span className="font-extrabold text-xs text-slate-900">{c.claimNumber}</span>
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${statusStyle}`}>
                                     {c.status}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                   <span className="text-xs font-black text-emerald-700">₹{Number(c.claimAmount || 0).toLocaleString('en-IN')}</span>
                                   <button
                                     type="button"
@@ -3529,7 +3556,7 @@ export default function Policies() {
                                       closeModal();
                                       navigate(`/claims`);
                                     }}
-                                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex flex-wrap items-center gap-1 cursor-pointer"
                                     title="Edit on Claims page"
                                   >
                                     <Pencil size={12} />
@@ -3537,7 +3564,7 @@ export default function Policies() {
                                   </button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[11px] text-slate-500 border-t border-slate-100 pt-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px] text-slate-500 border-t border-slate-100 pt-2">
                                 <div><span className="font-semibold text-slate-700">Type:</span> {c.claimType}</div>
                                 <div><span className="font-semibold text-slate-700">Intimated:</span> {c.intimatedAt ? format(new Date(c.intimatedAt), 'dd/MMM/yyyy') : '—'}</div>
                                 <div><span className="font-semibold text-slate-700">Client:</span> {c.contact?.firstName} {c.contact?.lastName}</div>
@@ -3554,7 +3581,7 @@ export default function Policies() {
           </div>
 
           {/* Info Banner */}
-          <div className="bg-blue-50/40 border border-blue-100/50 p-3 rounded-xl flex items-center gap-2.5 text-xs text-blue-700 mt-2">
+          <div className="bg-blue-50/40 border border-blue-100/50 p-3 rounded-xl flex flex-wrap items-center gap-2.5 text-xs text-blue-700 mt-2">
             <Info size={16} className="text-blue-500 shrink-0" />
             <span>Make sure all details are accurate before saving the policy.</span>
           </div>
@@ -3617,10 +3644,10 @@ export default function Policies() {
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
             <button
               type="button"
-              className="btn-secondary px-4 py-2 text-xs"
+              className="btn-secondary px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -3632,7 +3659,7 @@ export default function Policies() {
             </button>
             <button
               type="button"
-              className="btn-primary px-4 py-2 text-xs"
+              className="btn-primary px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -3650,7 +3677,7 @@ export default function Policies() {
         <p className="text-sm text-gray-600 mb-4">
           Delete policy <strong>{deleteTarget?.policyNumber}</strong>? This cannot be undone.
         </p>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
           <button className="btn-danger" onClick={confirmDelete} disabled={deletePolicy.isPending}>
             {deletePolicy.isPending ? 'Deleting…' : 'Delete'}

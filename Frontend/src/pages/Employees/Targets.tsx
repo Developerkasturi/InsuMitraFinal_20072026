@@ -162,8 +162,8 @@ export default function EmployeeTargets() {
               <input {...register('visitsTarget')} type="number" className="input" placeholder="e.g. 5" />
             </div>
             <div className="flex items-center justify-center gap-4 pt-4 border-t border-slate-50">
-              <button type="button" className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setTargetEditEmp(null)}>Cancel</button>
-              <button type="submit" className="px-6 py-2 text-sm font-semibold text-white bg-blue-900 hover:bg-blue-950 rounded-lg shadow-sm transition-colors" disabled={updateTargets.isPending}>
+              <button type="button" className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setTargetEditEmp(null)}>Cancel</button>
+              <button type="submit" className="px-6 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-900 hover:bg-blue-950 rounded-lg shadow-sm transition-colors" disabled={updateTargets.isPending}>
                 {updateTargets.isPending ? 'Saving…' : 'Save Targets'}
               </button>
             </div>

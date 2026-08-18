@@ -133,7 +133,7 @@ function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature,
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobileOpen: (v: boolean) => void }) {
   const [collapsed, setCollapsed]         = useState(true);
   const [lockedFeature, setLockedFeature] = useState<string | null>(null);
   const [tooltip, setTooltip]             = useState<{ label: string; enabled: boolean; top: number } | null>(null);
@@ -185,17 +185,27 @@ export default function Sidebar() {
   const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`;
 
   return (
-    <aside
-      className={clsx(
-        'flex flex-col h-screen sticky top-0 z-30 shrink-0 relative select-none',
-        'transition-all duration-300 ease-in-out border-r',
-        collapsed ? 'w-16' : 'w-64',
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
-      style={{
-        background: '#0b1437',
-        borderColor: 'rgba(27, 37, 89, 0.6)',
-      }}
-    >
+      <aside
+        className={clsx(
+          'flex flex-col h-screen shrink-0 select-none border-r',
+          'transition-all duration-300 ease-in-out',
+          'fixed md:sticky top-0 z-50 md:z-30',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          collapsed ? 'w-16' : 'w-64',
+        )}
+        style={{
+          background: '#0b1437',
+          borderColor: 'rgba(27, 37, 89, 0.6)',
+        }}
+      >
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <div
         className={clsx(
@@ -261,7 +271,7 @@ export default function Sidebar() {
                background: 'linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(124,58,237,0.08) 100%)',
                border: '1px solid rgba(255,255,255,0.05)',
              }}>
-          <div className="flex items-center gap-2 mb-2 relative">
+          <div className="flex flex-wrap items-center gap-2 mb-2 relative">
             <div className="w-5 h-5 rounded-lg bg-blue-500/20 flex items-center justify-center">
               <Zap size={11} className="text-blue-400 shrink-0" />
             </div>
@@ -303,7 +313,7 @@ export default function Sidebar() {
       {/* Floating Tooltip outside overflow container */}
       {collapsed && tooltip && (
         <div
-          className="fixed left-[72px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[99999] pointer-events-none whitespace-nowrap flex items-center gap-1.5 animate-fadeIn"
+          className="fixed left-[72px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[99999] pointer-events-none whitespace-nowrap flex flex-wrap items-center gap-1.5 animate-fadeIn"
           style={{ top: `${tooltip.top}px`, transform: 'translateY(-50%)' }}
         >
           {tooltip.label}
@@ -317,6 +327,7 @@ export default function Sidebar() {
         featureName={lockedFeature || ''}
       />
     </aside>
+    </>
   );
 }
 

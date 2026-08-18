@@ -108,7 +108,7 @@ export default function GlobalSearch() {
             const { label, Icon, route, color } = meta;
             return (
               <div key={section} className="card space-y-2">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className={`p-1.5 rounded-lg ${color}`}><Icon size={14}/></span>
                   <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
                   <span className="badge-gray ml-auto">{items.length}</span>

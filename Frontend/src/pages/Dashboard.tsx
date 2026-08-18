@@ -12,12 +12,147 @@ import {
   useDashboardPipeline, useDashboardDbSummary
 } from '@hooks/useDashboard';
 import { useClaims } from '@hooks/useClaims';
-import { LineChartWidget, PieChartWidget, BarChartWidget } from '@comps/common/Charts';
+import { LineChartWidget, PieChartWidget, BarChartWidget, CoverageBarChartWidget } from '@comps/common/Charts';
 import { SkeletonCard, SkeletonChart, SkeletonTable } from '@comps/common/Skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@store/auth.store';
 import { claimsService, employeesService } from '@api/index';
 import clsx from 'clsx';
+
+// ── Dashboard Mock Data ──────────────────────────────────────────────────────
+const MOCK_ACTIVE_POLICIES = [
+  { name: 'Health Insurance', value: 450 },
+  { name: 'Life Insurance', value: 310 },
+  { name: 'General Insurance', value: 240 },
+];
+
+const MOCK_CONTACTS = { head: 850, dependent: 1240, total: 2090 };
+
+const MOCK_PREMIUM_BY_PLAN = [
+  { name: 'Health', value: 4500000 },
+  { name: 'Accident', value: 850000 },
+  { name: 'Critical Illness', value: 1200000 },
+  { name: 'Group Health', value: 3500000 },
+  { name: 'Group PA', value: 950000 },
+  { name: 'SME Health', value: 2800000 },
+  { name: 'Term Life', value: 5200000 },
+  { name: 'TULIP', value: 1800000 },
+  { name: 'ULIP', value: 3200000 },
+  { name: 'Endowment', value: 4100000 },
+  { name: 'Moneyback', value: 2100000 },
+  { name: 'Business', value: 1500000 },
+  { name: 'MF', value: 2900000 },
+  { name: 'Other', value: 650000 },
+];
+
+const MOCK_PERSONS_COVERED = [
+  { name: 'Health', value: 80, total: 100 },
+  { name: 'Term', value: 40, total: 100 },
+  { name: 'Life', value: 65, total: 100 },
+  { name: 'General', value: 45, total: 100 },
+  { name: 'Other', value: 20, total: 100 },
+];
+
+const MOCK_MF_LEADS = {
+  activeSipAmount: 150000,
+  lumpsumAmount: 500000,
+  investors: 120,
+  activeSips: 85
+};
+
+const MOCK_BUSINESS_CATEGORY_WISE = [
+  { month: 'Jan', health: 420000, accident: 120000, critical: 180000, groupHealth: 300000, groupPa: 150000, sme: 200000, termLife: 250000, tulip: 100000, ulip: 220000, endowment: 310000, moneyback: 190000, business: 140000, mf: 280000, other: 90000 },
+  { month: 'Feb', health: 380000, accident: 140000, critical: 200000, groupHealth: 320000, groupPa: 160000, sme: 210000, termLife: 270000, tulip: 110000, ulip: 240000, endowment: 330000, moneyback: 200000, business: 150000, mf: 290000, other: 80000 },
+  { month: 'Mar', health: 510000, accident: 160000, critical: 230000, groupHealth: 350000, groupPa: 180000, sme: 240000, termLife: 320000, tulip: 140000, ulip: 280000, endowment: 380000, moneyback: 230000, business: 180000, mf: 320000, other: 110000 },
+  { month: 'Apr', health: 450000, accident: 150000, critical: 210000, groupHealth: 330000, groupPa: 170000, sme: 220000, termLife: 290000, tulip: 120000, ulip: 260000, endowment: 350000, moneyback: 210000, business: 160000, mf: 300000, other: 100000 },
+  { month: 'May', health: 470000, accident: 155000, critical: 220000, groupHealth: 340000, groupPa: 175000, sme: 230000, termLife: 300000, tulip: 130000, ulip: 270000, endowment: 360000, moneyback: 220000, business: 170000, mf: 310000, other: 105000 },
+  { month: 'Jun', health: 490000, accident: 165000, critical: 240000, groupHealth: 360000, groupPa: 185000, sme: 250000, termLife: 330000, tulip: 150000, ulip: 290000, endowment: 390000, moneyback: 240000, business: 190000, mf: 330000, other: 115000 },
+  { month: 'Jul', health: 430000, accident: 145000, critical: 190000, groupHealth: 310000, groupPa: 155000, sme: 205000, termLife: 260000, tulip: 105000, ulip: 230000, endowment: 320000, moneyback: 195000, business: 145000, mf: 285000, other: 85000 },
+  { month: 'Aug', health: 460000, accident: 150000, critical: 215000, groupHealth: 335000, groupPa: 170000, sme: 225000, termLife: 295000, tulip: 125000, ulip: 265000, endowment: 355000, moneyback: 215000, business: 165000, mf: 305000, other: 100000 },
+  { month: 'Sep', health: 500000, accident: 170000, critical: 250000, groupHealth: 370000, groupPa: 190000, sme: 260000, termLife: 340000, tulip: 160000, ulip: 300000, endowment: 400000, moneyback: 250000, business: 200000, mf: 340000, other: 120000 },
+  { month: 'Oct', health: 530000, accident: 180000, critical: 270000, groupHealth: 390000, groupPa: 200000, sme: 280000, termLife: 370000, tulip: 170000, ulip: 320000, endowment: 430000, moneyback: 270000, business: 220000, mf: 360000, other: 130000 },
+  { month: 'Nov', health: 480000, accident: 160000, critical: 230000, groupHealth: 350000, groupPa: 180000, sme: 240000, termLife: 310000, tulip: 140000, ulip: 280000, endowment: 370000, moneyback: 230000, business: 180000, mf: 320000, other: 110000 },
+  { month: 'Dec', health: 580000, accident: 200000, critical: 300000, groupHealth: 420000, groupPa: 220000, sme: 310000, termLife: 420000, tulip: 200000, ulip: 360000, endowment: 480000, moneyback: 300000, business: 250000, mf: 400000, other: 150000 },
+];
+
+const BUSINESS_CATEGORY_BARS = [
+  { key: 'health', label: 'Health', stackId: 'a', color: '#1e40af' }, // Blue 800
+  { key: 'accident', label: 'Accident', stackId: 'a', color: '#2563eb' }, // Blue 600
+  { key: 'critical', label: 'Critical Illness', stackId: 'a', color: '#60a5fa' }, // Blue 400
+  { key: 'groupHealth', label: 'Group Health', stackId: 'a', color: '#0f766e' }, // Teal 700
+  { key: 'groupPa', label: 'Group PA', stackId: 'a', color: '#0d9488' }, // Teal 600
+  { key: 'sme', label: 'SME Health', stackId: 'a', color: '#2dd4bf' }, // Teal 400
+  { key: 'termLife', label: 'Term Life', stackId: 'a', color: '#4338ca' }, // Indigo 700
+  { key: 'tulip', label: 'TULIP', stackId: 'a', color: '#6366f1' }, // Indigo 500
+  { key: 'ulip', label: 'ULIP', stackId: 'a', color: '#818cf8' }, // Indigo 400
+  { key: 'endowment', label: 'Endowment', stackId: 'a', color: '#0f172a' }, // Slate 900
+  { key: 'moneyback', label: 'Moneyback', stackId: 'a', color: '#334155' }, // Slate 700
+  { key: 'business', label: 'Business', stackId: 'a', color: '#64748b' }, // Slate 500
+  { key: 'mf', label: 'MF', stackId: 'a', color: '#0369a1' }, // Sky 700
+  { key: 'other', label: 'Other', stackId: 'a', color: '#0ea5e9' }, // Sky 500
+];
+
+const MOCK_BUSINESS_COMPANY_WISE = [
+  { month: 'Jan', 'HDFC Life': 320000, 'LIC': 450000, 'Star Health': 180000, 'SBI Life': 280000, 'Max Life': 150000 },
+  { month: 'Feb', 'HDFC Life': 340000, 'LIC': 470000, 'Star Health': 190000, 'SBI Life': 290000, 'Max Life': 160000 },
+  { month: 'Mar', 'HDFC Life': 420000, 'LIC': 550000, 'Star Health': 250000, 'SBI Life': 380000, 'Max Life': 220000 },
+  { month: 'Apr', 'HDFC Life': 310000, 'LIC': 430000, 'Star Health': 170000, 'SBI Life': 260000, 'Max Life': 140000 },
+  { month: 'May', 'HDFC Life': 330000, 'LIC': 460000, 'Star Health': 185000, 'SBI Life': 275000, 'Max Life': 155000 },
+  { month: 'Jun', 'HDFC Life': 350000, 'LIC': 480000, 'Star Health': 195000, 'SBI Life': 295000, 'Max Life': 165000 },
+  { month: 'Jul', 'HDFC Life': 300000, 'LIC': 410000, 'Star Health': 160000, 'SBI Life': 250000, 'Max Life': 135000 },
+  { month: 'Aug', 'HDFC Life': 340000, 'LIC': 465000, 'Star Health': 180000, 'SBI Life': 285000, 'Max Life': 150000 },
+  { month: 'Sep', 'HDFC Life': 380000, 'LIC': 500000, 'Star Health': 210000, 'SBI Life': 320000, 'Max Life': 180000 },
+  { month: 'Oct', 'HDFC Life': 410000, 'LIC': 540000, 'Star Health': 240000, 'SBI Life': 360000, 'Max Life': 200000 },
+  { month: 'Nov', 'HDFC Life': 390000, 'LIC': 510000, 'Star Health': 220000, 'SBI Life': 340000, 'Max Life': 190000 },
+  { month: 'Dec', 'HDFC Life': 500000, 'LIC': 650000, 'Star Health': 300000, 'SBI Life': 450000, 'Max Life': 280000 },
+];
+
+const COMPANY_LINES = [
+  { key: 'HDFC Life', label: 'HDFC Life', color: '#1e40af' }, // Blue 800
+  { key: 'LIC', label: 'LIC', color: '#0f766e' }, // Teal 700
+  { key: 'Star Health', label: 'Star Health', color: '#4338ca' }, // Indigo 700
+  { key: 'SBI Life', label: 'SBI Life', color: '#0369a1' }, // Sky 700
+  { key: 'Max Life', label: 'Max Life', color: '#0f172a' }, // Slate 900
+];
+
+const MOCK_TENURE_WISE = [
+  { month: 'Jan', year1: 120, year2: 45, year3: 30, year4: 10, year5: 5 },
+  { month: 'Feb', year1: 110, year2: 50, year3: 25, year4: 12, year5: 4 },
+  { month: 'Mar', year1: 140, year2: 60, year3: 35, year4: 15, year5: 8 },
+  { month: 'Apr', year1: 105, year2: 40, year3: 20, year4: 8,  year5: 3 },
+  { month: 'May', year1: 115, year2: 48, year3: 28, year4: 11, year5: 6 },
+  { month: 'Jun', year1: 125, year2: 55, year3: 32, year4: 14, year5: 7 },
+  { month: 'Jul', year1: 95,  year2: 38, year3: 18, year4: 7,  year5: 2 },
+  { month: 'Aug', year1: 108, year2: 42, year3: 22, year4: 9,  year5: 4 },
+  { month: 'Sep', year1: 130, year2: 58, year3: 34, year4: 16, year5: 9 },
+  { month: 'Oct', year1: 145, year2: 65, year3: 40, year4: 18, year5: 10 },
+  { month: 'Nov', year1: 118, year2: 52, year3: 29, year4: 13, year5: 5 },
+  { month: 'Dec', year1: 160, year2: 75, year3: 45, year4: 22, year5: 12 },
+];
+
+const TENURE_BARS = [
+  { key: 'year1', label: '1 Year', stackId: 'a', color: '#3b82f6' }, // blue-500
+  { key: 'year2', label: '2 Years', stackId: 'a', color: '#10b981' }, // emerald-500
+  { key: 'year3', label: '3 Years', stackId: 'a', color: '#f59e0b' }, // amber-500
+  { key: 'year4', label: '4 Years', stackId: 'a', color: '#8b5cf6' }, // violet-500
+  { key: 'year5', label: '5 Years', stackId: 'a', color: '#ec4899' }, // pink-500
+];
+
+const MOCK_LEADS_STATUS_WISE = [
+  { stage: 'To Contact', hot: 25, warm: 40, cold: 60, dropped: 10, converted: 0 },
+  { stage: 'Contacted', hot: 35, warm: 50, cold: 40, dropped: 15, converted: 0 },
+  { stage: 'Proposal Sent', hot: 45, warm: 30, cold: 20, dropped: 5, converted: 0 },
+  { stage: 'Login Progress', hot: 55, warm: 20, cold: 10, dropped: 2, converted: 0 },
+  { stage: 'Payment Done', hot: 60, warm: 10, cold: 5, dropped: 1, converted: 80 },
+];
+
+const LEAD_STATUS_BARS = [
+  { key: 'hot', label: 'Hot', stackId: 'status', color: '#ef4444' }, // red
+  { key: 'warm', label: 'Warm', stackId: 'status', color: '#f59e0b' }, // amber
+  { key: 'cold', label: 'Cold', stackId: 'status', color: '#3b82f6' }, // blue
+  { key: 'converted', label: 'Converted', stackId: 'status', color: '#10b981' }, // emerald
+  { key: 'dropped', label: 'Dropped', stackId: 'status', color: '#64748b' }, // slate
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,7 +190,7 @@ function SectionHeader({ title, action, onAction }: { title: string; action?: st
       {action && (
         <button
           onClick={onAction}
-          className="text-xs text-blue-600 hover:text-blue-700 font-bold transition-colors cursor-pointer"
+          className="text-[10px] sm:text-xs text-blue-600 hover:text-blue-700 font-bold transition-colors cursor-pointer"
         >
           {action}
         </button>
@@ -93,11 +228,91 @@ function PremiumKpiCard({ label, value, trend, trendUp = true, icon, color, onCl
           {icon}
         </div>
       </div>
-      <div className="flex items-center gap-1 text-[11px] mt-2 font-medium">
+      <div className="flex flex-wrap items-center gap-1 text-[11px] mt-2 font-medium">
         <span className={clsx(trendUp ? 'text-green-600' : 'text-red-500')}>
           {trendUp ? '▲' : '▼'} {trend}
         </span>
         <span className="text-gray-400">vs last month</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Contacts Breakdown Indicator Card ─────────────────────────────────────────
+function ContactsBreakdownCard({ data }: { data: { head: number, dependent: number, total: number } }) {
+  const headPct = ((data.head / data.total) * 100).toFixed(0);
+  const depPct = ((data.dependent / data.total) * 100).toFixed(0);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm h-full flex flex-col justify-between group hover:shadow-md transition-all">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold text-gray-900 tracking-wider uppercase">Total Contacts</h3>
+          <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Users size={16} />
+          </div>
+        </div>
+        
+        <div className="mb-4">
+          <span className="text-3xl font-extrabold text-gray-900">{fmt(data.total)}</span>
+          <p className="text-[10px] font-semibold text-gray-400 mt-1 uppercase tracking-wide">Total registered contacts</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between text-[11px] font-bold text-gray-700 mb-1.5">
+              <span className="flex flex-wrap items-center gap-1.5"><UserPlus size={13} className="text-blue-500"/> Head of Family</span>
+              <span>{fmt(data.head)} ({headPct}%)</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${headPct}%` }} />
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-[11px] font-bold text-gray-700 mb-1.5">
+              <span className="flex flex-wrap items-center gap-1.5"><Users size={13} className="text-amber-500"/> Dependents</span>
+              <span>{fmt(data.dependent)} ({depPct}%)</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${depPct}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MF Leads Business Summary Card ──────────────────────────────────────────
+function MfLeadsSummaryCard({ data }: { data: any }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm h-full flex flex-col justify-between group hover:shadow-md transition-all">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold text-gray-900 tracking-wider uppercase">MF Leads Business</h3>
+          <div className="h-8 w-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+            <TrendingUp size={16} />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Active SIP Amt</p>
+            <p className="text-base font-extrabold text-slate-900 mt-1">{fmtINR(data.activeSipAmount)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Lumpsum Amt</p>
+            <p className="text-base font-extrabold text-slate-900 mt-1">{fmtINR(data.lumpsumAmount)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">No. of Investors</p>
+            <p className="text-base font-extrabold text-slate-900 mt-1">{data.investors}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">No. of Active SIPs</p>
+            <p className="text-base font-extrabold text-slate-900 mt-1">{data.activeSips}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -156,6 +371,60 @@ function LeadsProgressIndicator({ pipelineData }: { pipelineData: any[] }) {
               </div>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Avg Sum Insured Card (Gen + Health) ──────────────────────────────────────
+function AvgSumInsuredGenHealthCard() {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm h-full flex flex-col justify-between group hover:shadow-md transition-all">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold text-gray-900 tracking-wider uppercase">Avg Sum Insured (Gen + Health)</h3>
+          <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <Shield size={16} />
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 font-semibold mb-4">Total basic sum insured divided by insured persons.</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-indigo-50/50 rounded-xl p-3 border border-indigo-50">
+            <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide">Fresh</p>
+            <p className="text-sm font-black text-indigo-900 mt-1">₹8.5L</p>
+          </div>
+          <div className="bg-emerald-50/50 rounded-xl p-3 border border-emerald-50">
+            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-wide">Port</p>
+            <p className="text-sm font-black text-emerald-900 mt-1">₹10.2L</p>
+          </div>
+          <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-50">
+            <p className="text-[9px] font-bold text-amber-500 uppercase tracking-wide">Renewal</p>
+            <p className="text-sm font-black text-amber-900 mt-1">₹12.5L</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Avg Sum Insured Card (Term) ─────────────────────────────────────────────
+function AvgSumInsuredTermCard() {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm h-full flex flex-col justify-between group hover:shadow-md transition-all">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold text-gray-900 tracking-wider uppercase">Avg Sum Insured (Term)</h3>
+          <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <Shield size={16} />
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-400 font-semibold mb-4">Total sum insured divided by insured persons.</p>
+        <div className="mt-2">
+          <span className="text-3xl font-black text-gray-900">₹1.5 Cr</span>
+          <p className="text-[10px] font-bold text-emerald-600 mt-2 bg-emerald-50 inline-block px-2 py-0.5 rounded border border-emerald-100">
+            High coverage maintained
+          </p>
         </div>
       </div>
     </div>
@@ -255,6 +524,8 @@ function ClaimsReportsTab() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
   const [hospitalQuery, setHospitalQuery] = useState('');
   const [claimType, setClaimType] = useState('ALL');
+  const [graphCompanySelect, setGraphCompanySelect] = useState('ALL');
+  const [pieChartMetric, setPieChartMetric] = useState<'count' | 'claimed' | 'settled'>('count');
 
   // Extract unique companies for filter dropdown
   const companies = useMemo(() => {
@@ -337,17 +608,28 @@ function ClaimsReportsTab() {
       }
       map.set(comp, entry);
     });
-    return Array.from(map.values()).slice(0, 10);
-  }, [filteredClaims]);
+    
+    const sorted = Array.from(map.values()).sort((a, b) => b.claimed - a.claimed);
+    if (graphCompanySelect === 'ALL') {
+      return sorted.slice(0, 5); // Default top 5
+    }
+    return sorted.filter(c => c.company === graphCompanySelect);
+  }, [filteredClaims, graphCompanySelect]);
 
   // Graph Data 2: Cashless vs Reimburse
   const typeGraphData = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; claimed: number; settled: number }>();
     filteredClaims.forEach((c: any) => {
       const type = c.claimType || 'Unknown';
-      map.set(type, (map.get(type) ?? 0) + 1);
+      const entry = map.get(type) || { count: 0, claimed: 0, settled: 0 };
+      entry.count += 1;
+      entry.claimed += Number(c.claimAmount || 0);
+      if (c.status === 'SETTLED' || c.status === 'APPROVED') {
+        entry.settled += Number(c.approvedAmount || c.claimAmount || 0);
+      }
+      map.set(type, entry);
     });
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+    return Array.from(map.entries()).map(([name, data]) => ({ name, ...data }));
   }, [filteredClaims]);
 
   // Graph Data 3: Hospital wise (Claims count)
@@ -483,15 +765,30 @@ function ClaimsReportsTab() {
 
       {/* Graphs Grid */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <BarChartWidget
-          title="Claimed vs Settled Amount by Company (₹)"
-          data={companyGraphData}
-          xKey="company"
-          bars={[
-            { key: 'claimed', label: 'Claimed (₹)', color: '#3b82f6' },
-            { key: 'settled', label: 'Settled (₹)', color: '#10b981' }
-          ]}
-        />
+        <div className="relative">
+          <div className="absolute top-4 right-5 z-10 flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Company:</label>
+            <select
+              value={graphCompanySelect}
+              onChange={e => setGraphCompanySelect(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="ALL">Top 5 Companies</option>
+              {companies.map(comp => (
+                <option key={comp} value={comp}>{comp}</option>
+              ))}
+            </select>
+          </div>
+          <BarChartWidget
+            title="Claimed vs Settled Amount by Company (₹)"
+            data={companyGraphData}
+            xKey="company"
+            bars={[
+              { key: 'claimed', label: 'Claimed (₹)', color: '#3b82f6' },
+              { key: 'settled', label: 'Settled (₹)', color: '#10b981' }
+            ]}
+          />
+        </div>
         
         <LineChartWidget
           title="Claims Collection Trend over Time (₹)"
@@ -512,12 +809,26 @@ function ClaimsReportsTab() {
           ]}
         />
 
-        <PieChartWidget
-          title="Claims by Cashless / Reimbursement"
-          data={typeGraphData}
-          nameKey="name"
-          valueKey="value"
-        />
+        <div className="relative">
+          <div className="absolute top-4 right-5 z-10 flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Metric:</label>
+            <select
+              value={pieChartMetric}
+              onChange={e => setPieChartMetric(e.target.value as any)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="count">No. of Claims</option>
+              <option value="claimed">Claimed Amount (₹)</option>
+              <option value="settled">Settled Amount (₹)</option>
+            </select>
+          </div>
+          <PieChartWidget
+            title="Claims by Cashless / Reimbursement"
+            data={typeGraphData}
+            nameKey="name"
+            valueKey={pieChartMetric}
+          />
+        </div>
       </div>
     </div>
   );
@@ -531,6 +842,8 @@ export default function Dashboard() {
   const [revenueMonths, setRevenueMonths] = useState(12);
   const [portfolioView, setPortfolioView] = useState<'product' | 'company'>('product');
   const [activeTab, setActiveTab] = useState<'overview' | 'claims-reports'>('overview');
+  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('ALL');
+  const [leadsDateRange, setLeadsDateRange] = useState('ALL');
   const user = useAuthStore(s => s.user);
 
   // Queries
@@ -599,17 +912,17 @@ export default function Dashboard() {
             Here's what's happening with your insurance business today.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleRefreshAll}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold"
+            className="btn-secondary h-9 py-0 px-3 text-[10px] sm:text-xs flex flex-wrap items-center gap-1.5 font-bold"
           >
             <RefreshCw size={13} className={kpiLoading ? 'animate-spin' : ''} />
             Refresh
           </button>
           <button
             onClick={() => navigate('/policies?action=new')}
-            className="btn-primary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold"
+            className="btn-primary h-9 py-0 px-3 text-xs flex flex-wrap items-center gap-1.5 font-bold"
           >
             <Plus size={13} />
             New Policy
@@ -702,11 +1015,38 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* ── Info Charts (Mocked) ─────────────────────────────────────────── */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              <BarChartWidget
+                title="Premium by Insurance Plan Category"
+                data={MOCK_PREMIUM_BY_PLAN}
+                xKey="name"
+                bars={[{ key: 'value', label: 'Premium (₹)', color: '#10b981' }]}
+                className="h-full flex flex-col justify-center"
+                height={350}
+              />
+            </div>
+            <div className="lg:col-span-1 flex flex-col gap-6">
+              <div className="flex-1">
+                <ContactsBreakdownCard data={MOCK_CONTACTS} />
+              </div>
+              <div className="flex-1">
+                <PieChartWidget
+                  title="Active Policies by Category"
+                  data={MOCK_ACTIVE_POLICIES}
+                  nameKey="name"
+                  valueKey="value"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* ── Mid-section: Chart + Portfolio Donut ─────────────────────────── */}
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Line Chart */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm relative">
-              <div className="absolute right-5 top-5 z-10 flex items-center gap-2">
+              <div className="absolute right-5 top-5 z-10 flex flex-wrap items-center gap-2">
                 <select
                   value={revenueMonths}
                   onChange={e => setRevenueMonths(Number(e.target.value))}
@@ -731,7 +1071,7 @@ export default function Dashboard() {
 
             {/* Pie Chart with Product/Company view toggle */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm relative">
-              <div className="absolute right-5 top-5 z-10 flex items-center gap-1.5">
+              <div className="absolute right-5 top-5 z-10 flex flex-wrap items-center gap-1.5">
                 <button
                   onClick={() => setPortfolioView('product')}
                   className={clsx(
@@ -858,7 +1198,7 @@ export default function Dashboard() {
               ) : (
                 <ul className="space-y-3.5 mt-2 flex-1">
                   {agents.slice(0, 4).map((a: any, idx: number) => (
-                    <li key={a.id} className="flex items-center gap-3 p-1 rounded-xl">
+                    <li key={a.id} className="flex flex-wrap items-center gap-3 p-1 rounded-xl">
                       <span className="text-xs font-bold text-gray-400 w-4">{idx + 1}</span>
                       <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                         {a.firstName?.[0] || ''}{a.lastName?.[0] || ''}
@@ -879,9 +1219,101 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* ── Total Business Graph Category Wise ────────────────────────────── */}
+          <div className="grid grid-cols-1 gap-6 mb-6">
+            <BarChartWidget
+              title="Total Business Graph Category Wise (Jan to Dec)"
+              data={MOCK_BUSINESS_CATEGORY_WISE}
+              xKey="month"
+              bars={BUSINESS_CATEGORY_BARS}
+            />
+          </div>
+
+          {/* ── Total Business Graph Company Wise ─────────────────────────────── */}
+          <div className="grid grid-cols-1 gap-6 mb-6">
+            <div className="card relative p-0 bg-transparent shadow-none border-none">
+              <div className="absolute top-1 right-5 z-10 flex items-center gap-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Filter:</label>
+                <select
+                  value={selectedCompanyFilter}
+                  onChange={e => setSelectedCompanyFilter(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Companies</option>
+                  {COMPANY_LINES.map(c => (
+                    <option key={c.key} value={c.key}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <LineChartWidget
+                title="Total Business Graph by Company (Jan to Dec)"
+                data={MOCK_BUSINESS_COMPANY_WISE}
+                xKey="month"
+                lines={selectedCompanyFilter === 'ALL' ? COMPANY_LINES : COMPANY_LINES.filter(l => l.key === selectedCompanyFilter)}
+              />
+            </div>
+          </div>
+
+          {/* ── Total Business Graph Tenure Wise (Gen + Health) ──────────────── */}
+          <div className="grid grid-cols-1 gap-6 mb-6">
+            <BarChartWidget
+              title="Insurance Company Category Gen + Health Total Business (Tenure Wise 1-5 Years)"
+              data={MOCK_TENURE_WISE}
+              xKey="month"
+              bars={TENURE_BARS}
+            />
+          </div>
+
+          {/* ── Avg Sum Insured Cards ────────────────────────────────────────── */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            <AvgSumInsuredGenHealthCard />
+            <AvgSumInsuredTermCard />
+          </div>
+
+          {/* ── New Leads Stacked Bar Graph ────────────────────────────────── */}
+          <div className="grid grid-cols-1 gap-6 mb-6">
+            <div className="card relative p-0 bg-transparent shadow-none border-none">
+              <div className="absolute top-1 right-5 z-10 flex items-center gap-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Date Range:</label>
+                <select
+                  value={leadsDateRange}
+                  onChange={e => setLeadsDateRange(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Time</option>
+                  <option value="30">Last 30 Days</option>
+                  <option value="90">Last 90 Days</option>
+                  <option value="365">This Year</option>
+                </select>
+              </div>
+              <BarChartWidget
+                title="New Leads Created (Stage Wise & Status Wise)"
+                data={MOCK_LEADS_STATUS_WISE}
+                xKey="stage"
+                bars={LEAD_STATUS_BARS}
+              />
+            </div>
+          </div>
+
+          {/* ── Additional Charts: Persons Covered & MF Leads ─────────────── */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <CoverageBarChartWidget
+                title="Total No. of Persons Covered Under Product Category"
+                data={MOCK_PERSONS_COVERED}
+                xKey="name"
+                valueKey="value"
+                totalKey="total"
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <MfLeadsSummaryCard data={MOCK_MF_LEADS} />
+            </div>
+          </div>
+
           {/* ── Footer KPI summary widgets ─────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-wrap items-center gap-4 hover:shadow-md transition">
               <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                 <CheckCircle size={22} />
               </div>
@@ -892,7 +1324,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-wrap items-center gap-4 hover:shadow-md transition">
               <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
                 <RefreshCw size={22} />
               </div>
@@ -903,7 +1335,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition">
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-wrap items-center gap-4 hover:shadow-md transition">
               <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
                 <Star size={22} />
               </div>

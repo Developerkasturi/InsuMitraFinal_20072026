@@ -66,7 +66,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Active Policies', value: activePolicies.length, icon: Shield,       color: 'text-green-600',  bg: 'bg-green-50' },
           { label: 'Total Policies',  value: policies.length,       icon: FileText,     color: 'text-blue-600',   bg: 'bg-blue-50' },
@@ -87,7 +87,7 @@ export default function ClientDashboard() {
         {/* Upcoming renewals */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 flex flex-wrap items-center gap-2">
               <Calendar size={16} className="text-primary-500" />
               Upcoming Renewals
             </h3>
@@ -122,7 +122,7 @@ export default function ClientDashboard() {
         {/* Recent claims */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 flex flex-wrap items-center gap-2">
               <AlertCircle size={16} className="text-primary-500" />
               Recent Claims
             </h3>

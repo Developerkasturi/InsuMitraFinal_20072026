@@ -217,7 +217,7 @@ export default function EmployeeAccessControl() {
                   <div key={mod.key} className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl space-y-2">
                     <div className="text-[13px] font-black text-slate-900 tracking-tight">{mod.label}</div>
                     <div className="flex flex-wrap items-center gap-3 text-xs">
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
+                      <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-900 select-none bg-emerald-50/80 px-2 py-0.5 rounded-lg border border-emerald-200/60 font-semibold">
                         <input
                           type="checkbox"
                           value={viewKey}
@@ -226,7 +226,7 @@ export default function EmployeeAccessControl() {
                         />
                         <span className="text-emerald-800">View</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
+                      <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-purple-800 select-none bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200/80 font-bold">
                         <input
                           type="checkbox"
                           value={editKey}
@@ -235,7 +235,7 @@ export default function EmployeeAccessControl() {
                         />
                         <span>Edit</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
+                      <label className="flex flex-wrap items-center gap-1.5 cursor-pointer text-blue-800 select-none bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200/80 font-bold">
                         <input
                           type="checkbox"
                           value={allKey}
@@ -249,7 +249,7 @@ export default function EmployeeAccessControl() {
                 );
               })}
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <button type="button" className="btn-secondary" onClick={() => setPermEditEmp(null)}>Cancel</button>
               <button type="submit" className="btn-primary" disabled={updatePermissions.isPending}>
                 {updatePermissions.isPending ? 'Saving…' : 'Save Permissions'}
