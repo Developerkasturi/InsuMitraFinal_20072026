@@ -14,6 +14,9 @@ function FontSizeApplier() {
   useEffect(() => {
     const px = FONT_SIZE_MAP[fontSize]?.px ?? 13.5;
     document.documentElement.style.setProperty('--app-font-size', `${px}px`);
+    // Scale factor: selected px / default px (13.5)
+    const scale = px / 13.5;
+    document.documentElement.style.setProperty('--font-scale', `${scale}`);
   }, [fontSize]);
   return null;
 }

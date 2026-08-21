@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
-  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutList, KanbanSquare
+  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List
 } from 'lucide-react';
 import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from '@hooks/useClaims';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { sortData } from '../../utils/sortUtils';
+import { insuranceService } from '@api/index';
 
 interface Claim {
   id: string; claimNumber: string; status: string; claimType: string;
@@ -1659,6 +1660,31 @@ export default function Claims() {
   const [settlementLetterFile, setSettlementLetterFile] = useState<File | null>(null);
   const [rejectionLetterFile, setRejectionLetterFile] = useState<File | null>(null);
 
+  // Doc upload sub-modal state (Add New Claim — File Uploads tab)
+  const [docUploadOpen, setDocUploadOpen] = useState(false);
+  const [docUploadFields, setDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
+    type: 'CLAIM_FORM', title: '', description: '', file: null,
+  });
+  const [newDocsList, setNewDocsList] = useState<{ type: string; title: string; description: string; file: File }[]>([]);
+
+  const CLAIM_DOC_TYPES = [
+    { value: 'CLAIM_FORM',              label: 'Claim Form' },
+    { value: 'DISCHARGE_SUMMARY',       label: 'Discharge Summary' },
+    { value: 'OT_NOTES_IPD_PAPERS',     label: 'OT Notes / IPD Papers' },
+    { value: 'HOSPITAL_BILL',           label: 'Hospital Bill / Breakup Bill' },
+    { value: 'PHARMACY_MEDICINES_BILL', label: 'Pharmacy / Medicines Bill' },
+    { value: 'INVESTIGATION_LAB_BILL',  label: 'Investigation / Lab Bill' },
+    { value: 'BLOOD_ANESTHESIA_BILL',   label: 'Blood / Anesthesia Bill' },
+    { value: 'IMPORTANT_LAB_REPORTS',   label: 'Important Lab Reports' },
+    { value: 'IMP_BILLS',               label: 'Imp Bills' },
+    { value: 'OTHER_IMP_DOCS',          label: 'Other Imp Documents' },
+    { value: 'QUERY_LETTER',            label: 'Claim Query Letter' },
+    { value: 'REPLY_DOCS',              label: 'Reply Documents' },
+    { value: 'SETTLEMENT_LETTER',       label: 'Claim Settlement Letter' },
+    { value: 'REJECTION_LETTER',        label: 'Rejection Letter' },
+    { value: 'OTHER',                   label: 'Other' },
+  ];
+
   const { data: contactResults } = useQuery({
     queryKey: ['contact-search-claim', contactSearch],
     queryFn: () => contactsService.list({ search: contactSearch || undefined, limit: 8 }),
@@ -1675,10 +1701,28 @@ export default function Claims() {
 
 
 
+  const { data: allClaimsData, isLoading: isAllClaimsDataLoading } = useClaims();
   const createClaim = useCreateClaim();
+  const updateClaim = useUpdateClaimStatus();
   const deleteClaim = useDeleteClaim();
+  
+  const { data: companiesRes } = useQuery({
+    queryKey: ['insurance-companies-for-hospitals'],
+    queryFn: () => insuranceService.listCompanies(),
+  });
+  const hospitals = useMemo(() => {
+    if (!companiesRes?.data) return [];
+    return companiesRes.data.flatMap((c: any) => {
+      if (c.notes && c.notes.trim().startsWith('{')) {
+        try {
+          return JSON.parse(c.notes).hospitals || [];
+        } catch { return []; }
+      }
+      return [];
+    });
+  }, [companiesRes?.data]);
   const qcClaims = useQueryClient();
-  const updateClaim = useMutation({
+  const updateClaimMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => claimsService.update(id, body),
     onSuccess: () => { qcClaims.invalidateQueries({ queryKey: ['claims'] }); setEditTarget(null); },
   });
@@ -1717,6 +1761,8 @@ export default function Claims() {
   const watchDischargeAt = watch('dischargeAt');
   const watchIntimatedAt = watch('intimatedAt');
   const watchClaimType = watch('claimType');
+  const watchHospitalCity = watch('hospitalCity');
+  const watchHospitalName = watch('hospitalName');
 
   useEffect(() => {
     const tot = Number(amtHospital || 0) + Number(amtMedicine || 0) + Number(amtLab || 0) + Number(amtPreHosp || 0) + Number(amtPostHosp || 0) + Number(amtOthers || 0) + Number(amtAnesthesia || 0);
@@ -1734,8 +1780,9 @@ export default function Claims() {
 
   // Auto-fill from existing claim entries with same claim number
   useEffect(() => {
-    if (watchClaimNumber && rawClaims) {
-      const match = rawClaims.find((c: any) => c.claimNumber?.trim().toLowerCase() === watchClaimNumber.trim().toLowerCase());
+    if (watchClaimNumber && allClaimsData?.data) {
+      const claimsArray = allClaimsData.data || [];
+      const match = claimsArray.find((c: any) => c.claimNumber?.trim().toLowerCase() === watchClaimNumber.trim().toLowerCase());
       if (match) {
         const extra = getClaimNotesData(match.notes);
         if (extra.patientName) setValue('patientName', extra.patientName);
@@ -1747,7 +1794,7 @@ export default function Claims() {
         if (match.intimatedAt) setValue('intimatedAt', match.intimatedAt.slice(0, 10));
       }
     }
-  }, [watchClaimNumber, rawClaims, setValue]);
+  }, [watchClaimNumber, allClaimsData, setValue]);
 
   // Auto-fill patient name when policy is selected
   useEffect(() => {
@@ -1775,6 +1822,7 @@ export default function Claims() {
     setReplyDocsFile(null);
     setSettlementLetterFile(null);
     setRejectionLetterFile(null);
+    setNewDocsList([]);
   };
 
   const onSubmit = async (body: Form) => {
@@ -1944,30 +1992,48 @@ export default function Claims() {
         </button>
       </div>
 
-      {/* Actions Toolbar */}
-      <div className="flex justify-between items-center gap-3 pb-2">
-        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+      {/* Unified Search & Actions Row */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
+        {/* Left: Search Bar */}
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search claims by ID or customer..."
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
+          />
+        </div>
+
+        {/* Right: View toggle and controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Kanban / Table Toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={clsx('flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-all select-none',
+                viewMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-900')}
+            >
+              <LayoutGrid size={13} /> <span className="hidden sm:inline">Kanban</span>
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={clsx('flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-all select-none',
+                viewMode === 'table' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-900')}
+            >
+              <List size={13} /> <span className="hidden sm:inline">Table</span>
+            </button>
+          </div>
+
           <button
-            onClick={() => setViewMode('table')}
-            className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'table' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-            title="Table View"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className={clsx('btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg',
+              showAnalytics && 'bg-blue-50 border-blue-200 text-blue-600')}
           >
-            <LayoutList size={16} />
-          </button>
-          <button
-            onClick={() => setViewMode('kanban')}
-            className={`p-1.5 rounded-md flex items-center justify-center transition-all ${viewMode === 'kanban' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-            title="Kanban View"
-          >
-            <KanbanSquare size={16} />
+            {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
           </button>
         </div>
-        <button
-          onClick={() => setShowAnalytics(!showAnalytics)}
-          className="btn-secondary h-9 py-0 px-3 text-xs flex flex-wrap items-center gap-1.5 font-bold cursor-pointer bg-white text-slate-700 hover:bg-slate-50"
-        >
-          {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
-        </button>
       </div>
 
       {/* Analytics & Reports Collapsible Card */}
@@ -2428,23 +2494,10 @@ export default function Claims() {
         </div>
       )}
 
-      {/* Search and Tabs Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        {/* Left Side: Search Bar ONLY */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <div className="relative w-full lg:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
-              placeholder="Search claims by ID or customer..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
+      {/* Status Tabs Row */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         {/* Right Side: Status Tabs */}
-        <div className="flex flex-wrap items-center gap-3 justify-end">
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           <div className="bg-slate-100/80 p-1 rounded-xl flex flex-wrap gap-1 border border-slate-200/50">
             <button
               type="button"
@@ -2497,7 +2550,7 @@ export default function Claims() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 pb-4 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 pb-4 flex-1 overflow-y-auto custom-scrollbar" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           {['Pending', 'In Progress', 'Approved', 'Rejected', 'Settled'].map(stage => {
             const stageClaims = sortedClaims.filter(c => (BACKEND_TO_UI[c.status] || 'Pending') === stage);
             const totalClaimed = stageClaims.reduce((sum, curr) => sum + Number(curr.claimAmount || 0), 0);
@@ -2627,7 +2680,7 @@ export default function Claims() {
                   })}
                   {stageClaims.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-8 text-slate-400">
-                      <KanbanSquare size={32} className="opacity-20 mb-2" />
+                      <LayoutGrid size={32} className="opacity-20 mb-2" />
                       <p className="text-xs font-medium">No claims</p>
                     </div>
                   )}
@@ -3087,20 +3140,52 @@ export default function Claims() {
                     <div className="p-4 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
-                          <label className="label text-[10px]">Hospital Name</label>
-                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalName')} />
-                        </div>
-                        <div>
-                          <label className="label text-[10px]">Hospital Address</label>
-                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalAddress')} />
-                        </div>
-                        <div>
-                          <label className="label text-[10px]">Hospital State</label>
-                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalState')} />
-                        </div>
-                        <div>
                           <label className="label text-[10px]">Hospital City</label>
-                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalCity')} />
+                          <select 
+                            className="input mt-1 py-1 text-xs" 
+                            {...register('hospitalCity')}
+                            onChange={(e) => {
+                              setValue('hospitalCity', e.target.value);
+                              setValue('hospitalName', '');
+                              setValue('hospitalAddress', '');
+                              setValue('hospitalState', '');
+                              setValue('hospitalPincode', '');
+                              setValue('hospitalContactNo', '');
+                              setValue('hospitalRating', '');
+                              setValue('hospitalType', '');
+                            }}
+                          >
+                            <option value="">Select City</option>
+                            {Array.from(new Set(hospitals.map(h => h.hospitalCity).filter(Boolean))).map(c => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital Name</label>
+                          <select 
+                            className="input mt-1 py-1 text-xs" 
+                            {...register('hospitalName')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setValue('hospitalName', val);
+                              const hosp = hospitals.find(h => h.hospitalName === val);
+                              if (hosp) {
+                                if (!watchHospitalCity) setValue('hospitalCity', hosp.hospitalCity);
+                                setValue('hospitalAddress', ''); // Store doesn't have precise address line, leave blank or we could map from city
+                                setValue('hospitalState', hosp.hospitalState);
+                                setValue('hospitalPincode', hosp.hospitalPincode);
+                                setValue('hospitalContactNo', hosp.hospitalContactNo);
+                                setValue('hospitalRating', hosp.hospitalRating);
+                                setValue('hospitalType', hosp.hospitalType);
+                              }
+                            }}
+                          >
+                            <option value="">Select Hospital</option>
+                            {hospitals.filter(h => !watchHospitalCity || h.hospitalCity === watchHospitalCity).map(h => (
+                              <option key={h.id} value={h.hospitalName}>{h.hospitalName}</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="label text-[10px]">Hospital Pincode</label>
@@ -3127,12 +3212,35 @@ export default function Claims() {
                       </div>
 
                       <div className="pt-2 border-t border-slate-100">
-                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Doctors / Consulting Providers</h5>
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="text-[11px] font-bold text-slate-700">Doctors / Consulting Providers</h5>
+                          {watchHospitalName && hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors?.length > 0 && (
+                            <select 
+                              className="input py-0.5 text-[10px] w-auto h-auto"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  setNewDoctors([...newDoctors, { name: e.target.value, degree: '', registrationNo: '', contactNo: '', charges: '' }]);
+                                  e.target.value = '';
+                                }
+                              }}
+                            >
+                              <option value="">+ Add from Hospital</option>
+                              {hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors.map(d => (
+                                <option key={d.id} value={d.name}>{d.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                         {newDoctors.map((doc, index) => (
                           <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
                             <div>
                               <label className="label text-[10px]">Doctor Name</label>
-                              <input value={doc.name} onChange={e => handleNewDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                              <input value={doc.name} onChange={e => handleNewDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" list={`doc-list-${index}`} />
+                              <datalist id={`doc-list-${index}`}>
+                                {watchHospitalName && hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors.map(d => (
+                                  <option key={d.id} value={d.name} />
+                                ))}
+                              </datalist>
                             </div>
                             <div>
                               <label className="label text-[10px]">Doctor Degree</label>
@@ -3517,6 +3625,9 @@ export default function Claims() {
                 <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">F</span>
                   File Uploads
+                  {newDocsList.length > 0 && (
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black">{newDocsList.length}</span>
+                  )}
                 </h4>
                 <div className="flex items-center gap-2">
                   <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['newDocuments'] ? 'rotate-180' : ''}`} />
@@ -3524,71 +3635,150 @@ export default function Claims() {
               </div>
               {!collapsedSections['newDocuments'] && (
                 <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="label text-[11px]">Claim Form</label>
-                      <input type="file" onChange={e => setClaimFormFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                  {/* Upload button */}
+                  <button
+                    type="button"
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); setDocUploadOpen(true); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02]"
+                  >
+                    <Upload size={14} />
+                    Upload Document
+                  </button>
+
+                  {/* Uploaded docs list */}
+                  {newDocsList.length === 0 ? (
+                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
+                      <FileText size={32} className="mx-auto text-slate-300 mb-2" />
+                      <p className="text-xs text-slate-400 font-semibold">No documents added yet.</p>
+                      <p className="text-[11px] text-slate-300 mt-1">Click "Upload Document" to attach files.</p>
                     </div>
-                    <div>
-                      <label className="label text-[11px]">Discharge Summary</label>
-                      <input type="file" onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {newDocsList.map((doc, idx) => (
+                        <div key={idx} className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 hover:border-blue-300 transition-colors group">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shrink-0">
+                            <FileText size={16} className="text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">{doc.title || doc.file.name}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label ?? doc.type}</p>
+                            {doc.description && <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.description}</p>}
+                            <p className="text-[10px] text-slate-300 mt-0.5">{(doc.file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setNewDocsList(prev => prev.filter((_, i) => i !== idx))}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-lg"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <label className="label text-[11px]">Operation Theatre Notes / IPD Papers</label>
-                      <input type="file" onChange={e => setOtNotesFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Hospital Bill, Breakup Bill</label>
-                      <input type="file" onChange={e => setHospitalBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Pharmacy, Medicines</label>
-                      <input type="file" onChange={e => setPharmacyBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Investigation, Lab Reports</label>
-                      <input type="file" onChange={e => setInvestigationBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Blood Bags, Anesthesia, Other</label>
-                      <input type="file" onChange={e => setBloodBagsBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Reports - Important Lab Reports</label>
-                      <input type="file" onChange={e => setLabReportsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Imp Bills</label>
-                      <input type="file" onChange={e => setBillsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Other IMP Documents</label>
-                      <input type="file" onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Claim Query Letter</label>
-                      <input type="file" onChange={e => setQueryLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Reply Documents</label>
-                      <input type="file" onChange={e => setReplyDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Claim Settlement Letter</label>
-                      <input type="file" onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Rejection Letter</label>
-                      <input type="file" onChange={e => setRejectionLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div className="col-span-1 sm:col-span-2">
-                      <label className="label text-[11px]">Comment</label>
-                      <input type="text" {...register('fileUploadComment')} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
+                  )}
+
+                  {/* Comment */}
+                  <div>
+                    <label className="label text-[11px]">Comment</label>
+                    <input type="text" {...register('fileUploadComment')} className="input w-full bg-white mt-1 text-xs py-1" placeholder="Optional notes about these documents" />
                   </div>
                 </div>
               )}
             </div>
+
+            {/* ── Doc Upload Sub-Modal ─────────────────────────────────────── */}
+            <Modal
+              open={docUploadOpen}
+              onClose={() => { setDocUploadOpen(false); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+              title="Upload Document"
+              size="md"
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={docUploadFields.type}
+                    onChange={e => setDocUploadFields(p => ({ ...p, type: e.target.value }))}
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                  >
+                    {CLAIM_DOC_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Title <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={docUploadFields.title}
+                    onChange={e => setDocUploadFields(p => ({ ...p, title: e.target.value }))}
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                    placeholder="e.g. Discharge Summary – Apollo Jan 2025"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={docUploadFields.description}
+                    onChange={e => setDocUploadFields(p => ({ ...p, description: e.target.value }))}
+                    className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200"
+                    placeholder="Optional notes about this document"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Choose File <span className="text-red-500">*</span></label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
+                    <input
+                      type="file"
+                      onChange={e => setDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    className="btn-secondary px-4 py-2 text-xs"
+                    onClick={() => { setDocUploadOpen(false); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary px-4 py-2 text-xs"
+                    onClick={() => {
+                      if (!docUploadFields.title.trim()) { toast.error('Please enter a document title.'); return; }
+                      if (!docUploadFields.file) { toast.error('Please choose a file.'); return; }
+                      // Map the selected file to the corresponding state setter so it gets uploaded on form submit
+                      const setterMap: Record<string, (f: File | null) => void> = {
+                        CLAIM_FORM: setClaimFormFile,
+                        DISCHARGE_SUMMARY: setDischargeSummaryFile,
+                        OT_NOTES_IPD_PAPERS: setOtNotesFile,
+                        HOSPITAL_BILL: setHospitalBillFile,
+                        PHARMACY_MEDICINES_BILL: setPharmacyBillFile,
+                        INVESTIGATION_LAB_BILL: setInvestigationBillFile,
+                        BLOOD_ANESTHESIA_BILL: setBloodBagsBillFile,
+                        IMPORTANT_LAB_REPORTS: setLabReportsFile,
+                        IMP_BILLS: setBillsFile,
+                        OTHER_IMP_DOCS: setOtherImpDocsFile,
+                        QUERY_LETTER: setQueryLetterFile,
+                        REPLY_DOCS: setReplyDocsFile,
+                        SETTLEMENT_LETTER: setSettlementLetterFile,
+                        REJECTION_LETTER: setRejectionLetterFile,
+                      };
+                      setterMap[docUploadFields.type]?.(docUploadFields.file);
+                      setNewDocsList(prev => [...prev, { type: docUploadFields.type, title: docUploadFields.title, description: docUploadFields.description, file: docUploadFields.file! }]);
+                      setDocUploadOpen(false);
+                      setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null });
+                      toast.success('Document added!');
+                    }}
+                  >
+                    Add Document
+                  </button>
+                </div>
+              </div>
+            </Modal>
           </div>
         )}
           </div>

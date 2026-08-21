@@ -92,7 +92,11 @@ export function PieChartWidget({
 
 export function CoverageBarChartWidget({
   data, xKey, valueKey, totalKey, title,
-}: { data: DataPoint[]; xKey: string; valueKey: string; totalKey: string; title?: string }) {
+  valueLabel = 'Persons Covered', totalLabel = 'Total Contacts', color
+}: { 
+  data: DataPoint[]; xKey: string; valueKey: string; totalKey: string; title?: string;
+  valueLabel?: string; totalLabel?: string; color?: string;
+}) {
 
   const renderCoverageLabel = (props: any) => {
     const { x, y, width, value, index } = props;
@@ -105,7 +109,7 @@ export function CoverageBarChartWidget({
   };
 
   return (
-    <div className="card">
+    <div className="card w-full">
       {title && <h3 className="text-sm font-semibold text-gray-700 mb-4">{title}</h3>}
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={data} margin={{ top: 25, right: 20, bottom: 5, left: 0 }} barGap="-100%">
@@ -120,8 +124,8 @@ export function CoverageBarChartWidget({
                 return (
                   <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-xl">
                     <p className="font-bold text-xs text-slate-800 mb-1">{p[xKey]}</p>
-                    <p className="text-[11px] text-slate-600">Covered: <span className="font-bold text-blue-600">{p[valueKey]}</span></p>
-                    <p className="text-[11px] text-slate-600">Total Contacts: <span className="font-bold text-slate-900">{p[totalKey]}</span></p>
+                    <p className="text-[11px] text-slate-600">{valueLabel}: <span className="font-bold text-blue-600" style={color ? { color } : {}}>{p[valueKey]}</span></p>
+                    <p className="text-[11px] text-slate-600">{totalLabel}: <span className="font-bold text-slate-900">{p[totalKey]}</span></p>
                   </div>
                 );
               }
@@ -131,12 +135,12 @@ export function CoverageBarChartWidget({
           <Legend iconType="circle" iconSize={8} />
           
           {/* Background Bar (Total) */}
-          <Bar dataKey={totalKey} name="Total Contacts" fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
+          <Bar dataKey={totalKey} name={totalLabel} fill="#f1f5f9" radius={[4, 4, 0, 0]} barSize={40} />
           
           {/* Foreground Bar (Covered) Overlay */}
-          <Bar dataKey={valueKey} name="Persons Covered" radius={[4, 4, 0, 0]} barSize={40} label={renderCoverageLabel}>
+          <Bar dataKey={valueKey} name={valueLabel} radius={[4, 4, 0, 0]} barSize={40} label={renderCoverageLabel}>
             {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              <Cell key={i} fill={color ?? COLORS[i % COLORS.length]} />
             ))}
           </Bar>
         </BarChart>

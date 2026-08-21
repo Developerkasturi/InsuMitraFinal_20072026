@@ -76,20 +76,20 @@ const MOCK_BUSINESS_CATEGORY_WISE = [
 ];
 
 const BUSINESS_CATEGORY_BARS = [
-  { key: 'health', label: 'Health', stackId: 'a', color: '#1e40af' }, // Blue 800
-  { key: 'accident', label: 'Accident', stackId: 'a', color: '#2563eb' }, // Blue 600
-  { key: 'critical', label: 'Critical Illness', stackId: 'a', color: '#60a5fa' }, // Blue 400
-  { key: 'groupHealth', label: 'Group Health', stackId: 'a', color: '#0f766e' }, // Teal 700
-  { key: 'groupPa', label: 'Group PA', stackId: 'a', color: '#0d9488' }, // Teal 600
-  { key: 'sme', label: 'SME Health', stackId: 'a', color: '#2dd4bf' }, // Teal 400
-  { key: 'termLife', label: 'Term Life', stackId: 'a', color: '#4338ca' }, // Indigo 700
-  { key: 'tulip', label: 'TULIP', stackId: 'a', color: '#6366f1' }, // Indigo 500
-  { key: 'ulip', label: 'ULIP', stackId: 'a', color: '#818cf8' }, // Indigo 400
-  { key: 'endowment', label: 'Endowment', stackId: 'a', color: '#0f172a' }, // Slate 900
-  { key: 'moneyback', label: 'Moneyback', stackId: 'a', color: '#334155' }, // Slate 700
-  { key: 'business', label: 'Business', stackId: 'a', color: '#64748b' }, // Slate 500
-  { key: 'mf', label: 'MF', stackId: 'a', color: '#0369a1' }, // Sky 700
-  { key: 'other', label: 'Other', stackId: 'a', color: '#0ea5e9' }, // Sky 500
+  { key: 'health', label: 'Health', color: '#1e40af' }, // Blue 800
+  { key: 'accident', label: 'Accident', color: '#2563eb' }, // Blue 600
+  { key: 'critical', label: 'Critical Illness', color: '#60a5fa' }, // Blue 400
+  { key: 'groupHealth', label: 'Group Health', color: '#0f766e' }, // Teal 700
+  { key: 'groupPa', label: 'Group PA', color: '#0d9488' }, // Teal 600
+  { key: 'sme', label: 'SME Health', color: '#2dd4bf' }, // Teal 400
+  { key: 'termLife', label: 'Term Life', color: '#4338ca' }, // Indigo 700
+  { key: 'tulip', label: 'TULIP', color: '#6366f1' }, // Indigo 500
+  { key: 'ulip', label: 'ULIP', color: '#818cf8' }, // Indigo 400
+  { key: 'endowment', label: 'Endowment', color: '#0f172a' }, // Slate 900
+  { key: 'moneyback', label: 'Moneyback', color: '#334155' }, // Slate 700
+  { key: 'business', label: 'Business', color: '#64748b' }, // Slate 500
+  { key: 'mf', label: 'MF', color: '#0369a1' }, // Sky 700
+  { key: 'other', label: 'Other', color: '#0ea5e9' }, // Sky 500
 ];
 
 const MOCK_BUSINESS_COMPANY_WISE = [
@@ -131,27 +131,28 @@ const MOCK_TENURE_WISE = [
 ];
 
 const TENURE_BARS = [
-  { key: 'year1', label: '1 Year', stackId: 'a', color: '#3b82f6' }, // blue-500
-  { key: 'year2', label: '2 Years', stackId: 'a', color: '#10b981' }, // emerald-500
-  { key: 'year3', label: '3 Years', stackId: 'a', color: '#f59e0b' }, // amber-500
-  { key: 'year4', label: '4 Years', stackId: 'a', color: '#8b5cf6' }, // violet-500
-  { key: 'year5', label: '5 Years', stackId: 'a', color: '#ec4899' }, // pink-500
+  { key: 'year1', label: '1 Year', color: '#3b82f6' }, // blue-500
+  { key: 'year2', label: '2 Years', color: '#10b981' }, // emerald-500
+  { key: 'year3', label: '3 Years', color: '#f59e0b' }, // amber-500
+  { key: 'year4', label: '4 Years', color: '#8b5cf6' }, // violet-500
+  { key: 'year5', label: '5 Years', color: '#ec4899' }, // pink-500
 ];
 
 const MOCK_LEADS_STATUS_WISE = [
-  { stage: 'To Contact', hot: 25, warm: 40, cold: 60, dropped: 10, converted: 0 },
-  { stage: 'Contacted', hot: 35, warm: 50, cold: 40, dropped: 15, converted: 0 },
-  { stage: 'Proposal Sent', hot: 45, warm: 30, cold: 20, dropped: 5, converted: 0 },
-  { stage: 'Login Progress', hot: 55, warm: 20, cold: 10, dropped: 2, converted: 0 },
-  { stage: 'Payment Done', hot: 60, warm: 10, cold: 5, dropped: 1, converted: 80 },
+  { stage: 'To Contact',        hot: 25, warm: 40, cold: 60, dropped: 10, converted: 0  },
+  { stage: 'Contacted',         hot: 35, warm: 50, cold: 40, dropped: 15, converted: 0  },
+  { stage: 'Proposal Sent',     hot: 45, warm: 30, cold: 20, dropped: 5,  converted: 0  },
+  { stage: 'Login Progress',    hot: 55, warm: 20, cold: 10, dropped: 2,  converted: 0  },
+  { stage: 'Payment Done',      hot: 60, warm: 10, cold: 5,  dropped: 1,  converted: 80 },
+  { stage: 'Process Completed', hot: 20, warm: 5,  cold: 2,  dropped: 0,  converted: 95 },
 ];
 
 const LEAD_STATUS_BARS = [
-  { key: 'hot', label: 'Hot', stackId: 'status', color: '#ef4444' }, // red
-  { key: 'warm', label: 'Warm', stackId: 'status', color: '#f59e0b' }, // amber
-  { key: 'cold', label: 'Cold', stackId: 'status', color: '#3b82f6' }, // blue
-  { key: 'converted', label: 'Converted', stackId: 'status', color: '#10b981' }, // emerald
-  { key: 'dropped', label: 'Dropped', stackId: 'status', color: '#64748b' }, // slate
+  { key: 'hot', label: 'Hot', color: '#ef4444' }, // red
+  { key: 'warm', label: 'Warm', color: '#f59e0b' }, // amber
+  { key: 'cold', label: 'Cold', color: '#3b82f6' }, // blue
+  { key: 'converted', label: 'Converted', color: '#10b981' }, // emerald
+  { key: 'dropped', label: 'Dropped', color: '#64748b' }, // slate
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1270,27 +1271,30 @@ export default function Dashboard() {
             <AvgSumInsuredTermCard />
           </div>
 
-          {/* ── New Leads Stacked Bar Graph ────────────────────────────────── */}
+          {/* ── New Leads Created (Stage Wise & Status Wise) ──────────────── */}
           <div className="grid grid-cols-1 gap-6 mb-6">
-            <div className="card relative p-0 bg-transparent shadow-none border-none">
-              <div className="absolute top-1 right-5 z-10 flex items-center gap-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Date Range:</label>
-                <select
-                  value={leadsDateRange}
-                  onChange={e => setLeadsDateRange(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
-                >
-                  <option value="ALL">All Time</option>
-                  <option value="30">Last 30 Days</option>
-                  <option value="90">Last 90 Days</option>
-                  <option value="365">This Year</option>
-                </select>
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <h3 className="text-sm font-semibold text-gray-700">New Leads Created (Stage Wise & Status Wise)</h3>
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Date Range:</label>
+                  <select
+                    value={leadsDateRange}
+                    onChange={e => setLeadsDateRange(e.target.value)}
+                    className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+                  >
+                    <option value="ALL">All Time</option>
+                    <option value="30">Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                    <option value="365">This Year</option>
+                  </select>
+                </div>
               </div>
               <BarChartWidget
-                title="New Leads Created (Stage Wise & Status Wise)"
                 data={MOCK_LEADS_STATUS_WISE}
                 xKey="stage"
                 bars={LEAD_STATUS_BARS}
+                height={300}
               />
             </div>
           </div>
