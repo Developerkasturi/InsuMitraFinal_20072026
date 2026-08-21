@@ -177,6 +177,7 @@ export default function Commissions() {
   const gridRate     = Number(w.monthlyGridRate) || 0;
   const gridComm     = Number(w.monthlyGridAmount) || (totalPremium * (gridRate / 100));
 
+  
   const otherRate    = Number(w.otherRate) || 0;
   const otherComm    = Number(w.otherAmount) || (totalPremium * (otherRate / 100));
 
