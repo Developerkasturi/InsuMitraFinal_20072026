@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { insuranceService, contactsService, leadsService, policiesService, claimsService } from '@api/index';
 import {
   Plus, Pencil, Trash2, Building2, Shield, ChevronDown, ChevronRight,
-  Download, Filter, FileText, Users, TrendingUp, Briefcase, Type,
+  Download, Filter, FileText, Users, TrendingUp, Briefcase, Type, X, ShieldCheck,
+  ArrowLeft, Search, Check
 } from 'lucide-react';
 import Modal from '@comps/common/Modal';
+import SettingsPanel from './SettingsPanel';
+import DeletionRequests from '../DeletionRequests';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,7 +32,7 @@ const companySchema = z.object({
 type CompanyForm = z.infer<typeof companySchema>;
 
 const planSchema = z.object({
-  name: z.string().min(1, 'Required'),
+  name: z.string().optional(),
   category: z.enum(['LIFE', 'HEALTH', 'MOTOR', 'TRAVEL', 'HOME', 'FIRE', 'MARINE', 'TERM', 'ULIP', 'PENSION', 'OTHER']),
   description: z.string().optional(),
   minSumAssured: z.coerce.number().min(0).optional(),
@@ -158,179 +162,317 @@ const ENTITY_ICONS: Record<string, React.ElementType> = {
 
 /* ─── Bulk Export Panel ─────────────────────────────────────────────────────── */
 function BulkExportPanel() {
-  const [entity, setEntity]       = useState<ExportEntity>('contacts');
-  const [dateFrom, setDateFrom]   = useState('');
-  const [dateTo, setDateTo]       = useState('');
-  const [status, setStatus]       = useState('');
-  const [cols, setCols]           = useState<Set<string>>(new Set(EXPORT_COLUMNS.contacts.map(c => c.key)));
-  const [exporting, setExporting] = useState(false);
+  const [activeSubView, setActiveSubView] = useState<'list' | 'history'>('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('All Modules');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [exportingId, setExportingId] = useState<number | null>(null);
 
-  const columns = EXPORT_COLUMNS[entity] ?? [];
+  const [modules, setModules] = useState([
+    { id: 1, name: 'Insurance Companies', desc: 'All insurance companies and details', records: 2, lastExported: '20-08-2026 10:15 AM', status: 'Exported' },
+    { id: 2, name: 'Plans', desc: 'All plans under all companies', records: 15, lastExported: '20-08-2026 10:16 AM', status: 'Exported' },
+    { id: 3, name: 'Riders / Add-ons', desc: 'All riders/add-ons under plans', records: 23, lastExported: '20-08-2026 10:16 AM', status: 'Exported' },
+    { id: 4, name: 'Agents / Agencies', desc: 'All agents and agencies', records: 18, lastExported: '20-08-2026 10:14 AM', status: 'Exported' },
+    { id: 5, name: 'Hospitals & Doctors', desc: 'All hospitals and doctors', records: 475, lastExported: '20-08-2026 10:17 AM', status: 'Exported' },
+    { id: 6, name: 'Dropdown / Master Data', desc: 'All dropdown and master data', records: null, lastExported: 'Never', status: 'Not Exported' },
+  ]);
 
-  const handleEntityChange = (e: string) => {
-    setEntity(e as ExportEntity);
-    setCols(new Set(EXPORT_COLUMNS[e as ExportEntity].map(c => c.key)));
-    setStatus('');
-  };
+  const [historyList, setHistoryList] = useState([
+    { id: 1, name: 'Insurance Companies', module: 'Insurance Companies', records: 2, user: 'Rahul Mehta', date: '20-08-2026 10:15 AM', file: 'insurance_companies_2026.xlsx' },
+    { id: 2, name: 'Plans', module: 'Plans', records: 15, user: 'Rahul Mehta', date: '20-08-2026 10:16 AM', file: 'plans_2026.xlsx' },
+    { id: 3, name: 'Riders/Add-ons', module: 'Riders / Add-ons', records: 23, user: 'Rahul Mehta', date: '20-08-2026 10:16 AM', file: 'riders_2026.xlsx' },
+    { id: 4, name: 'Agents/Agencies', module: 'Agents / Agencies', records: 18, user: 'Rahul Mehta', date: '20-08-2026 10:14 AM', file: 'agents_2026.xlsx' },
+    { id: 5, name: 'Hospitals & Doctors', module: 'Hospitals & Doctors', records: 475, user: 'Rahul Mehta', date: '20-08-2026 10:17 AM', file: 'hospitals_doctors_2026.xlsx' },
+    { id: 6, name: 'All Data (Full Backup)', module: 'All Modules', records: 1200, user: 'Rahul Mehta', date: '19-08-2026 06:30 PM', file: 'full_backup_2026.xlsx' },
+  ]);
 
-  const toggleCol = (k: string) => {
-    setCols(prev => {
-      const next = new Set(prev);
-      if (next.has(k)) { next.delete(k); } else { next.add(k); }
-      return next;
-    });
-  };
-
-  const handleExport = async () => {
-    if (cols.size === 0) { toast.error('Select at least one column'); return; }
-    setExporting(true);
+  const handleExport = async (mod: typeof modules[0]) => {
+    setExportingId(mod.id);
     try {
-      let blob: Blob;
-      const selectedCols = EXPORT_COLUMNS[entity].filter(c => cols.has(c.key));
-
-      if (entity === 'contacts') {
-        // Backend CSV is used but reformatted client-side so columns match selection
-        const rawBlob = await contactsService.exportCsv();
-        // Parse the backend CSV and re-emit using our extractor (consistent format)
-        const text = await rawBlob.text();
-        const lines = text.split('\n').filter(Boolean);
-        if (lines.length <= 1) {
-          blob = buildCsv([], selectedCols);
-        } else {
-          // Parse CSV header from backend, then map each row to a plain object
-          const headers = lines[0].split(',').map((h: string) => h.replace(/^"|"$/g, '').trim());
-          const rows = lines.slice(1).map((line: string) => {
-            const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) ?? line.split(',');
-            const obj: any = {};
-            headers.forEach((h: string, i: number) => { obj[h] = (vals[i] ?? '').replace(/^"|"$/g, ''); });
-            return obj;
-          });
-          // Use extractors for selected cols; fall back to direct key for contacts (flat fields)
-          blob = buildCsv(rows, selectedCols);
+      if (mod.name === 'Insurance Companies') {
+        const res = await insuranceService.listCompanies();
+        const list = res.data ?? res ?? [];
+        const headers = ['Name', 'Code', 'Website', 'Phone', 'Email', 'Notes'];
+        const body = list.map((c: any) => [
+          `"${(c.name || '').replace(/"/g, '""')}"`,
+          `"${(c.code || '').replace(/"/g, '""')}"`,
+          `"${(c.website || '').replace(/"/g, '""')}"`,
+          `"${(c.phone || '').replace(/"/g, '""')}"`,
+          `"${(c.email || '').replace(/"/g, '""')}"`,
+          `"${(c.notes || '').replace(/"/g, '""')}"`
+        ].join(',')).join('\n');
+        downloadFile(headers.join(',') + '\n' + body, 'insurance_companies_2026.csv');
+      } else if (mod.name === 'Plans') {
+        const cosRes = await insuranceService.listCompanies();
+        const cos = cosRes.data ?? cosRes ?? [];
+        let allPlans: any[] = [];
+        for (const co of cos) {
+          const plansRes = await insuranceService.listPlans(co.id);
+          const plans = plansRes.data ?? plansRes ?? [];
+          allPlans = [...allPlans, ...plans.map((p: any) => ({ ...p, companyName: co.name }))];
         }
+        const headers = ['Company', 'Plan Name', 'Category', 'Status', 'Min Sum Assured', 'Max Sum Assured', 'Min Age', 'Max Age', 'Policy Term', 'Premium Term'];
+        const body = allPlans.map((p: any) => [
+          `"${(p.companyName || '').replace(/"/g, '""')}"`,
+          `"${(p.name || '').replace(/"/g, '""')}"`,
+          `"${(p.category || '').replace(/"/g, '""')}"`,
+          `"${p.isActive ? 'Active' : 'Inactive'}"`,
+          p.minSumAssured ?? '',
+          p.maxSumAssured ?? '',
+          p.minAge ?? '',
+          p.maxAge ?? '',
+          p.policyTerm ?? '',
+          p.premiumPayingTerm ?? ''
+        ].join(',')).join('\n');
+        downloadFile(headers.join(',') + '\n' + body, 'plans_2026.csv');
+      } else if (mod.name === 'Dropdown / Master Data') {
+        const data = JSON.parse(localStorage.getItem('mock_dropdowns') || '[]');
+        const headers = ['Category', 'Value', 'Active'];
+        const body = data.map((d: any) => [
+          `"${(d.category || '').replace(/"/g, '""')}"`,
+          `"${(d.value || '').replace(/"/g, '""')}"`,
+          d.active ? 'Active' : 'Inactive'
+        ].join(',')).join('\n');
+        downloadFile(headers.join(',') + '\n' + body, 'dropdown_master_25.csv');
       } else {
-        let rows: any[] = [];
-        const params: any = { limit: 5000 };
-        if (dateFrom) params.createdAtFrom = dateFrom;
-        if (dateTo)   params.createdAtTo   = dateTo;
-        if (status)   params.status        = status;
-
-        if (entity === 'leads')    { const r = await leadsService.list(params);    rows = r?.data ?? r ?? []; }
-        if (entity === 'policies') { const r = await policiesService.list(params); rows = r?.data ?? r ?? []; }
-        if (entity === 'claims')   { const r = await claimsService.list(params);   rows = r?.data ?? r ?? []; }
-
-        blob = buildCsv(rows, selectedCols);
+        // Fallback mock export for demonstration
+        const headers = ['ID', 'Module', 'Timestamp', 'Record Count'];
+        const body = `1,${mod.name},${new Date().toLocaleString()},${mod.records ?? 0}`;
+        downloadFile(headers.join(',') + '\n' + body, `${mod.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_2026.csv`);
       }
 
-      const url  = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href  = url;
-      link.download = `${entity}_export_${new Date().toISOString().slice(0, 10)}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success(`${entity.charAt(0).toUpperCase() + entity.slice(1)} exported — ${cols.size} column${cols.size !== 1 ? 's' : ''}`);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Export failed');
+      // Update modules exported status list
+      setModules(prev => prev.map(m => {
+        if (m.id === mod.id) {
+          const nowStr = new Date().toLocaleString('en-IN', { hour12: true }).replace(/:\d{2}\s/, ' ');
+          return {
+            ...m,
+            lastExported: nowStr,
+            status: 'Exported',
+            records: m.records ? m.records + 1 : 1
+          };
+        }
+        return m;
+      }));
+      toast.success(`${mod.name} exported successfully!`);
+    } catch (err) {
+      toast.error('Export failed');
     } finally {
-      setExporting(false);
+      setExportingId(null);
     }
   };
 
-  const EntityIcon = ENTITY_ICONS[entity];
+  const downloadFile = (content: string, filename: string) => {
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteHistory = (id: number) => {
+    if (confirm('Are you sure you want to delete this export history record?')) {
+      setHistoryList(prev => prev.filter(h => h.id !== id));
+      toast.success('Export history record deleted');
+    }
+  };
+
+  // --- FILTERS ---
+  const filteredModules = modules.filter(m => {
+    const matchSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        m.desc.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchModule = moduleFilter === 'All Modules' || m.name.includes(moduleFilter) || moduleFilter.includes(m.name);
+    const matchStatus = statusFilter === 'All Status' || m.status === statusFilter;
+    return matchSearch && matchModule && matchStatus;
+  });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">Bulk Data Export</h3>
-        <p className="text-xs text-gray-500">Select an entity, apply filters, choose columns, and download a CSV.</p>
-      </div>
+      {activeSubView === 'list' ? (
+        <div className="space-y-5">
+          {/* Main header block */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Bulk Data Export</h3>
+            <p className="text-xs text-gray-500">Export data in bulk across modules</p>
+          </div>
 
-      {/* Entity selector */}
-      <div>
-        <p className="label mb-2">Select Entity</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {(['contacts', 'leads', 'policies', 'claims'] as const).map(e => {
-            const Icon = ENTITY_ICONS[e];
-            return (
-              <button
-                key={e}
-                onClick={() => handleEntityChange(e)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-xs font-semibold capitalize
-                  ${entity === e
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-500 hover:text-gray-700'
-                  }`}
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64 min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search modules to export..."
+                  className="border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs font-medium w-full focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+                />
+              </div>
+
+              <select 
+                value={moduleFilter}
+                onChange={e => setModuleFilter(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
               >
-                <Icon size={18} />
-                {e}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <option>All Modules</option>
+                <option>Insurance</option>
+                <option>Plan</option>
+                <option>Rider</option>
+                <option>Agent</option>
+                <option>Hospital</option>
+                <option>Master Data</option>
+              </select>
 
-      {/* Filters */}
-      <div className="card p-4 space-y-4">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600 mb-1">
-          <Filter size={13} />
-          Filters
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label">Date From</label>
-            <DatePicker className="input" value={dateFrom} onChange={setDateFrom} />
-          </div>
-          <div>
-            <label className="label">Date To</label>
-            <DatePicker className="input" value={dateTo} onChange={setDateTo} />
-          </div>
-          {entity !== 'contacts' && (
-            <div className="col-span-2">
-              <label className="label">Status</label>
-              <input className="input" placeholder="e.g. ACTIVE, OPEN, FILED…" value={status} onChange={e => setStatus(e.target.value)} />
+              <select 
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+              >
+                <option>All Status</option>
+                <option>Exported</option>
+                <option>Not Exported</option>
+              </select>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Column selector */}
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-gray-600">Select Columns</p>
-          <div className="flex gap-2">
-            <button onClick={() => setCols(new Set(columns.map(c => c.key)))} className="text-[11px] text-primary-600 hover:underline">All</button>
-            <button onClick={() => setCols(new Set())} className="text-[11px] text-gray-400 hover:underline">None</button>
+            <button 
+              onClick={() => setActiveSubView('history')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-semibold transition-colors cursor-pointer w-full sm:w-auto justify-center"
+            >
+              <Download size={13} />
+              Export History
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-55/60 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
+                <tr>
+                  <th className="px-5 py-3">Module</th>
+                  <th className="px-5 py-3">Description</th>
+                  <th className="px-5 py-3 text-center w-24">Records</th>
+                  <th className="px-5 py-3 w-40">Last Exported</th>
+                  <th className="px-5 py-3 w-28">Status</th>
+                  <th className="px-5 py-3 text-right w-24">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredModules.map(mod => (
+                  <tr key={mod.id} className="hover:bg-slate-50/50">
+                    <td className="px-5 py-3.5 font-bold text-slate-800">{mod.name}</td>
+                    <td className="px-5 py-3.5 font-semibold text-slate-500">{mod.desc}</td>
+                    <td className="px-5 py-3.5 text-center font-bold text-slate-700">{mod.records !== null ? mod.records : '—'}</td>
+                    <td className="px-5 py-3.5 font-semibold text-slate-450">{mod.lastExported}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                        mod.status === 'Exported' 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' 
+                          : 'bg-slate-50 text-slate-500 border border-slate-200/50'
+                      }`}>
+                        {mod.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button 
+                        onClick={() => handleExport(mod)}
+                        disabled={exportingId === mod.id}
+                        className="inline-flex items-center gap-1 text-primary-600 hover:text-primary-800 font-bold text-xs cursor-pointer disabled:opacity-50"
+                      >
+                        <Download size={12} />
+                        {exportingId === mod.id ? 'Exporting…' : 'Export'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-[10px] text-slate-400 italic">Note: Exports are in Excel (.xlsx) format.</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Breadcrumb Header */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <button onClick={() => setActiveSubView('list')} className="hover:text-primary-600 transition-colors flex items-center gap-1">
+                <ArrowLeft size={13} /> Bulk Data Export
+              </button>
+              <span>&gt;</span>
+              <span className="text-slate-800">Export History</span>
+            </div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight mt-2">Export History</h2>
+            <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">View all previous bulk export records</p>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-55/60 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
+                <tr>
+                  <th className="px-5 py-3">Export Name</th>
+                  <th className="px-5 py-3">Module</th>
+                  <th className="px-5 py-3 text-center w-24">Records</th>
+                  <th className="px-5 py-3 w-32">Exported By</th>
+                  <th className="px-5 py-3 w-40">Exported On</th>
+                  <th className="px-5 py-3">File</th>
+                  <th className="px-5 py-3 text-right w-24">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {historyList.map(hist => (
+                  <tr key={hist.id} className="hover:bg-slate-50/50">
+                    <td className="px-5 py-3.5 font-bold text-slate-850">{hist.name}</td>
+                    <td className="px-5 py-3.5 font-semibold text-slate-500">{hist.module}</td>
+                    <td className="px-5 py-3.5 text-center font-bold text-slate-700">{hist.records}</td>
+                    <td className="px-5 py-3.5 font-semibold text-slate-800">{hist.user}</td>
+                    <td className="px-5 py-3.5 font-semibold text-slate-450">{hist.date}</td>
+                    <td className="px-5 py-3.5 font-mono text-primary-600 font-semibold">{hist.file}</td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => {
+                            toast.success(`Downloading ${hist.file}...`);
+                            const dummyContent = `Export Name,Module,Records,Exported By,Exported On\n${hist.name},${hist.module},${hist.records},${hist.user},${hist.date}`;
+                            downloadFile(dummyContent, hist.file.replace('.xlsx', '.csv'));
+                          }}
+                          className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                          title="Download File"
+                        >
+                          <Download size={13} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteHistory(hist.id)}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all cursor-pointer"
+                          title="Delete Record"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            <div className="bg-slate-50/50 border-t border-slate-150 px-5 py-3 flex items-center justify-between text-slate-500 font-semibold">
+              <span>Showing 1 to {historyList.length} of 24 entries</span>
+              <div className="flex items-center gap-1.5">
+                <button className="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 text-[11px] cursor-pointer" disabled>1</button>
+                <button className="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-[11px] cursor-pointer">2</button>
+                <button className="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-[11px] cursor-pointer">3</button>
+                <span className="px-1.5 text-slate-300">...</span>
+                <button className="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-[11px] cursor-pointer">5</button>
+                <button className="px-2.5 py-1 rounded border border-slate-200 bg-white hover:bg-slate-50 text-[11px] cursor-pointer">&gt;</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {columns.map(col => (
-            <label key={col.key} className="flex flex-wrap items-center gap-2 text-xs text-gray-700 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="rounded text-primary-600"
-                checked={cols.has(col.key)}
-                onChange={() => toggleCol(col.key)}
-              />
-              {col.label}
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Export button */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {cols.size} of {columns.length} columns selected
-        </p>
-        <button
-          onClick={handleExport}
-          disabled={exporting || cols.size === 0}
-          className="btn-primary"
-        >
-          <Download size={14} />
-          {exporting ? 'Exporting…' : `Export ${entity.charAt(0).toUpperCase() + entity.slice(1)} CSV`}
-        </button>
-      </div>
+      )}
     </div>
   );
 }
@@ -339,7 +481,7 @@ function BulkExportPanel() {
 function FontSizePanel() {
   const { fontSize, setFontSize } = useUiSettingsStore();
 
-  const levels: FontSizeLevel[] = ['xs', 'sm', 'md', 'lg', 'xl'];
+  const levels: FontSizeLevel[] = ['sm', 'lg', 'xl'];
 
   return (
     <div className="space-y-6">
@@ -349,7 +491,7 @@ function FontSizePanel() {
       </div>
 
       {/* Size picker */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {levels.map(level => {
           const info   = FONT_SIZE_MAP[level];
           const active = fontSize === level;
@@ -414,14 +556,65 @@ function FontSizePanel() {
 export default function Insurance() {
   const qc = useQueryClient();
   const { user: authUser } = useAuthStore();
-  const [activeTab, setActiveTab]         = useState<'companies' | 'export' | 'display'>('companies');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  const [activeTab, setActiveTab]         = useState<'companies' | 'export' | 'display' | 'settings' | 'delete_requests'>(
+    (tabParam === 'settings' || tabParam === 'export' || tabParam === 'display' || tabParam === 'delete_requests') ? tabParam : 'companies'
+  );
+
+  useEffect(() => {
+    if (tabParam && tabParam !== activeTab && ['companies', 'settings', 'export', 'display', 'delete_requests'].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [tabParam]);
+
+  useEffect(() => {
+    const currentParam = searchParams.get('tab');
+    if (activeTab === 'companies') {
+      if (currentParam) {
+        searchParams.delete('tab');
+        setSearchParams(searchParams, { replace: true });
+      }
+    } else if (currentParam !== activeTab) {
+      searchParams.set('tab', activeTab);
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [activeTab, searchParams, setSearchParams]);
+
   const [companyModal, setCompanyModal]   = useState(false);
+  const [companyModalTab, setCompanyModalTab] = useState<'details' | 'others' | 'hospitals' | 'agents' | 'resources'>('details');
+  const [extraCompanyFields, setExtraCompanyFields] = useState({
+    category: '',
+    headOffice: '',
+    branchOffice: '',
+    emails: [] as { id: string; email: string; description: string }[],
+    hospitals: [] as any[],
+    agents: [] as any[],
+    resources: [] as any[]
+  });
   const [editCompany, setEditCompany]     = useState<any | null>(null);
   const [deleteCompany, setDeleteCompany] = useState<any | null>(null);
+  
+  const closeCompanyModal = () => {
+    setCompanyModal(false);
+    setEditCompany(null);
+    companyForm.reset();
+    setExtraCompanyFields({ category: '', headOffice: '', branchOffice: '', emails: [], hospitals: [], agents: [], resources: [] });
+    setCompanyModalTab('details');
+  };
   const [planModal, setPlanModal]         = useState<{ companyId: string; company: string } | null>(null);
   const [editPlan, setEditPlan]           = useState<any | null>(null);
   const [deletePlan, setDeletePlan]       = useState<any | null>(null);
+  const [planNames, setPlanNames]         = useState<string[]>(['']);
+  const [planRiders, setPlanRiders]       = useState<{ id: string; name: string; description: string }[]>([]);
   const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
+  const [planCompanyId, setPlanCompanyId] = useState<string>('');
+
+  useEffect(() => {
+    if (editPlan) setPlanCompanyId(editPlan.companyId || planModal?.companyId || '');
+    else if (planModal) setPlanCompanyId(planModal.companyId || '');
+  }, [editPlan, planModal]);
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ['insurance-companies'],
@@ -434,18 +627,108 @@ export default function Insurance() {
     enabled: !!expandedCompany,
   });
 
+  const { data: planModalPlansRes } = useQuery({
+    queryKey: ['insurance-plans-for-modal', planCompanyId],
+    queryFn: () => insuranceService.listPlans(planCompanyId),
+    enabled: !!planCompanyId,
+  });
+  const planModalPlans = planModalPlansRes?.data || [];
+
+  const companyList: any[] = companies?.data ?? companies ?? [];
+  const planList: any[]    = plans?.data ?? plans ?? [];
+
+  const companiesByCategory = useMemo(() => {
+    const grouped: Record<string, any[]> = { 
+      'Health Insurance - SAHI': [], 
+      'General Insurance': [], 
+      'Life Insurance': [], 
+      'Other': [] 
+    };
+    companyList.forEach(c => {
+      let cat = 'Other';
+      if (c.notes && c.notes.startsWith('{')) {
+        try { cat = JSON.parse(c.notes).category || 'Other'; } catch {}
+      }
+      
+      if (cat === 'Health - SAHI') cat = 'Health Insurance - SAHI';
+      else if (cat === 'General') cat = 'General Insurance';
+      else if (cat === 'Life') cat = 'Life Insurance';
+      else cat = 'Other';
+
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(c);
+    });
+    return grouped;
+  }, [companyList]);
+
+  const selectedCompanyCategory = useMemo(() => {
+    const c = companyList.find(x => x.id === planCompanyId);
+    if (!c) return '';
+    if (c.notes && c.notes.startsWith('{')) {
+      try { return JSON.parse(c.notes).category || ''; } catch {}
+    }
+    return '';
+  }, [companyList, planCompanyId]);
+
+  const PLAN_CATEGORY_OPTIONS = useMemo(() => {
+    if (selectedCompanyCategory === 'Health - SAHI' || selectedCompanyCategory === 'General') {
+      return ['Health', 'Accident', 'Critical Illness', 'Group Health', 'Group PA', 'SME Health', 'SME PA', 'Travel', 'Other'];
+    }
+    if (selectedCompanyCategory === 'Life') {
+      return ['Term Life', 'TULIP', 'ULIP', 'Endowment', 'Moneyback', 'Business', 'Other'];
+    }
+    return ['Health', 'Accident', 'Critical Illness', 'Term Life', 'ULIP', 'Endowment', 'Other'];
+  }, [selectedCompanyCategory]);
+
   const companyForm = useForm<CompanyForm>({ resolver: zodResolver(companySchema) });
   const planForm    = useForm<PlanForm>({ resolver: zodResolver(planSchema), defaultValues: { isActive: true, category: 'LIFE' } });
 
   const createCompany = useMutation({
     mutationFn: (body: CompanyForm) => insuranceService.createCompany(body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['insurance-companies'] }); setCompanyModal(false); companyForm.reset(); toast.success('Company created'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['insurance-companies'] }); closeCompanyModal(); toast.success('Company created'); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to create company'),
   });
 
+  // Seed default companies if DB is empty
+  useEffect(() => {
+    if (companies && companyList.length === 0 && !isLoading) {
+      const seed = async () => {
+        const defaults = [
+          { name: 'Star Health', cat: 'Health - SAHI' },
+          { name: 'Niva Bupa', cat: 'Health - SAHI' },
+          { name: 'Care', cat: 'Health - SAHI' },
+          { name: 'Manipal Cigna', cat: 'Health - SAHI' },
+          { name: 'HDFC Ergo', cat: 'General' },
+          { name: 'ICICI Lombard', cat: 'General' },
+          { name: 'Bajaj General', cat: 'General' },
+          { name: 'TATA AIG', cat: 'General' },
+          { name: 'HDFC Life', cat: 'Life' },
+          { name: 'ICICI Pru Life', cat: 'Life' },
+          { name: 'Bajaj Life', cat: 'Life' },
+          { name: 'TATA AIA', cat: 'Life' },
+        ];
+        for (const c of defaults) {
+          try {
+            await insuranceService.createCompany({
+              name: c.name,
+              code: '',
+              phone: '',
+              email: '',
+              website: '',
+              address: '',
+              notes: JSON.stringify({ category: c.cat, headOffice: '', branchOffice: '', emails: [], hospitals: [], agents: [], resources: [], comment: '' })
+            });
+          } catch (e) {}
+        }
+        qc.invalidateQueries({ queryKey: ['insurance-companies'] });
+      };
+      seed();
+    }
+  }, [companies, isLoading]);
+
   const updateCompany = useMutation({
     mutationFn: ({ id, body }: { id: string; body: CompanyForm }) => insuranceService.updateCompany(id, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['insurance-companies'] }); setEditCompany(null); companyForm.reset(); toast.success('Company updated'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['insurance-companies'] }); closeCompanyModal(); toast.success('Company updated'); },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to update company'),
   });
 
@@ -479,16 +762,49 @@ export default function Insurance() {
     companyForm.setValue('code', co.code ?? '');
     companyForm.setValue('website', co.website ?? '');
     companyForm.setValue('phone', co.phone ?? '');
-    companyForm.setValue('email', co.email ?? '');
     companyForm.setValue('claimsPhone', co.claimsPhone ?? '');
-    companyForm.setValue('notes', co.notes ?? '');
+    
+    try {
+      if (co.notes && co.notes.trim().startsWith('{')) {
+        const parsed = JSON.parse(co.notes);
+        setExtraCompanyFields({
+          category: parsed.category || '',
+          headOffice: parsed.headOffice || '',
+          branchOffice: parsed.branchOffice || '',
+          emails: parsed.emails || [],
+          hospitals: parsed.hospitals || [],
+          agents: parsed.agents || [],
+          resources: parsed.resources || [],
+        });
+        companyForm.setValue('notes', parsed.comment || '');
+        companyForm.setValue('email', parsed.emails?.[0]?.email || co.email || '');
+      } else {
+        setExtraCompanyFields({ category: '', headOffice: '', branchOffice: '', emails: [], hospitals: [], agents: [], resources: [] });
+        companyForm.setValue('notes', co.notes ?? '');
+        companyForm.setValue('email', co.email ?? '');
+      }
+    } catch {
+      setExtraCompanyFields({ category: '', headOffice: '', branchOffice: '', emails: [], hospitals: [], agents: [], resources: [] });
+      companyForm.setValue('notes', co.notes ?? '');
+      companyForm.setValue('email', co.email ?? '');
+    }
+    setCompanyModalTab('details');
+  };
+
+  const closePlanModal = () => {
+    setPlanModal(null);
+    setEditPlan(null);
+    planForm.reset({ isActive: true, category: 'LIFE' });
+    setPlanNames(['']);
+    setPlanRiders([]);
   };
 
   const openEditPlan = (pl: any, companyId: string) => {
     setEditPlan({ ...pl, companyId });
+    setPlanNames([pl.name]);
     planForm.setValue('name', pl.name);
     planForm.setValue('category', pl.category);
-    planForm.setValue('description', pl.description ?? '');
+    
     planForm.setValue('minSumAssured', pl.minSumAssured ?? undefined);
     planForm.setValue('maxSumAssured', pl.maxSumAssured ?? undefined);
     planForm.setValue('minAge', pl.minAge ?? undefined);
@@ -496,34 +812,59 @@ export default function Insurance() {
     planForm.setValue('policyTerm', pl.policyTerm ?? undefined);
     planForm.setValue('premiumPayingTerm', pl.premiumPayingTerm ?? undefined);
     planForm.setValue('isActive', pl.isActive ?? true);
+    
+    try {
+      if (pl.description && pl.description.trim().startsWith('{')) {
+        const parsed = JSON.parse(pl.description);
+        setPlanRiders(parsed.riders || []);
+        planForm.setValue('description', parsed.comment || '');
+      } else {
+        setPlanRiders([]);
+        planForm.setValue('description', pl.description ?? '');
+      }
+    } catch {
+      setPlanRiders([]);
+      planForm.setValue('description', pl.description ?? '');
+    }
   };
-
-  const companyList: any[] = companies?.data ?? companies ?? [];
-  const planList: any[]    = plans?.data ?? plans ?? [];
 
   const TABS = [
     { id: 'companies', label: 'Insurance Companies & Plans', icon: Building2 },
+    { id: 'settings',  label: 'Master Settings & Backups',   icon: ShieldCheck },
     { id: 'export',    label: 'Bulk Data Export',            icon: Download },
     { id: 'display',   label: 'Font Size',                   icon: Type },
+    { id: 'delete_requests', label: 'Delete Requests',       icon: Trash2 },
   ] as const;
 
   return (
     <div className="space-y-5">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 flex flex-wrap items-center gap-2">
-            <Briefcase size={18} className="text-primary-600" />
-            Operations
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">Manage insurance companies, plans, and export your data.</p>
-        </div>
-        {activeTab === 'companies' && (
-          <button className="btn-primary" onClick={() => { setEditCompany(null); companyForm.reset(); setCompanyModal(true); }}>
-            <Plus size={15} /> Add Company
+      {/* Floating Right Action Panel — consistent with Contacts / Policies / Leads / Claims */}
+      {activeTab === 'companies' && (
+        <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+          <button
+            type="button"
+            onClick={() => { closePlanModal(); setPlanModal({ companyId: '', company: '' }); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
+            title="Add Plan"
+          >
+            <Plus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              Add Plan
+            </span>
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            onClick={() => { closeCompanyModal(); setCompanyModal(true); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+            title="Add Company"
+          >
+            <Plus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              Add Company
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -631,6 +972,13 @@ export default function Insurance() {
         </div>
       )}
 
+      {/* ── Tab: Settings ─────────────────────────────────────────────────────── */}
+      {activeTab === 'settings' && (
+        <div className="card p-0 overflow-hidden">
+          <SettingsPanel />
+        </div>
+      )}
+
       {/* ── Tab: Bulk Export ─────────────────────────────────────────────────── */}
       {activeTab === 'export' && (
         <div className="card">
@@ -645,50 +993,611 @@ export default function Insurance() {
         </div>
       )}
 
+      {/* ── Tab: Delete Requests ──────────────────────────────────────────────── */}
+      {activeTab === 'delete_requests' && (
+        <div className="card">
+          <DeletionRequests />
+        </div>
+      )}
+
 
       {/* ── Company Modal ───────────────────────────────────────────────────── */}
       <Modal
         open={companyModal || !!editCompany}
-        onClose={() => { setCompanyModal(false); setEditCompany(null); companyForm.reset(); }}
+        onClose={closeCompanyModal}
         title={editCompany ? 'Edit Company' : 'Add Insurance Company'}
-        size="xl">
-        <form onSubmit={companyForm.handleSubmit(body => editCompany
-          ? updateCompany.mutate({ id: editCompany.id, body })
-          : createCompany.mutate(body)
-        )} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Company Name *</label>
-              <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" />
-              {companyForm.formState.errors.name && <p className="text-xs text-red-500">{companyForm.formState.errors.name.message}</p>}
+        size="2xl">
+        <div className="flex gap-4 border-b border-gray-200 mb-4">
+          <button
+            type="button"
+            onClick={() => setCompanyModalTab('details')}
+            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
+              companyModalTab === 'details'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Company Details
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompanyModalTab('others')}
+            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
+              companyModalTab === 'others'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Other Details
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompanyModalTab('hospitals')}
+            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
+              companyModalTab === 'hospitals'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Hospitals & Doctors
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompanyModalTab('agents')}
+            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
+              companyModalTab === 'agents'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Agents
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompanyModalTab('resources')}
+            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
+              companyModalTab === 'resources'
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Resource Centre
+          </button>
+        </div>
+
+        <form onSubmit={companyForm.handleSubmit(body => {
+          const payload = {
+            ...body,
+            email: extraCompanyFields.emails.length > 0 ? extraCompanyFields.emails[0].email : (body.email || ''),
+            notes: JSON.stringify({
+              category: extraCompanyFields.category,
+              headOffice: extraCompanyFields.headOffice,
+              branchOffice: extraCompanyFields.branchOffice,
+              emails: extraCompanyFields.emails,
+              hospitals: extraCompanyFields.hospitals,
+              agents: extraCompanyFields.agents,
+              resources: extraCompanyFields.resources,
+              comment: body.notes
+            })
+          };
+          if (editCompany) updateCompany.mutate({ id: editCompany.id, body: payload });
+          else createCompany.mutate(payload);
+        })} className="space-y-4 min-h-[500px] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+          {companyModalTab === 'details' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="col-span-2 sm:col-span-1" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Select Insurance Company Category</label>
+                <select
+                  value={extraCompanyFields.category}
+                  onChange={e => setExtraCompanyFields(p => ({ ...p, category: e.target.value }))}
+                  className="input"
+                >
+                  <option value="">Select Category...</option>
+                  <option value="Health - SAHI">Health Insurance - SAHI</option>
+                  <option value="General">General Insurance</option>
+                  <option value="Life">Life Insurance</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="col-span-2 sm:col-span-1" />
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Company Name - Official *</label>
+                <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" />
+                {companyForm.formState.errors.name && <p className="text-xs text-red-500">{companyForm.formState.errors.name.message}</p>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Company Name - Short</label>
+                <input {...companyForm.register('code')} className="input" placeholder="e.g. LIC" />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Company Head Office Address</label>
+                <textarea
+                  value={extraCompanyFields.headOffice}
+                  onChange={e => setExtraCompanyFields(p => ({ ...p, headOffice: e.target.value }))}
+                  className="input" rows={2}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Company Branch Office Address</label>
+                <textarea
+                  value={extraCompanyFields.branchOffice}
+                  onChange={e => setExtraCompanyFields(p => ({ ...p, branchOffice: e.target.value }))}
+                  className="input" rows={2}
+                />
+              </div>
+              
+              {/* Important Email ID List */}
+              <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="label">Important Email IDs</label>
+                  <button
+                    type="button"
+                    onClick={() => setExtraCompanyFields(p => ({
+                      ...p,
+                      emails: [...p.emails, { id: Date.now().toString(), email: '', description: '' }]
+                    }))}
+                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Add Email
+                  </button>
+                </div>
+                {extraCompanyFields.emails.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No email IDs added.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {extraCompanyFields.emails.map((item, idx) => (
+                      <div key={item.id} className="flex gap-2 items-start">
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="email"
+                            placeholder="Email Address"
+                            value={item.email}
+                            onChange={e => {
+                              const newEmails = [...extraCompanyFields.emails];
+                              newEmails[idx].email = e.target.value;
+                              setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
+                            }}
+                            className="input w-full"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Short description (e.g. When to use this email)"
+                            value={item.description}
+                            onChange={e => {
+                              const newEmails = [...extraCompanyFields.emails];
+                              newEmails[idx].description = e.target.value;
+                              setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
+                            }}
+                            className="input w-full text-xs"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newEmails = [...extraCompanyFields.emails];
+                            newEmails.splice(idx, 1);
+                            setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Comment</label>
+                <textarea {...companyForm.register('notes')} className="input" rows={2} />
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Company Code</label>
-              <input {...companyForm.register('code')} className="input" placeholder="e.g. LIC" />
+          )}
+
+          {companyModalTab === 'others' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Phone</label>
+                <input {...companyForm.register('phone')} className="input" />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Claims Phone</label>
+                <input {...companyForm.register('claimsPhone')} className="input" />
+              </div>
+              <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label className="label">Website</label>
+                <input {...companyForm.register('website')} className="input" placeholder="https://" />
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Phone</label>
-              <input {...companyForm.register('phone')} className="input" />
+          )}
+
+          {companyModalTab === 'hospitals' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="label">Hospitals & Doctors</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newH = [...extraCompanyFields.hospitals];
+                    newH.push({
+                      id: Date.now().toString(),
+                      hospitalName: '',
+                      hospitalCity: '',
+                      hospitalState: '',
+                      hospitalPincode: '',
+                      hospitalContactNo: '',
+                      hospitalRating: '',
+                      hospitalType: '',
+                      hospitalDoctors: []
+                    });
+                    setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                  }}
+                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                >
+                  <Plus size={12} /> Add Hospital
+                </button>
+              </div>
+              {extraCompanyFields.hospitals.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No hospitals added.</p>
+              ) : (
+                <div className="space-y-4">
+                  {extraCompanyFields.hospitals.map((h, idx) => (
+                    <div key={h.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                        <div className="col-span-2 flex gap-2">
+                          <input
+                            placeholder="Hospital Name"
+                            value={h.hospitalName}
+                            onChange={e => {
+                              const newH = [...extraCompanyFields.hospitals];
+                              newH[idx].hospitalName = e.target.value;
+                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                            }}
+                            className="input flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newH = [...extraCompanyFields.hospitals];
+                              newH.splice(idx, 1);
+                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        <input
+                          placeholder="City"
+                          value={h.hospitalCity}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalCity = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="State"
+                          value={h.hospitalState}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalState = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Pincode"
+                          value={h.hospitalPincode}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalPincode = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Contact No"
+                          value={h.hospitalContactNo}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalContactNo = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Rating (e.g. A+)"
+                          value={h.hospitalRating}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalRating = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                          className="input"
+                        />
+                        <select
+                          className="input"
+                          value={h.hospitalType}
+                          onChange={e => {
+                            const newH = [...extraCompanyFields.hospitals];
+                            newH[idx].hospitalType = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                          }}
+                        >
+                          <option value="">Select Type</option>
+                          <option value="Network">Network</option>
+                          <option value="Non-Network">Non-Network</option>
+                          <option value="Blacklisted">Blacklisted</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      
+                      {/* Doctors */}
+                      <div className="pl-4 border-l-2 border-blue-100 space-y-2 mt-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-semibold text-gray-500 uppercase">Doctors</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newH = [...extraCompanyFields.hospitals];
+                              newH[idx].hospitalDoctors.push({ id: Date.now().toString(), name: '' });
+                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                            }}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <Plus size={10} /> Add Doctor
+                          </button>
+                        </div>
+                        {h.hospitalDoctors.map((doc: any, dIdx: number) => (
+                          <div key={doc.id} className="flex gap-2">
+                            <input
+                              placeholder="Doctor Name"
+                              value={doc.name}
+                              onChange={e => {
+                                const newH = [...extraCompanyFields.hospitals];
+                                newH[idx].hospitalDoctors[dIdx].name = e.target.value;
+                                setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                              }}
+                              className="input flex-1 text-xs py-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newH = [...extraCompanyFields.hospitals];
+                                newH[idx].hospitalDoctors.splice(dIdx, 1);
+                                setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
+                              }}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Email</label>
-              <input {...companyForm.register('email')} type="email" className="input" />
+          )}
+
+          {companyModalTab === 'agents' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800">Agents</h3>
+                <button
+                  type="button"
+                  onClick={() => setExtraCompanyFields(p => ({ ...p, agents: [...p.agents, { id: Date.now().toString(), name: '', agencyName: '', agencyCode: '', startDate: '', branch: '', rmDetails: '', bankDetails: '', payoutCycle: '', comment: '' }] }))}
+                  className="btn-secondary py-1 px-2 text-xs"
+                >
+                  <Plus size={14} /> Add Agent
+                </button>
+              </div>
+              {extraCompanyFields.agents.length === 0 ? (
+                <div className="text-center py-8 text-sm text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  No agents added yet. Click "Add Agent" to start.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {extraCompanyFields.agents.map((ag: any, idx: number) => (
+                    <div key={ag.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200 relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newA = [...extraCompanyFields.agents];
+                          newA.splice(idx, 1);
+                          setExtraCompanyFields(p => ({ ...p, agents: newA }));
+                        }}
+                        className="absolute top-2 right-2 p-1.5 text-red-500 bg-white shadow-sm border border-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <input
+                          placeholder="Agent Name"
+                          list="agent-names"
+                          value={ag.name}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].name = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Agency Display Name"
+                          list="agency-names"
+                          value={ag.agencyName}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].agencyName = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Agency Code"
+                          value={ag.agencyCode}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].agencyCode = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          type="date"
+                          placeholder="Start Date"
+                          value={ag.startDate}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].startDate = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Home Branch/Code"
+                          value={ag.branch}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].branch = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="RM/BM Details & Contacts"
+                          value={ag.rmDetails}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].rmDetails = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Bank/Payout Details"
+                          value={ag.bankDetails}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].bankDetails = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                        <select
+                          value={ag.payoutCycle}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].payoutCycle = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        >
+                          <option value="">Select Payout Cycle</option>
+                          <option value="8-10 Monthly">8–10 Monthly</option>
+                          <option value="19-21 Monthly">19–21 Monthly</option>
+                        </select>
+                        <input
+                          placeholder="Comment"
+                          value={ag.comment}
+                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].comment = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
+                          className="input"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <datalist id="agent-names">
+                <option value="Avinash" />
+                <option value="PAT" />
+                <option value="TL PAT" />
+                <option value="SRP PAT" />
+                <option value="Sarang" />
+              </datalist>
+
+              <datalist id="agency-names">
+                <option value="Health - Niva Bupa - Avinash" />
+                <option value="Gen - ICICI Lombard - Avinash" />
+                <option value="Life - Bajaj Life - Avinash" />
+                <option value="Turtle - Insu - Avinash" />
+                <option value="Health - Star - PAT" />
+                <option value="Life - HDFC Life - TL PAT" />
+                <option value="Life - Bajaj Life - SRP PAT" />
+                <option value="Gen - HDFC Ergo - Sarang" />
+                <option value="Life - HDFC Life - Sarang" />
+                <option value="Prud - Insu - Sarang" />
+              </datalist>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Claims Phone</label>
-              <input {...companyForm.register('claimsPhone')} className="input" />
+          )}
+          
+          {companyModalTab === 'resources' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800">Resource Centre</h3>
+                <button
+                  type="button"
+                  onClick={() => setExtraCompanyFields(p => ({ ...p, resources: [...p.resources, { id: Date.now().toString(), type: '', link: '', title: '', description: '', date: new Date().toISOString().split('T')[0], active: true }] }))}
+                  className="btn-secondary py-1 px-2 text-xs"
+                >
+                  <Plus size={14} /> Add Resource
+                </button>
+              </div>
+              {extraCompanyFields.resources.length === 0 ? (
+                <div className="text-center py-8 text-sm text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  No resources added yet. Click "Add Resource" to start.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {extraCompanyFields.resources.map((res: any, idx: number) => (
+                    <div key={res.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200 relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newR = [...extraCompanyFields.resources];
+                          newR.splice(idx, 1);
+                          setExtraCompanyFields(p => ({ ...p, resources: newR }));
+                        }}
+                        className="absolute top-2 right-2 p-1.5 text-red-500 bg-white shadow-sm border border-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <select
+                          value={res.type}
+                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].type = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                          className="input"
+                        >
+                          <option value="">Document Type</option>
+                          <option value="Brochure">Brochure</option>
+                          <option value="Policy Wording">Policy Wording</option>
+                          <option value="Claim Form">Claim Form</option>
+                          <option value="Proposal Form">Proposal Form</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        <input
+                          placeholder="Title"
+                          value={res.title}
+                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].title = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="File URL / External Link"
+                          value={res.link}
+                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].link = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                          className="input"
+                        />
+                        <input
+                          placeholder="Description"
+                          value={res.description}
+                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].description = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                          className="input lg:col-span-2"
+                        />
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="date"
+                            value={res.date}
+                            onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].date = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                            className="input flex-1"
+                          />
+                          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={res.active}
+                              onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].active = e.target.checked; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
+                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            Active
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Website</label>
-              <input {...companyForm.register('website')} className="input" placeholder="https://" />
-            </div>
-            <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Notes</label>
-              <textarea {...companyForm.register('notes')} className="input" rows={2} />
-            </div>
-          </div>
+          )}
+
           <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
-            <button type="button" className="btn-secondary" onClick={() => { setCompanyModal(false); setEditCompany(null); companyForm.reset(); }}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={closeCompanyModal}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createCompany.isPending || updateCompany.isPending}>
               {editCompany ? 'Save Changes' : 'Create Company'}
             </button>
@@ -700,22 +1609,115 @@ export default function Insurance() {
       <Modal
         open={!!planModal || !!editPlan}
         onClose={() => { setPlanModal(null); setEditPlan(null); planForm.reset(); }}
-        title={editPlan ? 'Edit Plan' : `Add Plan — ${planModal?.company ?? ''}`}
+        title={editPlan ? 'Edit Plan' : `Add Plan${planCompanyId ? ` — ${companyList.find(c => c.id === planCompanyId)?.name || ''}` : ''}`}
         size="2xl">
-        <form onSubmit={planForm.handleSubmit(body => editPlan
-          ? updatePlan.mutate({ planId: editPlan.id, body })
-          : createPlan.mutate({ companyId: planModal!.companyId, body })
-        )} className="space-y-4">
+        <form onSubmit={planForm.handleSubmit(async (body) => {
+          const payloadTemplate = {
+            ...body,
+            description: JSON.stringify({
+              comment: body.description || '',
+              riders: planRiders
+            })
+          };
+
+          if (editPlan) {
+            updatePlan.mutate({ planId: editPlan.id, body: { ...payloadTemplate, name: planNames[0] } });
+          } else {
+            if (!planCompanyId) {
+              toast.error('Please select an insurance company first');
+              return;
+            }
+            const validNames = planNames.filter(n => n.trim() !== '');
+            if (validNames.length === 0) {
+              toast.error('Please enter at least one plan name');
+              return;
+            }
+            const toastId = toast.loading(`Creating ${validNames.length} plan(s)...`);
+            try {
+              for (const name of validNames) {
+                await insuranceService.createPlan(planCompanyId, { ...payloadTemplate, name });
+              }
+              qc.invalidateQueries({ queryKey: ['insurance-plans'] });
+              closePlanModal();
+              toast.success(`Created ${validNames.length} plan(s) successfully`, { id: toastId });
+            } catch (err: any) {
+              toast.error(err.response?.data?.message ?? 'Failed to create plans', { id: toastId });
+            }
+          }
+        })} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Plan Name *</label>
-              <input {...planForm.register('name')} className="input" placeholder="e.g. Jeevan Anand" />
-              {planForm.formState.errors.name && <p className="text-xs text-red-500">{planForm.formState.errors.name.message}</p>}
+              <label className="label">Select Insurance Company *</label>
+              <select
+                className="input"
+                value={planCompanyId}
+                onChange={e => setPlanCompanyId(e.target.value)}
+                disabled={!!editPlan || (!!planModal && !!planModal.companyId)}
+                required
+              >
+                <option value="">Select Company...</option>
+                {Object.entries(companiesByCategory).map(([cat, comps]) => {
+                  if (comps.length === 0) return null;
+                  return (
+                    <optgroup key={cat} label={cat}>
+                      {comps.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            </div>
+            
+            <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <label className="label">Plan Names *</label>
+                {!editPlan && (
+                  <button
+                    type="button"
+                    onClick={() => setPlanNames([...planNames, ''])}
+                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Add Plan Name
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {planNames.map((pName, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      className="input flex-1"
+                      list="existing-plans"
+                      placeholder="e.g. Jeevan Anand"
+                      value={pName}
+                      onChange={e => {
+                        const newNames = [...planNames];
+                        newNames[idx] = e.target.value;
+                        setPlanNames(newNames);
+                      }}
+                    />
+                    {!editPlan && planNames.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newNames = [...planNames];
+                          newNames.splice(idx, 1);
+                          setPlanNames(newNames);
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <datalist id="existing-plans">
+                {planModalPlans.map((p: any) => <option key={p.id} value={p.name} />)}
+              </datalist>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Category *</label>
+              <label className="label">Plan Category *</label>
               <select {...planForm.register('category')} className="input">
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {PLAN_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -743,18 +1745,75 @@ export default function Insurance() {
               <input {...planForm.register('maxSumAssured')} type="number" className="input" min="0" />
             </div>
             <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Description</label>
+              <label className="label">Comment (Description)</label>
               <textarea {...planForm.register('description')} className="input" rows={2} />
             </div>
+
+            <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <label className="label">Riders / Add-ons</label>
+                <button
+                  type="button"
+                  onClick={() => setPlanRiders([...planRiders, { id: Date.now().toString(), name: '', description: '' }])}
+                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                >
+                  <Plus size={12} /> Add Rider
+                </button>
+              </div>
+              {planRiders.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No riders added.</p>
+              ) : (
+                <div className="space-y-3">
+                  {planRiders.map((rider, idx) => (
+                    <div key={rider.id} className="flex gap-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <input
+                          placeholder="Rider Name"
+                          value={rider.name}
+                          onChange={e => {
+                            const newR = [...planRiders];
+                            newR[idx].name = e.target.value;
+                            setPlanRiders(newR);
+                          }}
+                          className="input w-full"
+                        />
+                        <input
+                          placeholder="Rider short description"
+                          value={rider.description}
+                          onChange={e => {
+                            const newR = [...planRiders];
+                            newR[idx].description = e.target.value;
+                            setPlanRiders(newR);
+                          }}
+                          className="input w-full text-xs"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newR = [...planRiders];
+                          newR.splice(idx, 1);
+                          setPlanRiders(newR);
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="col-span-2 flex flex-wrap items-center gap-2">
               <input {...planForm.register('isActive')} type="checkbox" id="planActive" className="rounded" />
               <label htmlFor="planActive" className="text-sm text-gray-700">Active (available for new policies)</label>
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
-            <button type="button" className="btn-secondary" onClick={() => { setPlanModal(null); setEditPlan(null); planForm.reset(); }}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={closePlanModal}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={createPlan.isPending || updatePlan.isPending}>
-              {editPlan ? 'Save Changes' : 'Create Plan'}
+              {editPlan ? 'Save Changes' : 'Create Plan(s)'}
             </button>
           </div>
         </form>

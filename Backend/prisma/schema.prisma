@@ -273,6 +273,7 @@ model Tenant {
   agencyDetails             AgencyDetail[]
   banners                   Banner[]
   deletionRequests          DeletionRequest[]
+  hospitals                 Hospital[]
 
   @@map("tenants")
 }
@@ -1247,4 +1248,38 @@ model DeletionRequest {
   @@index([tenantId])
   @@index([tenantId, status])
   @@map("deletion_requests")
+}
+
+model Hospital {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId        String   @map("tenant_id") @db.ObjectId
+  name            String
+  city            String?
+  state           String?
+  address         String?
+  phone           String?
+  email           String?
+  registrationNo  String?  @map("registration_no")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt      @map("updated_at")
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  doctors         Doctor[]
+
+  @@map("hospitals")
+}
+
+model Doctor {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  hospitalId      String   @map("hospital_id") @db.ObjectId
+  name            String
+  specialty       String?
+  phone           String?
+  email           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt      @map("updated_at")
+
+  hospital        Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@map("doctors")
 }

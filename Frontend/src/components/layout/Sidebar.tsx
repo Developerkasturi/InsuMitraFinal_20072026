@@ -26,14 +26,13 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
   { to: '/employees',    label: 'Employees',    Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
-  { to: '/deletion-requests', label: 'Delete Requests', Icon: Trash2, roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
   { to: '/firm-profile', label: 'Firm Profile', Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
 
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
 const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
-const MGMT_ROUTES     = ['/employees', '/commissions', '/deletion-requests', '/subscription', '/firm-profile'];
+const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
   title: string;

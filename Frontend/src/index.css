@@ -340,4 +340,74 @@ aside .text-slate-300 { color: #e2e8f0 !important; }
 aside .text-slate-500 { color: #94a3b8 !important; }
 aside .text-slate-600 { color: #64748b !important; }
 
+/* ── Fixed Heights to Prevent Component Layout Shifts ── */
+.btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .input, select {
+  height: 2.25rem !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+
+/* ── Global Typography Scaling (Text Size Only) ── */
+body, button, input, select, textarea {
+  font-size: calc(var(--app-font-size, 0.84375rem) * var(--font-scale, 1));
+}
+
+.text-\[10px\] { font-size: calc(10px * var(--font-scale, 1)) !important; }
+.text-\[11px\] { font-size: calc(11px * var(--font-scale, 1)) !important; }
+.text-\[12px\] { font-size: calc(12px * var(--font-scale, 1)) !important; }
+.text-\[13px\] { font-size: calc(13px * var(--font-scale, 1)) !important; }
+.text-\[14px\] { font-size: calc(14px * var(--font-scale, 1)) !important; }
+.text-\[15px\] { font-size: calc(15px * var(--font-scale, 1)) !important; }
+
+.text-xs { font-size: calc(0.75rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+.text-sm { font-size: calc(0.875rem * var(--font-scale, 1)) !important; line-height: 1.43 !important; }
+.text-base { font-size: calc(1rem * var(--font-scale, 1)) !important; line-height: 1.5 !important; }
+.text-lg { font-size: calc(1.125rem * var(--font-scale, 1)) !important; line-height: 1.55 !important; }
+.text-xl { font-size: calc(1.25rem * var(--font-scale, 1)) !important; line-height: 1.4 !important; }
+.text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+.text-3xl { font-size: calc(1.875rem * var(--font-scale, 1)) !important; line-height: 1.25 !important; }
+.text-4xl { font-size: calc(2.25rem * var(--font-scale, 1)) !important; line-height: 1.2 !important; }
+.text-5xl { font-size: calc(3rem * var(--font-scale, 1)) !important; line-height: 1.15 !important; }
+.text-6xl { font-size: calc(3.75rem * var(--font-scale, 1)) !important; line-height: 1.12 !important; }
+
+@media (min-width: 640px) {
+  .sm\:text-\[11px\] { font-size: calc(11px * var(--font-scale, 1)) !important; }
+  .sm\:text-\[13px\] { font-size: calc(13px * var(--font-scale, 1)) !important; }
+  .sm\:text-xs { font-size: calc(0.75rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+  .sm\:text-sm { font-size: calc(0.875rem * var(--font-scale, 1)) !important; line-height: 1.43 !important; }
+  .sm\:text-base { font-size: calc(1rem * var(--font-scale, 1)) !important; line-height: 1.5 !important; }
+  .sm\:text-lg { font-size: calc(1.125rem * var(--font-scale, 1)) !important; line-height: 1.55 !important; }
+  .sm\:text-xl { font-size: calc(1.25rem * var(--font-scale, 1)) !important; line-height: 1.4 !important; }
+  .sm\:text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+}
+
+@media (min-width: 768px) {
+  .md\:text-xs { font-size: calc(0.75rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+  .md\:text-sm { font-size: calc(0.875rem * var(--font-scale, 1)) !important; line-height: 1.43 !important; }
+  .md\:text-base { font-size: calc(1rem * var(--font-scale, 1)) !important; line-height: 1.5 !important; }
+  .md\:text-lg { font-size: calc(1.125rem * var(--font-scale, 1)) !important; line-height: 1.55 !important; }
+  .md\:text-xl { font-size: calc(1.25rem * var(--font-scale, 1)) !important; line-height: 1.4 !important; }
+  .md\:text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+}
+
+@media (min-width: 1024px) {
+  .lg\:text-xs { font-size: calc(0.75rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+  .lg\:text-sm { font-size: calc(0.875rem * var(--font-scale, 1)) !important; line-height: 1.43 !important; }
+  .lg\:text-base { font-size: calc(1rem * var(--font-scale, 1)) !important; line-height: 1.5 !important; }
+  .lg\:text-lg { font-size: calc(1.125rem * var(--font-scale, 1)) !important; line-height: 1.55 !important; }
+  .lg\:text-xl { font-size: calc(1.25rem * var(--font-scale, 1)) !important; line-height: 1.4 !important; }
+  .lg\:text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
+}
+
+
+
+
+
+
+
+
+
+
+
 
