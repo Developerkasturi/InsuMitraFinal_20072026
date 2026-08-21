@@ -1,0 +1,1889 @@
+Design and visualize a production-quality UI/UX for the Employees and Workspace ecosystem of InsuMitra, a multi-tenant B2B Insurance CRM SaaS used by insurance agencies.
+
+The product is built for insurance agency owners, co-owners, managers, sales employees, back-office employees, and referral partners.
+
+The objective is to create a highly intuitive employee operating system where:
+
+- Admins/managers can onboard, configure, monitor and evaluate employees.
+- Employees have a personalized workspace showing everything they need to execute their daily work.
+- Management can understand employee productivity, attendance, targets, activities, commissions and overall performance from a single place.
+- The UI should minimize unnecessary navigation and make important work immediately actionable.
+
+---
+
+1. Product Philosophy
+
+InsuMitra should not look like a generic HR management system.
+
+It is primarily an Insurance CRM + Agency Performance Platform.
+
+Therefore, employee management must be tightly connected to:
+
+- Leads
+- Customers
+- Policies
+- Renewals
+- Claims
+- Tasks
+- Activities
+- Targets
+- Commissions
+- Attendance
+- Daily work logs
+- Performance
+
+The design should continuously answer two questions:
+
+For employees
+
+«"What do I need to do today, and how am I performing?"»
+
+For managers/owners
+
+«"What is my employee doing, how productive are they, and are they achieving their targets?"»
+
+---
+
+2. Employee Types
+
+Support the following employee/person types:
+
+Owner
+
+- Full agency access.
+- Multiple owners can exist.
+- Owners should have substantially similar privileges.
+- Owners can manage employees, permissions, targets, policies, commissions, reports and agency configuration.
+
+Co-owner
+
+- Similar privileges to owner.
+- Permissions should still be configurable where required.
+
+Sales Employee
+
+Primary responsibilities:
+
+- Lead follow-up
+- Customer interaction
+- Policy sales
+- Renewals
+- Cross-selling
+- Field visits
+- Revenue generation
+
+Back-office Employee
+
+Primary responsibilities:
+
+- Policy processing
+- Documentation
+- Customer servicing
+- Renewal preparation
+- Claims assistance
+- Data entry
+- Administrative tasks
+
+Referral Partner
+
+A referral-oriented role.
+
+Primary responsibilities:
+
+- Refer leads/customers.
+- Track referred business.
+- View eligible commission information.
+- Track referral performance.
+
+Do not make referral partners look like normal employees internally. Their workspace should be a simplified referral/performance workspace.
+
+---
+
+3. Global Application Structure
+
+Maintain the existing InsuMitra application navigation.
+
+The Employees module should contain:
+
+/employees
+
+/employees/targets
+
+/employees/attendance
+
+/employees/eod-reports
+
+/employees/reports
+
+/employees/access-control
+
+/employees/:id
+
+The employee workspace should be:
+
+/workspace
+
+And an administrator should be able to inspect an employee workspace through:
+
+/workspace/employee/:id
+
+This administrator view must be clearly marked as:
+
+"View Only"
+
+Do not allow accidental modification while an admin is inspecting an employee's workspace.
+
+---
+
+4. EMPLOYEES MODULE — ADMIN EXPERIENCE
+
+The Employees module should function as the Agency Workforce Command Center.
+
+The main page should immediately communicate:
+
+- Total employees
+- Active employees
+- Currently clocked-in employees
+- Employees absent today
+- Employees approaching/missing targets
+- Pending EOD reports
+- Employees requiring attention
+
+Use concise KPI cards.
+
+Example:
+
+Total Employees: 18
+
+Present Today: 15
+
+Clocked In: 12
+
+Pending EOD: 4
+
+Target Achievement: 78%
+
+---
+
+5. Employee Directory
+
+Create a modern employee directory.
+
+Each employee should appear as a compact but information-rich card/table row.
+
+Show:
+
+- Profile photo/avatar
+- Name
+- Role
+- Department/type
+- Status
+- Today's attendance status
+- Current task count
+- Target achievement
+- Revenue/commission
+- Last activity
+- Quick actions
+
+Example:
+
+Rahul Sharma
+Sales Employee
+
+● Active
+Clocked In
+
+12 Tasks
+7 Completed
+
+₹3.8L / ₹5L Target
+76%
+
+Last Activity:
+Policy follow-up — 10 min ago
+
+Actions:
+
+View
+Workspace
+Reports
+Edit
+
+---
+
+6. Employee Profile
+
+When opening an employee:
+
+/employees/:id
+
+Create a comprehensive employee profile.
+
+Use a tabbed interface.
+
+Tabs:
+
+Overview
+
+Show:
+
+- Employee information
+- Role
+- Department
+- Joining date
+- Contact details
+- Reporting manager
+- Job description
+- Current status
+
+Performance
+
+Show:
+
+- Target
+- Revenue
+- Policies sold
+- Leads converted
+- Renewals
+- Claims handled
+- Tasks completed
+- Activity hours
+- Attendance
+
+Attendance
+
+Show:
+
+- Calendar
+- Present
+- Absent
+- Late
+- Half-day
+- Leave
+- Clock-in
+- Clock-out
+- Total working hours
+
+Tasks
+
+Show assigned tasks and completion statistics.
+
+Activities
+
+Show activity logs and time spent.
+
+Commissions
+
+Show:
+
+- Published commissions
+- Pending commissions
+- Paid commissions
+- Total earned
+
+EOD Reports
+
+Show daily employee reports.
+
+Access Control
+
+Show module-level permissions.
+
+---
+
+7. EMPLOYEE WORKSPACE
+
+The Workspace is the most important employee-facing screen.
+
+It should feel like a personal command center.
+
+The employee should not need to search through multiple CRM modules to understand what requires attention.
+
+The workspace should answer:
+
+«What do I need to do today?»
+
+and:
+
+«How am I performing?»
+
+---
+
+8. Workspace Header
+
+At the top:
+
+Good Morning, Rahul 👋
+
+Thursday, 20 August
+
+Sales Employee
+
+[Clock In]
+
+Once clocked in:
+
+● Clocked In
+09:04 AM
+
+[Clock Out]
+
+Also show:
+
+Today's Working Time
+04h 32m
+
+---
+
+9. Workspace KPI SECTION
+
+Create actionable KPI cards.
+
+Important cards:
+
+Leads
+
+Assigned:
+24
+
+Pending:
+9
+
+Overdue:
+3
+
+Clicking should navigate to the employee's filtered lead list.
+
+Tasks
+
+Assigned:
+12
+
+Pending:
+5
+
+Completed:
+7
+
+Policies
+
+Assigned:
+18
+
+Processing:
+4
+
+Completed:
+14
+
+Renewals
+
+Upcoming:
+8
+
+Due Soon:
+3
+
+Claims
+
+Assigned:
+4
+
+Pending:
+2
+
+Commissions
+
+Published:
+₹42,500
+
+Pending:
+₹12,000
+
+Each card must be clickable.
+
+Clicking a card should take the employee directly to the corresponding filtered CRM view.
+
+---
+
+10. TODAY'S PRIORITIES
+
+Below KPI cards create:
+
+Today's Priorities
+
+Automatically surface the most important work.
+
+Examples:
+
+1. Follow up with Amit — Lead overdue by 1 day
+2. Submit documents for Policy #XXXX
+3. Renewal due for Mehta Family — 3 days
+4. Complete assigned task — Customer verification
+5. Call 5 pending leads
+
+Use priority indicators:
+
+Critical
+High
+Medium
+Low
+
+Allow quick actions directly from the card.
+
+Examples:
+
+[Call]
+[WhatsApp]
+[Open]
+[Complete]
+[Snooze]
+
+---
+
+11. TASK MANAGEMENT
+
+Tasks represent predefined/assigned pieces of work.
+
+Examples:
+
+- Call customer
+- Verify documents
+- Submit proposal
+- Follow up with lead
+- Schedule meeting
+- Process policy
+- Renewal follow-up
+
+Task properties:
+
+- Title
+- Description
+- Related entity
+- Assigned employee
+- Assigned by
+- Priority
+- Status
+- Due date
+- Estimated duration
+- Actual time spent
+- Completion date
+
+Statuses:
+
+Not Started
+In Progress
+Blocked
+Completed
+Cancelled
+
+Employees should be able to record time spent on tasks.
+
+Example:
+
+Task:
+"Follow up with Rajesh"
+
+Estimated:
+30 min
+
+Actual:
+42 min
+
+---
+
+12. ACTIVITY LOG / DAILY WORK LOG
+
+Do NOT treat Activity Logs and Tasks as the same thing.
+
+This distinction is important.
+
+Tasks
+
+Work items that are predefined, assigned and tracked.
+
+Activity Logs
+
+A record of what the employee actually did during the day, including work that may not have existed as a predefined task.
+
+Examples:
+
+- Called 12 customers
+- Visited 2 customers
+- Discussed renewal with client
+- Prepared policy documents
+- Coordinated with insurer
+- Resolved customer query
+- Helped colleague with claim documentation
+
+Employees should be able to log:
+
+- Activity
+- Category
+- Start time
+- End time
+- Duration
+- Related customer/lead/policy if applicable
+- Notes
+- Outcome
+
+Example:
+
+Activity:
+Customer follow-up
+
+Category:
+Sales
+
+Duration:
+45 minutes
+
+Related:
+Amit Sharma
+
+Outcome:
+Customer requested quotation.
+
+---
+
+13. DAILY ACTIVITY TIMELINE
+
+Create a visual timeline inside Workspace.
+
+Example:
+
+09:05
+Clocked In
+
+09:20–09:45
+Lead Follow-up
+25 min
+
+10:00–10:30
+Customer Meeting
+30 min
+
+10:45–11:15
+Policy Documentation
+30 min
+
+11:30–12:10
+Renewal Follow-up
+40 min
+
+12:15
+Break
+
+This should visually communicate the employee's working day.
+
+---
+
+14. END OF DAY REPORT
+
+At the end of the day, provide a guided EOD submission.
+
+The employee should see:
+
+End of Day Report
+
+Today's Work
+
+Calls Made
+18
+
+Meetings / Visits
+3
+
+Leads Worked
+12
+
+Policies Processed
+4
+
+Renewals Worked
+6
+
+Premium Collected
+₹85,000
+
+Tasks Completed
+8
+
+Total Active Work Time
+6h 42m
+
+Then:
+
+What did you accomplish today?
+
+Large text area.
+
+Key customer interactions
+
+Optional structured entries.
+
+Problems / blockers
+
+Text area.
+
+What needs follow-up?
+
+Text area.
+
+Tomorrow's priorities
+
+Text area.
+
+[Submit EOD Report]
+
+After submission:
+
+✓ EOD Report Submitted
+
+Submitted at 6:14 PM
+
+---
+
+15. ATTENDANCE
+
+Attendance should be integrated into Workspace rather than feeling like a completely separate HR feature.
+
+Employee sees:
+
+Today's attendance:
+
+Clock In
+09:04 AM
+
+Clock Out
+06:12 PM
+
+Total
+8h 08m
+
+Active Work
+6h 42m
+
+Break
+1h 26m
+
+Also provide:
+
+Monthly Attendance
+
+Calendar visualization.
+
+Statuses:
+
+Present
+Absent
+Late
+Half Day
+Leave
+Holiday
+
+---
+
+16. TARGETS
+
+Employees should always know what they are expected to achieve.
+
+Create:
+
+My Targets
+
+Monthly Target
+
+₹5,00,000
+
+Achieved
+
+₹3,82,000
+
+76%
+
+Remaining
+
+₹1,18,000
+
+Days Remaining
+
+11
+
+Required Daily Average
+
+₹10,727
+
+Use a visual progress indicator.
+
+Also support multiple target categories:
+
+Premium
+Policies
+New Customers
+Leads Converted
+Renewals
+Cross-sell
+Commission
+
+Targets can be configured by management.
+
+---
+
+17. TARGET DRILL-DOWN
+
+Clicking the target should show:
+
+Target
+₹5,00,000
+
+Achieved
+₹3,82,000
+
+Achievement
+76%
+
+Then show contribution:
+
+Policy A — ₹75,000
+Policy B — ₹1,20,000
+Policy C — ₹80,000
+Policy D — ₹1,07,000
+
+This connects employee performance directly with policies and revenue.
+
+---
+
+18. COMMISSION WORKFLOW
+
+This is a critical business flow.
+
+Whenever a policy is created, there should be a corresponding commission entry.
+
+The commission can contain multiple recipients:
+
+- Agent commission
+- Employee commission
+- Referral partner commission
+- Manager commission
+- Other applicable commission
+
+Commission entries can initially be:
+
+Draft / Pending
+
+Then management can:
+
+Publish
+
+Once published, the relevant employee should see the commission inside Workspace.
+
+Example:
+
+My Commissions
+
+Published This Month
+
+₹42,500
+
+Pending
+
+₹12,000
+
+Paid
+
+₹30,500
+
+Commission entries:
+
+Policy:
+Health Secure Plus
+
+Role:
+Sales Employee
+
+Commission:
+₹8,500
+
+Status:
+Published
+
+Date:
+18 Aug 2026
+
+Employees should NOT see unpublished commission entries.
+
+---
+
+19. JOB DESCRIPTION
+
+Every employee should have a clearly visible Job Description.
+
+Example:
+
+My Role
+
+Sales Employee
+
+Job Description
+
+Responsible for generating new insurance business, following up on assigned leads, maintaining customer relationships, supporting renewals and achieving assigned monthly sales targets.
+
+This should be visible in Workspace.
+
+Allow:
+
+[Edit]
+
+depending on permission.
+
+Managers/Admins can edit the official job description.
+
+Employees may be allowed to propose/edit it based on permission.
+
+Keep this visually separate from daily tasks.
+
+---
+
+20. EMPLOYEE PLANNING
+
+Add a lightweight planning section.
+
+My Plan
+
+Today
+
+Tomorrow
+
+This Week
+
+Allow employees to create:
+
+- Personal priorities
+- Planned calls
+- Planned visits
+- Follow-ups
+- Customer meetings
+- Revenue goals
+
+The system should differentiate:
+
+Assigned Work
+
+Work assigned by manager.
+
+Personal Plan
+
+Work employee intends to perform.
+
+This distinction is valuable for measuring:
+
+Planned vs Actual.
+
+---
+
+21. PLANNED VS ACTUAL PERFORMANCE
+
+Create a highly useful performance concept.
+
+Example:
+
+Today's Plan
+
+12 Calls
+3 Meetings
+5 Follow-ups
+
+Actual
+
+15 Calls
+2 Meetings
+7 Follow-ups
+
+Achievement
+
+118%
+
+This should help management understand not only whether work happened, but whether employees execute their own plans.
+
+---
+
+22. MANAGER EMPLOYEE REPORT
+
+Under:
+
+/employees/reports
+
+create the central management reporting dashboard.
+
+The first interaction should be:
+
+Select Employee
+
+All Employees
+
+Date Range
+
+Today
+This Week
+This Month
+Last Month
+Custom Range
+
+Generate Report
+
+The report should then produce a complete employee performance snapshot.
+
+---
+
+23. EMPLOYEE PERFORMANCE REPORT
+
+Show the following sections.
+
+Executive Summary
+
+Employee:
+
+Rahul Sharma
+
+Role:
+
+Sales Employee
+
+Period:
+
+1 Aug – 20 Aug
+
+Overall Performance:
+
+82%
+
+---
+
+Sales Performance
+
+Leads Assigned
+84
+
+Leads Worked
+71
+
+Leads Converted
+14
+
+Policies Sold
+9
+
+Premium Generated
+₹4.82L
+
+Renewals Worked
+21
+
+---
+
+Activity Performance
+
+Total Activities
+126
+
+Active Work Time
+87h 32m
+
+Calls
+74
+
+Meetings
+18
+
+Customer Visits
+12
+
+Follow-ups
+22
+
+---
+
+Task Performance
+
+Assigned
+92
+
+Completed
+76
+
+In Progress
+8
+
+Overdue
+8
+
+Completion Rate
+82.6%
+
+---
+
+Attendance
+
+Working Days
+18
+
+Present
+17
+
+Absent
+1
+
+Average Hours
+7h 42m
+
+Late Arrivals
+2
+
+---
+
+Target Performance
+
+Target
+₹6L
+
+Achieved
+₹4.82L
+
+Achievement
+80.3%
+
+---
+
+Commission
+
+Published
+₹42,500
+
+Pending
+₹12,000
+
+Paid
+₹30,500
+
+---
+
+24. ACTIVITY ANALYTICS
+
+Provide visual analytics.
+
+Examples:
+
+Daily Work Hours
+
+Bar chart.
+
+Leads Worked
+
+Daily trend.
+
+Policies Sold
+
+Daily/weekly trend.
+
+Premium Generated
+
+Cumulative chart.
+
+Task Completion
+
+Completed vs pending.
+
+Activity Distribution
+
+Sales
+Customer Service
+Policy Processing
+Renewal
+Claims
+Administrative
+
+Use charts sparingly.
+
+Do not turn the dashboard into an analytics-heavy BI system.
+
+The objective is decision making, not data decoration.
+
+---
+
+25. MANAGEMENT INSIGHT SECTION
+
+At the end of the report provide automatically generated insights.
+
+Examples:
+
+Strengths
+
+"Lead follow-up activity is 18% above the employee's monthly average."
+
+Attention Required
+
+"8 tasks are overdue."
+
+Target Risk
+
+"At the current daily average, the employee is projected to reach 91% of the monthly premium target."
+
+Attendance
+
+"Average working hours have declined by 22 minutes compared with the previous month."
+
+Recommendation
+
+"Focus on the 12 high-priority leads currently without a follow-up."
+
+This section should feel like an intelligent manager assistant.
+
+---
+
+26. EMPLOYEE COMPARISON
+
+For managers, provide an optional comparison screen.
+
+Allow selecting multiple employees.
+
+Compare:
+
+- Target achievement
+- Revenue
+- Policies
+- Lead conversion
+- Tasks completed
+- Attendance
+- Working hours
+- Activities
+- Commission
+
+Do NOT encourage unhealthy ranking as the primary experience.
+
+Use neutral language:
+
+"Performance Overview"
+
+rather than:
+
+"Best Employee / Worst Employee"
+
+Allow managers to identify where support is needed.
+
+---
+
+27. ACCESS CONTROL
+
+Under:
+
+/employees/access-control
+
+create a granular module-permission interface.
+
+The CRM has approximately 14 modules.
+
+Show employees/roles on one side and permissions on the other.
+
+Permission types:
+
+View
+Create
+Edit
+Delete
+Assign
+Export
+Approve
+Manage
+
+Example:
+
+Leads
+
+✓ View
+✓ Create
+✓ Edit
+✓ Assign
+✕ Delete
+
+Policies
+
+✓ View
+✓ Create
+✓ Edit
+✕ Delete
+
+Claims
+
+✓ View
+✓ Create
+✕ Edit
+
+Use role templates:
+
+Owner
+Co-owner
+Sales
+Back Office
+Referral Partner
+
+But allow custom permissions.
+
+Make it clear that permissions are enforced throughout the application.
+
+---
+
+28. ROLE-BASED WORKSPACE
+
+Workspace content should adapt to employee type.
+
+Sales Employee
+
+Prioritize:
+
+Leads
+Follow-ups
+Customers
+Policies
+Renewals
+Targets
+Commission
+
+Back Office
+
+Prioritize:
+
+Policy Processing
+Documents
+Claims
+Renewals
+Tasks
+Customer Service
+
+Referral Partner
+
+Prioritize:
+
+Referrals
+Referral Status
+Converted Policies
+Commission
+Payouts
+
+Owner / Co-owner
+
+Prioritize:
+
+Agency Overview
+Revenue
+Employees
+Targets
+Policies
+Commission
+Reports
+
+---
+
+29. ADMIN VIEW-ONLY WORKSPACE
+
+When an admin selects:
+
+"View Workspace"
+
+open:
+
+/workspace/employee/:id
+
+The workspace should visually indicate:
+
+Viewing Rahul Sharma's Workspace
+
+[View Only]
+
+No editable controls should accidentally appear.
+
+The admin should be able to understand:
+
+- What employee sees
+- Assigned work
+- Current tasks
+- Target
+- Attendance
+- Activity
+- Commission
+- EOD status
+
+This is useful for support and performance management.
+
+---
+
+30. GLOBAL UX PRINCIPLES
+
+Use a clean SaaS interface.
+
+Visual direction:
+
+- Modern
+- Professional
+- Minimal
+- Trustworthy
+- Insurance/financial-services appropriate
+- High information density without clutter
+- Strong hierarchy
+- Excellent whitespace
+- Responsive
+- Desktop-first but mobile-friendly
+
+Use:
+
+- Cards
+- Tables
+- Tabs
+- Status badges
+- Progress indicators
+- Timelines
+- Drawers
+- Modals
+- Tooltips
+- Charts
+
+Avoid:
+
+- Excessive gradients
+- Excessive rounded cards
+- Huge dashboard widgets
+- Decorative illustrations that consume space
+- Excessive colors
+- HRMS-style generic interfaces
+
+---
+
+31. COLOR LANGUAGE
+
+Use color semantically.
+
+Green:
+
+Completed / Healthy / Achieved
+
+Amber:
+
+Attention / At Risk
+
+Red:
+
+Overdue / Critical / Missed
+
+Blue:
+
+Information / Active Work
+
+Gray:
+
+Inactive / Neutral
+
+Do not use color as the only indication.
+
+Always combine colors with icons, text or status labels.
+
+---
+
+32. IMPORTANT INTERACTION PRINCIPLE
+
+Every KPI should answer:
+
+"What happens when I click this?"
+
+For example:
+
+24 Assigned Leads
+
+Click →
+
+Leads module opens with:
+
+Employee = Rahul Sharma
+Status = Assigned
+Date = Current period
+
+Similarly:
+
+8 Pending Tasks
+
+Click →
+
+Tasks filtered to:
+
+Assigned to Rahul
+Status ≠ Completed
+
+This should be implemented consistently across Workspace.
+
+---
+
+33. DATA RELATIONSHIP VISUALIZATION
+
+Design the UI so the relationship between the major business entities is obvious.
+
+Employee
+
+↓
+
+Lead
+
+↓
+
+Customer
+
+↓
+
+Policy
+
+↓
+
+Commission
+
+And employee work around them:
+
+Employee
+├── Tasks
+├── Activities
+├── Attendance
+├── Targets
+├── EOD Reports
+└── Commission
+
+This should feel like one connected system rather than independent modules.
+
+---
+
+34. IMPORTANT DISTINCTION
+
+Do NOT combine these concepts visually or conceptually:
+
+Task
+
+"Call Amit tomorrow."
+
+Assigned work item.
+
+Activity
+
+"Called Amit for 25 minutes."
+
+Actual work performed.
+
+EOD Report
+
+"Today I called 18 customers and generated 3 follow-ups."
+
+Daily summary.
+
+Attendance
+
+"I worked from 9:05 AM to 6:12 PM."
+
+Time presence.
+
+Target
+
+"I need to generate ₹5 lakh this month."
+
+Expected outcome.
+
+Commission
+
+"I earned ₹8,500 from this policy."
+
+Financial reward.
+
+These six concepts must remain distinct while being connected.
+
+---
+
+35. MOST IMPORTANT DASHBOARD FLOW
+
+Design the employee experience around this lifecycle:
+
+MORNING
+
+Clock In
+
+↓
+
+Review Dashboard
+
+↓
+
+Review Today's Priorities
+
+↓
+
+Review Assigned Leads
+
+↓
+
+Review Assigned Tasks
+
+↓
+
+Create/Review Personal Plan
+
+↓
+
+DAYTIME
+
+Work on Leads
+
+↓
+
+Work on Customers
+
+↓
+
+Process Policies
+
+↓
+
+Complete Tasks
+
+↓
+
+Record Activities
+
+↓
+
+Update Outcomes
+
+↓
+
+EVENING
+
+Review Today's Performance
+
+↓
+
+Complete Pending Tasks
+
+↓
+
+Submit EOD Report
+
+↓
+
+Review Tomorrow's Priorities
+
+↓
+
+Clock Out
+
+↓
+
+MANAGEMENT
+
+Manager reviews:
+
+Attendance
+
+↓
+
+Activities
+
+↓
+
+Tasks
+
+↓
+
+Leads
+
+↓
+
+Policies
+
+↓
+
+Revenue
+
+↓
+
+Targets
+
+↓
+
+Commission
+
+↓
+
+EOD Report
+
+↓
+
+Overall Performance
+
+---
+
+36. DASHBOARD SHOULD BE ACTION-FIRST
+
+Do not make Workspace primarily a reporting dashboard.
+
+The first priority should be:
+
+"What should I do?"
+
+Then:
+
+"What have I done?"
+
+Then:
+
+"How am I performing?"
+
+Therefore the hierarchy should be:
+
+1. Today's actions
+2. Pending/overdue work
+3. Important CRM items
+4. Target progress
+5. Attendance
+6. Activity timeline
+7. Commission
+8. Historical analytics
+
+---
+
+37. MANAGEMENT DASHBOARD SHOULD BE EXCEPTION-FIRST
+
+Managers should not have to inspect every employee manually.
+
+Surface employees requiring attention:
+
+- Target at risk
+- Excessive overdue tasks
+- Low activity
+- Missing EOD reports
+- Attendance problems
+- Large pending lead backlog
+- High-value leads without follow-up
+- High-value renewals approaching
+- Commission pending publication
+
+Create an:
+
+Employees Requiring Attention
+
+section.
+
+Each row should provide:
+
+Employee
+Issue
+Severity
+Relevant metric
+Recommended action
+
+Example:
+
+Rahul Sharma
+12 overdue leads
+High
+
+[View Leads]
+
+---
+
+38. EMPTY STATES
+
+Design useful empty states.
+
+Example:
+
+No tasks assigned.
+
+Instead of simply:
+
+"No data"
+
+show:
+
+"No tasks assigned for today."
+
+"You are all caught up."
+
+Similarly:
+
+No activity yet.
+
+"Your work timeline will appear here once you start recording activities."
+
+---
+
+39. MOBILE UX
+
+Employees may use Workspace primarily from mobile devices.
+
+Therefore make Workspace responsive.
+
+Mobile priority:
+
+1. Clock In/Out
+2. Today's priorities
+3. Tasks
+4. Leads
+5. Quick actions
+6. Activity logging
+7. EOD report
+8. Target
+9. Commission
+
+Admin Employees/Reports screens can remain optimized primarily for desktop/tablet.
+
+---
+
+40. QUICK ACTIONS
+
+Provide a floating or prominent Quick Action mechanism.
+
+Examples:
+
++ Log Activity
+
++ Create Task
+
++ Add Follow-up
+
++ Record Customer Visit
+
++ Update Lead
+
++ Add Policy Note
+
++ Submit EOD
+
+Do not overload this menu.
+
+Show only contextually relevant actions.
+
+---
+
+41. NOTIFICATIONS
+
+Workspace should include an intelligent notification center.
+
+Examples:
+
+"3 leads require follow-up today."
+
+"Your policy target is 76% achieved."
+
+"₹8,500 commission published."
+
+"Renewal due in 3 days."
+
+"Manager assigned you a new task."
+
+"EOD report pending."
+
+Notifications should deep-link directly to the relevant object.
+
+---
+
+42. FINAL UI SCREENS TO VISUALIZE
+
+Create high-fidelity visual designs for at least these screens:
+
+Admin
+
+1. Employees Dashboard
+2. Employee Directory
+3. Employee Profile — Overview
+4. Employee Profile — Performance
+5. Employee Profile — Attendance
+6. Employee Profile — Tasks
+7. Employee Profile — Activities
+8. Employee Profile — Commissions
+9. Employee Profile — EOD Reports
+10. Employee Targets
+11. Employee Attendance
+12. Employee EOD Reports
+13. Employee Reports / Analytics
+14. Employee Comparison
+15. Access Control
+16. Add Employee
+17. Edit Employee
+
+Employee Workspace
+
+18. Workspace Dashboard
+19. Today's Priorities
+20. Task List
+21. Task Detail
+22. Activity Logger
+23. Activity Timeline
+24. My Targets
+25. My Commissions
+26. Attendance
+27. EOD Report
+28. Personal Planning
+29. Notifications
+
+Admin Inspection
+
+30. View Employee Workspace — View Only
+
+---
+
+43. DESIGN SYSTEM
+
+Use a consistent design system across all screens.
+
+Define:
+
+- Typography
+- Spacing
+- Buttons
+- Inputs
+- Tables
+- Cards
+- Badges
+- Tabs
+- Modals
+- Drawers
+- Dropdowns
+- Date selectors
+- Charts
+- Progress bars
+- Empty states
+- Loading states
+- Error states
+- Confirmation states
+
+Maintain consistency with the existing InsuMitra CRM.
+
+Do not redesign unrelated CRM modules.
+
+---
+
+44. FINAL EXPERIENCE GOAL
+
+The final experience should make an employee feel:
+
+«"This is my work cockpit."»
+
+And make an owner/manager feel:
+
+«"This is my agency's workforce command center."»
+
+The employee should be able to understand their entire day from Workspace within 10 seconds.
+
+The manager should be able to understand an employee's performance within 30 seconds.
+
+The system should make it possible to move from:
+
+Metric → Employee → Work → CRM Record → Action
+
+with minimal clicks.
+
+Prioritize usability and operational efficiency over visual decoration.
+
+Create a polished, realistic, production-ready SaaS interface rather than a conceptual dashboard mockup. 
