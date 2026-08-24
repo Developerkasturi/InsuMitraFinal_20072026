@@ -274,6 +274,7 @@ model Tenant {
   banners                   Banner[]
   deletionRequests          DeletionRequest[]
   hospitals                 Hospital[]
+  compulsoryFieldRules      CompulsoryFieldRule[]
 
   @@map("tenants")
 }
@@ -1260,6 +1261,13 @@ model Hospital {
   phone           String?
   email           String?
   registrationNo  String?  @map("registration_no")
+  pincode         String?
+  type            String?
+  claimsPerson1Name    String?  @map("claims_person_1_name")
+  claimsPerson1Contact String?  @map("claims_person_1_contact")
+  claimsPerson2Name    String?  @map("claims_person_2_name")
+  claimsPerson2Contact String?  @map("claims_person_2_contact")
+  comment         String?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt      @map("updated_at")
 
@@ -1273,6 +1281,7 @@ model Doctor {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   hospitalId      String   @map("hospital_id") @db.ObjectId
   name            String
+  degree          String?
   specialty       String?
   phone           String?
   email           String?
@@ -1282,4 +1291,19 @@ model Doctor {
   hospital        Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
 
   @@map("doctors")
+}
+
+model CompulsoryFieldRule {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @map("tenant_id") @db.ObjectId
+  module    String   // "Contact" | "Lead" | "Policy" | "Claim"
+  fieldKey  String   // e.g. "email"
+  required  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, module, fieldKey])
+  @@map("compulsory_field_rules")
 }

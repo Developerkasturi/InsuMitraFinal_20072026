@@ -17,11 +17,13 @@ const TITLES: Record<string, string> = {
   calendar:     'Calendar',
   settings:     'Settings',
   subscription: 'Subscription',
+  operations:   'Operations',
 };
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const section = pathname.split('/')[1] ?? '';
+  const parts   = pathname.split('/').filter(Boolean);
+  const section = parts[0] === 'insumitra' ? (parts[1] ?? '') : (parts[0] ?? '');
   const title   = TITLES[section] ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
 

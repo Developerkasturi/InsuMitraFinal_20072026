@@ -218,6 +218,11 @@ export const insuranceService = {
   createPlan:     (companyId: string, body: any) => api.post(`/insurance/companies/${companyId}/plans`, body).then(r => r.data),
   updatePlan:     (planId: string, body: any)  => api.patch(`/insurance/plans/${planId}`, body).then(r => r.data),
   deletePlan:     (planId: string)             => api.delete(`/insurance/plans/${planId}`).then(r => r.data),
+  listHospitals:  ()                           => api.get('/insurance/hospitals').then(r => r.data),
+  createHospital: (body: any)                  => api.post('/insurance/hospitals', body).then(r => r.data),
+  deleteHospital: (id: string)                 => api.delete(`/insurance/hospitals/${id}`).then(r => r.data),
+  getCompulsoryRules:    ()                    => api.get('/insurance/compulsory-rules').then(r => r.data),
+  updateCompulsoryRules: (rules: any[])        => api.post('/insurance/compulsory-rules', { rules }).then(r => r.data),
 };
 
 /* ─── Tenant ─────────────────────────────────────────────────────────────── */

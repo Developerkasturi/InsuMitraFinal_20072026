@@ -5,7 +5,7 @@ import { insuranceService, contactsService, leadsService, policiesService, claim
 import {
   Plus, Pencil, Trash2, Building2, Shield, ChevronDown, ChevronRight,
   Download, Filter, FileText, Users, TrendingUp, Briefcase, Type, X, ShieldCheck,
-  ArrowLeft, Search, Check
+  ArrowLeft, Search, Check, Lock, Calendar, Star
 } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import SettingsPanel from './SettingsPanel';
@@ -175,6 +175,11 @@ function BulkExportPanel() {
     { id: 4, name: 'Agents / Agencies', desc: 'All agents and agencies', records: 18, lastExported: '20-08-2026 10:14 AM', status: 'Exported' },
     { id: 5, name: 'Hospitals & Doctors', desc: 'All hospitals and doctors', records: 475, lastExported: '20-08-2026 10:17 AM', status: 'Exported' },
     { id: 6, name: 'Dropdown / Master Data', desc: 'All dropdown and master data', records: null, lastExported: 'Never', status: 'Not Exported' },
+    { id: 7, name: 'Policies', desc: 'All active and inactive policies', records: 142, lastExported: 'Never', status: 'Not Exported' },
+    { id: 8, name: 'Leads', desc: 'All active sales leads and inquiries', records: 58, lastExported: 'Never', status: 'Not Exported' },
+    { id: 9, name: 'Renewals', desc: 'Policies due for upcoming renewal', records: 12, lastExported: 'Never', status: 'Not Exported' },
+    { id: 10, name: 'Preventive Health Checkups (PHC)', desc: 'Preventive Health Checkup tracking statuses', records: 34, lastExported: 'Never', status: 'Not Exported' },
+    { id: 11, name: 'Claims', desc: 'All health and general insurance claims', records: 29, lastExported: 'Never', status: 'Not Exported' },
   ]);
 
   const [historyList, setHistoryList] = useState([
@@ -563,6 +568,9 @@ export default function Insurance() {
     (tabParam === 'settings' || tabParam === 'export' || tabParam === 'display' || tabParam === 'delete_requests') ? tabParam : 'companies'
   );
 
+  const [settingsSubTab, setSettingsSubTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'companies' | 'plans' | 'riders' | 'agents' | 'resources' | 'filters' | 'add_hospital' | 'add_doctor' | 'search_settings' | 'mapping'>('dashboard');
+
   useEffect(() => {
     if (tabParam && tabParam !== activeTab && ['companies', 'settings', 'export', 'display', 'delete_requests'].includes(tabParam)) {
       setActiveTab(tabParam as any);
@@ -582,6 +590,72 @@ export default function Insurance() {
     }
   }, [activeTab, searchParams, setSearchParams]);
 
+  const [companySearch, setCompanySearch] = useState('');
+  const [hospitalModal, setHospitalModal] = useState(false);
+
+  // Add Hospital form states
+  const [hospitalForm, setHospitalForm] = useState({
+    name: '',
+    address: '',
+    city: '',
+    pincode: '',
+    contactNo: '',
+    type: 'Network',
+    claimsPerson1Name: '',
+    claimsPerson1Contact: '',
+    claimsPerson2Name: '',
+    claimsPerson2Contact: '',
+    comment: ''
+  });
+  const [hospitalDoctors, setHospitalDoctors] = useState<Array<{
+    id: string;
+    name: string;
+    degree: string;
+    contactNo: string;
+    speciality: string;
+  }>>([]);
+  const [agentModal, setAgentModal] = useState(false);
+  const [agentModalTab, setAgentModalTab] = useState<'details' | 'payout'>('details');
+  const [agentsList, setAgentsList] = useState([
+    {
+      id: 1,
+      agencyName: 'Avinash Insu Agency',
+      agentName: 'Avinash Kumar',
+      phone: '+91 98765 43210',
+      email: 'avinash@example.com',
+      status: 'Active'
+    },
+    {
+      id: 2,
+      agencyName: 'PAT Assurance Services',
+      agentName: 'Prashant Patil',
+      phone: '+91 98123 45678',
+      email: 'prashant.pat@example.com',
+      status: 'Active'
+    }
+  ]);
+  const [agentForm, setAgentForm] = useState({
+    category: '',
+    companyId: '',
+    agentName: '',
+    agencyNameDisplay: '',
+    agencyCode: '',
+    startDate: '',
+    homeBranch: '',
+    homeBranchCode: '',
+    rmName: '',
+    rmContact: '',
+    bmName: '',
+    bmContact: '',
+    bankName: '',
+    bankBranch: '',
+    bankIfsc: '',
+    bankAccount: '',
+    comment: ''
+  });
+
+
+
   const [companyModal, setCompanyModal]   = useState(false);
   const [companyModalTab, setCompanyModalTab] = useState<'details' | 'others' | 'hospitals' | 'agents' | 'resources'>('details');
   const [extraCompanyFields, setExtraCompanyFields] = useState({
@@ -596,6 +670,46 @@ export default function Insurance() {
   const [editCompany, setEditCompany]     = useState<any | null>(null);
   const [deleteCompany, setDeleteCompany] = useState<any | null>(null);
   
+  const handleAgentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!agentForm.category || !agentForm.companyId || !agentForm.agentName || !agentForm.agencyCode || !agentForm.startDate) {
+      toast.error('Please fill in all required fields in Agent Details tab');
+      setAgentModalTab('details');
+      return;
+    }
+    const newAgent = {
+      id: Date.now(),
+      agencyName: agentForm.agencyNameDisplay || `${agentForm.agentName} Agency`,
+      agentName: agentForm.agentName,
+      phone: agentForm.rmContact || '+91 99999 88888',
+      email: `${agentForm.agentName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+      status: 'Active'
+    };
+    setAgentsList(prev => [newAgent, ...prev]);
+    toast.success('Agent saved successfully (mock)');
+    setAgentModal(false);
+    setAgentModalTab('details');
+    setAgentForm({
+      category: '',
+      companyId: '',
+      agentName: '',
+      agencyNameDisplay: '',
+      agencyCode: '',
+      startDate: '',
+      homeBranch: '',
+      homeBranchCode: '',
+      rmName: '',
+      rmContact: '',
+      bmName: '',
+      bmContact: '',
+      bankName: '',
+      bankBranch: '',
+      bankIfsc: '',
+      bankAccount: '',
+      comment: ''
+    });
+  };
+
   const closeCompanyModal = () => {
     setCompanyModal(false);
     setEditCompany(null);
@@ -621,6 +735,18 @@ export default function Insurance() {
     queryFn: () => insuranceService.listCompanies(),
   });
 
+  const { data: hospitalsRes } = useQuery({
+    queryKey: ['hospitals-list'],
+    queryFn: () => insuranceService.listHospitals(),
+  });
+  const hospitals = useMemo(() => {
+    return hospitalsRes?.data ?? [];
+  }, [hospitalsRes?.data]);
+
+  const totalDoctors = useMemo(() => {
+    return hospitals.reduce((sum, h) => sum + (h.doctors?.length || 0), 0);
+  }, [hospitals]);
+
   const { data: plans } = useQuery({
     queryKey: ['insurance-plans', expandedCompany],
     queryFn: () => insuranceService.listPlans(expandedCompany!),
@@ -634,8 +760,25 @@ export default function Insurance() {
   });
   const planModalPlans = planModalPlansRes?.data || [];
 
-  const companyList: any[] = companies?.data ?? companies ?? [];
+  const rawCompanyList: any[] = companies?.data ?? companies ?? [];
+  const companyList = useMemo(() => {
+    if (!companySearch.trim()) return rawCompanyList;
+    const q = companySearch.toLowerCase();
+    return rawCompanyList.filter((co: any) =>
+      co.name?.toLowerCase().includes(q) ||
+      co.code?.toLowerCase().includes(q) ||
+      co.phone?.includes(q)
+    );
+  }, [rawCompanyList, companySearch]);
   const planList: any[]    = plans?.data ?? plans ?? [];
+
+  useEffect(() => {
+    const catLabel = agentForm.category === 'Health - SAHI' ? 'Health' : (agentForm.category === 'General' ? 'General' : (agentForm.category === 'Life' ? 'Life' : 'Other'));
+    const companyObj = rawCompanyList.find(c => c.id === agentForm.companyId);
+    const coName = companyObj?.code || companyObj?.name?.split(' ')[0] || '';
+    const displayVal = [catLabel, coName, agentForm.agentName].filter(Boolean).join(' - ');
+    setAgentForm(p => ({ ...p, agencyNameDisplay: displayVal }));
+  }, [agentForm.category, agentForm.companyId, agentForm.agentName, rawCompanyList]);
 
   const companiesByCategory = useMemo(() => {
     const grouped: Record<string, any[]> = { 
@@ -756,6 +899,39 @@ export default function Insurance() {
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to delete plan'),
   });
 
+  const createHospitalMutation = useMutation({
+    mutationFn: (body: any) => insuranceService.createHospital(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hospitals-list'] });
+      toast.success('Hospital created successfully');
+      setHospitalModal(false);
+      setHospitalForm({
+        name: '',
+        address: '',
+        city: '',
+        pincode: '',
+        contactNo: '',
+        type: 'Network',
+        claimsPerson1Name: '',
+        claimsPerson1Contact: '',
+        claimsPerson2Name: '',
+        claimsPerson2Contact: '',
+        comment: ''
+      });
+      setHospitalDoctors([]);
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to create hospital'),
+  });
+
+  const removeHospitalMutation = useMutation({
+    mutationFn: (id: string) => insuranceService.deleteHospital(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hospitals-list'] });
+      toast.success('Hospital deleted successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to delete hospital'),
+  });
+
   const openEditCompany = (co: any) => {
     setEditCompany(co);
     companyForm.setValue('name', co.name);
@@ -837,34 +1013,7 @@ export default function Insurance() {
   ] as const;
 
   return (
-    <div className="space-y-5">
-      {/* Floating Right Action Panel — consistent with Contacts / Policies / Leads / Claims */}
-      {activeTab === 'companies' && (
-        <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
-          <button
-            type="button"
-            onClick={() => { closePlanModal(); setPlanModal({ companyId: '', company: '' }); }}
-            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
-            title="Add Plan"
-          >
-            <Plus size={18} strokeWidth={2.2} />
-            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
-              Add Plan
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { closeCompanyModal(); setCompanyModal(true); }}
-            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
-            title="Add Company"
-          >
-            <Plus size={18} strokeWidth={2.2} />
-            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
-              Add Company
-            </span>
-          </button>
-        </div>
-      )}
+    <div className="space-y-4">
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -889,84 +1038,571 @@ export default function Insurance() {
 
       {/* ── Tab: Insurance Companies ─────────────────────────────────────────── */}
       {activeTab === 'companies' && (
-        <div className="space-y-3">
-          {isLoading && <div className="text-gray-400 text-center py-8">Loading…</div>}
+        <div className="space-y-4">
+          {currentView === 'dashboard' ? (
+            <div className="space-y-4">
+              {/* Section: Quick Summary at the top */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Quick Summary</h3>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                  {/* Insurance Companies */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Insurance Companies</span>
+                      <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Building2 size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-lg font-black text-slate-950">{companyList.length || 2}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Companies</p>
+                    </div>
+                  </div>
 
-          {companyList.map((co: any) => (
-            <div key={co.id} className="card p-0 overflow-hidden">
-              {/* Company row */}
-              <div className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                onClick={() => setExpandedCompany(expandedCompany === co.id ? null : co.id)}>
-                <Building2 size={16} className="text-primary-500 shrink-0"/>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{co.name}</p>
-                  {co.code && <p className="text-xs text-gray-400">{co.code}</p>}
+                  {/* Plans */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Plans</span>
+                      <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Shield size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-lg font-black text-slate-950">15</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Plans</p>
+                    </div>
+                  </div>
+
+                  {/* Riders / Add-ons */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Riders / Add-ons</span>
+                      <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0"><Plus size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-lg font-black text-slate-950">23</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Riders</p>
+                    </div>
+                  </div>
+
+                  {/* Agents / Agencies */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agents / Agencies</span>
+                      <div className="w-6 h-6 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0"><Users size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-lg font-black text-slate-950">18</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Agencies</p>
+                    </div>
+                  </div>
+
+                  {/* Hospitals */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospitals</span>
+                      <div className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0"><Building2 size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+<p className="text-lg font-black text-slate-950">{hospitals.length}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Hospitals</p>
+                    </div>
+                  </div>
+
+                  {/* Doctors */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between min-h-[90px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Doctors</span>
+                      <div className="w-6 h-6 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center shrink-0"><Users size={13} /></div>
+                    </div>
+                    <div className="mt-2">
+<p className="text-lg font-black text-slate-950">{totalDoctors}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Total Doctors</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
-                  {co.phone && <span className="text-xs text-gray-400">{co.phone}</span>}
-                  <button onClick={() => { setPlanModal({ companyId: co.id, company: co.name }); planForm.reset({ isActive: true, category: 'LIFE' }); }}
-                    className="btn-sm text-xs px-2 py-1 border border-primary-300 text-primary-700 rounded hover:bg-primary-50 flex flex-wrap items-center gap-1">
-                    <Plus size={11}/> Plan
-                  </button>
-                  <button
-                    onClick={() => openEditCompany(co)}
-                    className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
-                    title="Edit Company"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteCompany(co)}
-                    className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
-                    title="Delete Company"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                {expandedCompany === co.id ? <ChevronDown size={14} className="text-gray-400 shrink-0"/> : <ChevronRight size={14} className="text-gray-400 shrink-0"/>}
               </div>
 
-              {/* Plans (expanded) */}
-              {expandedCompany === co.id && (
-                <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-2">
-                  {planList.length === 0 && <p className="text-xs text-gray-400">No plans. Click "+ Plan" to add one.</p>}
-                  {planList.map((pl: any) => (
-                    <div key={pl.id} className="flex flex-wrap items-center gap-2 bg-white rounded-lg px-3 py-2 border border-gray-100 group">
-                      <Shield size={13} className="text-green-500 shrink-0"/>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800">{pl.name}</p>
-                        <p className="text-xs text-gray-400">{pl.category}
-                          {pl.policyTerm ? ` · ${pl.policyTerm}yr` : ''}
-                          {pl.minSumAssured ? ` · Min ₹${Number(pl.minSumAssured).toLocaleString('en-IN')}` : ''}
-                        </p>
-                      </div>
-                      <span className={pl.isActive ? 'badge-green' : 'badge-gray'}>{pl.isActive ? 'Active' : 'Inactive'}</span>
-                      <div className="opacity-0 group-hover:opacity-100 flex gap-1.5">
-                        <button
-                          onClick={() => openEditPlan(pl, co.id)}
-                          className="p-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
-                          title="Edit Plan"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          onClick={() => setDeletePlan(pl)}
-                          className="p-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
-                          title="Delete Plan"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+              {/* Section 1: Insurance & Plans Management */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Insurance & Plans Management</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Add Insurance Company */}
+                  <div 
+                    onClick={() => setCurrentView('companies')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-blue-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <Building2 size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Add Insurance Company</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Add & manage insurance companies</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Add Plan Name */}
+                  <div 
+                    onClick={() => setCurrentView('plans')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-emerald-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Shield size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Add Plan Name</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Add multiple plan names under a company</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Add Riders / Add-ons */}
+                  <div 
+                    onClick={() => setCurrentView('riders')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-purple-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                      <Plus size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Add Riders / Add-ons</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Add & manage riders/add-ons under plan</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Agents / Agencies */}
+                  <div 
+                    onClick={() => setCurrentView('agents')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-orange-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                      <Users size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Agents / Agencies</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Add & manage agents and agencies</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Resource Centre */}
+                  <div 
+                    onClick={() => setCurrentView('resources')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-cyan-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0">
+                      <Briefcase size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Resource Centre</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Upload policy wordings, claim forms, hospital list, etc.</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Dashboard Filters */}
+                  <div 
+                    onClick={() => setCurrentView('filters')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-teal-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+                      <Filter size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Dashboard Filters</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Manage filters used in dashboards</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Hospitals & Doctors */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Hospitals & Doctors</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {/* Add Hospital */}
+                  <div 
+                    onClick={() => setHospitalModal(true)}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-rose-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                      <Building2 size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Add Hospital</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Add hospitals with details as per Hospital Details sheet</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-rose-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+
+
+                  {/* Hospital Search Settings */}
+                  <div 
+                    onClick={() => setCurrentView('search_settings')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-sky-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                      <Search size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Hospital Search Settings</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Searchable hospitals & doctors in Claims (city based)</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-sky-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+
+                  {/* Hospital & Doctor Mapping */}
+                  <div 
+                    onClick={() => setCurrentView('mapping')}
+                    className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-4 cursor-pointer hover:shadow-lg hover:border-orange-500/20 hover:scale-[1.01] transition-all duration-200 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                      <Briefcase size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 tracking-tight">Hospital & Doctor Mapping</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">Map hospitals & doctors for easy selection</p>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Breadcrumb back header */}
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <button onClick={() => setCurrentView('dashboard')} className="hover:text-primary-600 transition-colors flex items-center gap-1 cursor-pointer">
+                  <ArrowLeft size={13} /> Home
+                </button>
+                <span>&gt;</span>
+                <span className="text-slate-800 capitalize">{currentView.replace('_', ' ')}</span>
+              </div>
+
+              {/* 1. INSURANCE COMPANIES */}
+              {currentView === 'companies' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                      <div className="relative w-full sm:w-64">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={companySearch}
+                          onChange={e => setCompanySearch(e.target.value)}
+                          placeholder="Search companies..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+                        />
                       </div>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button onClick={() => toast.success('CSV/Excel Import mock triggered')} className="btn-secondary text-xs py-1.5 px-3">Import</button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {companyList.map((co: any) => (
+                      <div key={co.id} className="bg-white border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-3xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
+                            <Building2 size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900 text-sm">{co.name}</h4>
+                            <p className="text-xs text-slate-400 font-semibold">{co.code || 'No Code'} · {co.phone || 'No Phone'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditCompany(co)}
+                            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                            title="Edit Company"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteCompany(co)}
+                            className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+                            title="Delete Company"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
-          ))}
-          {companyList.length === 0 && !isLoading && (
-            <div className="text-center py-16 text-gray-400">
-              <Building2 size={32} className="mx-auto mb-3 text-gray-200"/>
-              <p>No insurance companies yet. Add one to get started.</p>
+
+              {/* 2. PLANS */}
+              {currentView === 'plans' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Plan Names</h3>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/75 border-b text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3">Plan Name</th>
+                          <th className="p-3">Insurance Company</th>
+                          <th className="p-3">Category</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {companyList.flatMap((co: any) => 
+                          (co.plans || []).map((pl: any) => ({ ...pl, companyName: co.name, companyId: co.id }))
+                        ).map((pl: any, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="p-3 font-semibold text-slate-800">{pl.name}</td>
+                            <td className="p-3 text-slate-600">{pl.companyName}</td>
+                            <td className="p-3 text-slate-500">{pl.category}</td>
+                            <td className="p-3 text-right space-x-1.5">
+                              <button onClick={() => openEditPlan(pl, pl.companyId)} className="text-purple-600 hover:text-purple-800 font-bold">Edit</button>
+                              <button onClick={() => setDeletePlan(pl)} className="text-rose-600 hover:text-rose-800 font-bold">Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. RIDERS */}
+              {currentView === 'riders' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Riders / Add-ons</h3>
+                    <button onClick={() => toast.success('Mock Add Rider triggered')} className="btn-primary text-xs py-1 px-3 flex items-center gap-1 cursor-pointer">
+                      <Plus size={13} /> Add Rider
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/75 border-b text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3">Rider Name</th>
+                          <th className="p-3">Description</th>
+                          <th className="p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                        <tr>
+                          <td className="p-3 font-semibold text-slate-800">Critical Illness Rider</td>
+                          <td className="p-3">Covers 36 major critical illnesses</td>
+                          <td className="p-3"><span className="badge-green">Active</span></td>
+                        </tr>
+                        <tr className="hover:bg-slate-50/50">
+                          <td className="p-3 font-semibold text-slate-800">Accidental Death Benefit</td>
+                          <td className="p-3">Double sum assured on accidental death</td>
+                          <td className="p-3"><span className="badge-green">Active</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. AGENTS */}
+              {currentView === 'agents' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Agents & Agencies</h3>
+
+                  </div>
+
+                  <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/75 border-b text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                          <th className="p-3">Agent / Agency</th>
+                          <th className="p-3">Contact Person</th>
+                          <th className="p-3">Phone</th>
+                          <th className="p-3">Email</th>
+                          <th className="p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-600">
+                        {agentsList.map((ag) => (
+                          <tr key={ag.id} className="hover:bg-slate-50/50">
+                            <td className="p-3 font-semibold text-slate-800">{ag.agencyName}</td>
+                            <td className="p-3">{ag.agentName}</td>
+                            <td className="p-3">{ag.phone}</td>
+                            <td className="p-3">{ag.email}</td>
+                            <td className="p-3"><span className="badge-green">{ag.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. RESOURCES */}
+              {currentView === 'resources' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Resource Centre</h3>
+                    <button onClick={() => toast.success('Mock Upload Resource triggered')} className="btn-primary text-xs py-1 px-3 flex items-center gap-1 cursor-pointer">
+                      <Plus size={13} /> Upload File
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { title: 'Policy Wordings', count: 18, desc: 'Official terms and conditions brochures' },
+                      { title: 'Claim Forms', count: 12, desc: 'Pre-auth and claim reimbursement forms' },
+                      { title: 'Hospital Lists', count: 6, desc: 'Cashless network directory guides' }
+                    ].map((folder, i) => (
+                      <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md cursor-pointer transition-all space-y-2">
+                        <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0"><Briefcase size={20} /></div>
+                        <h4 className="font-bold text-slate-900 text-sm">{folder.title}</h4>
+                        <p className="text-xs text-slate-500 font-semibold">{folder.desc}</p>
+                        <span className="inline-block text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full mt-2">{folder.count} Files</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* 6. FILTERS */}
+              {currentView === 'filters' && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Dashboard Filters</h3>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md mx-auto text-center space-y-3">
+                    <Filter size={32} className="mx-auto text-slate-400" />
+                    <h4 className="font-bold text-slate-800 text-sm">Dashboard Filters Master Data</h4>
+                    <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                      Configure modules filters, categories lists, branches mapping, and date ranges selectors dynamically.
+                    </p>
+                    <button onClick={() => toast.success('Filters configuration updated')} className="btn-primary text-xs px-4 py-2 mt-2 cursor-pointer">Save Configurations</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 7. ADD HOSPITAL */}
+              {/* 9. SEARCH SETTINGS */}
+              {currentView === 'search_settings' && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Hospital Search Settings</h3>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 max-w-md mx-auto space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <span className="text-xs font-bold text-slate-700">Filter by City</span>
+                        <input type="checkbox" defaultChecked className="rounded text-primary-600" />
+                      </div>
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <span className="text-xs font-bold text-slate-700">Show Doctor Specialities</span>
+                        <input type="checkbox" defaultChecked className="rounded text-primary-600" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Enforce Network/Non-Network Flags</span>
+                        <input type="checkbox" className="rounded text-primary-600" />
+                      </div>
+                    </div>
+                    <button onClick={() => toast.success('Search settings saved')} className="btn-primary text-xs px-4 py-2 mt-2 w-full cursor-pointer">Save Search Settings</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 10. MAPPING */}
+              {currentView === 'mapping' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Hospital List & Doctors Mapping</h3>
+                    <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-full">{hospitals.length} Hospitals</span>
+                  </div>
+
+                  {hospitals.length === 0 ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500 italic text-xs">
+                      No hospitals registered yet. Go back and click 'Add Hospital' to register hospitals.
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              <th className="p-3">Hospital Info</th>
+                              <th className="p-3">Claims Department</th>
+                              <th className="p-3">Doctors</th>
+                              <th className="p-3">Comment</th>
+                              <th className="p-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs">
+                            {hospitals.map((h: any) => (
+                              <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="p-3 space-y-1">
+                                  <div className="font-bold text-slate-900">{h.name}</div>
+                                  <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-2 gap-y-0.5">
+                                    <span className={`px-1.5 py-0.2 rounded-full font-bold ${
+                                      h.type === 'Network' ? 'bg-emerald-50 text-emerald-600' :
+                                      h.type === 'Blacklisted' ? 'bg-red-50 text-red-600' :
+                                      'bg-slate-100 text-slate-600'
+                                    }`}>{h.type}</span>
+                                    <span>{h.city}</span>
+                                    {h.pincode && <span>- {h.pincode}</span>}
+                                  </div>
+                                  {h.phone && <div className="text-[10px] text-slate-500">📞 {h.phone}</div>}
+                                  {h.address && <div className="text-[10px] text-slate-400 max-w-[200px] truncate" title={h.address}>{h.address}</div>}
+                                </td>
+                                <td className="p-3 space-y-1">
+                                  {h.claimsPerson1Name && (
+                                    <div className="text-[10px] text-slate-600">
+                                      <span className="font-semibold">{h.claimsPerson1Name}</span>: {h.claimsPerson1Contact}
+                                    </div>
+                                  )}
+                                  {h.claimsPerson2Name && (
+                                    <div className="text-[10px] text-slate-600">
+                                      <span className="font-semibold">{h.claimsPerson2Name}</span>: {h.claimsPerson2Contact}
+                                    </div>
+                                  )}
+                                  {!h.claimsPerson1Name && !h.claimsPerson2Name && (
+                                    <span className="text-slate-400 italic text-[10px]">Not Provided</span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  {h.doctors && h.doctors.length > 0 ? (
+                                    <div className="space-y-1 max-w-[220px]">
+                                      {h.doctors.map((d: any, idx: number) => (
+                                        <div key={d.id || idx} className="text-[10px] bg-slate-50 border border-slate-100 rounded-md p-1">
+                                          <div className="font-bold text-slate-800">{d.name} <span className="text-[9px] font-normal text-slate-500">({d.degree})</span></div>
+                                          <div className="text-slate-500">{d.specialty} {d.phone && `· ${d.phone}`}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-[10px]">No Doctors Mapped</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-[10px] text-slate-500 max-w-[150px] truncate" title={h.comment}>
+                                  {h.comment || <span className="text-slate-300 italic">-</span>}
+                                </td>
+                                <td className="p-3 text-right">
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to delete ${h.name}?`)) {
+                                        removeHospitalMutation.mutate(h.id);
+                                      }
+                                    }}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete Hospital"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -975,7 +1611,7 @@ export default function Insurance() {
       {/* ── Tab: Settings ─────────────────────────────────────────────────────── */}
       {activeTab === 'settings' && (
         <div className="card p-0 overflow-hidden">
-          <SettingsPanel />
+          <SettingsPanel initialSubTab={settingsSubTab} onBack={() => { setActiveTab('companies'); setCurrentView('dashboard'); }} />
         </div>
       )}
 
@@ -1006,601 +1642,147 @@ export default function Insurance() {
         open={companyModal || !!editCompany}
         onClose={closeCompanyModal}
         title={editCompany ? 'Edit Company' : 'Add Insurance Company'}
-        size="2xl">
-        <div className="flex gap-4 border-b border-gray-200 mb-4">
-          <button
-            type="button"
-            onClick={() => setCompanyModalTab('details')}
-            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
-              companyModalTab === 'details'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Company Details
+        actions={
+          <button type="submit" form="company-form" className="btn-primary py-1 px-3 text-xs cursor-pointer">
+            {editCompany ? 'Save Changes' : 'Create Company'}
           </button>
-          <button
-            type="button"
-            onClick={() => setCompanyModalTab('others')}
-            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
-              companyModalTab === 'others'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Other Details
-          </button>
-          <button
-            type="button"
-            onClick={() => setCompanyModalTab('hospitals')}
-            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
-              companyModalTab === 'hospitals'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Hospitals & Doctors
-          </button>
-          <button
-            type="button"
-            onClick={() => setCompanyModalTab('agents')}
-            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
-              companyModalTab === 'agents'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Agents
-          </button>
-          <button
-            type="button"
-            onClick={() => setCompanyModalTab('resources')}
-            className={`pb-2 text-sm font-semibold transition-colors border-b-2 ${
-              companyModalTab === 'resources'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Resource Centre
-          </button>
-        </div>
+        }
+        size="2xl"
+      >
+        <form
+          id="company-form"
+          onSubmit={companyForm.handleSubmit(body => {
+            const payload = {
+              ...body,
+              email: extraCompanyFields.emails.length > 0 ? extraCompanyFields.emails[0].email : (body.email || ''),
+              notes: JSON.stringify({
+                category: extraCompanyFields.category,
+                headOffice: extraCompanyFields.headOffice,
+                branchOffice: extraCompanyFields.branchOffice,
+                emails: extraCompanyFields.emails,
+                hospitals: [],
+                agents: [],
+                resources: [],
+                comment: body.notes
+              })
+            };
+            if (editCompany) updateCompany.mutate({ id: editCompany.id, body: payload });
+            else createCompany.mutate(payload);
+          })}
+          className="space-y-4 pr-2 max-h-[70vh] overflow-y-auto custom-scrollbar"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Select Insurance Company Category</label>
+              <select
+                value={extraCompanyFields.category}
+                onChange={e => setExtraCompanyFields(p => ({ ...p, category: e.target.value }))}
+                className="input"
+              >
+                <option value="">Select Category...</option>
+                <option value="Health - SAHI">Health Insurance - SAHI</option>
+                <option value="General">General Insurance</option>
+                <option value="Life">Life Insurance</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="col-span-2 sm:col-span-1" />
 
-        <form onSubmit={companyForm.handleSubmit(body => {
-          const payload = {
-            ...body,
-            email: extraCompanyFields.emails.length > 0 ? extraCompanyFields.emails[0].email : (body.email || ''),
-            notes: JSON.stringify({
-              category: extraCompanyFields.category,
-              headOffice: extraCompanyFields.headOffice,
-              branchOffice: extraCompanyFields.branchOffice,
-              emails: extraCompanyFields.emails,
-              hospitals: extraCompanyFields.hospitals,
-              agents: extraCompanyFields.agents,
-              resources: extraCompanyFields.resources,
-              comment: body.notes
-            })
-          };
-          if (editCompany) updateCompany.mutate({ id: editCompany.id, body: payload });
-          else createCompany.mutate(payload);
-        })} className="space-y-4 min-h-[500px] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-          {companyModalTab === 'details' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="col-span-2 sm:col-span-1" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Select Insurance Company Category</label>
-                <select
-                  value={extraCompanyFields.category}
-                  onChange={e => setExtraCompanyFields(p => ({ ...p, category: e.target.value }))}
-                  className="input"
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Name - Official *</label>
+              <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" required />
+              {companyForm.formState.errors.name && <p className="text-xs text-red-500">{companyForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Name - Short</label>
+              <input {...companyForm.register('code')} className="input" placeholder="e.g. LIC" />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Head Office Address</label>
+              <textarea
+                value={extraCompanyFields.headOffice}
+                onChange={e => setExtraCompanyFields(p => ({ ...p, headOffice: e.target.value }))}
+                className="input"
+                rows={2}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Branch Office Address</label>
+              <textarea
+                value={extraCompanyFields.branchOffice}
+                onChange={e => setExtraCompanyFields(p => ({ ...p, branchOffice: e.target.value }))}
+                className="input"
+                rows={2}
+              />
+            </div>
+
+            {/* Important Email ID List */}
+            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Important Email IDs</label>
+                <button
+                  type="button"
+                  onClick={() => setExtraCompanyFields(p => ({
+                    ...p,
+                    emails: [...p.emails, { id: Date.now().toString(), email: '', description: '' }]
+                  }))}
+                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                  <option value="">Select Category...</option>
-                  <option value="Health - SAHI">Health Insurance - SAHI</option>
-                  <option value="General">General Insurance</option>
-                  <option value="Life">Life Insurance</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <Plus size={12} /> Add Email
+                </button>
               </div>
-              <div className="col-span-2 sm:col-span-1" />
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Company Name - Official *</label>
-                <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" />
-                {companyForm.formState.errors.name && <p className="text-xs text-red-500">{companyForm.formState.errors.name.message}</p>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Company Name - Short</label>
-                <input {...companyForm.register('code')} className="input" placeholder="e.g. LIC" />
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Company Head Office Address</label>
-                <textarea
-                  value={extraCompanyFields.headOffice}
-                  onChange={e => setExtraCompanyFields(p => ({ ...p, headOffice: e.target.value }))}
-                  className="input" rows={2}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Company Branch Office Address</label>
-                <textarea
-                  value={extraCompanyFields.branchOffice}
-                  onChange={e => setExtraCompanyFields(p => ({ ...p, branchOffice: e.target.value }))}
-                  className="input" rows={2}
-                />
-              </div>
-              
-              {/* Important Email ID List */}
-              <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="label">Important Email IDs</label>
-                  <button
-                    type="button"
-                    onClick={() => setExtraCompanyFields(p => ({
-                      ...p,
-                      emails: [...p.emails, { id: Date.now().toString(), email: '', description: '' }]
-                    }))}
-                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
-                  >
-                    <Plus size={12} /> Add Email
-                  </button>
-                </div>
-                {extraCompanyFields.emails.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No email IDs added.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {extraCompanyFields.emails.map((item, idx) => (
-                      <div key={item.id} className="flex gap-2 items-start">
-                        <div className="flex-1 space-y-2">
-                          <input
-                            type="email"
-                            placeholder="Email Address"
-                            value={item.email}
-                            onChange={e => {
-                              const newEmails = [...extraCompanyFields.emails];
-                              newEmails[idx].email = e.target.value;
-                              setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
-                            }}
-                            className="input w-full"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Short description (e.g. When to use this email)"
-                            value={item.description}
-                            onChange={e => {
-                              const newEmails = [...extraCompanyFields.emails];
-                              newEmails[idx].description = e.target.value;
-                              setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
-                            }}
-                            className="input w-full text-xs"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
+              {extraCompanyFields.emails.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">No email IDs added.</p>
+              ) : (
+                <div className="space-y-3">
+                  {extraCompanyFields.emails.map((item, idx) => (
+                    <div key={item.id} className="flex gap-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <input
+                          type="email"
+                          placeholder="Email Address"
+                          value={item.email}
+                          onChange={e => {
                             const newEmails = [...extraCompanyFields.emails];
-                            newEmails.splice(idx, 1);
+                            newEmails[idx].email = e.target.value;
                             setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
                           }}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                          className="input w-full"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Short description (e.g. When to use this email)"
+                          value={item.description}
+                          onChange={e => {
+                            const newEmails = [...extraCompanyFields.emails];
+                            newEmails[idx].description = e.target.value;
+                            setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
+                          }}
+                          className="input w-full text-xs"
+                        />
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
-              <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Comment</label>
-                <textarea {...companyForm.register('notes')} className="input" rows={2} />
-              </div>
-            </div>
-          )}
-
-          {companyModalTab === 'others' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Phone</label>
-                <input {...companyForm.register('phone')} className="input" />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Claims Phone</label>
-                <input {...companyForm.register('claimsPhone')} className="input" />
-              </div>
-              <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="label">Website</label>
-                <input {...companyForm.register('website')} className="input" placeholder="https://" />
-              </div>
-            </div>
-          )}
-
-          {companyModalTab === 'hospitals' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="label">Hospitals & Doctors</label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newH = [...extraCompanyFields.hospitals];
-                    newH.push({
-                      id: Date.now().toString(),
-                      hospitalName: '',
-                      hospitalCity: '',
-                      hospitalState: '',
-                      hospitalPincode: '',
-                      hospitalContactNo: '',
-                      hospitalRating: '',
-                      hospitalType: '',
-                      hospitalDoctors: []
-                    });
-                    setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                  }}
-                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
-                >
-                  <Plus size={12} /> Add Hospital
-                </button>
-              </div>
-              {extraCompanyFields.hospitals.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">No hospitals added.</p>
-              ) : (
-                <div className="space-y-4">
-                  {extraCompanyFields.hospitals.map((h, idx) => (
-                    <div key={h.id} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                        <div className="col-span-2 flex gap-2">
-                          <input
-                            placeholder="Hospital Name"
-                            value={h.hospitalName}
-                            onChange={e => {
-                              const newH = [...extraCompanyFields.hospitals];
-                              newH[idx].hospitalName = e.target.value;
-                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                            }}
-                            className="input flex-1"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newH = [...extraCompanyFields.hospitals];
-                              newH.splice(idx, 1);
-                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                            }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                        <input
-                          placeholder="City"
-                          value={h.hospitalCity}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalCity = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="State"
-                          value={h.hospitalState}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalState = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Pincode"
-                          value={h.hospitalPincode}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalPincode = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Contact No"
-                          value={h.hospitalContactNo}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalContactNo = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Rating (e.g. A+)"
-                          value={h.hospitalRating}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalRating = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                          className="input"
-                        />
-                        <select
-                          className="input"
-                          value={h.hospitalType}
-                          onChange={e => {
-                            const newH = [...extraCompanyFields.hospitals];
-                            newH[idx].hospitalType = e.target.value;
-                            setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                          }}
-                        >
-                          <option value="">Select Type</option>
-                          <option value="Network">Network</option>
-                          <option value="Non-Network">Non-Network</option>
-                          <option value="Blacklisted">Blacklisted</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                      
-                      {/* Doctors */}
-                      <div className="pl-4 border-l-2 border-blue-100 space-y-2 mt-4">
-                        <div className="flex justify-between items-center">
-                          <label className="text-[10px] font-semibold text-gray-500 uppercase">Doctors</label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newH = [...extraCompanyFields.hospitals];
-                              newH[idx].hospitalDoctors.push({ id: Date.now().toString(), name: '' });
-                              setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                            }}
-                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          >
-                            <Plus size={10} /> Add Doctor
-                          </button>
-                        </div>
-                        {h.hospitalDoctors.map((doc: any, dIdx: number) => (
-                          <div key={doc.id} className="flex gap-2">
-                            <input
-                              placeholder="Doctor Name"
-                              value={doc.name}
-                              onChange={e => {
-                                const newH = [...extraCompanyFields.hospitals];
-                                newH[idx].hospitalDoctors[dIdx].name = e.target.value;
-                                setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                              }}
-                              className="input flex-1 text-xs py-1"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newH = [...extraCompanyFields.hospitals];
-                                newH[idx].hospitalDoctors.splice(dIdx, 1);
-                                setExtraCompanyFields(p => ({ ...p, hospitals: newH }));
-                              }}
-                              className="p-1.5 text-red-500 hover:bg-red-50 rounded"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {companyModalTab === 'agents' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800">Agents</h3>
-                <button
-                  type="button"
-                  onClick={() => setExtraCompanyFields(p => ({ ...p, agents: [...p.agents, { id: Date.now().toString(), name: '', agencyName: '', agencyCode: '', startDate: '', branch: '', rmDetails: '', bankDetails: '', payoutCycle: '', comment: '' }] }))}
-                  className="btn-secondary py-1 px-2 text-xs"
-                >
-                  <Plus size={14} /> Add Agent
-                </button>
-              </div>
-              {extraCompanyFields.agents.length === 0 ? (
-                <div className="text-center py-8 text-sm text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  No agents added yet. Click "Add Agent" to start.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {extraCompanyFields.agents.map((ag: any, idx: number) => (
-                    <div key={ag.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200 relative group">
                       <button
                         type="button"
                         onClick={() => {
-                          const newA = [...extraCompanyFields.agents];
-                          newA.splice(idx, 1);
-                          setExtraCompanyFields(p => ({ ...p, agents: newA }));
+                          const newEmails = [...extraCompanyFields.emails];
+                          newEmails.splice(idx, 1);
+                          setExtraCompanyFields(p => ({ ...p, emails: newEmails }));
                         }}
-                        className="absolute top-2 right-2 p-1.5 text-red-500 bg-white shadow-sm border border-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                        className="p-2 text-red-500 hover:bg-red-50 rounded"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <input
-                          placeholder="Agent Name"
-                          list="agent-names"
-                          value={ag.name}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].name = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Agency Display Name"
-                          list="agency-names"
-                          value={ag.agencyName}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].agencyName = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Agency Code"
-                          value={ag.agencyCode}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].agencyCode = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          type="date"
-                          placeholder="Start Date"
-                          value={ag.startDate}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].startDate = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Home Branch/Code"
-                          value={ag.branch}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].branch = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="RM/BM Details & Contacts"
-                          value={ag.rmDetails}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].rmDetails = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Bank/Payout Details"
-                          value={ag.bankDetails}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].bankDetails = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                        <select
-                          value={ag.payoutCycle}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].payoutCycle = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        >
-                          <option value="">Select Payout Cycle</option>
-                          <option value="8-10 Monthly">8–10 Monthly</option>
-                          <option value="19-21 Monthly">19–21 Monthly</option>
-                        </select>
-                        <input
-                          placeholder="Comment"
-                          value={ag.comment}
-                          onChange={e => { const n = [...extraCompanyFields.agents]; n[idx].comment = e.target.value; setExtraCompanyFields(p => ({ ...p, agents: n })); }}
-                          className="input"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <datalist id="agent-names">
-                <option value="Avinash" />
-                <option value="PAT" />
-                <option value="TL PAT" />
-                <option value="SRP PAT" />
-                <option value="Sarang" />
-              </datalist>
-
-              <datalist id="agency-names">
-                <option value="Health - Niva Bupa - Avinash" />
-                <option value="Gen - ICICI Lombard - Avinash" />
-                <option value="Life - Bajaj Life - Avinash" />
-                <option value="Turtle - Insu - Avinash" />
-                <option value="Health - Star - PAT" />
-                <option value="Life - HDFC Life - TL PAT" />
-                <option value="Life - Bajaj Life - SRP PAT" />
-                <option value="Gen - HDFC Ergo - Sarang" />
-                <option value="Life - HDFC Life - Sarang" />
-                <option value="Prud - Insu - Sarang" />
-              </datalist>
-            </div>
-          )}
-          
-          {companyModalTab === 'resources' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800">Resource Centre</h3>
-                <button
-                  type="button"
-                  onClick={() => setExtraCompanyFields(p => ({ ...p, resources: [...p.resources, { id: Date.now().toString(), type: '', link: '', title: '', description: '', date: new Date().toISOString().split('T')[0], active: true }] }))}
-                  className="btn-secondary py-1 px-2 text-xs"
-                >
-                  <Plus size={14} /> Add Resource
-                </button>
-              </div>
-              {extraCompanyFields.resources.length === 0 ? (
-                <div className="text-center py-8 text-sm text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  No resources added yet. Click "Add Resource" to start.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {extraCompanyFields.resources.map((res: any, idx: number) => (
-                    <div key={res.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200 relative group">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newR = [...extraCompanyFields.resources];
-                          newR.splice(idx, 1);
-                          setExtraCompanyFields(p => ({ ...p, resources: newR }));
-                        }}
-                        className="absolute top-2 right-2 p-1.5 text-red-500 bg-white shadow-sm border border-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <select
-                          value={res.type}
-                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].type = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                          className="input"
-                        >
-                          <option value="">Document Type</option>
-                          <option value="Brochure">Brochure</option>
-                          <option value="Policy Wording">Policy Wording</option>
-                          <option value="Claim Form">Claim Form</option>
-                          <option value="Proposal Form">Proposal Form</option>
-                          <option value="Other">Other</option>
-                        </select>
-                        <input
-                          placeholder="Title"
-                          value={res.title}
-                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].title = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="File URL / External Link"
-                          value={res.link}
-                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].link = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                          className="input"
-                        />
-                        <input
-                          placeholder="Description"
-                          value={res.description}
-                          onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].description = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                          className="input lg:col-span-2"
-                        />
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="date"
-                            value={res.date}
-                            onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].date = e.target.value; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                            className="input flex-1"
-                          />
-                          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={res.active}
-                              onChange={e => { const n = [...extraCompanyFields.resources]; n[idx].active = e.target.checked; setExtraCompanyFields(p => ({ ...p, resources: n })); }}
-                              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            />
-                            Active
-                          </label>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          )}
 
-          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
-            <button type="button" className="btn-secondary" onClick={closeCompanyModal}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={createCompany.isPending || updateCompany.isPending}>
-              {editCompany ? 'Save Changes' : 'Create Company'}
-            </button>
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment</label>
+              <textarea {...companyForm.register('notes')} className="input" rows={2} />
+            </div>
           </div>
         </form>
       </Modal>
@@ -1610,44 +1792,48 @@ export default function Insurance() {
         open={!!planModal || !!editPlan}
         onClose={() => { setPlanModal(null); setEditPlan(null); planForm.reset(); }}
         title={editPlan ? 'Edit Plan' : `Add Plan${planCompanyId ? ` — ${companyList.find(c => c.id === planCompanyId)?.name || ''}` : ''}`}
-        size="2xl">
-        <form onSubmit={planForm.handleSubmit(async (body) => {
-          const payloadTemplate = {
-            ...body,
-            description: JSON.stringify({
-              comment: body.description || '',
-              riders: planRiders
-            })
-          };
+        size="2xl"
+      >
+        <form
+          onSubmit={planForm.handleSubmit(async (body) => {
+            const payloadTemplate = {
+              ...body,
+              description: JSON.stringify({
+                comment: body.description || '',
+                riders: planRiders
+              })
+            };
 
-          if (editPlan) {
-            updatePlan.mutate({ planId: editPlan.id, body: { ...payloadTemplate, name: planNames[0] } });
-          } else {
-            if (!planCompanyId) {
-              toast.error('Please select an insurance company first');
-              return;
-            }
-            const validNames = planNames.filter(n => n.trim() !== '');
-            if (validNames.length === 0) {
-              toast.error('Please enter at least one plan name');
-              return;
-            }
-            const toastId = toast.loading(`Creating ${validNames.length} plan(s)...`);
-            try {
-              for (const name of validNames) {
-                await insuranceService.createPlan(planCompanyId, { ...payloadTemplate, name });
+            if (editPlan) {
+              updatePlan.mutate({ planId: editPlan.id, body: { ...payloadTemplate, name: planNames[0] } });
+            } else {
+              if (!planCompanyId) {
+                toast.error('Please select an insurance company first');
+                return;
               }
-              qc.invalidateQueries({ queryKey: ['insurance-plans'] });
-              closePlanModal();
-              toast.success(`Created ${validNames.length} plan(s) successfully`, { id: toastId });
-            } catch (err: any) {
-              toast.error(err.response?.data?.message ?? 'Failed to create plans', { id: toastId });
+              const validNames = planNames.filter(n => n.trim() !== '');
+              if (validNames.length === 0) {
+                toast.error('Please enter at least one plan name');
+                return;
+              }
+              const toastId = toast.loading(`Creating ${validNames.length} plan(s)...`);
+              try {
+                for (const name of validNames) {
+                  await insuranceService.createPlan(planCompanyId, { ...payloadTemplate, name });
+                }
+                qc.invalidateQueries({ queryKey: ['insurance-plans'] });
+                closePlanModal();
+                toast.success(`Created ${validNames.length} plan(s) successfully`, { id: toastId });
+              } catch (err: any) {
+                toast.error(err.response?.data?.message ?? 'Failed to create plans', { id: toastId });
+              }
             }
-          }
-        })} className="space-y-4">
+          })}
+          className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar"
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Select Insurance Company *</label>
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Select Insurance Company *</label>
               <select
                 className="input"
                 value={planCompanyId}
@@ -1666,15 +1852,15 @@ export default function Insurance() {
                 })}
               </select>
             </div>
-            
-            <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50">
+
+            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
               <div className="flex items-center justify-between mb-3">
-                <label className="label">Plan Names *</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Plan Names *</label>
                 {!editPlan && (
                   <button
                     type="button"
                     onClick={() => setPlanNames([...planNames, ''])}
-                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Plus size={12} /> Add Plan Name
                   </button>
@@ -1714,54 +1900,32 @@ export default function Insurance() {
                 {planModalPlans.map((p: any) => <option key={p.id} value={p.name} />)}
               </datalist>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Plan Category *</label>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Plan Category *</label>
               <select {...planForm.register('category')} className="input">
                 {PLAN_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Policy Term (years)</label>
-              <input {...planForm.register('policyTerm')} type="number" className="input" min="0" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Premium Paying Term (yrs)</label>
-              <input {...planForm.register('premiumPayingTerm')} type="number" className="input" min="0" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Min Age (years)</label>
-              <input {...planForm.register('minAge')} type="number" className="input" min="0" max="120" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Max Age (years)</label>
-              <input {...planForm.register('maxAge')} type="number" className="input" min="0" max="120" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Min Sum Assured (₹)</label>
-              <input {...planForm.register('minSumAssured')} type="number" className="input" min="0" />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Max Sum Assured (₹)</label>
-              <input {...planForm.register('maxSumAssured')} type="number" className="input" min="0" />
-            </div>
-            <div className="col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="label">Comment (Description)</label>
+
+            <div className="col-span-2 flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment (Description)</label>
               <textarea {...planForm.register('description')} className="input" rows={2} />
             </div>
 
-            <div className="col-span-2 border border-gray-100 rounded-xl p-3 bg-gray-50/50 mt-2">
+            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50 mt-2">
               <div className="flex items-center justify-between mb-3">
-                <label className="label">Riders / Add-ons</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Riders / Add-ons</label>
                 <button
                   type="button"
                   onClick={() => setPlanRiders([...planRiders, { id: Date.now().toString(), name: '', description: '' }])}
-                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <Plus size={12} /> Add Rider
                 </button>
               </div>
               {planRiders.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">No riders added.</p>
+                <p className="text-xs text-slate-400 italic">No riders added.</p>
               ) : (
                 <div className="space-y-3">
                   {planRiders.map((rider, idx) => (
@@ -1795,7 +1959,7 @@ export default function Insurance() {
                           newR.splice(idx, 1);
                           setPlanRiders(newR);
                         }}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded"
+                        className="p-2 text-red-500 hover:bg-red-50 rounded animate-fadeIn"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -1804,15 +1968,10 @@ export default function Insurance() {
                 </div>
               )}
             </div>
-
-            <div className="col-span-2 flex flex-wrap items-center gap-2">
-              <input {...planForm.register('isActive')} type="checkbox" id="planActive" className="rounded" />
-              <label htmlFor="planActive" className="text-sm text-gray-700">Active (available for new policies)</label>
-            </div>
           </div>
-          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
-            <button type="button" className="btn-secondary" onClick={closePlanModal}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={createPlan.isPending || updatePlan.isPending}>
+          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-slate-100 mt-6">
+            <button type="button" className="btn-secondary text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer" onClick={closePlanModal}>Cancel</button>
+            <button type="submit" className="btn-primary text-xs font-semibold py-2 px-4 rounded-xl cursor-pointer shadow-md shadow-primary-500/20" disabled={createPlan.isPending || updatePlan.isPending}>
               {editPlan ? 'Save Changes' : 'Create Plan(s)'}
             </button>
           </div>
@@ -1868,6 +2027,658 @@ export default function Insurance() {
           </button>
         </div>
       </Modal>
+
+      {/* Floating Right Action Panel - showing Add Company inside the Companies subpage */}
+      {currentView === 'companies' && (
+        <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+          <button
+            type="button"
+            onClick={() => { closeCompanyModal(); setCompanyModal(true); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+            title="Add Company"
+          >
+            <Plus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              Add Company
+            </span>
+          </button>
+        </div>
+      )}
+
+
+      {/* ── Add Hospital Modal ──────────────────────────────────────────────── */}
+      <Modal
+        open={hospitalModal}
+        onClose={() => {
+          setHospitalModal(false);
+          setHospitalForm({
+            name: '',
+            address: '',
+            city: '',
+            pincode: '',
+            contactNo: '',
+            type: 'Network',
+            claimsPerson1Name: '',
+            claimsPerson1Contact: '',
+            claimsPerson2Name: '',
+            claimsPerson2Contact: '',
+            comment: ''
+          });
+          setHospitalDoctors([]);
+        }}
+        title="Add Hospital"
+        actions={
+          <button type="submit" form="hospital-form" className="btn-primary py-1.5 px-4 text-xs cursor-pointer shadow-md shadow-primary-500/20 rounded-xl" disabled={createHospitalMutation.isPending}>
+            {createHospitalMutation.isPending ? 'Saving...' : 'Save Hospital'}
+          </button>
+        }
+        size="3xl"
+      >
+        {(() => {
+          const DOCTOR_DEGREES = ['MBBS', 'MD', 'MS', 'DM', 'MCh', 'DNB', 'BDS', 'MDS'];
+
+          const handleAddDoctor = () => {
+            setHospitalDoctors(prev => [
+              ...prev,
+              {
+                id: `doc-${Date.now()}-${Math.random()}`,
+                name: '',
+                degree: '',
+                contactNo: '',
+                speciality: ''
+              }
+            ]);
+          };
+
+          const handleRemoveDoctor = (id: string) => {
+            setHospitalDoctors(prev => prev.filter(doc => doc.id !== id));
+          };
+
+          const handleUpdateDoctor = (id: string, field: string, value: string) => {
+            setHospitalDoctors(prev => prev.map(doc => {
+              if (doc.id === id) {
+                return { ...doc, [field]: value };
+              }
+              return doc;
+            }));
+          };
+
+          const handleFormSubmit = (e: React.FormEvent) => {
+            e.preventDefault();
+            createHospitalMutation.mutate({
+              ...hospitalForm,
+              doctors: hospitalDoctors
+            });
+          };
+
+          return (
+            <form id="hospital-form" onSubmit={handleFormSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              {/* Section 1: Hospital Details */}
+              <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-4">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide border-b border-slate-200 pb-1.5">
+                  1. Hospital Details
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={hospitalForm.name}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="input text-xs"
+                      placeholder="e.g. Ruby Hall Clinic"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Type *</label>
+                    <select
+                      value={hospitalForm.type}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, type: e.target.value }))}
+                      className="input text-xs"
+                      required
+                    >
+                      <option value="Network">Network</option>
+                      <option value="Non-Network">Non-Network</option>
+                      <option value="Blacklisted">Blacklisted</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital City *</label>
+                    <input
+                      type="text"
+                      required
+                      value={hospitalForm.city}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, city: e.target.value }))}
+                      className="input text-xs"
+                      placeholder="e.g. Pune"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Pincode *</label>
+                    <input
+                      type="text"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      required
+                      value={hospitalForm.pincode}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, pincode: e.target.value.replace(/\D/g, '') }))}
+                      className="input text-xs"
+                      placeholder="e.g. 411001"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Contact No *</label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      required
+                      value={hospitalForm.contactNo}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, contactNo: e.target.value.replace(/\D/g, '') }))}
+                      className="input text-xs"
+                      placeholder="e.g. 9876543210"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Address</label>
+                    <input
+                      type="text"
+                      value={hospitalForm.address}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, address: e.target.value }))}
+                      className="input text-xs"
+                      placeholder="e.g. 40, Bund Garden Road, Pune"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Department Person 1 Name</label>
+                    <input
+                      type="text"
+                      value={hospitalForm.claimsPerson1Name}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson1Name: e.target.value }))}
+                      className="input text-xs"
+                      placeholder="e.g. Ramesh Patil"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Person 1 Contact No</label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      value={hospitalForm.claimsPerson1Contact}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson1Contact: e.target.value.replace(/\D/g, '') }))}
+                      className="input text-xs"
+                      placeholder="e.g. 9876543210"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Department Person 2 Name</label>
+                    <input
+                      type="text"
+                      value={hospitalForm.claimsPerson2Name}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson2Name: e.target.value }))}
+                      className="input text-xs"
+                      placeholder="e.g. Suresh Shinde"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Person 2 Contact No</label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      value={hospitalForm.claimsPerson2Contact}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson2Contact: e.target.value.replace(/\D/g, '') }))}
+                      className="input text-xs"
+                      placeholder="e.g. 9876543211"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment</label>
+                  <textarea
+                    value={hospitalForm.comment}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, comment: e.target.value }))}
+                    className="input text-xs min-h-[60px] py-2"
+                    placeholder="Add any extra notes here..."
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Doctor Details */}
+              <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                    2. Doctor Details
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleAddDoctor}
+                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={12} /> Add Doctor
+                  </button>
+                </div>
+
+                {hospitalDoctors.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No doctors mapped yet. Click 'Add Doctor' to map doctors to this hospital.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {hospitalDoctors.map((doc, index) => (
+                      <div key={doc.id} className="relative border border-slate-200 rounded-xl p-3 bg-white space-y-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                            Doctor #{index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDoctor(doc.id)}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                            title="Remove Doctor"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Doctor Name *</label>
+                            <input
+                              type="text"
+                              required
+                              value={doc.name}
+                              onChange={(e) => handleUpdateDoctor(doc.id, 'name', e.target.value)}
+                              className="input text-xs py-1"
+                              placeholder="e.g. Dr. Rajesh Shah"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Doctor Degree *</label>
+                            <select
+                              required
+                              value={doc.degree}
+                              onChange={(e) => handleUpdateDoctor(doc.id, 'degree', e.target.value)}
+                              className="input text-xs py-1"
+                            >
+                              <option value="">Select Degree</option>
+                              {DOCTOR_DEGREES.map(d => (
+                                <option key={d} value={d}>{d}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Contact No *</label>
+                            <input
+                              type="text"
+                              maxLength={15}
+                              required
+                              value={doc.contactNo}
+                              onChange={(e) => handleUpdateDoctor(doc.id, 'contactNo', e.target.value.replace(/\D/g, ''))}
+                              className="input text-xs py-1"
+                              placeholder="e.g. 9876543210"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Speciality *</label>
+                            <input
+                              type="text"
+                              required
+                              value={doc.speciality}
+                              onChange={(e) => handleUpdateDoctor(doc.id, 'speciality', e.target.value)}
+                              className="input text-xs py-1"
+                              placeholder="e.g. Cardiology"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </form>
+          );
+        })()}
+      </Modal>
+
+      {/* ── Add Agent Modal ─────────────────────────────────────────────────── */}
+      <Modal
+        open={agentModal}
+        onClose={() => { setAgentModal(false); setAgentModalTab('details'); }}
+        title="Add Agent"
+        actions={
+          <button type="submit" form="agent-form" className="btn-primary py-1 px-3 text-xs cursor-pointer shadow-md shadow-primary-500/20 rounded-xl">
+            Save Agent
+          </button>
+        }
+        size="2xl"
+      >
+        <form
+          id="agent-form"
+          onSubmit={handleAgentSubmit}
+          className="space-y-4 pr-2 max-h-[70vh] min-h-[480px] overflow-y-auto custom-scrollbar"
+        >
+          {/* Tab Selection Navigation Bar */}
+          <div className="flex border-b border-slate-100 pb-2 mb-4 gap-4">
+            <button
+              type="button"
+              onClick={() => setAgentModalTab('details')}
+              className={`text-xs font-bold pb-2 transition-all border-b-2 px-1 cursor-pointer ${
+                agentModalTab === 'details'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Agent Details
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgentModalTab('payout')}
+              className={`text-xs font-bold pb-2 transition-all border-b-2 px-1 cursor-pointer ${
+                agentModalTab === 'payout'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Payout Bank Details
+            </button>
+          </div>
+
+          {agentModalTab === 'details' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
+              {/* Insurance Company Category */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Insurance Company Category *</label>
+                <select
+                  value={agentForm.category}
+                  onChange={e => {
+                    setAgentForm(p => ({ ...p, category: e.target.value, companyId: '' }));
+                  }}
+                  className="input"
+                >
+                  <option value="">Select Category...</option>
+                  <option value="Health - SAHI">Health Insurance - SAHI</option>
+                  <option value="General">General Insurance</option>
+                  <option value="Life">Life Insurance</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Insurance Company Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Insurance Company Name *</label>
+                <select
+                  value={agentForm.companyId}
+                  onChange={e => {
+                    const coId = e.target.value;
+                    const co = rawCompanyList.find(c => c.id === coId);
+                    let coCat = '';
+                    if (co && co.notes && co.notes.startsWith('{')) {
+                      try { coCat = JSON.parse(co.notes).category || ''; } catch {}
+                    }
+                    setAgentForm(p => ({
+                      ...p,
+                      companyId: coId,
+                      category: coCat || p.category
+                    }));
+                  }}
+                  className="input"
+                >
+                  <option value="">Select Company...</option>
+                  {rawCompanyList
+                    .filter(co => {
+                      if (!agentForm.category) return true; // Show all companies if no category is selected
+                      let coCat = 'Other';
+                      if (co.notes && co.notes.startsWith('{')) {
+                        try { coCat = JSON.parse(co.notes).category || 'Other'; } catch {}
+                      }
+                      return coCat === agentForm.category;
+                    })
+                    .map(co => (
+                      <option key={co.id} value={co.id}>{co.name}</option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Agent Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agent Name *</label>
+                <input
+                  type="text"
+                  value={agentForm.agentName}
+                  onChange={e => setAgentForm(p => ({ ...p, agentName: e.target.value }))}
+                  placeholder="e.g. Pratibha Sharma"
+                  className="input"
+                />
+              </div>
+
+              {/* Agency Name to Display */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Name to Display (Auto-Generated)</label>
+                <input
+                  type="text"
+                  value={agentForm.agencyNameDisplay}
+                  readOnly
+                  placeholder="e.g. Health - Star - Pratibha"
+                  className="input bg-slate-50 border-slate-200/60 text-slate-500 font-semibold cursor-not-allowed"
+                />
+              </div>
+
+              {/* Agency Code */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Code *</label>
+                <input
+                  type="text"
+                  value={agentForm.agencyCode}
+                  onChange={e => setAgentForm(p => ({ ...p, agencyCode: e.target.value }))}
+                  placeholder="e.g. STAR0987"
+                  className="input"
+                />
+              </div>
+
+              {/* Agency Start Date */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Start Date *</label>
+                <input
+                  type="date"
+                  value={agentForm.startDate}
+                  onChange={e => setAgentForm(p => ({ ...p, startDate: e.target.value }))}
+                  className="input"
+                />
+              </div>
+
+              {/* Agency Home Branch */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Home Branch</label>
+                <input
+                  type="text"
+                  value={agentForm.homeBranch}
+                  onChange={e => setAgentForm(p => ({ ...p, homeBranch: e.target.value }))}
+                  placeholder="e.g. Mumbai Fort"
+                  className="input"
+                />
+              </div>
+
+              {/* Agency Home Branch Code */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Home Branch Code</label>
+                <input
+                  type="text"
+                  value={agentForm.homeBranchCode}
+                  onChange={e => setAgentForm(p => ({ ...p, homeBranchCode: e.target.value }))}
+                  placeholder="e.g. BOM01"
+                  className="input"
+                />
+              </div>
+
+              {/* RM Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RM Name</label>
+                <input
+                  type="text"
+                  value={agentForm.rmName}
+                  onChange={e => setAgentForm(p => ({ ...p, rmName: e.target.value }))}
+                  placeholder="Relationship Manager Name"
+                  className="input"
+                />
+              </div>
+
+              {/* RM Contact No */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RM Contact No</label>
+                <input
+                  type="tel"
+                  value={agentForm.rmContact}
+                  onChange={e => setAgentForm(p => ({ ...p, rmContact: e.target.value }))}
+                  placeholder="e.g. +91 9876543210"
+                  className="input"
+                />
+              </div>
+
+              {/* BM Name */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">BM Name</label>
+                <input
+                  type="text"
+                  value={agentForm.bmName}
+                  onChange={e => setAgentForm(p => ({ ...p, bmName: e.target.value }))}
+                  placeholder="Branch Manager Name"
+                  className="input"
+                />
+              </div>
+
+              {/* BM Contact No */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">BM Contact No</label>
+                <input
+                  type="tel"
+                  value={agentForm.bmContact}
+                  onChange={e => setAgentForm(p => ({ ...p, bmContact: e.target.value }))}
+                  placeholder="e.g. +91 9876543211"
+                  className="input"
+                />
+              </div>
+            </div>
+          )}
+
+          {agentModalTab === 'payout' && (
+            <div className="space-y-4 animate-fadeIn">
+              {/* Payout Bank Details Section */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-slate-500">Payout Bank Details</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Name</label>
+                    <input
+                      type="text"
+                      value={agentForm.bankName}
+                      onChange={e => setAgentForm(p => ({ ...p, bankName: e.target.value }))}
+                      placeholder="e.g. ICICI Bank"
+                      className="input"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Branch</label>
+                    <input
+                      type="text"
+                      value={agentForm.bankBranch}
+                      onChange={e => setAgentForm(p => ({ ...p, bankBranch: e.target.value }))}
+                      placeholder="e.g. Connaught Place"
+                      className="input"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank IFSC</label>
+                    <input
+                      type="text"
+                      value={agentForm.bankIfsc}
+                      onChange={e => setAgentForm(p => ({ ...p, bankIfsc: e.target.value }))}
+                      placeholder="e.g. ICIC0000123"
+                      className="input"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Account No</label>
+                    <input
+                      type="text"
+                      value={agentForm.bankAccount}
+                      onChange={e => setAgentForm(p => ({ ...p, bankAccount: e.target.value }))}
+                      placeholder="e.g. 123456789012"
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Payout Cycle Helper Text */}
+              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-3 flex gap-2 text-xs text-blue-700 leading-snug">
+                <Calendar size={16} className="shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Payout Cycle Tentative Dates</span>
+                  <p className="mt-0.5 text-blue-600 font-medium">8-10 & 19-21 of every month, 2 months after the policy issuance date</p>
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment</label>
+                <textarea
+                  value={agentForm.comment}
+                  onChange={e => setAgentForm(p => ({ ...p, comment: e.target.value }))}
+                  placeholder="Add any internal comments or notes regarding this agent..."
+                  className="input w-full"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+        </form>
+      </Modal>
+      {/* Floating Right Action Panel - showing Add Plan inside the Plans subpage */}
+      {currentView === 'plans' && (
+        <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+          <button
+            type="button"
+            onClick={() => { closePlanModal(); setPlanModal({ companyId: '', company: '' }); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
+            title="Add Plan"
+          >
+            <Plus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              Add Plan
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Floating Right Action Panel - showing Add Agent inside the Agents subpage */}
+      {currentView === 'agents' && (
+        <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
+          <button
+            type="button"
+            onClick={() => { setAgentModal(true); }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
+            title="Add Agent"
+          >
+            <Plus size={18} strokeWidth={2.2} />
+            <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
+              Add Agent
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

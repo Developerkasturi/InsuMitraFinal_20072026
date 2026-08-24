@@ -23,7 +23,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
   { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
-  { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
+  { to: '/insumitra/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
   { to: '/employees',    label: 'Employees',    Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
   { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
@@ -31,7 +31,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
 ];
 
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
-const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
+const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/insumitra/operations'];
 const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {

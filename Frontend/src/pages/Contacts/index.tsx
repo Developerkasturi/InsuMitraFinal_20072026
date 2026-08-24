@@ -7,7 +7,7 @@ import {
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useLookupStore } from '@store/lookup.store';
-import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
+import { contactsService, policiesService, claimsService, leadsService, insuranceService } from '@api/index';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
@@ -57,7 +57,8 @@ const OCCUPATION_TYPE_OPTIONS = [
   'Other',
 ];
 
-const schema = z.object({
+export const contactFormSchema = z.object({
+  // System fields mapping
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
   phone: z.string().min(10, 'Min 10 digits'),
@@ -79,6 +80,7 @@ const schema = z.object({
   leadType: z.string().optional(),
   followUpDate: z.string().optional(),
 });
+const schema = contactFormSchema;
 type Form = z.infer<typeof schema>;
 
 interface Contact {
@@ -1557,7 +1559,45 @@ export default function Contacts() {
     }
   };
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) });
+  const { data: compulsoryRulesRes, isLoading: isLoadingRules } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    if (['firstName', 'phone'].includes(key)) return true; // System protected
+    const rule = compulsoryRules.find((r: any) => r.module === 'Contact' && r.fieldKey === key);
+    if (rule) return rule.required;
+    return defaultRequired;
+  };
+
+  const activeSchema = useMemo(() => {
+    return z.object({
+      firstName: isFieldRequired('firstName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      lastName: isFieldRequired('lastName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      phone: isFieldRequired('phone', true) ? z.string().min(10, 'Min 10 digits') : z.string().optional().or(z.literal('')),
+      alternatePhone: isFieldRequired('alternatePhone', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      email: isFieldRequired('email', false) ? z.string().email('Invalid email') : z.string().email('Invalid email').optional().or(z.literal('')),
+      gender: isFieldRequired('gender', false) ? z.enum(['MALE', 'FEMALE', 'OTHER']).refine(val => !!val, { message: 'Required' }) : z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
+      dateOfBirth: isFieldRequired('dateOfBirth', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      panNumber: isFieldRequired('panNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      aadhaarNumber: isFieldRequired('aadhaarNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      annualIncome: isFieldRequired('annualIncome', false) ? z.coerce.number().min(0) : z.coerce.number().min(0).optional().or(z.literal('')),
+      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      tags: isFieldRequired('tags', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      isActive: z.string().optional(),
+      city: isFieldRequired('city', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      source: isFieldRequired('source', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadStage: isFieldRequired('leadStage', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadStatus: isFieldRequired('leadStatus', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadType: isFieldRequired('leadType', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      followUpDate: isFieldRequired('followUpDate', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+    });
+  }, [compulsoryRules]);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Form>({ resolver: zodResolver(activeSchema) });
 
   const getEmployeeName = (id?: string | null, assignedEmpObj?: any, contactItem?: any) => {
     const targetObj = assignedEmpObj || contactItem?.assignedEmployee;
@@ -3462,7 +3502,7 @@ export default function Contacts() {
                       </div>
                     )}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth {isFieldRequired('dateOfBirth', false) && <span className="text-red-500">*</span>}</label>
                       <DatePicker
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         value={personalFields.dateOfBirth}
@@ -3500,7 +3540,7 @@ export default function Contacts() {
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number {isFieldRequired('panNumber', false) && <span className="text-red-500">*</span>}</label>
                       <input
                         type="text"
                         placeholder="ABCDE1234F"
@@ -3534,7 +3574,7 @@ export default function Contacts() {
                   {!personalCollapsed['contactDetails'] && (
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address {isFieldRequired('email', false) && <span className="text-red-500">*</span>}</label>
                       <input
                         type="email"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3544,7 +3584,7 @@ export default function Contacts() {
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Aadhaar Number {isFieldRequired('aadhaarNumber', false) && <span className="text-red-500">*</span>}</label>
                       <input
                         type="text"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3635,7 +3675,7 @@ export default function Contacts() {
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income {isFieldRequired('annualIncome', false) && <span className="text-red-500">*</span>}</label>
                       <select
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         value={personalFields.annualIncome}
@@ -3722,7 +3762,7 @@ export default function Contacts() {
                       </select>
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town {isFieldRequired('city', false) && <span className="text-red-500">*</span>}</label>
                       <input
                         type="text"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -4028,7 +4068,7 @@ export default function Contacts() {
                         {/* Row 1: First Name | Middle Name | Last Name | DOB | Relation */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                           <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name {isFieldRequired('firstName', true) && <span className="text-red-500">*</span>}</label>
                             <input
                               type="text"
                               className="input w-full mt-1"
@@ -4048,7 +4088,7 @@ export default function Contacts() {
                             />
                           </div>
                           <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name <span className="text-red-500">*</span></label>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name {isFieldRequired('lastName', true) && <span className="text-red-500">*</span>}</label>
                             <input
                               type="text"
                               className="input w-full mt-1"

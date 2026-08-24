@@ -6,7 +6,7 @@ import {
   Plus, Search, Pencil, Trash2, Shield, Upload, Phone, Calendar,
   MessageCircle, LayoutGrid, List, Filter, X, UserPlus, Users,
   UserCircle2, Mail, ChevronDown, Flame, Thermometer, Snowflake,
-  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History, Lock
+  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History, Lock, Download
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -149,7 +149,8 @@ function parseLeadNotes(notes?: string | null): Record<string, any> {
 }
 
 // ── Form schema ───────────────────────────────────────────────────────────────
-const schema = z.object({
+export const leadFormSchema = z.object({
+  // System fields mapping
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
   phone: z.string().min(10, 'Min 10 digits'),
@@ -173,6 +174,7 @@ const schema = z.object({
   leadType: z.string().optional(),
   followUpDate: z.string().optional(),
 });
+const schema = leadFormSchema;
 type Form = z.infer<typeof schema>;
 
 // ── Column definitions ────────────────────────────────────────────────────────
@@ -856,6 +858,104 @@ export default function Leads() {
   const expectedBusiness = (uiStage: string) =>
     (filteredBoard[uiStage] ?? []).reduce((sum, c) => sum + (c.premiumBudget ?? 0), 0);
 
+  const exportLeadsToExcel = () => {
+    const headers = ['Client Name', 'Phone', 'Email', 'Product Category', 'Expected Premium', 'Hotness', 'Assigned To', 'Stage', 'Next Follow-up'];
+    const rows = sortedLeads.map((l: any) => [
+      `"${((l.contact?.firstName || '') + ' ' + (l.contact?.lastName || '')).trim().replace(/"/g, '""')}"`,
+      `"${(l.contact?.phone || '').replace(/"/g, '""')}"`,
+      `"${(l.contact?.email || '').replace(/"/g, '""')}"`,
+      `"${(l.planCategory || '').replace(/"/g, '""')}"`,
+      l.premiumBudget ?? '',
+      `"${(l.hotness || '').replace(/"/g, '""')}"`,
+      `"${((l.assignedEmployee?.firstName || '') + ' ' + (l.assignedEmployee?.lastName || '')).trim().replace(/"/g, '""')}"`,
+      `"${(l.uiStage || '').replace(/"/g, '""')}"`,
+      l.followUpDate ? new Date(l.followUpDate).toLocaleDateString() : ''
+    ].join(',')).join('\n');
+    
+    const content = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Leads exported to Excel successfully');
+  };
+
+  const exportLeadsToPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print PDF');
+      return;
+    }
+    
+    const rowsHtml = sortedLeads.map((l: any) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 8px;">${((l.contact?.firstName || '') + ' ' + (l.contact?.lastName || '')).trim() || 'N/A'}</td>
+        <td style="padding: 8px;">${l.contact?.phone || 'N/A'}</td>
+        <td style="padding: 8px;">${l.planCategory || 'N/A'}</td>
+        <td style="padding: 8px; text-align: right;">₹${l.premiumBudget?.toLocaleString() || 0}</td>
+        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${l.hotness === 'HOT' ? '#fde8e8; color: #9b1c1c;' : l.hotness === 'WARM' ? '#feecdc; color: #b43c08;' : '#f3f4f6; color: #374151;'} font-size: 10px; font-weight: bold;">${l.hotness || 'COLD'}</span></td>
+        <td style="padding: 8px;">${((l.assignedEmployee?.firstName || '') + ' ' + (l.assignedEmployee?.lastName || '')).trim() || 'Unassigned'}</td>
+        <td style="padding: 8px; text-align: center;">${l.uiStage || 'N/A'}</td>
+        <td style="padding: 8px; text-align: center;">${l.followUpDate ? new Date(l.followUpDate).toLocaleDateString() : 'N/A'}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Leads Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">Leads Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedLeads.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%;">Client Name</th>
+                <th style="width: 15%;">Phone</th>
+                <th style="width: 15%;">Product</th>
+                <th style="width: 10%; text-align: right;">Exp. Premium</th>
+                <th style="width: 10%; text-align: center;">Hotness</th>
+                <th style="width: 15%;">Assigned To</th>
+                <th style="width: 15%; text-align: center;">Stage</th>
+                <th style="width: 10%; text-align: center;">Follow-up</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Click-outside
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -892,7 +992,47 @@ export default function Leads() {
     }
   };
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({ resolver: zodResolver(schema) });
+  const { data: compulsoryRulesRes, isLoading: isLoadingRules } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    if (['firstName', 'phone'].includes(key)) return true; // System protected
+    const rule = compulsoryRules.find((r: any) => (r.module === 'Lead' || r.module === 'Leads') && r.fieldKey === key);
+    if (rule) return rule.required;
+    return defaultRequired;
+  };
+
+  const activeSchema = useMemo(() => {
+    return z.object({
+      firstName: isFieldRequired('firstName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      lastName: isFieldRequired('lastName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      phone: isFieldRequired('phone', true) ? z.string().min(10, 'Min 10 digits') : z.string().optional().or(z.literal('')),
+      alternatePhone: isFieldRequired('alternatePhone', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      email: isFieldRequired('email', false) ? z.string().email('Invalid email') : z.string().email('Invalid email').optional().or(z.literal('')),
+      gender: isFieldRequired('gender', false) ? z.enum(['MALE', 'FEMALE', 'OTHER']).refine(val => !!val, { message: 'Required' }) : z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
+      dateOfBirth: isFieldRequired('dateOfBirth', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      height: isFieldRequired('height', false) ? z.coerce.number() : z.coerce.number().optional().or(z.literal('')),
+      weight: isFieldRequired('weight', false) ? z.coerce.number() : z.coerce.number().optional().or(z.literal('')),
+      panNumber: isFieldRequired('panNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      aadhaarNumber: isFieldRequired('aadhaarNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      annualIncome: isFieldRequired('annualIncome', false) ? z.coerce.number().min(0) : z.coerce.number().min(0).optional().or(z.literal('')),
+      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      tags: isFieldRequired('tags', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      isActive: z.string().optional(),
+      city: isFieldRequired('city', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      source: isFieldRequired('source', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadStage: isFieldRequired('leadStage', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadStatus: isFieldRequired('leadStatus', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      leadType: isFieldRequired('leadType', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      followUpDate: isFieldRequired('followUpDate', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+    });
+  }, [compulsoryRules]);
+
+  const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({ resolver: zodResolver(activeSchema) });
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -921,11 +1061,11 @@ export default function Leads() {
       toast.error('First Name is required');
       return;
     }
-    if (!personalFields.lastName.trim()) {
+    if (isFieldRequired('lastName', true) && !personalFields.lastName.trim()) {
       toast.error('Last Name is required');
       return;
     }
-    if (!personalFields.whatsappNumber.trim()) {
+    if (isFieldRequired('phone', true) && !personalFields.whatsappNumber.trim()) {
       toast.error('Mobile Number is required');
       return;
     }
@@ -935,17 +1075,43 @@ export default function Leads() {
     const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
     const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
     const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
-    if (!/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
+    if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
       toast.error('Mobile Number must be exactly 10 digits');
       return;
     }
-    if (!personalFields.aadhaarNumber.trim()) {
+
+    const hasAadhaar = !!personalFields.aadhaarNumber.trim();
+    if (isFieldRequired('aadhaarNumber', false) && !hasAadhaar) {
       toast.error('Aadhaar Number is required');
       return;
     }
-    if (!/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
+    if (hasAadhaar && !/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
       toast.error('Aadhaar Number must be exactly 12 digits');
       return;
+    }
+
+    // Programmatic dynamic compulsory checks
+    const fieldsToCheck = [
+      { key: 'alternatePhone', label: 'Alternate Phone', value: personalFields.callingNumber, defaultRequired: false },
+      { key: 'email', label: 'Email Address', value: personalFields.email, defaultRequired: false },
+      { key: 'gender', label: 'Gender', value: personalFields.gender, defaultRequired: false },
+      { key: 'dateOfBirth', label: 'Date of Birth', value: personalFields.dateOfBirth, defaultRequired: false },
+      { key: 'panNumber', label: 'PAN Number', value: personalFields.panNumber || personalFields.pan, defaultRequired: false },
+      { key: 'annualIncome', label: 'Annual Income', value: personalFields.annualIncome, defaultRequired: false },
+      { key: 'city', label: 'City', value: personalFields.city, defaultRequired: false },
+      { key: 'source', label: 'Source', value: personalFields.source, defaultRequired: false },
+      { key: 'assignedEmployeeId', label: 'Assigned Employee', value: leadInfoFields.assignedEmployeeId, defaultRequired: false },
+      { key: 'leadStage', label: 'Lead Stage', value: leadInfoFields.leadStage, defaultRequired: false },
+      { key: 'leadStatus', label: 'Lead Status', value: leadInfoFields.leadStatus, defaultRequired: false },
+      { key: 'leadType', label: 'Lead Type', value: leadInfoFields.leadType, defaultRequired: false },
+      { key: 'followUpDate', label: 'Follow-up Date', value: leadInfoFields.followUpDate, defaultRequired: false }
+    ];
+
+    for (const f of fieldsToCheck) {
+      if (isFieldRequired(f.key, f.defaultRequired) && (!f.value || String(f.value).trim() === '')) {
+        toast.error(f.label + ' is required');
+        return;
+      }
     }
     // Validate renewal policy rule & required fields for new cards
     for (let i = 0; i < productInterests.length; i++) {
@@ -1828,6 +1994,25 @@ const medicalOptions = [
 
         {/* Right: View toggle and controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Export Buttons */}
+          <button
+            type="button"
+            onClick={exportLeadsToExcel}
+            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            title="Export to Excel"
+          >
+            <Download size={13} className="text-emerald-600" />
+            <span className="hidden sm:inline">Excel</span>
+          </button>
+          <button
+            type="button"
+            onClick={exportLeadsToPdf}
+            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            title="Export to PDF"
+          >
+            <FileText size={13} className="text-red-500" />
+            <span className="hidden sm:inline">PDF</span>
+          </button>
           {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
             <button
@@ -2790,7 +2975,7 @@ const medicalOptions = [
                         </div>
                       )}
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth {isFieldRequired('dateOfBirth', false) && <span className="text-red-500">*</span>}</label>
                         <DatePicker
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                           value={personalFields.dateOfBirth}
@@ -2828,7 +3013,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PAN Number {isFieldRequired('panNumber', false) && <span className="text-red-500">*</span>}</label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all uppercase"
@@ -2858,7 +3043,7 @@ const medicalOptions = [
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Email Address {isFieldRequired('email', false) && <span className="text-red-500">*</span>}</label>
                         <input
                           type="email"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -2946,7 +3131,7 @@ const medicalOptions = [
                         />
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Annual Income {isFieldRequired('annualIncome', false) && <span className="text-red-500">*</span>}</label>
                         <select
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                           value={personalFields.annualIncome}
@@ -3022,7 +3207,7 @@ const medicalOptions = [
                         </select>
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town {isFieldRequired('city', false) && <span className="text-red-500">*</span>}</label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3283,7 +3468,7 @@ const medicalOptions = [
                           {/* Row 1: First Name | Middle Name | Last Name */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name <span className="text-red-500">*</span></label>
+                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name {isFieldRequired('firstName', true) && <span className="text-red-500">*</span>}</label>
                               <input
                                 type="text"
                                 className="input w-full mt-1"
@@ -3303,7 +3488,7 @@ const medicalOptions = [
                               />
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name <span className="text-red-500">*</span></label>
+                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name {isFieldRequired('lastName', true) && <span className="text-red-500">*</span>}</label>
                               <input
                                 type="text"
                                 className="input w-full mt-1"

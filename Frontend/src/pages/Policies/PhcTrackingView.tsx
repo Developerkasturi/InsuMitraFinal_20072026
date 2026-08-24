@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Activity, Calendar, CheckCircle2, Clock, Search,
+  Activity, Calendar, CheckCircle2, Clock, Search, Download, FileText,
   ChevronLeft, ChevronRight, Eye, X, User, Shield,
   Heart, TrendingUp, Wallet, BarChart2,
   ChevronDown, Users, Layers, ArrowRight,
@@ -641,6 +641,152 @@ export default function PhcTrackingView() {
     });
   }, [filteredData, sortKey, sortDir]);
 
+  const exportPhcToExcel = () => {
+    const isDeps = activeTab === 'dependencies';
+    let headers: string[];
+    let rows: string;
+    
+    if (isDeps) {
+      headers = ['Insured Person', 'Relationship', 'Eligible Amount', 'Utilized Amount', 'Balance Amount', 'Policy Number', 'Insurer', 'Plan Name'];
+      rows = dependenciesData.map((d: any) => [
+        `"${(d.name || '').replace(/"/g, '""')}"`,
+        `"${(d.relationship || '').replace(/"/g, '""')}"`,
+        d.eligibleAmount ?? '',
+        d.utilizedAmount ?? '',
+        d.balanceAmount ?? '',
+        `"${(d.policyNo || '').replace(/"/g, '""')}"`,
+        `"${(d.insurer || '').replace(/"/g, '""')}"`,
+        `"${(d.planName || '').replace(/"/g, '""')}"`
+      ].join(',')).join('\n');
+    } else {
+      headers = ['Customer Name', 'Policy Number', 'Product', 'Insurer', 'PHC Year', 'Status', 'Eligible Amount', 'Utilized Amount', 'Balance Amount', 'Days Remaining'];
+      rows = sortedFilteredData.map((p: any) => [
+        `"${(p.customerName || '').replace(/"/g, '""')}"`,
+        `"${(p.policyNo || '').replace(/"/g, '""')}"`,
+        `"${(p.planName || '').replace(/"/g, '""')}"`,
+        `"${(p.companyName || '').replace(/"/g, '""')}"`,
+        `"${(p.currentPhcYear || '').replace(/"/g, '""')}"`,
+        `"${(p.phcStatus || '').replace(/"/g, '""')}"`,
+        p.eligibleAmount ?? '',
+        p.utilizedAmount ?? '',
+        p.balanceAmount ?? '',
+        p.daysRemaining ?? ''
+      ].join(',')).join('\n');
+    }
+    
+    const content = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `phc_tracking_export_&{new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    // Since toast is imported from policies index or globally, let's use global import dynamically
+    import('react-hot-toast').then(({ default: toast }) => toast.success('PHC data exported to Excel successfully'));
+  };
+
+  const exportPhcToPdf = () => {
+    const isDeps = activeTab === 'dependencies';
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      import('react-hot-toast').then(({ default: toast }) => toast.error('Pop-up blocked. Please allow pop-ups to print PDF'));
+      return;
+    }
+    
+    let headersHtml = '';
+    let rowsHtml = '';
+    
+    if (isDeps) {
+      headersHtml = `
+        <tr>
+          <th style="width: 20%;">Insured Person</th>
+          <th style="width: 15%;">Relationship</th>
+          <th style="width: 15%; text-align: right;">Eligible Amount</th>
+          <th style="width: 15%; text-align: right;">Utilized Amount</th>
+          <th style="width: 15%; text-align: right;">Balance Amount</th>
+          <th style="width: 20%;">Policy No</th>
+        </tr>
+      `;
+      rowsHtml = dependenciesData.map((d: any) => `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <td style="padding: 8px;">${d.name || 'N/A'}</td>
+          <td style="padding: 8px;">${d.relationship || 'N/A'}</td>
+          <td style="padding: 8px; text-align: right;">₹${d.eligibleAmount?.toLocaleString() || 0}</td>
+          <td style="padding: 8px; text-align: right;">₹${d.utilizedAmount?.toLocaleString() || 0}</td>
+          <td style="padding: 8px; text-align: right;">₹${d.balanceAmount?.toLocaleString() || 0}</td>
+          <td style="padding: 8px; font-weight: 600;">${d.policyNo || 'N/A'}</td>
+        </tr>
+      `).join('');
+    } else {
+      headersHtml = `
+        <tr>
+          <th style="width: 20%;">Customer Name</th>
+          <th style="width: 15%;">Policy No</th>
+          <th style="width: 20%;">Product</th>
+          <th style="width: 15%; text-align: center;">PHC Year</th>
+          <th style="width: 10%; text-align: right;">Balance</th>
+          <th style="width: 10%; text-align: center;">Status</th>
+          <th style="width: 10%; text-align: center;">Days Left</th>
+        </tr>
+      `;
+      rowsHtml = sortedFilteredData.map((p: any) => `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <td style="padding: 8px;">${p.customerName || 'N/A'}</td>
+          <td style="padding: 8px; font-weight: 600;">${p.policyNo || 'N/A'}</td>
+          <td style="padding: 8px;">${p.planName || 'N/A'}</td>
+          <td style="padding: 8px; text-align: center;">${p.currentPhcYear || 'N/A'}</td>
+          <td style="padding: 8px; text-align: right;">₹${p.balanceAmount?.toLocaleString() || 0}</td>
+          <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${p.phcStatus === 'Completed' ? '#def7ec; color: #03543f;' : '#feecdc; color: #b43c08;'} font-size: 10px; font-weight: bold;">${p.phcStatus}</span></td>
+          <td style="padding: 8px; text-align: center;">${p.daysRemaining || 'N/A'}</td>
+        </tr>
+      `).join('');
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>PHC Tracking Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">PHC Tracking Export Report — ${isDeps ? 'Insured Persons' : 'Policies'}</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${isDeps ? dependenciesData.length : sortedFilteredData.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              ${headersHtml}
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return sortedFilteredData.slice(start, start + rowsPerPage);
@@ -770,6 +916,25 @@ export default function PhcTrackingView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 ml-auto">
+            {/* Export Buttons */}
+            <button
+              type="button"
+              onClick={exportPhcToExcel}
+              className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
+              title="Export to Excel"
+            >
+              <Download size={12} className="text-emerald-600" />
+              <span>Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={exportPhcToPdf}
+              className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
+              title="Export to PDF"
+            >
+              <FileText size={12} className="text-red-500" />
+              <span>PDF</span>
+            </button>
             <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setActiveTab('all'); setCurrentPage(1); }}
               className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
               <RotateCcw size={12} /> Reset

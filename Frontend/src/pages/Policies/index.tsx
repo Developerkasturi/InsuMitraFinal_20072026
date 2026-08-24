@@ -61,7 +61,7 @@ const STATUS_BADGE: Record<string, string> = {
   PENDING: 'badge-yellow',
 };
 
-const schema = z.object({
+export const policyFormSchema = z.object({
   contactId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact'),
   planId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a plan'),
   policyNumber: z.string().min(1, 'Policy number required'),
@@ -92,7 +92,8 @@ const schema = z.object({
   firstYearPremium: z.coerce.number().optional(),
   secondYearPremium: z.coerce.number().optional(),
 });
-type Form = z.infer<typeof schema>;
+
+
 
 function parseExtraNotes(notesText?: string | null) {
   const res = {
@@ -152,7 +153,7 @@ function parseExtraNotes(notesText?: string | null) {
   return res;
 }
 
-const editSchema = z.object({
+export const policyEditFormSchema = z.object({
   status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']),
   premiumAmount: z.coerce.number().positive('Enter a valid premium'),
   sumAssured: z.coerce.number().positive().optional(),
@@ -177,7 +178,7 @@ const editSchema = z.object({
   phcStatus: z.string().optional(),
   phcClaimSettled: z.boolean().optional(),
 });
-type EditForm = z.infer<typeof editSchema>;
+
 
 const ExpandableComment = ({ text }: { text: string }) => {
   if (!text || text.trim() === '') return <span className="text-slate-400">—</span>;
@@ -197,6 +198,11 @@ const ExpandableComment = ({ text }: { text: string }) => {
     </div>
   );
 };
+
+const schema = policyFormSchema;
+const editSchema = policyEditFormSchema;
+type Form = z.infer<typeof schema>;
+
 
 export default function Policies() {
   const navigate = useNavigate();
@@ -459,6 +465,107 @@ export default function Policies() {
     enabled: !!user,
   });
 
+  const exportPoliciesToExcel = () => {
+    const headers = ['Client Name', 'Policy Number', 'Type', 'Company', 'Plan', 'Premium', 'Sum Assured', 'Start Date', 'End Date', 'Status'];
+    const rows = sortedPolicies.map((p: any) => [
+      `"${((p.contact?.firstName || '') + ' ' + (p.contact?.lastName || '')).trim().replace(/"/g, '""')}"`,
+      `"${(p.policyNumber || '').replace(/"/g, '""')}"`,
+      `"${(p.plan?.category || '').replace(/"/g, '""')}"`,
+      `"${(p.plan?.company?.name || '').replace(/"/g, '""')}"`,
+      `"${(p.plan?.name || '').replace(/"/g, '""')}"`,
+      p.premiumAmount ?? '',
+      p.sumAssured ?? '',
+      p.startDate ? new Date(p.startDate).toLocaleDateString() : '',
+      p.endDate ? new Date(p.endDate).toLocaleDateString() : '',
+      p.isActive ? 'Active' : 'Inactive'
+    ].join(',')).join('\n');
+    
+    const content = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `policies_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    import('react-hot-toast').then(({ default: toast }) => toast.success('Policies exported to Excel successfully'));
+  };
+
+  const exportPoliciesToPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      import('react-hot-toast').then(({ default: toast }) => toast.error('Pop-up blocked. Please allow pop-ups to print PDF'));
+      return;
+    }
+    
+    const rowsHtml = sortedPolicies.map((p: any) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 8px;">${((p.contact?.firstName || '') + ' ' + (p.contact?.lastName || '')).trim() || 'N/A'}</td>
+        <td style="padding: 8px; font-weight: 600;">${p.policyNumber || 'N/A'}</td>
+        <td style="padding: 8px;">${p.plan?.category || 'N/A'}</td>
+        <td style="padding: 8px;">${p.plan?.company?.name || 'N/A'}</td>
+        <td style="padding: 8px;">${p.plan?.name || 'N/A'}</td>
+        <td style="padding: 8px; text-align: right;">₹${p.premiumAmount?.toLocaleString() || 0}</td>
+        <td style="padding: 8px; text-align: right;">₹${p.sumAssured?.toLocaleString() || 0}</td>
+        <td style="padding: 8px; text-align: center;">${p.startDate ? new Date(p.startDate).toLocaleDateString() : 'N/A'}</td>
+        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${p.isActive ? '#def7ec; color: #03543f;' : '#fde8e8; color: #9b1c1c;'} font-size: 10px; font-weight: bold;">${p.isActive ? 'Active' : 'Inactive'}</span></td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Policies Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">Policies Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedPolicies.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 15%;">Client Name</th>
+                <th style="width: 15%;">Policy No</th>
+                <th style="width: 10%;">Type</th>
+                <th style="width: 15%;">Company</th>
+                <th style="width: 15%;">Plan</th>
+                <th style="width: 10%; text-align: right;">Premium</th>
+                <th style="width: 10%; text-align: right;">Sum Insured</th>
+                <th style="width: 10%; text-align: center;">Start Date</th>
+                <th style="width: 10%; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleBulkAssign = async () => {
     if (!assignTarget) return;
     const assignedEmployeeId = assignTarget === 'unassigned' ? null : assignTarget;
@@ -685,12 +792,89 @@ export default function Policies() {
   const createPolicy = useCreatePolicy();
   const updatePolicy = useUpdatePolicy();
   const deletePolicy = useDeletePolicy();
+  const { data: compulsoryRulesRes, isLoading: isLoadingRules } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    if (['contactId', 'planId', 'policyNumber', 'startDate', 'endDate'].includes(key)) return true; // System protected
+    const rule = compulsoryRules.find((r: any) => r.module === 'Policy' && r.fieldKey === key);
+    if (rule) return rule.required;
+    return defaultRequired;
+  };
+
+  const activeSchema = useMemo(() => {
+    return z.object({
+      contactId: isFieldRequired('contactId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact') : z.string().optional().or(z.literal('')),
+      planId: isFieldRequired('planId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a plan') : z.string().optional().or(z.literal('')),
+      policyNumber: isFieldRequired('policyNumber', true) ? z.string().min(1, 'Policy number required') : z.string().optional().or(z.literal('')),
+      sumAssured: isFieldRequired('sumAssured', true) ? z.coerce.number().positive('Enter a valid sum assured') : z.coerce.number().optional().or(z.literal('')),
+      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().positive('Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
+      startDate: isFieldRequired('startDate', true) ? z.string().min(1, 'Start date required') : z.string().optional().or(z.literal('')),
+      endDate: isFieldRequired('endDate', true) ? z.string().min(1, 'End date required') : z.string().optional().or(z.literal('')),
+      paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
+      riders: z.array(z.string()).optional(),
+      deductible: isFieldRequired('deductible', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']).optional(),
+      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      nextDueDate: isFieldRequired('nextDueDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      maturityDate: isFieldRequired('maturityDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      agentCode: isFieldRequired('agentCode', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      firstPremiumDate: isFieldRequired('firstPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      lastPremiumDate: isFieldRequired('lastPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiCase: z.boolean().optional(),
+      emiGateway: isFieldRequired('emiGateway', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcRequired: z.boolean().optional(),
+      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      phcClaimSettled: z.boolean().optional(),
+      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+    });
+  }, [compulsoryRules]);
+
+  const activeEditSchema = useMemo(() => {
+    return z.object({
+      status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']),
+      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().positive('Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
+      sumAssured: isFieldRequired('sumAssured', true) ? z.coerce.number().positive() : z.coerce.number().optional(),
+      endDate: isFieldRequired('endDate', true) ? z.string().min(1, 'End date required') : z.string().optional().or(z.literal('')),
+      nextDueDate: isFieldRequired('nextDueDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      maturityDate: isFieldRequired('maturityDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
+      agentCode: isFieldRequired('agentCode', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      riders: z.array(z.string()).optional(),
+      deductible: isFieldRequired('deductible', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      firstPremiumDate: isFieldRequired('firstPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      lastPremiumDate: isFieldRequired('lastPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiCase: z.boolean().optional(),
+      emiGateway: isFieldRequired('emiGateway', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcRequired: z.boolean().optional(),
+      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      phcClaimSettled: z.boolean().optional(),
+      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+    });
+  }, [compulsoryRules]);
+
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(activeSchema),
     defaultValues: { paymentFrequency: 'YEARLY' },
   });
   const { register: regEdit, handleSubmit: handleEdit, reset: resetEdit, setValue: setEditValue, watch: watchEdit } = useForm<EditForm>({
-    resolver: zodResolver(editSchema),
+    resolver: zodResolver(activeEditSchema),
   });
   const watchEditEmiCase = watchEdit('emiCase');
   const watchEditPhcRequired = watchEdit('phcRequired');
@@ -1333,6 +1517,25 @@ export default function Policies() {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
                   />
                 </div>
+                {/* Export Buttons */}
+                <button
+                  type="button"
+                  onClick={exportPoliciesToExcel}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                  title="Export to Excel"
+                >
+                  <Download size={14} className="text-emerald-600" />
+                  <span className="hidden sm:inline">Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportPoliciesToPdf}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                  title="Export to PDF"
+                >
+                  <FileText size={14} className="text-red-500" />
+                  <span className="hidden sm:inline">PDF</span>
+                </button>
               </div>
 
               {/* Right Side: Quick Select Category Filters, Column Picker & Filters Toggle */}

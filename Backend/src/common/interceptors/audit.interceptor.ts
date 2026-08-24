@@ -20,11 +20,22 @@ export class AuditInterceptor implements NestInterceptor {
     const { method, url, user, body, params } = req;
 
     return next.handle().pipe(
-      tap(() => {
+      tap((resData) => {
         // Only log modifying actions
         if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && user?.tenantId) {
           const entityType = this.extractEntityType(url);
-          const entityId = params.id || body.id || 'N/A';
+          
+          let entityId = params.id || body.id || resData?.id || resData?._id;
+          
+          const isValidObjectId = (id: any): boolean => {
+            if (typeof id !== 'string') return false;
+            return /^[0-9a-fA-F]{24}$/.test(id);
+          };
+
+          if (!isValidObjectId(entityId)) {
+            entityId = '000000000000000000000000';
+          }
+
           const action = this.mapMethodToAction(method);
 
           // We execute the logging async without awaiting, so it doesn't slow down the response

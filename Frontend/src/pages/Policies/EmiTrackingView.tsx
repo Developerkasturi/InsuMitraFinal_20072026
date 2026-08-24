@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  FileText, Calendar, CheckCircle2, AlertTriangle, TrendingUp,
+  Download, FileText, Calendar, CheckCircle2, AlertTriangle, TrendingUp,
   Search, Filter, Plus, Phone, MessageSquare, ExternalLink,
   ChevronLeft, ChevronRight, Eye, MoreHorizontal, User, Shield,
   CreditCard, Check, Clock, X, Send, ArrowRight, Info, Award,
@@ -752,6 +752,106 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
     return result;
   }, [filteredData, sortKey, sortDir]);
 
+  const exportEmiToExcel = () => {
+    const headers = ['Customer Name', 'Policy Number', 'Tag', 'Product', 'Insurer', 'Due Date', 'Amount', 'Paid EMIs', 'Total EMIs', 'Status', 'Assigned To'];
+    const rows = sortedFilteredData.map((r: any) => [
+      `"${(r.customerName || '').replace(/"/g, '""')}"`,
+      `"${(r.policyNo || '').replace(/"/g, '""')}"`,
+      `"${(r.customerTag || '').replace(/"/g, '""')}"`,
+      `"${(r.product || '').replace(/"/g, '""')}"`,
+      `"${(r.insurer || '').replace(/"/g, '""')}"`,
+      `"${(r.dueDate || '').replace(/"/g, '""')}"`,
+      r.amount ?? '',
+      r.paidEmis ?? '',
+      r.totalEmis ?? '',
+      `"${(r.status || '').replace(/"/g, '""')}"`,
+      `"${(r.employee || '').replace(/"/g, '""')}"`
+    ].join(',').replace(/\r?\n/g, ' ')).join('\n');
+    
+    const content = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `emi_installments_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('EMI Installments exported to Excel successfully');
+  };
+
+  const exportEmiToPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print PDF');
+      return;
+    }
+    
+    const rowsHtml = sortedFilteredData.map((r: any) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 8px;">${r.customerName || 'N/A'}</td>
+        <td style="padding: 8px; font-weight: 600;">${r.policyNo || 'N/A'}</td>
+        <td style="padding: 8px;">${r.product || 'N/A'}</td>
+        <td style="padding: 8px; text-align: center;">${r.dueDate || 'N/A'}</td>
+        <td style="padding: 8px; text-align: right;">₹${r.amount?.toLocaleString() || 0}</td>
+        <td style="padding: 8px; text-align: center;">${r.paidEmis} / ${r.totalEmis}</td>
+        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${r.status === 'PAID' ? '#def7ec; color: #03543f;' : r.status === 'DUE' ? '#feecdc; color: #b43c08;' : '#fde8e8; color: #9b1c1c;'} font-size: 10px; font-weight: bold;">${r.status}</span></td>
+        <td style="padding: 8px;">${r.employee || 'N/A'}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>EMI Installments Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">EMI Installments Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedFilteredData.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 20%;">Customer Name</th>
+                <th style="width: 15%;">Policy No</th>
+                <th style="width: 20%;">Product</th>
+                <th style="width: 10%; text-align: center;">Due Date</th>
+                <th style="width: 10%; text-align: right;">Amount</th>
+                <th style="width: 10%; text-align: center;">EMIs</th>
+                <th style="width: 10%; text-align: center;">Status</th>
+                <th style="width: 15%;">Assigned To</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Handler for Mark as Paid
   const handleMarkAsPaid = (recordId: string) => {
     setData(prev => prev.map(rec => {
@@ -947,6 +1047,25 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
   
           {/* Right Side: Status Filter Pills + Filter Icon */}
           <div className="flex flex-wrap items-center gap-2.5 justify-end">
+            {/* Export Buttons */}
+            <button
+              type="button"
+              onClick={exportEmiToExcel}
+              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+              title="Export to Excel"
+            >
+              <Download size={14} className="text-emerald-600" />
+              <span className="hidden sm:inline">Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={exportEmiToPdf}
+              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+              title="Export to PDF"
+            >
+              <FileText size={14} className="text-red-500" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
             {/* Status Filter Pills */}
             <div className="bg-slate-100/80 p-1 rounded-xl flex flex-wrap items-center gap-1 border border-slate-200/50">
               {['All', 'Due', 'Paid'].map(st => (

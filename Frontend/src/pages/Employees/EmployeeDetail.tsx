@@ -754,7 +754,7 @@ export default function EmployeeDetail() {
       )}
 
       {/* Task Modal */}
-      <Modal isOpen={taskModal} onClose={() => setTaskModal(false)} title="Assign New Task">
+      <Modal open={taskModal} onClose={() => setTaskModal(false)} title="Assign New Task">
         <form onSubmit={taskForm.handleSubmit(d => addTask.mutate(d))} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Task Title *</label>
@@ -772,7 +772,7 @@ export default function EmployeeDetail() {
       </Modal>
 
       {/* Target Modal */}
-      <Modal isOpen={targetModal} onClose={() => setTargetModal(false)} title="Configure Monthly Targets">
+      <Modal open={targetModal} onClose={() => setTargetModal(false)} title="Configure Monthly Targets">
         <form onSubmit={targetForm.handleSubmit(d => updateTargets.mutate(d))} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Monthly Target Amount (₹)</label>
@@ -794,7 +794,7 @@ export default function EmployeeDetail() {
       </Modal>
 
       {/* Permissions Modal */}
-      <Modal isOpen={permModal} onClose={() => setPermModal(false)} title="Update Permissions">
+      <Modal open={permModal} onClose={() => setPermModal(false)} title="Update Permissions">
         <form onSubmit={permForm.handleSubmit(d => updatePermissions.mutate(d))} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Role</label>
