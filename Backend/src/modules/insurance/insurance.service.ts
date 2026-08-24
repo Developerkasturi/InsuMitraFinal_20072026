@@ -249,7 +249,7 @@ export class InsuranceService {
   }
 
   async updateCompulsoryRules(tenantId: string, rules: { module: string; fieldKey: string; required: boolean }[]) {
-    const results = [];
+    const results: any[] = [];
     for (const r of rules) {
       const res = await this.prisma.compulsoryFieldRule.upsert({
         where: {
