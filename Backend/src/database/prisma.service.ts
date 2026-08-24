@@ -16,6 +16,7 @@ export class PrismaService
 {
   private readonly logger = new Logger(PrismaService.name);
 
+
   constructor() {
     super({
       log: [
