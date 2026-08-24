@@ -246,10 +246,10 @@ export default function App() {
         <Route path="settings"     element={<OwnerRoute><Suspense fallback={<Loader />}><Settings /></Suspense></OwnerRoute>} />
         <Route path="firm-profile" element={<OwnerRoute><PlanProtectedRoute feature="branding"><Suspense fallback={<Loader />}><FirmProfile /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="subscription" element={<OwnerRoute><Suspense fallback={<Loader />}><Subscription /></Suspense></OwnerRoute>} />
-        <Route path="operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
+        <Route path="insumitra/operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="documents"    element={<OwnerRoute><PlanProtectedRoute feature="documents"><Suspense fallback={<Loader />}><Documents /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="search"       element={<OwnerRoute><Suspense fallback={<Loader />}><GlobalSearch /></Suspense></OwnerRoute>} />
-        <Route path="deletion-requests" element={<Navigate to="/operations?tab=delete_requests" replace />} />
+        <Route path="deletion-requests" element={<Navigate to="/insumitra/operations?tab=delete_requests" replace />} />
       </Route>
 
       <Route path="*" element={<IndexRedirect />} />

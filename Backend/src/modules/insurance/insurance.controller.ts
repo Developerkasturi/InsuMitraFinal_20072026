@@ -86,4 +86,40 @@ export class InsuranceController {
   removePlan(@Req() req: any, @Param('id') id: string) {
     return this.svc.removePlan(req.tenantId, id);
   }
+
+  // ─── Hospitals ────────────────────────────────────────────────────────────
+
+  @Get('hospitals')
+  @ApiOperation({ summary: 'List hospitals (with doctors)' })
+  listHospitals(@Req() req: any) {
+    return this.svc.listHospitals(req.tenantId);
+  }
+
+  @Post('hospitals')
+  @ApiOperation({ summary: 'Create a hospital with doctors' })
+  createHospital(@Req() req: any, @Body() dto: any) {
+    return this.svc.createHospital(req.tenantId, dto);
+  }
+
+  @Delete('hospitals/:id')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Delete a hospital' })
+  removeHospital(@Req() req: any, @Param('id') id: string) {
+    return this.svc.removeHospital(req.tenantId, id);
+  }
+
+  // ─── Compulsory Field Rules ───────────────────────────────────────────────
+
+  @Get('compulsory-rules')
+  @ApiOperation({ summary: 'Get compulsory field rules for tenant' })
+  getCompulsoryRules(@Req() req: any) {
+    return this.svc.getCompulsoryRules(req.tenantId);
+  }
+
+  @Post('compulsory-rules')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Create or update compulsory field rules' })
+  updateCompulsoryRules(@Req() req: any, @Body() body: { rules: { module: string; fieldKey: string; required: boolean }[] }) {
+    return this.svc.updateCompulsoryRules(req.tenantId, body.rules);
+  }
 }

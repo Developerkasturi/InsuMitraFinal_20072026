@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { insuranceService } from '@api/index';
+import { contactFormSchema } from '../Contacts';
+import { leadFormSchema } from '../Leads';
+import { policyFormSchema } from '../Policies';
+import { claimFormSchema } from '../Claims';
 import { 
   Database, ShieldCheck, Download, Upload, Settings2, Plus, Trash2, 
   ChevronRight, SlidersHorizontal, UserCheck, ArrowLeft, Search, RotateCcw, Pencil, X,
-  Shield, Check, User
+  Shield, Check, User, FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,8 +37,17 @@ interface Role {
   status: 'Active' | 'Inactive';
 }
 
-export default function SettingsPanel() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup'>('dashboard');
+interface SettingsPanelProps {
+  initialSubTab?: 'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit';
+  onBack?: () => void;
+}
+
+export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: SettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit'>(initialSubTab);
+
+  useEffect(() => {
+    setActiveTab(initialSubTab);
+  }, [initialSubTab]);
   
   // --- SUBTABS ---
   const [compulsorySubTab, setCompulsorySubTab] = useState<'rules' | 'preferences'>('rules');
@@ -59,49 +74,153 @@ export default function SettingsPanel() {
   const [newRole, setNewRole] = useState({ name: '', desc: '', users: 0 });
 
   // --- DATA STATES ---
-  const initialFieldRules: Rule[] = [
-    // Insurance Company
-    { id: 1, module: 'Insurance Company', name: 'company_category', label: 'Company Category', status: 'Active', required: true },
-    { id: 2, module: 'Insurance Company', name: 'official_name', label: 'Company Name - Official', status: 'Active', required: true },
-    // Plan
-    { id: 3, module: 'Plan', name: 'plan_category', label: 'Plan Category', status: 'Active', required: true },
-    { id: 4, module: 'Plan', name: 'plan_name', label: 'Plan Name', status: 'Active', required: true },
-    // Contact
-    { id: 9, module: 'Contact', name: 'firstName', label: 'First Name', status: 'Active', required: true },
-    { id: 10, module: 'Contact', name: 'lastName', label: 'Last Name', status: 'Active', required: true },
-    { id: 11, module: 'Contact', name: 'phone', label: 'Phone Number', status: 'Active', required: true },
-    { id: 12, module: 'Contact', name: 'email', label: 'Email Address', status: 'Optional', required: false },
-    { id: 13, module: 'Contact', name: 'gender', label: 'Gender', status: 'Optional', required: false },
-    { id: 14, module: 'Contact', name: 'dateOfBirth', label: 'Date of Birth', status: 'Optional', required: false },
-    // Leads
-    { id: 15, module: 'Leads', name: 'firstName', label: 'First Name', status: 'Active', required: true },
-    { id: 16, module: 'Leads', name: 'lastName', label: 'Last Name', status: 'Active', required: true },
-    { id: 17, module: 'Leads', name: 'phone', label: 'Phone Number', status: 'Active', required: true },
-    { id: 18, module: 'Leads', name: 'email', label: 'Email Address', status: 'Optional', required: false },
-    // Policy
-    { id: 19, module: 'Policy', name: 'contactId', label: 'Contact Name / Client', status: 'Active', required: true },
-    { id: 20, module: 'Policy', name: 'planId', label: 'Plan / Product Name', status: 'Active', required: true },
-    { id: 21, module: 'Policy', name: 'policyNumber', label: 'Policy Number', status: 'Active', required: true },
-    { id: 22, module: 'Policy', name: 'sumAssured', label: 'Sum Assured', status: 'Active', required: true },
-    { id: 23, module: 'Policy', name: 'premiumAmount', label: 'Premium Amount', status: 'Active', required: true },
-    { id: 24, module: 'Policy', name: 'startDate', label: 'Risk Start Date', status: 'Active', required: true },
-    { id: 25, module: 'Policy', name: 'endDate', label: 'Risk End Date', status: 'Active', required: true },
-    { id: 26, module: 'Policy', name: 'paymentFrequency', label: 'Payment Frequency', status: 'Active', required: true },
-    // Claim
-    { id: 27, module: 'Claim', name: 'policyId', label: 'Policy Number / ID', status: 'Active', required: true },
-    { id: 28, module: 'Claim', name: 'contactId', label: 'Client / Contact ID', status: 'Active', required: true },
-    { id: 29, module: 'Claim', name: 'claimNumber', label: 'Claim Reference Number', status: 'Active', required: true },
-    { id: 30, module: 'Claim', name: 'claimType', label: 'Claim Type / Category', status: 'Active', required: true },
-    { id: 31, module: 'Claim', name: 'claimAmount', label: 'Claimed Amount', status: 'Active', required: true },
-    { id: 32, module: 'Claim', name: 'intimatedAt', label: 'Intimation Date', status: 'Active', required: true },
-    // Agent
-    { id: 5, module: 'Agent', name: 'agent_name', label: 'Agent Name', status: 'Active', required: true },
-    { id: 6, module: 'Agent', name: 'agency_code', label: 'Agency Code', status: 'Optional', required: false },
-    // Hospital
-    { id: 7, module: 'Hospital', name: 'hospital_name', label: 'Hospital Name', status: 'Active', required: true },
-    { id: 8, module: 'Hospital', name: 'city', label: 'City', status: 'Active', required: true },
-  ];
-  const [fieldRules, setFieldRules] = useState<Rule[]>(initialFieldRules);
+  const qc = useQueryClient();
+
+  const { data: compulsoryRulesRes } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const updateCompulsoryMutation = useMutation({
+    mutationFn: (rulesList: any[]) => insuranceService.updateCompulsoryRules(rulesList),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['compulsory-rules'] });
+      toast.success('Compulsory rules updated successfully!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update rules');
+    }
+  });
+
+  const fieldRules = useMemo(() => {
+    const modules = [
+      { name: 'Contact', schema: contactFormSchema, critical: ['firstName', 'phone'] },
+      { name: 'Leads', schema: leadFormSchema, critical: ['firstName', 'phone'] },
+      { name: 'Policy', schema: policyFormSchema, critical: ['contactId', 'planId', 'policyNumber', 'startDate', 'endDate'] },
+      { name: 'Claim', schema: claimFormSchema, critical: ['policyId', 'contactId', 'claimNumber', 'claimType', 'intimatedAt'] }
+    ];
+
+    const list: Rule[] = [];
+    modules.forEach(mod => {
+      const keys = Object.keys(mod.schema.shape);
+      keys.forEach(key => {
+        const fieldLabelMap: Record<string, string> = {
+          firstName: "First Name",
+          lastName: "Last Name",
+          phone: "Phone Number",
+          alternatePhone: "Alternate Phone",
+          email: "Email Address",
+          gender: "Gender",
+          dateOfBirth: "Date of Birth",
+          panNumber: "PAN Number",
+          aadhaarNumber: "Aadhaar Number",
+          annualIncome: "Annual Income",
+          notes: "Notes",
+          tags: "Tags",
+          isActive: "Is Active",
+          city: "City",
+          source: "Source",
+          assignedEmployeeId: "Assigned Employee",
+          leadStage: "Lead Stage",
+          leadStatus: "Lead Status",
+          leadType: "Lead Type",
+          followUpDate: "Follow-up Date",
+          contactId: "Contact ID / Client",
+          planId: "Plan ID / Product Name",
+          policyNumber: "Policy Number",
+          sumAssured: "Sum Assured",
+          premiumAmount: "Premium Amount",
+          startDate: "Risk Start Date",
+          endDate: "Risk End Date",
+          paymentFrequency: "Payment Frequency",
+          riders: "Riders",
+          deductible: "Deductible",
+          status: "Status",
+          nextDueDate: "Next Due Date",
+          maturityDate: "Maturity Date",
+          agentCode: "Agent Code",
+          firstPremiumDate: "First Premium Date",
+          premiumPaymentPeriod: "Premium Payment Period",
+          lastPremiumDate: "Last Premium Date",
+          emiCase: "EMI Case",
+          emiGateway: "EMI Gateway",
+          emiDate: "EMI Date",
+          emiPremium: "EMI Premium",
+          phcRequired: "PHC Required",
+          phcAmount: "PHC Amount",
+          phcStatus: "PHC Status",
+          phcClaimSettled: "PHC Claim Settled",
+          firstYearPremium: "First Year Premium",
+          secondYearPremium: "Second Year Premium",
+          policyId: "Policy ID / Number",
+          claimNumber: "Claim Reference Number",
+          claimType: "Claim Type / Category",
+          claimAmount: "Claimed Amount",
+          intimatedAt: "Intimation Date",
+          diagnosis: "Diagnosis / Cause of Admission",
+          hospital: "Hospital",
+          hospitalAddress: "Hospital Address",
+          patientName: "Patient Name",
+          admissionAt: "Admission Date",
+          dischargeAt: "Discharge Date",
+          amtHospital: "Hospital Amount",
+          amtMedicine: "Medicine Amount",
+          amtLab: "Lab Amount",
+          amtPreHosp: "Pre-Hospitalization Amount",
+          amtPostHosp: "Post-Hospitalization Amount",
+          amtOthers: "Other Amount",
+          approvedAmount: "Approved Amount",
+          deductionsNotes: "Deductions Notes",
+          subClaimNo: "Sub Claim Number",
+          uiClaimStatus: "Claim Status",
+          comment: "Comment",
+          insuranceCompanyCategory: "Insurance Company Category",
+          insuranceCompany: "Insurance Company",
+          insuranceProductName: "Insurance Product Name",
+          agentName: "Agent Name",
+          deathAdmissionDate: "Death Admission Date",
+          causeOfDeath: "Cause of Death",
+          dateOfOccurance: "Date of Occurrence",
+          dateOfDeath: "Date of Death",
+          wasInComa: "Was in Coma",
+          deathSumInsured: "Death Sum Insured",
+          deathTotalClaimedAmount: "Death Total Claimed Amount",
+          deathComment: "Death Comment",
+          hospitalName: "Hospital Name",
+          hospitalState: "Hospital State",
+          hospitalCity: "Hospital City",
+          hospitalPincode: "Hospital Pincode",
+          hospitalContactNo: "Hospital Contact No"
+        };
+
+        const label = fieldLabelMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        const isProtected = mod.critical.includes(key);
+
+        const defaultRequiredMap: Record<string, string[]> = {
+          Contact: ['firstName', 'lastName', 'phone'],
+          Leads: ['firstName', 'lastName', 'phone'],
+          Policy: ['contactId', 'planId', 'policyNumber', 'sumAssured', 'premiumAmount', 'startDate', 'endDate', 'paymentFrequency'],
+          Claim: ['policyId', 'contactId', 'claimNumber', 'claimType', 'claimAmount', 'intimatedAt']
+        };
+        const defaultRequired = (defaultRequiredMap[mod.name] || []).includes(key);
+
+        const savedRule = compulsoryRules.find(r => r.module === mod.name && r.fieldKey === key);
+        const required = isProtected ? true : (savedRule ? savedRule.required : defaultRequired);
+
+        list.push({
+          id: `${mod.name}-${key}`,
+          module: mod.name,
+          name: key,
+          label,
+          status: required ? 'Active' : 'Optional',
+          required,
+          isProtected
+        });
+      });
+    });
+    return list;
+  }, [compulsoryRules]);
 
   const initialDropdownMenus: DropdownMenu[] = [
     { id: 1, name: 'Company Categories', module: 'Insurance Company', totalOptions: 4, status: 'Active' },
@@ -142,10 +261,14 @@ export default function SettingsPanel() {
   };
 
   const handleResetCompulsory = () => {
-    setFieldRules(initialFieldRules);
+    const resetList = fieldRules.map(r => ({
+      module: r.module,
+      fieldKey: r.name,
+      required: r.isProtected ? true : (['lastName', 'phone', 'sumAssured', 'premiumAmount', 'paymentFrequency', 'claimAmount', 'claimType'].includes(r.name) ? true : false)
+    }));
+    updateCompulsoryMutation.mutate(resetList);
     setCompulsorySearch('');
     setCompulsoryModuleFilter('All Modules');
-    toast.success('Compulsory fields reset to default');
   };
 
   const handleAddRule = (e: React.FormEvent) => {
@@ -281,11 +404,13 @@ export default function SettingsPanel() {
       {/* 1. DASHBOARD */}
       {activeTab === 'dashboard' && (
         <div className="p-6 space-y-6 bg-slate-50/10">
-          <div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">Master Settings & Backups</h2>
-            <p className="text-xs text-slate-500 font-semibold mt-0.5">Manage system settings, backups and data rules</p>
-          </div>
-
+          {onBack && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-2">
+              <button onClick={onBack} className="hover:text-primary-600 transition-colors flex items-center gap-1 cursor-pointer">
+                <ArrowLeft size={13} /> Home
+              </button>
+            </div>
+          )}
           {/* Section: System Configuration */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">System Configuration</h3>
@@ -353,6 +478,23 @@ export default function SettingsPanel() {
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">Employee Access & Login</h4>
                     <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">Manage employees, access rights & login credentials</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+              </div>
+
+              {/* Card 5: Audit Logs */}
+              <div 
+                onClick={() => setActiveTab('audit')}
+                className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0 shadow-2xs">
+                    <FileText size={22} strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Audit Logs</h4>
+                    <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">View all system & data change logs</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
@@ -519,8 +661,11 @@ export default function SettingsPanel() {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <button
+                            disabled={rule.isProtected}
                             onClick={() => handleToggleRequired(rule.id)}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              rule.isProtected ? 'opacity-50 cursor-not-allowed' : ''
+                            } ${
                               rule.required ? 'bg-primary-600' : 'bg-slate-200'
                             }`}
                           >
@@ -978,6 +1123,60 @@ export default function SettingsPanel() {
                   Restore your configurations back to a specific state by uploading a previous snapshot. Warning: This replaces local system states.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. AUDIT LOGS */}
+      {activeTab === 'audit' && (
+        <div className="p-6 space-y-6">
+          {/* Breadcrumb Header */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <button onClick={() => setActiveTab('dashboard')} className="hover:text-primary-600 transition-colors flex items-center gap-1 cursor-pointer">
+                <ArrowLeft size={13} /> Master Settings & Backups
+              </button>
+              <span>&gt;</span>
+              <span className="text-slate-800">Audit Logs</span>
+            </div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight mt-2">Audit Logs</h2>
+            <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">View all system & data change logs</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <input className="input max-w-xs text-xs py-1.5" placeholder="Search logs..." />
+            </div>
+            <div className="overflow-x-auto border border-slate-100 rounded-xl bg-white shadow-2xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/75 border-b text-slate-550 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">User</th>
+                    <th className="p-3">Action</th>
+                    <th className="p-3">Module</th>
+                    <th className="p-3">Details</th>
+                    <th className="p-3">Date & Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {[
+                    { user: 'Rahul Mehta', action: 'Created', mod: 'Insurance Company', desc: 'Added HDFC ERGO', time: '20 May 2024 10:30 AM' },
+                    { user: 'Anjali Mehta', action: 'Updated', mod: 'Plan Name', desc: 'Updated plan details', time: '20 May 2024 09:15 AM' },
+                    { user: 'Vikram Joshi', action: 'Deleted', mod: 'Agent / Agency', desc: 'Deleted agent record', time: '20 May 2024 05:45 PM' },
+                    { user: 'Pooja Sharma', action: 'Created', mod: 'Hospital', desc: 'Added new hospital', time: '19 May 2024 03:20 PM' },
+                    { user: 'Suresh Kumar', action: 'Updated', mod: 'Policy', desc: 'Updated policy status', time: '19 May 2024 11:10 AM' }
+                  ].map((c, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="p-3 font-semibold text-slate-800">{c.user}</td>
+                      <td className="p-3 text-slate-600">{c.action}</td>
+                      <td className="p-3 text-slate-500">{c.mod}</td>
+                      <td className="p-3 text-slate-600">{c.desc}</td>
+                      <td className="p-3 text-slate-500">{c.time}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -178,4 +178,99 @@ export class InsuranceService {
     });
     return { message: 'Insurance plan deactivated' };
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Hospitals & Doctors
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async listHospitals(tenantId: string) {
+    const data = await this.prisma.hospital.findMany({
+      where: { tenantId },
+      include: { doctors: true },
+      orderBy: { name: 'asc' },
+    });
+    return { data };
+  }
+
+  async createHospital(tenantId: string, dto: any) {
+    const { doctors, ...hospitalData } = dto;
+    
+    const data = await this.prisma.hospital.create({
+      data: {
+        tenantId,
+        name: hospitalData.name,
+        city: hospitalData.city,
+        state: hospitalData.state || null,
+        address: hospitalData.address,
+        phone: hospitalData.phone || hospitalData.contactNo,
+        email: hospitalData.email || null,
+        registrationNo: hospitalData.registrationNo || null,
+        pincode: hospitalData.pincode,
+        type: hospitalData.type,
+        claimsPerson1Name: hospitalData.claimsPerson1Name,
+        claimsPerson1Contact: hospitalData.claimsPerson1Contact,
+        claimsPerson2Name: hospitalData.claimsPerson2Name,
+        claimsPerson2Contact: hospitalData.claimsPerson2Contact,
+        comment: hospitalData.comment,
+        doctors: {
+          create: (doctors || []).map((doc: any) => ({
+            name: doc.name,
+            degree: doc.degree,
+            specialty: doc.speciality || doc.specialty,
+            phone: doc.contactNo || doc.phone,
+            email: doc.email || null,
+          })),
+        },
+      },
+      include: { doctors: true },
+    });
+
+    return { data };
+  }
+
+  async removeHospital(tenantId: string, id: string) {
+    const hospital = await this.prisma.hospital.findFirst({
+      where: { id, tenantId },
+    });
+    if (!hospital) throw new NotFoundException('Hospital not found');
+
+    await this.prisma.hospital.delete({
+      where: { id },
+    });
+
+    return { message: 'Hospital and associated doctors deleted' };
+  }
+
+  async getCompulsoryRules(tenantId: string) {
+    const rules = await this.prisma.compulsoryFieldRule.findMany({
+      where: { tenantId },
+    });
+    return { data: rules };
+  }
+
+  async updateCompulsoryRules(tenantId: string, rules: { module: string; fieldKey: string; required: boolean }[]) {
+    const results = [];
+    for (const r of rules) {
+      const res = await this.prisma.compulsoryFieldRule.upsert({
+        where: {
+          tenantId_module_fieldKey: {
+            tenantId,
+            module: r.module,
+            fieldKey: r.fieldKey,
+          },
+        },
+        create: {
+          tenantId,
+          module: r.module,
+          fieldKey: r.fieldKey,
+          required: r.required,
+        },
+        update: {
+          required: r.required,
+        },
+      });
+      results.push(res);
+    }
+    return { data: results };
+  }
 }

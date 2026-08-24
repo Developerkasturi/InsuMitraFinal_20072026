@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
-  Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter,
+  Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter, Download,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
   FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List
 } from 'lucide-react';
@@ -160,7 +160,7 @@ export function serializeNotes(data: any) {
   return JSON.stringify(data);
 }
 
-const schema = z.object({
+export const claimFormSchema = z.object({
   policyId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a policy'),
   contactId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact'),
   claimNumber: z.string().min(1, 'Claim number required'),
@@ -237,6 +237,7 @@ const schema = z.object({
   approvalComment: z.string().optional(),
   fileUploadComment: z.string().optional()
 });
+const schema = claimFormSchema;
 type Form = z.infer<typeof schema>;
 
 // Aligned edit form with automatic calculations
@@ -842,24 +843,16 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalAddress} onChange={e => setHospitalAddress(e.target.value)} />
                   </div>
                   <div>
-                    <label className="label text-[10px]">Hospital State</label>
-                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalState} onChange={e => setHospitalState(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label text-[10px]">Hospital City</label>
+                    <label className="label text-[10px]">Hospital City {isFieldRequired('hospitalCity', false) && <span className="text-red-500">*</span>}</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalCity} onChange={e => setHospitalCity(e.target.value)} />
                   </div>
                   <div>
-                    <label className="label text-[10px]">Hospital Pincode</label>
+                    <label className="label text-[10px]">Hospital Pincode {isFieldRequired('hospitalPincode', false) && <span className="text-red-500">*</span>}</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalPincode} onChange={e => setHospitalPincode(e.target.value)} />
                   </div>
                   <div>
-                    <label className="label text-[10px]">Hospital Contact No</label>
+                    <label className="label text-[10px]">Hospital Contact No {isFieldRequired('hospitalContactNo', false) && <span className="text-red-500">*</span>}</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalContactNo} onChange={e => setHospitalContactNo(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label text-[10px]">Hospital Rating</label>
-                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalRating} onChange={e => setHospitalRating(e.target.value)} />
                   </div>
                   <div>
                     <label className="label text-[10px]">Hospital Type</label>
@@ -883,7 +876,16 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                       </div>
                       <div>
                         <label className="label text-[10px]">Doctor Degree</label>
-                        <input value={doc.degree} onChange={e => handleDoctorChange(index, 'degree', e.target.value)} className="input mt-1 py-1 text-xs" />
+                        <select
+                          value={doc.degree}
+                          onChange={e => handleDoctorChange(index, 'degree', e.target.value)}
+                          className="input mt-1 py-1 text-xs"
+                        >
+                          <option value="">Select Degree</option>
+                          {['MBBS', 'MD', 'MS', 'DM', 'MCh', 'DNB', 'BDS', 'MDS'].map(deg => (
+                            <option key={deg} value={deg}>{deg}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="label text-[10px]">Doctor Contact No</label>
@@ -1520,6 +1522,113 @@ export default function Claims() {
     });
   }, [filteredClaims, sortKey, sortDir]);
 
+  const exportClaimsToExcel = () => {
+    const headers = ['Claim Number', 'Client Name', 'Policy Number', 'Company', 'Claim Type', 'Hospital', 'Amount', 'Intimated At', 'Status'];
+    const rows = sortedClaims.map((c: any) => {
+      const notes = getClaimNotesData(c.notes);
+      return [
+        `"${(c.claimNumber || '').replace(/"/g, '""')}"`,
+        `"${((c.contact?.firstName || '') + ' ' + (c.contact?.lastName || '')).trim().replace(/"/g, '""')}"`,
+        `"${(c.policy?.policyNumber || '').replace(/"/g, '""')}"`,
+        `"${(c.policy?.plan?.company?.name || '').replace(/"/g, '""')}"`,
+        `"${(c.claimType || '').replace(/"/g, '""')}"`,
+        `"${(notes.hospital || '').replace(/"/g, '""')}"`,
+        c.claimAmount ?? '',
+        c.intimatedAt ? new Date(c.intimatedAt).toLocaleDateString() : '',
+        `"${(BACKEND_TO_UI[c.status] || 'Pending').replace(/"/g, '""')}"`
+      ].join(',');
+    }).join('\n');
+    
+    const content = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `claims_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Claims exported to Excel successfully');
+  };
+
+  const exportClaimsToPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print PDF');
+      return;
+    }
+    
+    const rowsHtml = sortedClaims.map((c: any) => {
+      const notes = getClaimNotesData(c.notes);
+      const status = BACKEND_TO_UI[c.status] || 'Pending';
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <td style="padding: 8px; font-weight: 600;">${c.claimNumber || 'N/A'}</td>
+          <td style="padding: 8px;">${((c.contact?.firstName || '') + ' ' + (c.contact?.lastName || '')).trim() || 'N/A'}</td>
+          <td style="padding: 8px;">${c.policy?.policyNumber || 'N/A'}</td>
+          <td style="padding: 8px;">${c.policy?.plan?.company?.name || 'N/A'}</td>
+          <td style="padding: 8px;">${c.claimType || 'N/A'}</td>
+          <td style="padding: 8px;">${notes.hospital || 'N/A'}</td>
+          <td style="padding: 8px; text-align: right;">₹${c.claimAmount?.toLocaleString() || 0}</td>
+          <td style="padding: 8px; text-align: center;">${c.intimatedAt ? new Date(c.intimatedAt).toLocaleDateString() : 'N/A'}</td>
+          <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${status === 'Approved' ? '#def7ec; color: #03543f;' : status === 'Pending' ? '#feecdc; color: #b43c08;' : '#fde8e8; color: #9b1c1c;'} font-size: 10px; font-weight: bold;">${status}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Claims Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">Claims Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedClaims.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 10%;">Claim No</th>
+                <th style="width: 15%;">Client Name</th>
+                <th style="width: 15%;">Policy No</th>
+                <th style="width: 15%;">Company</th>
+                <th style="width: 10%;">Type</th>
+                <th style="width: 15%;">Hospital</th>
+                <th style="width: 10%; text-align: right;">Amount</th>
+                <th style="width: 10%; text-align: center;">Intimated At</th>
+                <th style="width: 10%; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Calculations for Advanced Analytics Dashboard
   const stats = useMemo(() => {
     let totalClaimed = 0;
@@ -1706,29 +1815,81 @@ export default function Claims() {
   const updateClaim = useUpdateClaimStatus();
   const deleteClaim = useDeleteClaim();
   
-  const { data: companiesRes } = useQuery({
-    queryKey: ['insurance-companies-for-hospitals'],
-    queryFn: () => insuranceService.listCompanies(),
+  const { data: hospitalsRes } = useQuery({
+    queryKey: ['hospitals-list'],
+    queryFn: () => insuranceService.listHospitals(),
   });
   const hospitals = useMemo(() => {
-    if (!companiesRes?.data) return [];
-    return companiesRes.data.flatMap((c: any) => {
-      if (c.notes && c.notes.trim().startsWith('{')) {
-        try {
-          return JSON.parse(c.notes).hospitals || [];
-        } catch { return []; }
-      }
-      return [];
-    });
-  }, [companiesRes?.data]);
+    return hospitalsRes?.data ?? [];
+  }, [hospitalsRes?.data]);
   const qcClaims = useQueryClient();
   const updateClaimMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => claimsService.update(id, body),
     onSuccess: () => { qcClaims.invalidateQueries({ queryKey: ['claims'] }); setEditTarget(null); },
   });
 
+  const { data: compulsoryRulesRes, isLoading: isLoadingRules } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    if (['policyId', 'contactId', 'claimNumber', 'claimType', 'intimatedAt'].includes(key)) return true; // System protected
+    const rule = compulsoryRules.find((r: any) => r.module === 'Claim' && r.fieldKey === key);
+    if (rule) return rule.required;
+    return defaultRequired;
+  };
+
+  const activeSchema = useMemo(() => {
+    return z.object({
+      policyId: isFieldRequired('policyId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a policy') : z.string().optional().or(z.literal('')),
+      contactId: isFieldRequired('contactId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact') : z.string().optional().or(z.literal('')),
+      claimNumber: isFieldRequired('claimNumber', true) ? z.string().min(1, 'Claim number required') : z.string().optional().or(z.literal('')),
+      claimType: isFieldRequired('claimType', true) ? z.string().min(1, 'Select a claim type') : z.string().optional().or(z.literal('')),
+      claimAmount: isFieldRequired('claimAmount', true) ? z.coerce.number().min(0) : z.coerce.number().optional().or(z.literal('')),
+      intimatedAt: isFieldRequired('intimatedAt', true) ? z.string().min(1, 'Intimation date required') : z.string().optional().or(z.literal('')),
+      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      diagnosis: isFieldRequired('diagnosis', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospital: isFieldRequired('hospital', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalAddress: isFieldRequired('hospitalAddress', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      patientName: isFieldRequired('patientName', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      admissionAt: isFieldRequired('admissionAt', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      dischargeAt: isFieldRequired('dischargeAt', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      amtHospital: z.coerce.number().default(0),
+      amtMedicine: z.coerce.number().default(0),
+      amtLab: z.coerce.number().default(0),
+      amtPreHosp: z.coerce.number().default(0),
+      amtPostHosp: z.coerce.number().default(0),
+      amtOthers: z.coerce.number().default(0),
+      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      approvedAmount: z.coerce.number().optional().default(0),
+      deductionsNotes: isFieldRequired('deductionsNotes', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      subClaimNo: isFieldRequired('subClaimNo', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      uiClaimStatus: isFieldRequired('uiClaimStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      comment: isFieldRequired('comment', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      insuranceCompanyCategory: isFieldRequired('insuranceCompanyCategory', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      insuranceCompany: isFieldRequired('insuranceCompany', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      insuranceProductName: isFieldRequired('insuranceProductName', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      agentName: isFieldRequired('agentName', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      deathAdmissionDate: isFieldRequired('deathAdmissionDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      causeOfDeath: isFieldRequired('causeOfDeath', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      dateOfOccurance: isFieldRequired('dateOfOccurance', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      dateOfDeath: isFieldRequired('dateOfDeath', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      wasInComa: isFieldRequired('wasInComa', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      deathSumInsured: isFieldRequired('deathSumInsured', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      deathTotalClaimedAmount: isFieldRequired('deathTotalClaimedAmount', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      deathComment: isFieldRequired('deathComment', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalName: isFieldRequired('hospitalName', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalState: isFieldRequired('hospitalState', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalCity: isFieldRequired('hospitalCity', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalPincode: isFieldRequired('hospitalPincode', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      hospitalContactNo: isFieldRequired('hospitalContactNo', false) ? z.string().min(1, 'Required') : z.string().optional(),
+    });
+  }, [compulsoryRules]);
+
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(activeSchema),
     defaultValues: { claimType: 'Cashless', intimatedAt: new Date().toISOString().split('T')[0] },
   });
 
@@ -2008,6 +2169,25 @@ export default function Claims() {
 
         {/* Right: View toggle and controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Export Buttons */}
+          <button
+            type="button"
+            onClick={exportClaimsToExcel}
+            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            title="Export to Excel"
+          >
+            <Download size={13} className="text-emerald-600" />
+            <span className="hidden sm:inline">Excel</span>
+          </button>
+          <button
+            type="button"
+            onClick={exportClaimsToPdf}
+            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            title="Export to PDF"
+          >
+            <FileText size={13} className="text-red-500" />
+            <span className="hidden sm:inline">PDF</span>
+          </button>
           {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
             <button
@@ -3141,25 +3321,12 @@ export default function Claims() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
                           <label className="label text-[10px]">Hospital City</label>
-                          <select 
-                            className="input mt-1 py-1 text-xs" 
+                          <input
+                            type="text"
+                            className="input mt-1 py-1 text-xs"
                             {...register('hospitalCity')}
-                            onChange={(e) => {
-                              setValue('hospitalCity', e.target.value);
-                              setValue('hospitalName', '');
-                              setValue('hospitalAddress', '');
-                              setValue('hospitalState', '');
-                              setValue('hospitalPincode', '');
-                              setValue('hospitalContactNo', '');
-                              setValue('hospitalRating', '');
-                              setValue('hospitalType', '');
-                            }}
-                          >
-                            <option value="">Select City</option>
-                            {Array.from(new Set(hospitals.map(h => h.hospitalCity).filter(Boolean))).map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
+                            placeholder="e.g. Pune"
+                          />
                         </div>
                         <div>
                           <label className="label text-[10px]">Hospital Name</label>
@@ -3169,21 +3336,24 @@ export default function Claims() {
                             onChange={(e) => {
                               const val = e.target.value;
                               setValue('hospitalName', val);
-                              const hosp = hospitals.find(h => h.hospitalName === val);
+                              const hosp = hospitals.find((h: any) => h.name === val || h.hospitalName === val);
                               if (hosp) {
-                                if (!watchHospitalCity) setValue('hospitalCity', hosp.hospitalCity);
-                                setValue('hospitalAddress', ''); // Store doesn't have precise address line, leave blank or we could map from city
-                                setValue('hospitalState', hosp.hospitalState);
-                                setValue('hospitalPincode', hosp.hospitalPincode);
-                                setValue('hospitalContactNo', hosp.hospitalContactNo);
-                                setValue('hospitalRating', hosp.hospitalRating);
-                                setValue('hospitalType', hosp.hospitalType);
+                                setValue('hospitalCity', hosp.city || hosp.hospitalCity || '');
+                                setValue('hospitalAddress', hosp.address || hosp.hospitalAddress || '');
+                                setValue('hospitalPincode', hosp.pincode || hosp.hospitalPincode || '');
+                                setValue('hospitalContactNo', hosp.phone || hosp.hospitalContactNo || '');
+                                setValue('hospitalType', hosp.type || hosp.hospitalType || '');
+                                setValue('claimsPerson1Name', hosp.claimsPerson1Name || '');
+                                setValue('claimsPerson1Contact', hosp.claimsPerson1Contact || '');
+                                setValue('claimsPerson2Name', hosp.claimsPerson2Name || '');
+                                setValue('claimsPerson2Contact', hosp.claimsPerson2Contact || '');
+                                setValue('hospitalComment', hosp.comment || hosp.hospitalComment || '');
                               }
                             }}
                           >
                             <option value="">Select Hospital</option>
-                            {hospitals.filter(h => !watchHospitalCity || h.hospitalCity === watchHospitalCity).map(h => (
-                              <option key={h.id} value={h.hospitalName}>{h.hospitalName}</option>
+                            {hospitals.filter((h: any) => !watchHospitalCity || (h.city || h.hospitalCity) === watchHospitalCity).map((h: any) => (
+                              <option key={h.id} value={h.name || h.hospitalName}>{h.name || h.hospitalName}</option>
                             ))}
                           </select>
                         </div>
@@ -3195,10 +3365,7 @@ export default function Claims() {
                           <label className="label text-[10px]">Hospital Contact No</label>
                           <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalContactNo')} />
                         </div>
-                        <div>
-                          <label className="label text-[10px]">Hospital Rating</label>
-                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalRating')} />
-                        </div>
+
                         <div>
                           <label className="label text-[10px]">Hospital Type</label>
                           <select className="input mt-1 py-1 text-xs" {...register('hospitalType')}>
@@ -3214,7 +3381,7 @@ export default function Claims() {
                       <div className="pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-2">
                           <h5 className="text-[11px] font-bold text-slate-700">Doctors / Consulting Providers</h5>
-                          {watchHospitalName && hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors?.length > 0 && (
+                          {watchHospitalName && ((hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.doctors?.length ?? hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.hospitalDoctors?.length) ?? 0) > 0 && (
                             <select 
                               className="input py-0.5 text-[10px] w-auto h-auto"
                               onChange={(e) => {
@@ -3225,7 +3392,7 @@ export default function Claims() {
                               }}
                             >
                               <option value="">+ Add from Hospital</option>
-                              {hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors.map(d => (
+                              {(hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.doctors || hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.hospitalDoctors || []).map((d: any) => (
                                 <option key={d.id} value={d.name}>{d.name}</option>
                               ))}
                             </select>
@@ -3237,14 +3404,23 @@ export default function Claims() {
                               <label className="label text-[10px]">Doctor Name</label>
                               <input value={doc.name} onChange={e => handleNewDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" list={`doc-list-${index}`} />
                               <datalist id={`doc-list-${index}`}>
-                                {watchHospitalName && hospitals.find(h => h.hospitalName === watchHospitalName)?.hospitalDoctors.map(d => (
+                                {watchHospitalName && (hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.doctors || hospitals.find((h: any) => h.name === watchHospitalName || h.hospitalName === watchHospitalName)?.hospitalDoctors || []).map((d: any) => (
                                   <option key={d.id} value={d.name} />
                                 ))}
                               </datalist>
                             </div>
                             <div>
                               <label className="label text-[10px]">Doctor Degree</label>
-                              <input value={doc.degree} onChange={e => handleNewDoctorChange(index, 'degree', e.target.value)} className="input mt-1 py-1 text-xs" />
+                              <select
+                                value={doc.degree}
+                                onChange={e => handleNewDoctorChange(index, 'degree', e.target.value)}
+                                className="input mt-1 py-1 text-xs"
+                              >
+                                <option value="">Select Degree</option>
+                                {['MBBS', 'MD', 'MS', 'DM', 'MCh', 'DNB', 'BDS', 'MDS'].map(deg => (
+                                  <option key={deg} value={deg}>{deg}</option>
+                                ))}
+                              </select>
                             </div>
                             <div>
                               <label className="label text-[10px]">Doctor Contact No</label>
@@ -3792,8 +3968,8 @@ export default function Claims() {
         <ClaimEditForm
           key={editTarget.id}
           initial={editTarget}
-          isPending={updateClaim.isPending}
-          onSave={body => updateClaim.mutate({ id: editTarget.id, body })}
+          isPending={updateClaimMutation.isPending}
+          onSave={body => updateClaimMutation.mutate({ id: editTarget.id, body })}
           onCancel={() => setEditTarget(null)}
           employees={employees}
         />
