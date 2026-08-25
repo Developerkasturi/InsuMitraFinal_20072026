@@ -2022,14 +2022,20 @@ export default function Policies() {
                         {/* Insurance Company Category */}
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Insurance Company Category
+                            Insurance Company Category <span className="text-red-500">*</span>
                           </label>
                           <select
-                            className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed"
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             value={selectedType || ''}
-                            disabled
+                            onChange={e => {
+                              setSelectedType(e.target.value);
+                              setSelectedCompany('');
+                              setSelectedPlan(null);
+                              setValue('planId', '');
+                            }}
+                            required
                           >
-                            <option value="">Auto-selected based on Policy Type</option>
+                            <option value="">Select Insurance Company Category *</option>
                             {availableTypes.map(t => (
                               <option key={t} value={t}>
                                 {t === 'HEALTH' ? 'Health Insurance Category' : t === 'LIFE' ? 'Life Insurance Category' : `${t} Category`}
@@ -2051,9 +2057,9 @@ export default function Policies() {
                               setSelectedPlan(null);
                               setValue('planId', '');
                             }}
-                            disabled={!selectedType}
+                            required
                           >
-                            <option value="">Select Insurance Company</option>
+                            <option value="">Select Insurance Company *</option>
                             {availableCompanies.map(c => (
                               <option key={c} value={c}>
                                 {c}
@@ -2065,15 +2071,26 @@ export default function Policies() {
                         {/* Insurance Plan Category */}
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Insurance Plan Category
+                            Insurance Plan Category <span className="text-red-500">*</span>
                           </label>
-                          <input
-                            type="text"
-                            readOnly
-                            className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-600 cursor-not-allowed"
-                            value={selectedPlan?.category || (selectedType ? `${selectedType} Plan` : '')}
-                            placeholder="Insurance Plan Category"
-                          />
+                          <select
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            value={selectedType || ''}
+                            onChange={e => {
+                              setSelectedType(e.target.value);
+                              setSelectedCompany('');
+                              setSelectedPlan(null);
+                              setValue('planId', '');
+                            }}
+                            required
+                          >
+                            <option value="">Select Insurance Plan Category *</option>
+                            {availableTypes.map(t => (
+                              <option key={t} value={t}>
+                                {t === 'HEALTH' ? 'Health Plan Category' : t === 'LIFE' ? 'Life Plan Category' : `${t} Plan Category`}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         {/* Plan Name */}
@@ -2129,10 +2146,12 @@ export default function Policies() {
                         {/* Comment */}
                         <div className="col-span-1 md:col-span-2">
                           <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Comment
+                            Comment <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             rows={2}
+                            {...register('notes', { required: true })}
+                            required
                             className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="Add any internal comments or notes regarding this policy..."
                           />
@@ -2221,27 +2240,20 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
                               Sum Insured (₹) <span className="text-red-500">*</span>
                             </label>
-                            <div className="relative">
-                              <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500/80" />
-                              <input
-                                type="text"
-                                value={formatIndianNumber(watchSumAssured)}
-                                onChange={(e) => {
-                                  const raw = e.target.value.replace(/,/g, '');
-                                  const num = Number(raw);
-                                  if (!isNaN(num)) {
-                                    setValue('sumAssured', num, { shouldValidate: true, shouldDirty: true });
-                                  } else if (raw === '') {
-                                    setValue('sumAssured', 0 as any, { shouldValidate: true, shouldDirty: true });
-                                  }
-                                }}
-                                className="input pl-9 w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                placeholder="Enter sum insured"
-                              />
-                            </div>
-                            {watchSumAssured ? (
-                              <div className="text-[10.5px] text-orange-600 mt-1.5 font-bold tracking-wide bg-orange-50/50 inline-block px-2 py-0.5 rounded-md border border-orange-100/50">{numberToIndianWords(watchSumAssured)}</div>
-                            ) : null}
+                            <select
+                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              value={watchSumAssured || ''}
+                              onChange={(e) => {
+                                const num = Number(e.target.value);
+                                setValue('sumAssured', num, { shouldValidate: true, shouldDirty: true });
+                              }}
+                              required
+                            >
+                              <option value="">Select Sum Insured *</option>
+                              {SUM_INSURED_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
                           </div>
 
                           {/* Deductible */}
@@ -2823,91 +2835,14 @@ export default function Policies() {
                     )}
                   </div>
 
-                  {/* Section 5: Conditional PHC Details */}
-                  {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') && (
-                    <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
-                        onClick={() => setIsPhcCollapsed(prev => !prev)}
-                      >
-                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
-                          Preventive Health Checkup Details
-                        </h4>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Status</span>
-                          <ChevronDown
-                            size={16}
-                            className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
-                          />
-                        </div>
-                      </div>
-
-                      {!isPhcCollapsed && (
-                        <div className="p-4 space-y-3 animate-fadeIn">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                            <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                                Preventive Health Checkup?
-                              </label>
-                              <select
-                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                onChange={e => setValue('phcRequired', e.target.value === 'yes')}
-                              >
-                                <option value="no">No</option>
-                                <option value="yes">Yes</option>
-                              </select>
-                            </div>
-                          </div>
-                          {watchPhcRequired && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 p-3.5 bg-emerald-50/40 rounded-xl border border-emerald-100">
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
-                                <input
-                                  type="number"
-                                  {...register('phcAmount')}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
-                                  placeholder="Amount"
-                                />
-                              </div>
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Status</label>
-                                <select
-                                  {...register('phcStatus')}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
-                                >
-                                  <option value="">Select Status</option>
-                                  <option value="SCHEDULED">Scheduled</option>
-                                  <option value="COMPLETED">Completed</option>
-                                  <option value="CANCELLED">Cancelled</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
-                                <select
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
-                                  onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
-                                >
-                                  <option value="no">No</option>
-                                  <option value="yes">Yes</option>
-                                </select>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ════════════════ Payment Account Details + GST No Details ════════════════ */}
-                  {/* Section 6: Payment Account Details */}
+                  {/* Section 5: Payment Account Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPaymentAccountCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                         Payment Account Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
@@ -2992,14 +2927,14 @@ export default function Policies() {
                     )}
                   </div>
 
-                  {/* Section 7: GST No Details */}
+                  {/* Section 6: GST No Details */}
                   <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
                     <div
                       className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsGstDetailsCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
+                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                         GST No Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
@@ -3056,6 +2991,82 @@ export default function Policies() {
                       </div>
                     )}
                   </div>
+
+                  {/* Section 7: Conditional PHC Details */}
+                  {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') && (
+                    <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                        onClick={() => setIsPhcCollapsed(prev => !prev)}
+                      >
+                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
+                          Preventive Health Checkup Details
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Status</span>
+                          <ChevronDown
+                            size={16}
+                            className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                      </div>
+
+                      {!isPhcCollapsed && (
+                        <div className="p-4 space-y-3 animate-fadeIn">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                Preventive Health Checkup?
+                              </label>
+                              <select
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                                onChange={e => setValue('phcRequired', e.target.value === 'yes')}
+                              >
+                                <option value="no">No</option>
+                                <option value="yes">Yes</option>
+                              </select>
+                            </div>
+                          </div>
+                          {watchPhcRequired && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 p-3.5 bg-emerald-50/40 rounded-xl border border-emerald-100">
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
+                                <input
+                                  type="number"
+                                  {...register('phcAmount')}
+                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
+                                  placeholder="Amount"
+                                />
+                              </div>
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Status</label>
+                                <select
+                                  {...register('phcStatus')}
+                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
+                                >
+                                  <option value="">Select Status</option>
+                                  <option value="SCHEDULED">Scheduled</option>
+                                  <option value="COMPLETED">Completed</option>
+                                  <option value="CANCELLED">Cancelled</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
+                                <select
+                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
+                                  onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
+                                >
+                                  <option value="no">No</option>
+                                  <option value="yes">Yes</option>
+                                </select>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

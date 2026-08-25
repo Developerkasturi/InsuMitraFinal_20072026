@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { contactsService, policiesService, leadsService, employeesService } from '@api/index';
+import { contactsService, policiesService, leadsService, employeesService, insuranceService } from '@api/index';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import { useLookupStore } from '@store/lookup.store';
@@ -38,6 +38,115 @@ const EDUCATION_OPTIONS = [
   'Computer degree other',
   'Other',
 ];
+
+const SUM_INSURED_OPTIONS = [
+  { value: '50000', label: '₹50,000' },
+  { value: '100000', label: '₹1,000,000 (1 Lakh)' },
+  { value: '200000', label: '₹2,000,000 (2 Lakh)' },
+  { value: '300000', label: '₹3,000,000 (3 Lakh)' },
+  { value: '500000', label: '₹5,000,000 (5 Lakh)' },
+  { value: '750000', label: '₹7,50,000 (7.5 Lakh)' },
+  { value: '1000000', label: '₹10,000,000 (10 Lakh)' },
+  { value: '1500000', label: '₹15,000,000 (15 Lakh)' },
+  { value: '2000000', label: '₹20,000,000 (20 Lakh)' },
+  { value: '2500000', label: '₹25,000,000 (25 Lakh)' },
+  { value: '5000000', label: '₹50,000,000 (50 Lakh)' },
+  { value: '10000000', label: '₹100,000,000 (1 Crore)' },
+];
+
+const RIDER_OPTIONS = [
+  'None',
+  'Zero Depreciation',
+  'Engine Protect',
+  'NCB Protector',
+  'Consumables Cover',
+  'Personal Accident',
+  'Hospital Daily Cash',
+  'Critical Illness Rider',
+  'Waiver of Premium',
+];
+
+const MAX_REALISTIC_TENURE_YEARS = 50;
+
+function parseTenureYears(tenureStr: string): number {
+  if (!tenureStr) return 0;
+  const tLower = tenureStr.trim().toLowerCase();
+  const yearMatch = tLower.match(/(\d+)\s*(year|years|yr|yrs|y)/);
+  const numOnlyMatch = tLower.match(/^(\d+)$/);
+  if (yearMatch) return parseInt(yearMatch[1], 10);
+  if (numOnlyMatch) return parseInt(numOnlyMatch[1], 10);
+  return 0;
+}
+
+function calculateTenureFromDates(startDateStr: string, endDateStr: string): string {
+  if (!startDateStr || !endDateStr) return '';
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return '';
+
+  let years = end.getFullYear() - start.getFullYear();
+  let months = end.getMonth() - start.getMonth();
+  let days = end.getDate() - start.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonthDays = new Date(end.getFullYear(), end.getMonth(), 0).getDate();
+    days += prevMonthDays;
+  }
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years > MAX_REALISTIC_TENURE_YEARS) {
+    years = MAX_REALISTIC_TENURE_YEARS;
+  }
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+  if (days > 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+
+  return parts.length > 0 ? parts.join(' ') : '1 Year';
+}
+
+function calculateEndDateFromTenure(startDateStr: string, tenureStr: string): string | null {
+  if (!startDateStr || !tenureStr) return null;
+  const start = new Date(startDateStr);
+  if (isNaN(start.getTime())) return null;
+
+  const tLower = tenureStr.trim().toLowerCase();
+  let yearsToAdd = 0;
+  let monthsToAdd = 0;
+  let daysToAdd = 0;
+
+  const yearMatch = tLower.match(/(\d+)\s*(year|years|yr|yrs|y)/);
+  const monthMatch = tLower.match(/(\d+)\s*(month|months|m)/);
+  const dayMatch = tLower.match(/(\d+)\s*(day|days|d)/);
+  const numOnlyMatch = tLower.match(/^(\d+)$/);
+
+  if (yearMatch) yearsToAdd = parseInt(yearMatch[1], 10);
+  if (monthMatch) monthsToAdd = parseInt(monthMatch[1], 10);
+  if (dayMatch) daysToAdd = parseInt(dayMatch[1], 10);
+  if (!yearMatch && !monthMatch && !dayMatch && numOnlyMatch) {
+    yearsToAdd = parseInt(numOnlyMatch[1], 10);
+  }
+
+  if (yearsToAdd > MAX_REALISTIC_TENURE_YEARS) {
+    toast.error(`Premium payment period cannot exceed ${MAX_REALISTIC_TENURE_YEARS} years.`);
+    yearsToAdd = MAX_REALISTIC_TENURE_YEARS;
+  }
+
+  if (yearsToAdd === 0 && monthsToAdd === 0 && daysToAdd === 0) return null;
+
+  const end = new Date(start);
+  if (yearsToAdd > 0) end.setFullYear(end.getFullYear() + yearsToAdd);
+  if (monthsToAdd > 0) end.setMonth(end.getMonth() + monthsToAdd);
+  if (daysToAdd > 0) end.setDate(end.getDate() + daysToAdd);
+
+  return end.toISOString().split('T')[0];
+}
 
 const OCCUPATION_TYPE_OPTIONS = [
   'Salaried Private',
@@ -394,7 +503,9 @@ export default function Leads() {
   // Detail popup
   const [detailTarget, setDetailTarget] = useState<any | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailTab, setDetailTab] = useState<'overview' | 'comments' | 'stage'>('overview');
+  const [detailTab, setDetailTab] = useState<'overview' | 'comments' | 'history'>('overview');
+  const detailSaveHandlerRef = useRef<(() => void) | null>(null);
+  const detailIsSavingRef = useRef<boolean>(false);
 
   const [activeLeadTab, setActiveLeadTab] = useState('Product Interest');
   const [editContactId, setEditContactId] = useState<string | null>(null);
@@ -424,9 +535,20 @@ export default function Leads() {
       policyNumber: '',
       sumAssured: '',
       premiumAmount: '',
+      deductible: '',
+      riders: '',
       startDate: '',
       endDate: '',
       paymentFrequency: 'YEARLY',
+      downpaymentAmount: '',
+      processingFee: '',
+      installmentAmount: '',
+      isInstallment: false,
+      installmentDate: '',
+      policyTenure: '',
+      loanProvider: '',
+      accountType: '',
+      comment: '',
     }
   });
 
@@ -461,16 +583,31 @@ export default function Leads() {
 
   const watchPolicyStartDate = watchPolicy('startDate');
   const watchPolicyEndDate = watchPolicy('endDate');
+  const watchPolicyTenure = watchPolicy('policyTenure');
+  const watchPolicyIsInstallment = watchPolicy('isInstallment');
+
+
+
+  // Sync Policy Tenure automatically whenever Start Date & End Date change with strict Start Date < End Date validation
   useEffect(() => {
-    if (watchPolicyStartDate) {
+    if (watchPolicyStartDate && watchPolicyEndDate) {
       const start = new Date(watchPolicyStartDate);
-      if (!isNaN(start.getTime())) {
-        const end = new Date(start);
-        end.setFullYear(start.getFullYear() + 1); // default 1 year duration
-        setPolicyValue('endDate', end.toISOString().split('T')[0]);
+      const end = new Date(watchPolicyEndDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        if (end <= start) {
+          toast.error('Policy Start Date must be before End Date');
+          const newEnd = new Date(start);
+          newEnd.setFullYear(start.getFullYear() + 1);
+          setPolicyValue('endDate', newEnd.toISOString().split('T')[0]);
+          return;
+        }
+        const calcTenure = calculateTenureFromDates(watchPolicyStartDate, watchPolicyEndDate);
+        if (calcTenure && calcTenure !== watchPolicyTenure) {
+          setPolicyValue('policyTenure', calcTenure);
+        }
       }
     }
-  }, [watchPolicyStartDate, setPolicyValue]);
+  }, [watchPolicyStartDate, watchPolicyEndDate, setPolicyValue]);
 
   const triggerPolicyCreationForLead = (leadObj: any) => {
     setDetailOpen(false); // Close the detail popup
@@ -491,9 +628,20 @@ export default function Leads() {
       policyNumber: '',
       sumAssured: leadObj.sumAssuredRequired ? String(leadObj.sumAssuredRequired) : '',
       premiumAmount: leadObj.premiumBudget ? String(leadObj.premiumBudget) : '',
+      deductible: '',
+      riders: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
       paymentFrequency: 'YEARLY',
+      downpaymentAmount: '',
+      processingFee: '',
+      installmentAmount: '',
+      isInstallment: false,
+      installmentDate: '',
+      policyTenure: '',
+      loanProvider: '',
+      accountType: '',
+      comment: '',
     });
 
     setPolicyModalOpen(true);
@@ -501,23 +649,72 @@ export default function Leads() {
 
   const handlePolicyFormSubmit = async (data: any) => {
     if (!policyLead) return;
-    if (!policySelectedPlanId) {
-      toast.error('Please select an insurance plan');
+    if (!policySelectedType) {
+      toast.error('Please select a policy type');
       return;
+    }
+    if (!policySelectedCompany) {
+      toast.error('Please select Insurance Company Category');
+      return;
+    }
+
+    if (data.startDate && data.endDate) {
+      const start = new Date(data.startDate);
+      const end = new Date(data.endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        toast.error('Invalid date format for Start or End Date');
+        return;
+      }
+      if (end <= start) {
+        toast.error('Policy Start Date must be before End Date');
+        return;
+      }
+      const yearsDiff = end.getFullYear() - start.getFullYear();
+      if (yearsDiff > MAX_REALISTIC_TENURE_YEARS) {
+        toast.error(`Premium payment period / policy tenure cannot exceed ${MAX_REALISTIC_TENURE_YEARS} years.`);
+        return;
+      }
+    }
+
+    if (data.policyTenure) {
+      const parsedYrs = parseTenureYears(data.policyTenure);
+      if (parsedYrs > MAX_REALISTIC_TENURE_YEARS) {
+        toast.error(`Premium payment period cannot exceed ${MAX_REALISTIC_TENURE_YEARS} years.`);
+        return;
+      }
     }
 
     const toastId = toast.loading('Creating policy and updating lead status...');
     try {
-      await policiesService.create({
+      const calculatedTenure = (data.startDate && data.endDate)
+        ? calculateTenureFromDates(data.startDate, data.endDate)
+        : data.policyTenure;
+
+      const payload: any = {
         policyNumber: data.policyNumber,
         contactId: policyLead.contactId,
-        planId: policySelectedPlanId,
         sumAssured: Number(data.sumAssured),
         premiumAmount: Number(data.premiumAmount),
+        ...(data.deductible ? { deductible: Number(data.deductible) } : {}),
+        ...(data.riders ? { riders: data.riders } : {}),
         paymentFrequency: data.paymentFrequency,
         startDate: new Date(data.startDate).toISOString(),
         endDate: new Date(data.endDate).toISOString(),
-      });
+        ...(data.downpaymentAmount ? { downpaymentAmount: Number(data.downpaymentAmount) } : {}),
+        ...(data.processingFee ? { processingFee: Number(data.processingFee) } : {}),
+        ...(data.installmentAmount ? { installmentAmount: Number(data.installmentAmount) } : {}),
+        ...(data.installmentDate ? { installmentDate: data.installmentDate } : {}),
+        ...(calculatedTenure ? { policyTenure: calculatedTenure } : {}),
+        ...(data.loanProvider ? { loanProvider: data.loanProvider } : {}),
+        ...(data.accountType ? { accountType: data.accountType } : {}),
+        ...(data.comment ? { comment: data.comment } : {}),
+      };
+
+      if (policySelectedPlanId) {
+        payload.planId = policySelectedPlanId;
+      }
+
+      await policiesService.create(payload);
 
       await moveStage.mutateAsync({ id: policyLead.id, stage: 'PROCESS_COMPLETED' });
 
@@ -577,6 +774,8 @@ export default function Leads() {
   const [leadInfoFields, setLeadInfoFields] = useState({
     profileType: 'Lead Profile',
     leadStatus: 'TO_CONTACT',
+    leadStage: '',
+    leadType: '',
     interestedIn: ['Health'],
     leadSource: 'By Agent',
     assignedEmployeeId: '',
@@ -1066,7 +1265,7 @@ export default function Leads() {
       return;
     }
     if (isFieldRequired('phone', true) && !personalFields.whatsappNumber.trim()) {
-      toast.error('Mobile Number is required');
+      toast.error('WhatsApp Number is required');
       return;
     }
     // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
@@ -1076,7 +1275,7 @@ export default function Leads() {
     const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
     const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
     if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
-      toast.error('Mobile Number must be exactly 10 digits');
+      toast.error('WhatsApp Number must be exactly 10 digits');
       return;
     }
 
@@ -1087,6 +1286,28 @@ export default function Leads() {
     }
     if (hasAadhaar && !/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
       toast.error('Aadhaar Number must be exactly 12 digits');
+      return;
+    }
+
+    if (!personalFields?.occupationType?.trim()) {
+      toast.error('Occupation Type is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+
+    if (!personalFields?.state?.trim()) {
+      toast.error('State is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+    if (!personalFields?.district?.trim()) {
+      toast.error('District is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+    if (!personalFields?.city?.trim()) {
+      toast.error('City is required');
+      setActiveLeadTab('Personal');
       return;
     }
 
@@ -1119,11 +1340,6 @@ export default function Leads() {
       const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
 
       if (!isExisting) {
-        if (!card.interestedIn || card.interestedIn.length === 0) {
-          toast.error(`Product Interest #${i + 1}: Please select a Product Category`);
-          setActiveLeadTab('Product Interest');
-          return;
-        }
         if (card.interestedIn.includes('Other') && !card.otherProduct?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please specify the Other Product Name`);
           setActiveLeadTab('Product Interest');
@@ -1391,6 +1607,8 @@ export default function Leads() {
     setLeadInfoFields({
       profileType: 'Lead Profile',
       leadStatus: stage || 'TO_CONTACT',
+      leadStage: stage || 'TO_CONTACT',
+      leadType: 'FRESH',
       interestedIn: ['Health'],
       leadSource: 'Social Media',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
@@ -1449,6 +1667,8 @@ export default function Leads() {
       setLeadInfoFields({
         profileType: 'Lead Profile',
         leadStatus: card.stage || 'TO_CONTACT',
+        leadStage: card.leadStage || 'TO_CONTACT',
+        leadType: card.leadType || 'FRESH',
         interestedIn: card.interests || ['Health'],
         leadSource: card.source || 'Social Media',
         assignedEmployeeId: card.assignedEmployeeId || '',
@@ -1501,7 +1721,7 @@ export default function Leads() {
           planName: p.plan?.name || 'Other',
           policyNo: p.policyNumber,
           startDate: p.startDate ? p.startDate.split('T')[0] : '',
-          duration: '1 Year',
+          duration: (p.startDate && p.endDate) ? (calculateTenureFromDates(p.startDate.split('T')[0], p.endDate.split('T')[0]) || '1 Year') : '1 Year',
           endDate: p.endDate ? p.endDate.split('T')[0] : '',
           premium: String(p.premiumAmount),
           sumInsured: String(p.sumAssured),
@@ -1706,7 +1926,7 @@ const medicalOptions = [
             planName: p.plan?.name || 'Other',
             policyNo: p.policyNumber,
             startDate: p.startDate ? p.startDate.split('T')[0] : '',
-            duration: '1 Year',
+            duration: (p.startDate && p.endDate) ? (calculateTenureFromDates(p.startDate.split('T')[0], p.endDate.split('T')[0]) || '1 Year') : '1 Year',
             endDate: p.endDate ? p.endDate.split('T')[0] : '',
             premium: String(p.premiumAmount),
             sumInsured: String(p.sumAssured),
@@ -2348,14 +2568,14 @@ const medicalOptions = [
         open={modalOpen}
         onClose={closeModal}
         title={
-          editTarget
-            ? "Edit Lead"
-            : "Add New Lead"
+          activeLeadTab === 'Policy'
+            ? (editTarget ? "Edit Policy" : "Add Policy")
+            : (editTarget ? "Edit Lead" : "Add New Lead")
         }
         subtitle={
-          editTarget
-            ? "Update lead profile, family details, and policies."
-            : "Manage lead profile, family details, and address."
+          activeLeadTab === 'Policy'
+            ? "Add or update policy details, company, plan name, and coverage."
+            : (editTarget ? "Update lead profile, family details, and policies." : "Manage lead profile, family details, and address.")
         }
         size="2xl"
         actions={
@@ -2365,7 +2585,9 @@ const medicalOptions = [
               className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
               onClick={(e) => handleLeadSubmit(e, false)}
             >
-              {editTarget || editContactId ? 'Update Profile' : 'Save'}
+              {activeLeadTab === 'Policy'
+                ? (editTarget || editContactId ? 'Update Policy' : 'Add Policy')
+                : (editTarget || editContactId ? 'Update Profile' : 'Save')}
             </button>
           </div>
         }
@@ -3146,7 +3368,7 @@ const medicalOptions = [
                         </select>
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type <span className="text-red-500">*</span></label>
                         <DatalistInput
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                           placeholder="Select or enter Occupation Type"
@@ -3179,7 +3401,7 @@ const medicalOptions = [
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State <span className="text-red-500">*</span></label>
                         <select
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                           value={personalFields.state}
@@ -3193,7 +3415,7 @@ const medicalOptions = [
                         </select>
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District <span className="text-red-500">*</span></label>
                         <select
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                           value={personalFields.district}
@@ -3207,7 +3429,7 @@ const medicalOptions = [
                         </select>
                       </div>
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town {isFieldRequired('city', false) && <span className="text-red-500">*</span>}</label>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -3866,14 +4088,17 @@ const medicalOptions = [
                   </div>
                 )}
                 <div className="flex items-center justify-between flex-shrink-0">
-                  <h3 className="text-base font-bold text-gray-800 text-sm">Policy Portfolio</h3>
+                  <h3 className="text-base font-bold text-gray-800 text-sm">Policy Details</h3>
                   {!editContactId && (
                     <button
                       type="button"
-                      onClick={() => setPolicies(prev => [...prev, { policyType: 'Health', entries: [{ company: '', planName: '', policyNo: '', startDate: '', duration: '1 Year', endDate: '', premium: '', sumInsured: '', deductible: '', sumAssured: '', maturityDate: '', paymentTerm: '', entryType: 'New' }] }])}
+                      onClick={() => {
+                        setActiveLeadTab('Policy');
+                        setPolicies(prev => [...prev, { policyType: 'Health', entries: [{ company: '', planName: '', policyNo: '', startDate: '', duration: '1 Year', endDate: '', premium: '', sumInsured: '', deductible: '', sumAssured: '', maturityDate: '', paymentTerm: '', entryType: 'New' }] }]);
+                      }}
                       className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-colors"
                     >
-                      + Add Policy Type Card
+                      + Add Policy
                     </button>
                   )}
                 </div>
@@ -3962,7 +4187,14 @@ const medicalOptions = [
                                     <DatePicker
                                       className="input w-full mt-1 text-xs"
                                       value={entry.startDate}
-                                      onChange={val => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, startDate: val } : en) } : pg))}
+                                      onChange={val => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? {
+                                        ...pg,
+                                        entries: pg.entries.map((en: any, ei: number) => {
+                                          if (ei !== eIdx) return en;
+                                          const updatedTenure = calculateTenureFromDates(val, en.endDate) || en.duration;
+                                          return { ...en, startDate: val, duration: updatedTenure };
+                                        })
+                                      } : pg))}
                                     />
                                   </div>
                                   <div>
@@ -3970,7 +4202,14 @@ const medicalOptions = [
                                     <DatePicker
                                       className="input w-full mt-1 text-xs"
                                       value={entry.endDate}
-                                      onChange={val => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, endDate: val } : en) } : pg))}
+                                      onChange={val => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? {
+                                        ...pg,
+                                        entries: pg.entries.map((en: any, ei: number) => {
+                                          if (ei !== eIdx) return en;
+                                          const updatedTenure = calculateTenureFromDates(en.startDate, val) || en.duration;
+                                          return { ...en, endDate: val, duration: updatedTenure };
+                                        })
+                                      } : pg))}
                                     />
                                   </div>
                                   <div>
@@ -3985,12 +4224,50 @@ const medicalOptions = [
                                   </div>
                                   <div>
                                     <label className="label text-[10px]">{pGroup.policyType === 'Health' ? 'Sum Insured (₹)' : 'Sum Assured (₹)'}</label>
-                                    <input
-                                      type="number"
-                                      className="input w-full mt-1 text-xs"
-                                      placeholder="Amount"
+                                    <select
+                                      className="input w-full mt-1 text-xs bg-white"
                                       value={pGroup.policyType === 'Health' ? entry.sumInsured : entry.sumAssured}
                                       onChange={e => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, [pGroup.policyType === 'Health' ? 'sumInsured' : 'sumAssured']: e.target.value } : en) } : pg))}
+                                    >
+                                      <option value="">Select Sum Insured</option>
+                                      {SUM_INSURED_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="label text-[10px]">Deductible (₹) <span className="text-red-500">*</span></label>
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      required
+                                      className="input w-full mt-1 text-xs"
+                                      placeholder="Enter deductible"
+                                      value={entry.deductible || ''}
+                                      onChange={e => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, deductible: e.target.value } : en) } : pg))}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="label text-[10px]">Riders / Add-ons</label>
+                                    <select
+                                      className="input w-full mt-1 text-xs bg-white"
+                                      value={entry.riders || ''}
+                                      onChange={e => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, riders: e.target.value } : en) } : pg))}
+                                    >
+                                      <option value="">Select Rider / Add-on</option>
+                                      {RIDER_OPTIONS.map(r => (
+                                        <option key={r} value={r}>{r}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="label text-[10px]">Policy Tenure</label>
+                                    <input
+                                      type="text"
+                                      className="input w-full mt-1 text-xs"
+                                      placeholder="e.g. 1 Year"
+                                      value={entry.duration || ''}
+                                      onChange={e => setPolicies(prev => prev.map((pg, gi) => gi === gIdx ? { ...pg, entries: pg.entries.map((en: any, ei: number) => ei === eIdx ? { ...en, duration: e.target.value } : en) } : pg))}
                                     />
                                   </div>
                                 </div>
@@ -4260,6 +4537,18 @@ const medicalOptions = [
         onClose={() => { setDetailOpen(false); setDetailTarget(null); }}
         title={detailTarget ? `${detailTarget.contact?.firstName ?? ''} ${detailTarget.contact?.lastName ?? ''}` : 'Lead Details'}
         size="xl"
+        actions={
+          detailOpen ? (
+            <button
+              onClick={() => detailSaveHandlerRef.current?.()}
+              disabled={detailIsSavingRef.current}
+              className="btn-primary text-xs px-3 py-1.5 h-auto flex flex-nowrap items-center gap-1.5 font-bold shadow-2xs shrink-0"
+            >
+              {detailIsSavingRef.current ? <RefreshCw size={12} className="animate-spin shrink-0" /> : <Save size={12} className="shrink-0" />}
+              Save Lead Details
+            </button>
+          ) : undefined
+        }
       >
         {detailTarget && (
           <LeadDetailPopup
@@ -4270,6 +4559,8 @@ const medicalOptions = [
             isOwner={isOwner}
             onEdit={() => { setDetailOpen(false); openEdit(detailTarget); }}
             onTriggerPolicyCreation={triggerPolicyCreationForLead}
+            saveHandlerRef={detailSaveHandlerRef}
+            isSavingRef={detailIsSavingRef}
           />
         )}
       </Modal>
@@ -4335,9 +4626,9 @@ const medicalOptions = [
               </select>
             </div>
 
-            {/* Insurance Company */}
+            {/* Insurance Company Category */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Insurance Company *</label>
+              <label className="label">Insurance Company Category *</label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={policySelectedCompany}
@@ -4345,10 +4636,9 @@ const medicalOptions = [
                   setPolicySelectedCompany(e.target.value);
                   setPolicySelectedPlanId('');
                 }}
-                disabled={!policySelectedType}
                 required
               >
-                <option value="">Select Company</option>
+                <option value="">Select Insurance Company Category *</option>
                 {availableCompanies.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -4357,15 +4647,14 @@ const medicalOptions = [
 
             {/* Insurance Plan */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <label className="label">Insurance Plan *</label>
+              <label className="label">Insurance Plan Category *</label>
               <select
                 className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
                 value={policySelectedPlanId}
                 onChange={e => setPolicySelectedPlanId(e.target.value)}
-                disabled={!policySelectedCompany}
                 required
               >
-                <option value="">Select Plan</option>
+                <option value="">Select Plan Category *</option>
                 {availablePlans.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -4375,14 +4664,43 @@ const medicalOptions = [
             {/* Sum Assured */}
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
               <label className="label">Sum Assured *</label>
+              <select
+                {...registerPolicy('sumAssured', { required: true })}
+                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                required
+              >
+                <option value="">Select Sum Assured</option>
+                {SUM_INSURED_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Deductible */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Deductible *</label>
               <input
                 type="number"
                 step="any"
-                {...registerPolicy('sumAssured', { required: true })}
-                placeholder="Enter sum assured..."
+                {...registerPolicy('deductible', { required: true })}
+                placeholder="Enter deductible amount..."
                 className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
                 required
               />
+            </div>
+
+            {/* Riders / Add-ons */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Riders / Add-ons</label>
+              <select
+                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                {...registerPolicy('riders')}
+              >
+                <option value="">Select Rider / Add-on</option>
+                {RIDER_OPTIONS.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </div>
 
             {/* Premium Amount */}
@@ -4434,6 +4752,143 @@ const medicalOptions = [
               </select>
             </div>
 
+            {/* Downpayment Amount */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Downpayment Amount</label>
+              <input
+                type="number"
+                step="any"
+                {...registerPolicy('downpaymentAmount')}
+                placeholder="Enter downpayment amount..."
+                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+              />
+            </div>
+
+            {/* Processing Fee */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Processing Fee</label>
+              <input
+                type="number"
+                step="any"
+                {...registerPolicy('processingFee')}
+                placeholder="Enter processing fee..."
+                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+              />
+            </div>
+
+            {/* Policy Tenure */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Policy Tenure</label>
+              <input
+                type="text"
+                {...registerPolicy('policyTenure', {
+                  onChange: (e: any) => {
+                    const val = e.target.value;
+                    if (watchPolicyStartDate && val) {
+                      const newEnd = calculateEndDateFromTenure(watchPolicyStartDate, val);
+                      if (newEnd) setPolicyValue('endDate', newEnd);
+                    }
+                  }
+                })}
+                placeholder="e.g. 1 Year, 11 Months..."
+                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+              />
+            </div>
+
+            {/* Installment Case Toggle */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Installment Case?</label>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPolicyValue('isInstallment', true)}
+                  className={clsx(
+                    'px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer',
+                    watchPolicyIsInstallment
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  )}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPolicyValue('isInstallment', false)}
+                  className={clsx(
+                    'px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer',
+                    !watchPolicyIsInstallment
+                      ? 'bg-slate-700 text-white border-slate-700 shadow-2xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  )}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+
+            {watchPolicyIsInstallment && (
+              <>
+                {/* Installment Amount */}
+                <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+                  <label className="label">Installment Amount</label>
+                  <input
+                    type="number"
+                    step="any"
+                    {...registerPolicy('installmentAmount')}
+                    placeholder="Enter installment amount..."
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                  />
+                </div>
+
+                {/* Installment Date */}
+                <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+                  <label className="label">Installment Date</label>
+                  <DatePicker
+                    {...registerPolicy('installmentDate')}
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Loan Provider */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Loan Provider</label>
+              <input
+                type="text"
+                {...registerPolicy('loanProvider')}
+                placeholder="Enter loan provider name..."
+                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+              />
+            </div>
+
+            {/* Account Type */}
+            <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
+              <label className="label">Account Type</label>
+              <select
+                className="input h-10 text-xs rounded-xl bg-white border border-slate-200"
+                {...registerPolicy('accountType')}
+              >
+                <option value="">Select Account Type</option>
+                <option value="Saving">Saving</option>
+                <option value="Current">Current</option>
+                <option value="NRE">NRE</option>
+                <option value="NRI">NRI</option>
+              </select>
+            </div>
+
+            {/* Comment */}
+            <div className="flex flex-col gap-1 col-span-2">
+              <label className="label">Comment *</label>
+              <textarea
+                {...registerPolicy('comment', { required: true })}
+                rows={3}
+                placeholder="Add any comments or notes about this policy..."
+                className="input w-full text-xs rounded-xl bg-white border border-slate-200 resize-none py-2.5"
+                required
+              />
+            </div>
+
           </div>
 
           <div className="flex flex-wrap justify-end gap-2.5 pt-4 border-t border-slate-100">
@@ -4448,7 +4903,7 @@ const medicalOptions = [
               type="submit"
               className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
             >
-              Issue Policy & Complete Lead
+              Add Policy
             </button>
           </div>
         </form>
@@ -4769,14 +5224,16 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
 }
 
 // ── Lead Detail Popup ─────────────────────────────────────────────────────────
-function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, onTriggerPolicyCreation }: {
+function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, onTriggerPolicyCreation, saveHandlerRef, isSavingRef }: {
   lead: any;
-  tab: 'overview' | 'comments' | 'stage';
-  onTabChange: (t: 'overview' | 'comments' | 'stage') => void;
+  tab: 'overview' | 'comments' | 'history';
+  onTabChange: (t: 'overview' | 'comments' | 'history') => void;
   employees: any[];
   isOwner: boolean;
   onEdit: () => void;
   onTriggerPolicyCreation?: (lead: any) => void;
+  saveHandlerRef?: React.MutableRefObject<(() => void) | null>;
+  isSavingRef?: React.MutableRefObject<boolean>;
 }) {
   const qc = useQueryClient();
   const moveStage = useMoveLeadStage();
@@ -4821,6 +5278,12 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
       setEditPremium(fullLead.premiumBudget || fullLead.expectedPremium || '');
     }
   }, [fullLead]);
+
+  // Expose save handler to parent so it can render the button in the modal header
+  useEffect(() => {
+    if (saveHandlerRef) saveHandlerRef.current = () => handleUpdateLeadDetails();
+    if (isSavingRef) isSavingRef.current = savingLeadDetails;
+  });
 
   const handleUpdateLeadDetails = async (overrides?: Record<string, any>) => {
     setSavingLeadDetails(true);
@@ -4904,10 +5367,10 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
     ? `${fullLead.assignedEmployee.employeeProfile.firstName} ${fullLead.assignedEmployee.employeeProfile.lastName}`
     : fullLead.assignedEmployee?.name || 'Unassigned';
 
-  const tabs: { id: 'overview' | 'comments' | 'stage'; label: string }[] = [
+  const tabs: { id: 'overview' | 'comments' | 'history'; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'comments', label: `Consultation Comments (${consultations.length})` },
-    { id: 'stage', label: 'Stage & Actions' },
+    { id: 'history', label: 'History' },
   ];
 
   return (
@@ -5021,42 +5484,11 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                           </div>
                         </div>
 
-                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Expected Premium / Budget</span>
-                          <p className="font-extrabold text-emerald-700 text-sm mt-0.5">
-                            ₹{Number(premium).toLocaleString('en-IN')}
-                          </p>
-                        </div>
-
-                        {Number(sumAssured) > 0 && (
-                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Sum Assured Required</span>
-                            <p className="font-extrabold text-blue-700 text-sm mt-0.5">
-                              ₹{Number(sumAssured).toLocaleString('en-IN')}
-                            </p>
-                          </div>
-                        )}
-
-                        {(companyName || planName) && (
-                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Selected Plan</span>
-                            <p className="font-bold text-slate-800 text-xs mt-0.5 truncate">
-                              {companyName ? `${companyName} - ` : ''}{planName || ''}
-                            </p>
-                          </div>
-                        )}
 
                         <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
                           <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Source</span>
                           <p className="font-bold text-slate-700 mt-0.5">
                             {pi.source || fullLead.source || 'Walk-in'}
-                          </p>
-                        </div>
-
-                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Stage</span>
-                          <p className="font-bold text-slate-700 mt-0.5">
-                            {(STAGE_LABELS[pi.stage] || pi.stage || STAGE_LABELS[fullLead.stage] || fullLead.stage)}
                           </p>
                         </div>
                       </div>
@@ -5143,8 +5575,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
           })()}
           {/* Directly Editable Lead Management Details */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-2xs">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-100 pb-2 gap-3 sm:gap-0">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
                 <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
                   <Pencil size={14} />
                 </div>
@@ -5152,14 +5583,6 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Lead Information & Status</h4>
                   <p className="text-[10px] text-slate-400">Directly editable fields for this lead</p>
                 </div>
-              </div>
-              <button
-                onClick={() => handleUpdateLeadDetails()}
-                disabled={savingLeadDetails}
-                className="btn-primary text-xs px-3.5 py-1.5 h-auto flex flex-nowrap items-center justify-center gap-1.5 font-bold shadow-2xs w-full sm:w-auto shrink-0"
-              >
-                {savingLeadDetails ? <RefreshCw size={12} className="animate-spin shrink-0" /> : <Save size={12} className="shrink-0" />} Save Lead Details
-              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -5339,38 +5762,102 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
       )}
 
       {/* Stage */}
-      {tab === 'stage' && (
-        <div className="space-y-4">
-          <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Move to Stage</p>
-            <div className="flex flex-wrap gap-2">
-              {UI_STAGES.map(s => {
-                const backendStage = STAGE_MAPPINGS[s];
-                const isCurrent = BACKEND_TO_UI[fullLead.stage] === s;
-                return (
-                  <button key={s}
-                    onClick={() => !isCurrent && backendStage && handleStageChange(backendStage)}
-                    disabled={isCurrent || moveStage.isPending}
-                    className={clsx('flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-all cursor-pointer border',
-                      isCurrent ? 'bg-blue-600 text-white border-blue-600 shadow' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100 hover:text-gray-700')}>
-                    {isCurrent && <ChevronRight size={10} />}
-                    {s}
-                  </button>
-                );
-              })}
+      {tab === 'history' && (
+        <div className="space-y-3 py-1">
+          {/* Lead Audit Log */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2.5">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <History size={13} />
+              </div>
+              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Lead Activity Log</h4>
             </div>
-            <p className="text-[10px] text-gray-400 mt-2">Click any stage to move this lead there.</p>
+            <div className="space-y-2 text-[11px]">
+              {fullLead.createdAt && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><Calendar size={11} /> Lead Created</span>
+                  <span className="font-bold text-slate-700">{new Date(fullLead.createdAt).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {fullLead.updatedAt && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><RefreshCw size={11} /> Last Updated</span>
+                  <span className="font-bold text-slate-700">{new Date(fullLead.updatedAt).toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {fullLead.stage && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold">Current Stage</span>
+                  <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[fullLead.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
+                    {STAGE_LABELS[fullLead.stage] ?? fullLead.stage}
+                  </span>
+                </div>
+              )}
+              {fullLead.source && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold">Lead Source</span>
+                  <span className="font-bold text-slate-700">{fullLead.source}</span>
+                </div>
+              )}
+              {(() => {
+                const parsed = parseLeadNotes(fullLead.notes);
+                return parsed.leadType ? (
+                  <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-slate-500 font-semibold">Lead Type</span>
+                    <span className="font-bold text-slate-700">{parsed.leadType}</span>
+                  </div>
+                ) : null;
+              })()}
+              {fullLead.followUpDate && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><Calendar size={11} /> Follow-up Date</span>
+                  <span className="font-bold text-blue-700">{new Date(fullLead.followUpDate).toLocaleDateString('en-IN')}</span>
+                </div>
+              )}
+              {assigneeName && assigneeName !== 'Unassigned' && (
+                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-semibold">Assigned To</span>
+                  <span className="font-bold text-slate-700">{assigneeName}</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Mark as Process Completed</p>
-            <button
-              onClick={() => handleStageChange('PROCESS_COMPLETED')}
-              disabled={fullLead.stage === 'PROCESS_COMPLETED' || moveStage.isPending}
-              className="text-xs px-3 py-1.5 rounded-full font-medium border bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              Mark as Process Completed
-            </button>
+          {/* Consultation History */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <MessageCircle size={13} />
+                </div>
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Consultation History</h4>
+              </div>
+              <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
+                {consultations.length} {consultations.length === 1 ? 'Entry' : 'Entries'}
+              </span>
+            </div>
+            {consultations.length === 0 ? (
+              <div className="py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <MessageCircle size={20} className="mx-auto mb-1.5 text-slate-300" />
+                <p className="text-xs text-slate-400 font-medium italic">No consultation entries yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {consultations.map((c: any, i: number) => (
+                  <div key={c.id || i} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-slate-800 text-xs">{c.author || c.createdBy || 'Agent'}</span>
+                      {c.createdAt && (
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                          {new Date(c.createdAt).toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
+                    {c.text && <p className="text-slate-600 font-medium leading-relaxed">{c.text}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
