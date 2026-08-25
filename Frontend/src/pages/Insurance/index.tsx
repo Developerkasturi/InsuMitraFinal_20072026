@@ -744,7 +744,7 @@ export default function Insurance() {
   }, [hospitalsRes?.data]);
 
   const totalDoctors = useMemo(() => {
-    return hospitals.reduce((sum, h) => sum + (h.doctors?.length || 0), 0);
+    return hospitals.reduce((sum: number, h: any) => sum + (h.doctors?.length || 0), 0);
   }, [hospitals]);
 
   const { data: plans } = useQuery({

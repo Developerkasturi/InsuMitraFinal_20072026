@@ -8,7 +8,7 @@ import { useClaims, useCreateClaim } from '@hooks/useClaims';
 import { sortData } from '../../utils/sortUtils';
 import { formatIndianNumber, numberToIndianWords } from '../../utils/numberUtils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { contactsService, policiesService, employeesService, claimsService, documentsService, agencyDetailsService } from '@api/index';
+import { contactsService, policiesService, employeesService, claimsService, documentsService, agencyDetailsService, insuranceService } from '@api/index';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
@@ -202,6 +202,22 @@ const ExpandableComment = ({ text }: { text: string }) => {
 const schema = policyFormSchema;
 const editSchema = policyEditFormSchema;
 type Form = z.infer<typeof schema>;
+type EditForm = z.infer<typeof editSchema>;
+
+const SUM_INSURED_OPTIONS = [
+  { value: '50000', label: '₹50,000' },
+  { value: '100000', label: '₹1,000,000 (1 Lakh)' },
+  { value: '200000', label: '₹2,000,000 (2 Lakh)' },
+  { value: '300000', label: '₹3,000,000 (3 Lakh)' },
+  { value: '500000', label: '₹5,000,000 (5 Lakh)' },
+  { value: '750000', label: '₹7,50,000 (7.5 Lakh)' },
+  { value: '1000000', label: '₹10,000,000 (10 Lakh)' },
+  { value: '1500000', label: '₹15,000,000 (15 Lakh)' },
+  { value: '2000000', label: '₹20,000,000 (20 Lakh)' },
+  { value: '2500000', label: '₹25,000,000 (25 Lakh)' },
+  { value: '5000000', label: '₹50,000,000 (50 Lakh)' },
+  { value: '10000000', label: '₹100,000,000 (1 Crore)' },
+];
 
 
 export default function Policies() {

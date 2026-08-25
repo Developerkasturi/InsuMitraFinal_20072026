@@ -13,12 +13,13 @@ import {
 import toast from 'react-hot-toast';
 
 interface Rule {
-  id: number;
+  id: number | string;
   module: string;
   name: string;
   label: string;
   status: 'Active' | 'Optional';
   required: boolean;
+  isProtected?: boolean;
 }
 
 interface DropdownMenu {
@@ -205,7 +206,7 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
         };
         const defaultRequired = (defaultRequiredMap[mod.name] || []).includes(key);
 
-        const savedRule = compulsoryRules.find(r => r.module === mod.name && r.fieldKey === key);
+        const savedRule = compulsoryRules.find((r: any) => r.module === mod.name && r.fieldKey === key);
         const required = isProtected ? true : (savedRule ? savedRule.required : defaultRequired);
 
         list.push({
@@ -245,23 +246,23 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
   const [roles, setRoles] = useState<Role[]>(initialRoles);
 
   // --- HANDLERS ---
-  const handleToggleRequired = (id: number) => {
-    setFieldRules(prev => prev.map(rule => {
+  const handleToggleRequired = (id: number | string) => {
+    const updated = fieldRules.map((rule: Rule) => {
       if (rule.id === id) {
-        const nextRequired = !rule.required;
-        return {
-          ...rule,
-          required: nextRequired,
-          status: nextRequired ? 'Active' : 'Optional'
-        };
+        return { ...rule, required: !rule.required };
       }
       return rule;
+    });
+    const rulesList = updated.map((r: Rule) => ({
+      module: r.module,
+      fieldKey: r.name,
+      required: r.required
     }));
-    toast.success('Field requirement updated');
+    updateCompulsoryMutation.mutate(rulesList);
   };
 
   const handleResetCompulsory = () => {
-    const resetList = fieldRules.map(r => ({
+    const resetList = fieldRules.map((r: Rule) => ({
       module: r.module,
       fieldKey: r.name,
       required: r.isProtected ? true : (['lastName', 'phone', 'sumAssured', 'premiumAmount', 'paymentFrequency', 'claimAmount', 'claimType'].includes(r.name) ? true : false)
@@ -277,24 +278,20 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
       toast.error('Please enter all details');
       return;
     }
-    const newRuleObj: Rule = {
-      id: Date.now(),
-      module: newRule.module,
-      name: newRule.name.trim(),
-      label: newRule.label.trim(),
-      required: newRule.required,
-      status: newRule.required ? 'Active' : 'Optional'
-    };
-    setFieldRules(prev => [newRuleObj, ...prev]);
+    const rulesList = [
+      ...fieldRules.map((r: Rule) => ({ module: r.module, fieldKey: r.name, required: r.required })),
+      { module: newRule.module, fieldKey: newRule.name.trim(), required: newRule.required }
+    ];
+    updateCompulsoryMutation.mutate(rulesList);
     setShowAddRuleModal(false);
     setNewRule({ module: 'Insurance Company', name: '', label: '', required: true });
-    toast.success('Compulsory rule added successfully!');
   };
 
-  const handleDeleteRule = (id: number) => {
+  const handleDeleteRule = (id: number | string) => {
     if (confirm('Are you sure you want to delete this rule?')) {
-      setFieldRules(prev => prev.filter(r => r.id !== id));
-      toast.success('Rule removed');
+      const remaining = fieldRules.filter((r: Rule) => r.id !== id);
+      const rulesList = remaining.map((r: Rule) => ({ module: r.module, fieldKey: r.name, required: r.required }));
+      updateCompulsoryMutation.mutate(rulesList);
     }
   };
 
