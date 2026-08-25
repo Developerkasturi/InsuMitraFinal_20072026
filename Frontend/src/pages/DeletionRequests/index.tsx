@@ -22,28 +22,49 @@ export default function DeletionRequests() {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   const { data: requestsRes, isLoading } = useQuery({
     queryKey: ['deletion-requests', 'all', statusFilter],
     queryFn: () => {
       const filters: any = { page: 1, limit: 500 };
       if (statusFilter !== 'ALL') filters.status = statusFilter;
-      // The backend should handle global vs scoped based on the JWT token.
       return deletionRequestsService.getRequests(filters);
     },
     enabled: isAdmin,
   });
 
-  const rawRequests = requestsRes?.data ?? [];
-  
+  const rawRequests = Array.isArray(requestsRes) ? requestsRes : (requestsRes?.data ?? []);
+
+  const filteredRequests = React.useMemo(() => {
+    if (!Array.isArray(rawRequests)) return [];
+    return rawRequests.filter((r: any) => {
+      const rStatus = (r.status || '').toUpperCase();
+      const matchesStatus = statusFilter === 'ALL' || rStatus === statusFilter.toUpperCase();
+      if (!matchesStatus) return false;
+
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const reqUser = typeof r.requestedBy === 'object' ? r.requestedBy : null;
+      const userName = (reqUser?.name || `${reqUser?.firstName || ''} ${reqUser?.lastName || ''}`).toLowerCase();
+      const userEmail = (reqUser?.email || '').toLowerCase();
+      const entityType = (r.entityType || '').toLowerCase();
+      const entityId = (r.entityId || '').toLowerCase();
+      const reason = (r.reason || '').toLowerCase();
+
+      return userName.includes(q) || userEmail.includes(q) || entityType.includes(q) || entityId.includes(q) || reason.includes(q);
+    });
+  }, [rawRequests, statusFilter, searchQuery]);
+
   const sortedRequests = React.useMemo(() => {
-    return sortData(rawRequests, sortKey, sortDir, (row: any, key: string) => {
+    return sortData(filteredRequests, sortKey, sortDir, (row: any, key: string) => {
       if (key === 'requestedBy') {
         const reqUser = typeof row.requestedBy === 'object' ? row.requestedBy : null;
         return reqUser?.name || (reqUser?.firstName ? `${reqUser.firstName} ${reqUser.lastName || ''}`.trim() : '') || 'Unknown User';
       }
       return row[key];
     });
-  }, [rawRequests, sortKey, sortDir]);
+  }, [filteredRequests, sortKey, sortDir]);
 
   const paginatedRequests = React.useMemo(() => {
     const start = (page - 1) * 10;
@@ -183,19 +204,28 @@ export default function DeletionRequests() {
           </h1>
           <p className="text-gray-500 mt-1">Review and manage delete requests submitted by employees.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 bg-white rounded-lg p-1 border shadow-sm">
-          {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => { setStatusFilter(tab as any); setPage(1); }}
-              className={clsx(
-                'px-4 py-1.5 text-sm font-medium rounded-md transition-all',
-                statusFilter === tab ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              )}
-            >
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            placeholder="Search entity, user, or reason..."
+            className="input text-xs px-3 py-1.5 h-9 rounded-xl border border-slate-200 bg-white shadow-2xs w-64 focus:ring-2 focus:ring-indigo-500/20"
+          />
+          <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-2xs">
+            {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => { setStatusFilter(tab as any); setPage(1); }}
+                className={clsx(
+                  'px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
+                  statusFilter === tab ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                )}
+              >
+                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

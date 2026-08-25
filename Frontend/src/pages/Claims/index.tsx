@@ -252,6 +252,8 @@ const formatPreview = (dateStr?: string) => {
   }
 };
 
+const isFieldRequired = (_key: string, defaultRequired: boolean = false) => defaultRequired;
+
 function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   initial: Claim; isPending: boolean;
   onSave: (body: any, files?: any) => void; onCancel: () => void;
@@ -259,6 +261,18 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
 }) {
   const user = useAuthStore(s => s.user);
   const notesData = getClaimNotesData(initial.notes);
+
+  const { data: compulsoryRulesRes } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    const rule = compulsoryRules.find((r: any) => (r.module === 'Claim' || r.module === 'Hospital') && r.fieldKey === key);
+    if (rule) return rule.required;
+    return defaultRequired;
+  };
   const [claimType, setClaimType] = useState((initial as any).claimType ?? 'HEALTH');
   const [claimAmount, setClaimAmount] = useState(String((initial as any).claimAmount ?? ''));
   const [approvedAmount, setApprovedAmount] = useState(String((initial as any).approvedAmount ?? ''));
@@ -579,24 +593,24 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               {!collapsedSections['proposer'] && (
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="label text-gray-500">Insurance Company Category</label>
-                    <input value={insuranceCompanyCategory} onChange={e => setInsuranceCompanyCategory(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <label className="label text-slate-700 font-bold">Insurance Company Category</label>
+                    <input value={insuranceCompanyCategory} onChange={e => setInsuranceCompanyCategory(e.target.value)} placeholder="e.g. Health" className="input mt-1 bg-white text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-gray-500">Insurance Company</label>
-                    <input value={insuranceCompany} onChange={e => setInsuranceCompany(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <label className="label text-slate-700 font-bold">Insurance Company</label>
+                    <input value={insuranceCompany} onChange={e => setInsuranceCompany(e.target.value)} placeholder="e.g. Star Health" className="input mt-1 bg-white text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-gray-500">Product Name</label>
-                    <input value={insuranceProductName} onChange={e => setInsuranceProductName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <label className="label text-slate-700 font-bold">Product Name</label>
+                    <input value={insuranceProductName} onChange={e => setInsuranceProductName(e.target.value)} placeholder="Product Name..." className="input mt-1 bg-white text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-gray-500">Agent Name</label>
-                    <input value={agentName} onChange={e => setAgentName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <label className="label text-slate-700 font-bold">Agent Name</label>
+                    <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="Agent Name..." className="input mt-1 bg-white text-slate-800" />
                   </div>
                   <div className="md:col-span-4">
-                    <label className="label text-gray-500">Patient / Insured Person</label>
-                    <input value={patientName} onChange={e => setPatientName(e.target.value)} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <label className="label text-slate-700 font-bold">Insured Person Name / Patient Name</label>
+                    <input value={patientName} onChange={e => setPatientName(e.target.value)} placeholder="Enter Insured Person Name / Patient Name..." className="input mt-1 bg-white text-slate-800" />
                   </div>
                 </div>
               )}
@@ -695,27 +709,39 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               )}
             </div>
 
-      {claimType === 'Death Claim' && (
-        <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+        <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-3">
           <div
             className="bg-gradient-to-r from-red-50/80 via-white to-orange-50/30 px-4 py-2.5 border-b border-red-100 flex items-center justify-between cursor-pointer select-none"
             onClick={() => toggleCollapse('death')}
           >
             <h4 className="text-xs font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">!</span>
-              Death Claim Details
+              Incident & Death Details
             </h4>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-red-400 font-semibold">Incident Info</span>
+              <span className="text-[10px] text-red-400 font-semibold">Cause & Dates</span>
               <ChevronDown size={16} className={`text-red-500 transition-transform duration-200 ${collapsedSections['death'] ? 'rotate-180' : ''}`} />
             </div>
           </div>
           {!collapsedSections['death'] && (
             <div className="p-4 bg-red-50/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
-              <input type="date" className="input mt-1" value={deathAdmissionDate} onChange={e => setDeathAdmissionDate(e.target.value)} />
-            </div>
+                      <div>
+                        <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
+                        <input
+                          type="date"
+                          max={new Date().toISOString().substring(0, 10)}
+                          value={deathAdmissionDate}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val && new Date(val) > new Date()) {
+                              toast.error("Date of Admission cannot be a future date");
+                              return;
+                            }
+                            setDeathAdmissionDate(val);
+                          }}
+                          className="input mt-1"
+                        />
+                      </div>
             <div>
               <label className="label text-gray-500">Cause of Death</label>
               <select className="input mt-1" value={causeOfDeath} onChange={e => setCauseOfDeath(e.target.value)}>
@@ -729,12 +755,38 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               </select>
             </div>
             <div>
-              <label className="label text-gray-500">Date of Occurance <br/><span className="text-[10px] font-normal">(Accident, Attack, etc)</span></label>
-              <input type="date" className="input mt-1" value={dateOfOccurance} onChange={e => setDateOfOccurance(e.target.value)} />
+              <label className="label text-gray-500">Date of Occurrence <br/><span className="text-[10px] font-normal">(Accident, Attack, etc)</span></label>
+              <input
+                type="date"
+                max={new Date().toISOString().substring(0, 10)}
+                value={dateOfOccurance}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val && new Date(val) > new Date()) {
+                    toast.error("Date of Occurrence cannot be a future date");
+                    return;
+                  }
+                  setDateOfOccurance(val);
+                }}
+                className="input mt-1"
+              />
             </div>
             <div>
               <label className="label text-gray-500">Date of Death</label>
-              <input type="date" className="input mt-1" value={dateOfDeath} onChange={e => setDateOfDeath(e.target.value)} />
+              <input
+                type="date"
+                max={new Date().toISOString().substring(0, 10)}
+                value={dateOfDeath}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val && new Date(val) > new Date()) {
+                    toast.error("Date of Death cannot be a future date");
+                    return;
+                  }
+                  setDateOfDeath(val);
+                }}
+                className="input mt-1"
+              />
             </div>
             <div>
               <label className="label text-gray-500">Was in Coma?</label>
@@ -757,9 +809,8 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               <textarea className="input mt-1" rows={1} value={deathComment} onChange={e => setDeathComment(e.target.value)} />
             </div>
           </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
         {/* Nominee Details Collapsible */}
         <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
@@ -833,7 +884,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
             </div>
             {!collapsedSections['newHospital'] && (
               <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <label className="label text-[10px]">Hospital Name</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalName} onChange={e => setHospitalName(e.target.value)} />
@@ -841,6 +892,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                   <div>
                     <label className="label text-[10px]">Hospital Address</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalAddress} onChange={e => setHospitalAddress(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital State {isFieldRequired('hospitalState', false) && <span className="text-red-500">*</span>}</label>
+                    <input type="text" className="input mt-1 py-1 text-xs" value={hospitalState} onChange={e => setHospitalState(e.target.value)} placeholder="e.g. Maharashtra" />
                   </div>
                   <div>
                     <label className="label text-[10px]">Hospital City {isFieldRequired('hospitalCity', false) && <span className="text-red-500">*</span>}</label>
@@ -853,6 +908,17 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                   <div>
                     <label className="label text-[10px]">Hospital Contact No {isFieldRequired('hospitalContactNo', false) && <span className="text-red-500">*</span>}</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalContactNo} onChange={e => setHospitalContactNo(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label text-[10px]">Hospital Rating</label>
+                    <select className="input mt-1 py-1 text-xs" value={hospitalRating} onChange={e => setHospitalRating(e.target.value)}>
+                      <option value="">Select Rating</option>
+                      <option value="5 Star">5 Star</option>
+                      <option value="4 Star">4 Star</option>
+                      <option value="3 Star">3 Star</option>
+                      <option value="2 Star">2 Star</option>
+                      <option value="1 Star">1 Star</option>
+                    </select>
                   </div>
                   <div>
                     <label className="label text-[10px]">Hospital Type</label>
@@ -936,7 +1002,20 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     <div>
                       <label className="label text-[10px]">Date of Admission</label>
-                      <input type="date" className="input mt-1 py-1 text-xs" value={admissionAt} onChange={e => setAdmissionAt(e.target.value)} />
+                      <input
+                        type="date"
+                        max={new Date().toISOString().substring(0, 10)}
+                        value={admissionAt}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val && new Date(val) > new Date()) {
+                            toast.error("Date of Admission cannot be a future date");
+                            return;
+                          }
+                          setAdmissionAt(val);
+                        }}
+                        className="input mt-1 py-1 text-xs"
+                      />
                     </div>
                     <div>
                       <label className="label text-[10px]">Date of Discharge</label>
@@ -1376,6 +1455,19 @@ export default function Claims() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
+  const createClaim = useCreateClaim();
+  const deleteClaim = useDeleteClaim();
+  const updateClaimMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => claimsService.update(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['claims'] });
+      toast.success('Claim updated successfully');
+      setEditTarget(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to update claim'),
+  });
+  const { data: hospitalsRes } = useQuery({ queryKey: ['hospitals'], queryFn: () => insuranceService.listHospitals().catch(() => ({ data: [] })) });
+  const hospitals = hospitalsRes?.data ?? [];
   const { user: authUser } = useAuthStore();
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1794,6 +1886,36 @@ export default function Claims() {
     { value: 'OTHER',                   label: 'Other' },
   ];
 
+  const extractNomineesFromPolicy = (p: any) => {
+    let rawNominees: any[] = [];
+    if (Array.isArray(p?.nominees)) {
+      rawNominees = p.nominees;
+    } else if (typeof p?.nominees === 'string') {
+      try {
+        rawNominees = JSON.parse(p.nominees);
+      } catch (e) {
+        rawNominees = [];
+      }
+    }
+
+    return rawNominees.map((n: any) => {
+      const nameVal = n.name || n.nomineeName || n.fullName || (n.firstName ? `${n.firstName || ''} ${n.lastName || ''}`.trim() : '');
+      const relVal = n.relationship || n.relationshipType || n.relation || '';
+      const phoneVal = n.phone || n.contactNo || n.mobile || n.phoneNumber || '';
+      const dobVal = n.dob ? String(n.dob).substring(0, 10) : (n.dateOfBirth ? String(n.dateOfBirth).substring(0, 10) : '');
+      const pctVal = n.percentage ?? n.sharePercent ?? n.share ?? '';
+
+      return {
+        name: nameVal,
+        relationship: relVal,
+        phone: phoneVal,
+        dob: dobVal,
+        percentage: pctVal,
+        comment: n.comment || ''
+      };
+    });
+  };
+
   const { data: contactResults } = useQuery({
     queryKey: ['contact-search-claim', contactSearch],
     queryFn: () => contactsService.list({ search: contactSearch || undefined, limit: 8 }),
@@ -1806,92 +1928,27 @@ export default function Claims() {
     enabled: !!selectedContact,
   });
 
-  const activeContactPolicies = contactDetail?.data?.policies ?? [];
-
-
-
-  const { data: allClaimsData, isLoading: isAllClaimsDataLoading } = useClaims();
-  const createClaim = useCreateClaim();
-  const updateClaim = useUpdateClaimStatus();
-  const deleteClaim = useDeleteClaim();
-  
-  const { data: hospitalsRes } = useQuery({
-    queryKey: ['hospitals-list'],
-    queryFn: () => insuranceService.listHospitals(),
-  });
-  const hospitals = useMemo(() => {
-    return hospitalsRes?.data ?? [];
-  }, [hospitalsRes?.data]);
-  const qcClaims = useQueryClient();
-  const updateClaimMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: any }) => claimsService.update(id, body),
-    onSuccess: () => { qcClaims.invalidateQueries({ queryKey: ['claims'] }); setEditTarget(null); },
-  });
-
-  const { data: compulsoryRulesRes, isLoading: isLoadingRules } = useQuery({
-    queryKey: ['compulsory-rules'],
-    queryFn: () => insuranceService.getCompulsoryRules(),
-  });
-  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
-
-  const isFieldRequired = (key: string, defaultRequired: boolean) => {
-    if (['policyId', 'contactId', 'claimNumber', 'claimType', 'intimatedAt'].includes(key)) return true; // System protected
-    const rule = compulsoryRules.find((r: any) => r.module === 'Claim' && r.fieldKey === key);
-    if (rule) return rule.required;
-    return defaultRequired;
-  };
-
-  const activeSchema = useMemo(() => {
-    return z.object({
-      policyId: isFieldRequired('policyId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a policy') : z.string().optional().or(z.literal('')),
-      contactId: isFieldRequired('contactId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact') : z.string().optional().or(z.literal('')),
-      claimNumber: isFieldRequired('claimNumber', true) ? z.string().min(1, 'Claim number required') : z.string().optional().or(z.literal('')),
-      claimType: isFieldRequired('claimType', true) ? z.string().min(1, 'Select a claim type') : z.string().optional().or(z.literal('')),
-      claimAmount: isFieldRequired('claimAmount', true) ? z.coerce.number().min(0) : z.coerce.number().optional().or(z.literal('')),
-      intimatedAt: isFieldRequired('intimatedAt', true) ? z.string().min(1, 'Intimation date required') : z.string().optional().or(z.literal('')),
-      assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
-      diagnosis: isFieldRequired('diagnosis', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospital: isFieldRequired('hospital', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalAddress: isFieldRequired('hospitalAddress', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      patientName: isFieldRequired('patientName', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      admissionAt: isFieldRequired('admissionAt', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      dischargeAt: isFieldRequired('dischargeAt', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      amtHospital: z.coerce.number().default(0),
-      amtMedicine: z.coerce.number().default(0),
-      amtLab: z.coerce.number().default(0),
-      amtPreHosp: z.coerce.number().default(0),
-      amtPostHosp: z.coerce.number().default(0),
-      amtOthers: z.coerce.number().default(0),
-      notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      approvedAmount: z.coerce.number().optional().default(0),
-      deductionsNotes: isFieldRequired('deductionsNotes', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      subClaimNo: isFieldRequired('subClaimNo', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      uiClaimStatus: isFieldRequired('uiClaimStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      comment: isFieldRequired('comment', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      insuranceCompanyCategory: isFieldRequired('insuranceCompanyCategory', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      insuranceCompany: isFieldRequired('insuranceCompany', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      insuranceProductName: isFieldRequired('insuranceProductName', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      agentName: isFieldRequired('agentName', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      deathAdmissionDate: isFieldRequired('deathAdmissionDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      causeOfDeath: isFieldRequired('causeOfDeath', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      dateOfOccurance: isFieldRequired('dateOfOccurance', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      dateOfDeath: isFieldRequired('dateOfDeath', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      wasInComa: isFieldRequired('wasInComa', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      deathSumInsured: isFieldRequired('deathSumInsured', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      deathTotalClaimedAmount: isFieldRequired('deathTotalClaimedAmount', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      deathComment: isFieldRequired('deathComment', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalName: isFieldRequired('hospitalName', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalState: isFieldRequired('hospitalState', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalCity: isFieldRequired('hospitalCity', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalPincode: isFieldRequired('hospitalPincode', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      hospitalContactNo: isFieldRequired('hospitalContactNo', false) ? z.string().min(1, 'Required') : z.string().optional(),
-    });
-  }, [compulsoryRules]);
+  const activeContactPolicies = useMemo(() => (contactDetail?.policies as any[]) ?? (selectedContact as any)?.policies ?? [], [contactDetail, selectedContact]);
+  const activeSchema = claimFormSchema;
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
     resolver: zodResolver(activeSchema),
     defaultValues: { claimType: 'Cashless', intimatedAt: new Date().toISOString().split('T')[0] },
   });
+
+  useEffect(() => {
+    if (selectedContact && activeContactPolicies.length === 1 && !selectedPolicy) {
+      const p = activeContactPolicies[0];
+      setSelectedPolicy(p);
+      setValue('policyId', p.id, { shouldValidate: true });
+      setValue('insuranceCompany', p.plan?.company?.name || '');
+      setValue('insuranceCompanyCategory', p.plan?.company?.category || 'Health');
+      setValue('insuranceProductName', p.plan?.name || '');
+      setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : '');
+      setValue('deathSumInsured', String(p.sumInsured || p.plan?.sumInsured || ''));
+      setNewNominees(extractNomineesFromPolicy(p));
+    }
+  }, [selectedContact, activeContactPolicies, selectedPolicy, setValue]);
 
   // Watch calculations for create form
   const amtHospital = watch('amtHospital');
@@ -1941,9 +1998,8 @@ export default function Claims() {
 
   // Auto-fill from existing claim entries with same claim number
   useEffect(() => {
-    if (watchClaimNumber && allClaimsData?.data) {
-      const claimsArray = allClaimsData.data || [];
-      const match = claimsArray.find((c: any) => c.claimNumber?.trim().toLowerCase() === watchClaimNumber.trim().toLowerCase());
+    if (watchClaimNumber && rawClaims.length > 0) {
+      const match = rawClaims.find((c: any) => c.claimNumber?.trim().toLowerCase() === watchClaimNumber.trim().toLowerCase());
       if (match) {
         const extra = getClaimNotesData(match.notes);
         if (extra.patientName) setValue('patientName', extra.patientName);
@@ -1955,7 +2011,8 @@ export default function Claims() {
         if (match.intimatedAt) setValue('intimatedAt', match.intimatedAt.slice(0, 10));
       }
     }
-  }, [watchClaimNumber, allClaimsData, setValue]);
+  }, [watchClaimNumber, rawClaims, setValue]);
+
 
   // Auto-fill patient name when policy is selected
   useEffect(() => {
@@ -2029,7 +2086,7 @@ export default function Claims() {
       }
 
       closeModal();
-      qcClaims.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ['claims'] });
     } catch (e: any) {
       console.error(e);
     }
@@ -2042,7 +2099,7 @@ export default function Claims() {
     try {
       const res = await claimsService.importCsv(file);
       toast.success(res.message || `Successfully imported claims!`, { id: toastId });
-      qcClaims.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ['claims'] });
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Failed to import claims', { id: toastId });
@@ -2931,44 +2988,70 @@ export default function Claims() {
                     <div className="p-4 space-y-4">
                       {/* Select Customer */}
                   <div className="relative">
-                    <label className="label">Select Customer <span className="text-red-500">*</span></label>
-                    <input type="hidden" {...register('contactId')} />
+                    <label className="label text-xs font-bold text-slate-700">Select Customer / Proposer <span className="text-red-500">*</span></label>
+                    <input type="hidden" {...register('contactId', { required: true })} />
                     <div className="relative mt-1">
                       <input
-                        value={selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} (${selectedContact.phone})` : contactSearch}
+                        type="text"
+                        value={selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} ${selectedContact.phone ? `(${selectedContact.phone})` : ''}` : contactSearch}
                         onChange={e => {
+                          const val = e.target.value;
                           if (selectedContact) {
                             setSelectedContact(null);
                             setValue('contactId', '');
                             setSelectedPolicy(null);
                             setValue('policyId', '');
-                            setContactSearch(e.target.value);
                           }
-                          setContactSearch(e.target.value);
+                          setContactSearch(val);
                           setContactDropdown(true);
                         }}
                         onFocus={() => setContactDropdown(true)}
-                        onBlur={() => setTimeout(() => setContactDropdown(false), 200)}
-                        placeholder="Choose a customer..."
-                        className="input w-full pl-10 pr-10 bg-white"
+                        onBlur={() => setTimeout(() => setContactDropdown(false), 250)}
+                        placeholder="Search customer by name, phone, or email..."
+                        className="input w-full pl-10 pr-10 bg-white text-xs h-10 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
                       <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▼</span>
+                      {selectedContact ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedContact(null);
+                            setValue('contactId', '');
+                            setSelectedPolicy(null);
+                            setValue('policyId', '');
+                            setContactSearch('');
+                            setContactDropdown(true);
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold bg-slate-100 hover:bg-slate-200 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer"
+                          title="Clear selection"
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">▼</span>
+                      )}
                     </div>
                     {contactDropdown && !selectedContact && (
-                      <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                      <ul className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
                         {(contactResults?.data ?? []).length === 0 ? (
-                          <li className="px-3 py-2 text-sm text-gray-400">No contacts found</li>
+                          <li className="px-3 py-2.5 text-xs text-slate-400 font-medium">No customers found matching "{contactSearch}"</li>
                         ) : (
                           (contactResults?.data ?? []).map((c: any) => (
-                            <li key={c.id} onMouseDown={() => {
-                              setSelectedContact(c);
-                              setValue('contactId', c.id, { shouldValidate: true });
-                              setContactDropdown(false);
-                              setContactSearch('');
-                            }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
-                              <span className="font-semibold">{c.firstName} {c.lastName}</span>
-                              <span className="text-gray-400 text-xs ml-auto">{c.phone}</span>
+                            <li
+                              key={c.id}
+                              onMouseDown={() => {
+                                setSelectedContact(c);
+                                setValue('contactId', c.id, { shouldValidate: true });
+                                setContactDropdown(false);
+                                setContactSearch('');
+                              }}
+                              className="flex items-center justify-between px-3 py-2.5 text-xs hover:bg-blue-50/80 cursor-pointer transition-colors"
+                            >
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-bold text-slate-800 truncate">{c.firstName} {c.lastName}</span>
+                                <span className="text-[10px] text-slate-400 truncate">{c.phone || c.email || 'No contact info'}</span>
+                              </div>
+                              <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full shrink-0">Select</span>
                             </li>
                           ))
                         )}
@@ -2980,46 +3063,48 @@ export default function Claims() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Select Policy */}
                     <div className="relative">
-                      <label className="label">Select Policy <span className="text-red-500">*</span></label>
-                      <input type="hidden" {...register('policyId')} />
+                      <label className="label text-xs font-bold text-slate-700">Select Policy Number <span className="text-red-500">*</span></label>
+                      <input type="hidden" {...register('policyId', { required: true })} />
                       <button
                         type="button"
                         onClick={() => setPolicyDropdown(v => !v)}
-                        className="input w-full text-left text-gray-700 bg-white mt-1 flex justify-between items-center"
+                        className={clsx(
+                          "input w-full text-left text-xs h-10 rounded-xl border mt-1 flex justify-between items-center px-3 transition-colors bg-white text-slate-800 border-slate-200 hover:border-blue-400 cursor-pointer"
+                        )}
                       >
-                        <span className={!selectedPolicy ? "text-gray-400" : ""}>
-                          {selectedPolicy ? selectedPolicy.policyNumber : 'Select Policy'}
+                        <span className={!selectedPolicy ? "text-slate-400" : "font-bold text-blue-700"}>
+                          {selectedPolicy ? `${selectedPolicy.policyNumber} (${selectedPolicy.plan?.name || 'Policy'})` : (selectedContact ? 'Select Policy Number' : 'Select Customer / Policy Number')}
                         </span>
-                        <span className="text-gray-400">▼</span>
+                        <ChevronDown size={15} className="text-slate-400 shrink-0" />
                       </button>
                       {policyDropdown && (
-                        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
-                          {activeContactPolicies.length === 0 ? (
-                            <li className="px-3 py-2 text-sm text-gray-400">No active policies</li>
+                        <ul className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
+                          {!selectedContact ? (
+                            <li className="px-3 py-2.5 text-xs text-slate-400 font-medium">Please select a customer first to view linked policies</li>
+                          ) : activeContactPolicies.length === 0 ? (
+                            <li className="px-3 py-2.5 text-xs text-slate-400 font-medium">No active policies found for this customer</li>
                           ) : (
                             activeContactPolicies.map((p: any) => (
-                              <li key={p.id} onMouseDown={() => {
-                                setSelectedPolicy(p);
-                                setValue('policyId', p.id, { shouldValidate: true });
-                                setValue('insuranceCompany', p.plan?.company?.name || '');
-                                setValue('insuranceCompanyCategory', p.plan?.company?.category || 'Health');
-                                setValue('insuranceProductName', p.plan?.name || '');
-                                setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : '');
-                                setValue('deathSumInsured', String(p.sumInsured || p.plan?.sumInsured || ''));
-                                setPolicyDropdown(false);
-                                
-                                const pNominees = Array.isArray(p.nominees) ? p.nominees : [];
-                                setNewNominees(pNominees.map((n: any) => ({
-                                  name: n.name || '',
-                                  relationship: n.relationship || '',
-                                  phone: n.phone || '',
-                                  dob: n.dob ? n.dob.substring(0, 10) : '',
-                                  percentage: n.percentage || '',
-                                  comment: n.comment || ''
-                                })));
-                              }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
-                                <span className="font-medium">{p.policyNumber}</span>
-                                {p.plan && <span className="text-gray-400 text-xs ml-auto">{p.plan.name}</span>}
+                              <li
+                                key={p.id}
+                                onMouseDown={() => {
+                                  setSelectedPolicy(p);
+                                  setValue('policyId', p.id, { shouldValidate: true });
+                                  setValue('insuranceCompany', p.plan?.company?.name || '');
+                                  setValue('insuranceCompanyCategory', p.plan?.company?.category || 'Health');
+                                  setValue('insuranceProductName', p.plan?.name || '');
+                                  setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : '');
+                                  setValue('deathSumInsured', String(p.sumInsured || p.plan?.sumInsured || ''));
+                                  setPolicyDropdown(false);
+                                  setNewNominees(extractNomineesFromPolicy(p));
+                                }}
+                                className="flex items-center justify-between px-3 py-2.5 text-xs hover:bg-blue-50/80 cursor-pointer transition-colors"
+                              >
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-extrabold text-slate-800">{p.policyNumber}</span>
+                                  {p.plan && <span className="text-[10px] text-slate-400 truncate">{p.plan.company?.name || ''} - {p.plan.name}</span>}
+                                </div>
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">₹{Number(p.sumAssured || p.premiumAmount || 0).toLocaleString('en-IN')}</span>
                               </li>
                             ))
                           )}
@@ -3027,16 +3112,15 @@ export default function Claims() {
                       )}
                     </div>
 
-                    {/* Patient / Insured Person */}
+                    {/* Patient / Insured Person Name */}
                     <div>
-                      <label className="label">Patient / Insured Person</label>
+                      <label className="label text-xs font-bold text-slate-700">Insured Person Name / Patient Name</label>
                       <select
-                        disabled={!selectedContact}
-                        className="input w-full bg-white mt-1"
+                        className="input w-full bg-white mt-1 text-xs h-10 rounded-xl border border-slate-200"
                         {...register('patientName')}
                       >
-                        <option value="">Select Patient</option>
-                        {selectedContact && (
+                        <option value="">Select Insured Person / Patient Name</option>
+                        {selectedContact ? (
                           <>
                             <option value={`${selectedContact.firstName} ${selectedContact.lastName}`}>
                               SELF - {selectedContact.firstName} {selectedContact.lastName}
@@ -3052,6 +3136,8 @@ export default function Claims() {
                               );
                             })}
                           </>
+                        ) : (
+                          <option value="Self / Primary Insured">Self / Primary Insured</option>
                         )}
                       </select>
                     </div>
@@ -3060,20 +3146,20 @@ export default function Claims() {
                   {/* Auto-Fetched Policy Details & Assigned Employee */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="label text-gray-500">Insurance Company Category</label>
-                      <input {...register('insuranceCompanyCategory')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                      <label className="label text-slate-700 font-bold">Insurance Company Category</label>
+                      <input {...register('insuranceCompanyCategory')} placeholder="e.g. Health" className="input mt-1 bg-white text-slate-800" />
                     </div>
                     <div>
-                      <label className="label text-gray-500">Insurance Company</label>
-                      <input {...register('insuranceCompany')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                      <label className="label text-slate-700 font-bold">Insurance Company</label>
+                      <input {...register('insuranceCompany')} placeholder="e.g. Star Health" className="input mt-1 bg-white text-slate-800" />
                     </div>
                     <div>
-                      <label className="label text-gray-500">Product Name</label>
-                      <input {...register('insuranceProductName')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                      <label className="label text-slate-700 font-bold">Product Name</label>
+                      <input {...register('insuranceProductName')} placeholder="Product Name..." className="input mt-1 bg-white text-slate-800" />
                     </div>
                     <div>
-                      <label className="label text-gray-500">Agent Name</label>
-                      <input {...register('agentName')} readOnly className="input mt-1 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                      <label className="label text-slate-700 font-bold">Agent Name</label>
+                      <input {...register('agentName')} placeholder="Agent Name..." className="input mt-1 bg-white text-slate-800" />
                     </div>
                     <div>
                       <label className="label">Assigned Employee</label>
@@ -3180,30 +3266,43 @@ export default function Claims() {
                   )}
                 </div>
 
-                {watchClaimType === 'Death Claim' && (
-                  <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-red-50/80 via-white to-orange-50/30 px-4 py-2.5 border-b border-red-100 flex items-center justify-between cursor-pointer select-none"
-                      onClick={() => toggleCollapse('newDeath')}
-                    >
-                      <h4 className="text-xs font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">!</span>
-                        Death Claim Details
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-red-400 font-semibold">Incident Info</span>
-                        <ChevronDown size={16} className={`text-red-500 transition-transform duration-200 ${collapsedSections['newDeath'] ? 'rotate-180' : ''}`} />
-                      </div>
+                {/* Incident & Death Details Collapsible */}
+                <div className="border border-red-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+                  <div
+                    className="bg-gradient-to-r from-red-50/80 via-white to-orange-50/30 px-4 py-2.5 border-b border-red-100 flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => toggleCollapse('newDeath')}
+                  >
+                    <h4 className="text-xs font-extrabold text-red-600 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-gradient-to-br from-red-500 to-orange-500 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">!</span>
+                      Incident & Death Details
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-red-400 font-semibold">Cause & Dates</span>
+                      <ChevronDown size={16} className={`text-red-500 transition-transform duration-200 ${collapsedSections['newDeath'] ? 'rotate-180' : ''}`} />
                     </div>
-                    {!collapsedSections['newDeath'] && (
-                      <div className="p-4 bg-red-50/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
-                        <input type="date" {...register('deathAdmissionDate')} className="input mt-1" />
+                  </div>
+                  {!collapsedSections['newDeath'] && (
+                    <div className="p-4 bg-red-50/20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="label text-slate-700 font-bold">Date of Admission <br/><span className="text-[10px] font-normal text-slate-500">(In case of hosp.)</span></label>
+                        <input
+                          type="date"
+                          max={new Date().toISOString().substring(0, 10)}
+                          {...register('deathAdmissionDate', {
+                            onChange: (e: any) => {
+                              const val = e.target.value;
+                              if (val && new Date(val) > new Date()) {
+                                toast.error("Date of Admission cannot be a future date");
+                                setValue('deathAdmissionDate', '');
+                              }
+                            }
+                          })}
+                          className="input mt-1 bg-white"
+                        />
                       </div>
                       <div>
-                        <label className="label text-gray-500">Cause of Death</label>
-                        <select {...register('causeOfDeath')} className="input mt-1">
+                        <label className="label text-slate-700 font-bold">Cause of Death</label>
+                        <select {...register('causeOfDeath')} className="input mt-1 bg-white">
                           <option value="">Select Cause</option>
                           <option value="Accidental">Accidental</option>
                           <option value="Non-Accidental">Non-Accidental</option>
@@ -3214,37 +3313,62 @@ export default function Claims() {
                         </select>
                       </div>
                       <div>
-                        <label className="label text-gray-500">Date of Occurance <br/><span className="text-[10px] font-normal">(Accident, Attack, etc)</span></label>
-                        <input type="date" {...register('dateOfOccurance')} className="input mt-1" />
+                        <label className="label text-slate-700 font-bold">Date of Occurrence <br/><span className="text-[10px] font-normal text-slate-500">(Accident, Attack, etc)</span></label>
+                        <input
+                          type="date"
+                          max={new Date().toISOString().substring(0, 10)}
+                          {...register('dateOfOccurance', {
+                            onChange: (e: any) => {
+                              const val = e.target.value;
+                              if (val && new Date(val) > new Date()) {
+                                toast.error("Date of Occurrence cannot be a future date");
+                                setValue('dateOfOccurance', '');
+                              }
+                            }
+                          })}
+                          className="input mt-1 bg-white"
+                        />
                       </div>
                       <div>
-                        <label className="label text-gray-500">Date of Death</label>
-                        <input type="date" {...register('dateOfDeath')} className="input mt-1" />
+                        <label className="label text-slate-700 font-bold">Date of Death</label>
+                        <input
+                          type="date"
+                          max={new Date().toISOString().substring(0, 10)}
+                          {...register('dateOfDeath', {
+                            onChange: (e: any) => {
+                              const val = e.target.value;
+                              if (val && new Date(val) > new Date()) {
+                                toast.error("Date of Death cannot be a future date");
+                                setValue('dateOfDeath', '');
+                              }
+                            }
+                          })}
+                          className="input mt-1 bg-white"
+                        />
                       </div>
                       <div>
-                        <label className="label text-gray-500">Was in Coma?</label>
-                        <select {...register('wasInComa')} className="input mt-1">
+                        <label className="label text-slate-700 font-bold">Was in Coma?</label>
+                        <select {...register('wasInComa')} className="input mt-1 bg-white">
                           <option value="">Select</option>
                           <option value="Yes">Yes</option>
                           <option value="No">No</option>
                         </select>
                       </div>
                       <div>
-                        <label className="label text-gray-500">Sum Insured</label>
+                        <label className="label text-slate-700 font-bold">Sum Insured</label>
                         <input {...register('deathSumInsured')} className="input mt-1 bg-white" placeholder="Auto-fetch or manual" />
                       </div>
                       <div>
-                        <label className="label text-gray-500">Total Claimed Amount</label>
+                        <label className="label text-slate-700 font-bold">Total Claimed Amount</label>
                         <input {...register('deathTotalClaimedAmount')} className="input mt-1 bg-white" placeholder="₹0" />
                       </div>
                       <div className="sm:col-span-2 lg:col-span-1">
-                        <label className="label text-gray-500">Comment</label>
-                        <textarea {...register('deathComment')} className="input mt-1" rows={1} />
+                        <label className="label text-slate-700 font-bold">Comment</label>
+                        <textarea {...register('deathComment')} className="input mt-1 bg-white" rows={1} />
                       </div>
                     </div>
                   )}
                 </div>
-                )}
 
                 {/* Nominee Details Collapsible */}
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
@@ -3320,6 +3444,15 @@ export default function Claims() {
                     <div className="p-4 space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
+                          <label className="label text-[10px]">Hospital State</label>
+                          <input
+                            type="text"
+                            className="input mt-1 py-1 text-xs"
+                            {...register('hospitalState')}
+                            placeholder="e.g. Maharashtra"
+                          />
+                        </div>
+                        <div>
                           <label className="label text-[10px]">Hospital City</label>
                           <input
                             type="text"
@@ -3338,11 +3471,13 @@ export default function Claims() {
                               setValue('hospitalName', val);
                               const hosp = hospitals.find((h: any) => h.name === val || h.hospitalName === val);
                               if (hosp) {
+                                setValue('hospitalState', hosp.state || hosp.hospitalState || '');
                                 setValue('hospitalCity', hosp.city || hosp.hospitalCity || '');
                                 setValue('hospitalAddress', hosp.address || hosp.hospitalAddress || '');
                                 setValue('hospitalPincode', hosp.pincode || hosp.hospitalPincode || '');
                                 setValue('hospitalContactNo', hosp.phone || hosp.hospitalContactNo || '');
                                 setValue('hospitalType', hosp.type || hosp.hospitalType || '');
+                                setValue('hospitalRating', hosp.rating || hosp.hospitalRating || '');
                                 setValue('claimsPerson1Name', hosp.claimsPerson1Name || '');
                                 setValue('claimsPerson1Contact', hosp.claimsPerson1Contact || '');
                                 setValue('claimsPerson2Name', hosp.claimsPerson2Name || '');
@@ -3364,6 +3499,18 @@ export default function Claims() {
                         <div>
                           <label className="label text-[10px]">Hospital Contact No</label>
                           <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalContactNo')} />
+                        </div>
+
+                        <div>
+                          <label className="label text-[10px]">Hospital Rating</label>
+                          <select className="input mt-1 py-1 text-xs" {...register('hospitalRating')}>
+                            <option value="">Select Rating</option>
+                            <option value="5 Star">5 Star</option>
+                            <option value="4 Star">4 Star</option>
+                            <option value="3 Star">3 Star</option>
+                            <option value="2 Star">2 Star</option>
+                            <option value="1 Star">1 Star</option>
+                          </select>
                         </div>
 
                         <div>
@@ -3488,7 +3635,20 @@ export default function Claims() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div>
                           <label className="label text-[10px]">Date of Admission</label>
-                          <input type="date" className="input mt-1 py-1 text-xs" {...register('admissionAt')} />
+                          <input
+                            type="date"
+                            max={new Date().toISOString().substring(0, 10)}
+                            className="input mt-1 py-1 text-xs"
+                            {...register('admissionAt', {
+                              onChange: (e: any) => {
+                                const val = e.target.value;
+                                if (val && new Date(val) > new Date()) {
+                                  toast.error("Date of Admission cannot be a future date");
+                                  setValue('admissionAt', '');
+                                }
+                              }
+                            })}
+                          />
                         </div>
                         <div>
                           <label className="label text-[10px]">Date of Discharge</label>

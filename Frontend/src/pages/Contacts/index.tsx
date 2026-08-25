@@ -1199,13 +1199,17 @@ export default function Contacts() {
       }
     } else {
       if (!whatsappNumber) {
-        toast.error('Whatsapp Number is required');
+        toast.error('WhatsApp Number is required');
         return;
       }
-      const rawPhoneDigits = whatsappNumber.replace(/\D/g, '');
-      const cleanPhone = rawPhoneDigits.length > 10 ? rawPhoneDigits.slice(-10) : rawPhoneDigits;
-      if (cleanPhone.length !== 10) {
-        toast.error('Whatsapp/Mobile Number must be exactly 10 digits');
+      // Strip country code prefix, then validate exactly 10 local digits
+      const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','1','7'];
+      const rawWaDigits = whatsappNumber.replace(/\D/g, '');
+      const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
+      const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
+      const localDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
+      if (!/^\d{10}$/.test(localDigits) && !/^\d{10}$/.test(rawWaDigits)) {
+        toast.error('WhatsApp Number must be exactly 10 digits');
         return;
       }
     }
@@ -1216,6 +1220,33 @@ export default function Contacts() {
     const cleanAadhaar = (personalFields?.aadhaarNumber || '').replace(/\D/g, '');
     if (cleanAadhaar && cleanAadhaar.length !== 12) {
       toast.error('Aadhaar Number must be exactly 12 digits');
+      return;
+    }
+
+    if (!personalFields?.dateOfBirth?.trim()) {
+      toast.error('Date of Birth is required');
+      return;
+    }
+
+    if (!personalFields?.occupationType?.trim()) {
+      toast.error('Occupation Type is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+
+    if (!personalFields?.state?.trim()) {
+      toast.error('State is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+    if (!personalFields?.district?.trim()) {
+      toast.error('District is required');
+      setActiveLeadTab('Personal');
+      return;
+    }
+    if (!personalFields?.city?.trim()) {
+      toast.error('City is required');
+      setActiveLeadTab('Personal');
       return;
     }
 
@@ -1250,6 +1281,23 @@ export default function Contacts() {
           setActiveLeadTab('Product Interest');
           return;
         }
+      }
+    }
+
+    // Validate family members relation
+    for (let i = 0; i < familyMembers.length; i++) {
+      const member = familyMembers[i];
+      const hasContent = 
+        (member.firstName || '').trim() || 
+        (member.lastName || '').trim() || 
+        (member.dob || '').trim() || 
+        (member.whatsapp || '').trim() || 
+        (member.callingNumber || '').trim();
+      
+      if (hasContent && !member.relation?.trim()) {
+        toast.error(`Family Member #${i + 1}: Relation is required`);
+        setActiveLeadTab('Family');
+        return;
       }
     }
 
@@ -2913,14 +2961,18 @@ export default function Contacts() {
         open={leadModalOpen}
         onClose={closeLeadModal}
         title={
-          editContactId
-            ? (activeTab === 'customers' ? "Edit Customer Profile" : "Edit Contact Profile")
-            : (activeTab === 'customers' ? "Add New Customer" : "Add New Contact")
+          activeLeadTab === 'Policy'
+            ? (editContactId ? "Edit Policy" : "Add Policy")
+            : editContactId
+              ? (activeTab === 'customers' ? "Edit Customer Profile" : "Edit Contact Profile")
+              : (activeTab === 'customers' ? "Add New Customer" : "Add New Contact")
         }
         subtitle={
-          editContactId
-            ? (activeTab === 'customers' ? "Update customer profile, family details, and policies." : "Update contact profile, family details, and address.")
-            : (activeTab === 'customers' ? "Manage customer profile, family details, and policies." : "Manage contact profile, family details, and address.")
+          activeLeadTab === 'Policy'
+            ? "Add or update policy details, company, plan name, and coverage."
+            : editContactId
+              ? (activeTab === 'customers' ? "Update customer profile, family details, and policies." : "Update contact profile, family details, and address.")
+              : (activeTab === 'customers' ? "Manage customer profile, family details, and policies." : "Manage contact profile, family details, and address.")
         }
         size="2xl"
         actions={
@@ -2939,7 +2991,9 @@ export default function Contacts() {
                 className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
                 onClick={(e) => handleLeadSubmit(e, false)}
               >
-                Save
+                {activeLeadTab === 'Policy'
+                  ? (editContactId ? 'Update Policy' : 'Add Policy')
+                  : (editContactId ? 'Update Profile' : 'Save')}
               </button>
             )}
           </div>
@@ -3057,7 +3111,7 @@ export default function Contacts() {
                           {/* Interested In — toggle buttons */}
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Interested In</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Interested In <span className="text-red-500">*</span></label>
                               {isExisting && (
                                 <span className="text-[10px] text-slate-400 font-medium italic">
                                   Category fixed for existing records. Change status below or click "+ Add Product Interest" for a new product.
@@ -3502,7 +3556,7 @@ export default function Contacts() {
                       </div>
                     )}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth {isFieldRequired('dateOfBirth', false) && <span className="text-red-500">*</span>}</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth <span className="text-red-500">*</span></label>
                       <DatePicker
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         value={personalFields.dateOfBirth}
@@ -3690,7 +3744,7 @@ export default function Contacts() {
                       </select>
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Occupation Type <span className="text-red-500">*</span></label>
                       <DatalistInput
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         placeholder="Select or enter Occupation Type"
@@ -3734,7 +3788,7 @@ export default function Contacts() {
                   {!personalCollapsed['addressDetails'] && (
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State <span className="text-red-500">*</span></label>
                       <select
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         value={personalFields.state}
@@ -3748,7 +3802,7 @@ export default function Contacts() {
                       </select>
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District <span className="text-red-500">*</span></label>
                       <select
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
                         value={personalFields.district}
@@ -3762,7 +3816,7 @@ export default function Contacts() {
                       </select>
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town {isFieldRequired('city', false) && <span className="text-red-500">*</span>}</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town <span className="text-red-500">*</span></label>
                       <input
                         type="text"
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
@@ -4110,7 +4164,7 @@ export default function Contacts() {
                             />
                           </div>
                           <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Relation</label>
+                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Relation <span className="text-red-500">*</span></label>
                             <select
                               className="input w-full mt-1"
                               value={member.relation}
