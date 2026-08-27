@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Clock, Eye, Play, Square, Lock, Save, Target } from 'lucide-react';
+import { Clock, Eye, Play, Square, Lock, Save, Target, LogOut } from 'lucide-react';
 import { useAuthStore } from '@store/auth.store';
 import toast from 'react-hot-toast';
 import { useClockIn, useClockOut, useUpsertDailyLog } from '@hooks/useWorkspace';
+import ShiftCheckoutModal from '@comps/layout/ShiftCheckoutModal';
 
 function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
   const diffMs = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -32,10 +33,11 @@ export default function WorkspaceHeader({
   const clockInMutation = useClockIn();
   const clockOutMutation = useClockOut();
   const saveLogMutation = useUpsertDailyLog();
-  
+
   const [nextDayPlan, setNextDayPlan] = useState(activeLogToday?.nextDayPlan || '');
   const [notes, setNotes] = useState(activeLogToday?.notes || '');
   const [showPlan, setShowPlan] = useState(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
   // Sync state if activeLogToday changes
   React.useEffect(() => {
@@ -64,9 +66,8 @@ export default function WorkspaceHeader({
       toast.error('Attendance already ended and locked for today');
       return;
     }
-    clockOutMutation.mutate(undefined, {
-      onSuccess: () => refetch()
-    });
+    // Open mandatory checkout handover modal
+    setShowCheckoutModal(true);
   };
 
   const handleSaveNotes = (e: React.FormEvent) => {
@@ -82,78 +83,27 @@ export default function WorkspaceHeader({
 
   return (
     <div className="space-y-4">
-      {/* Sleek Shift Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white rounded-2xl p-4 border border-gray-100 shadow-sm gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-50 text-primary-700 flex items-center justify-center font-bold">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                {isViewOnly && selectedEmployeeObj
-                  ? `Viewing ${selectedEmployeeObj.firstName} ${selectedEmployeeObj.lastName}'s Shift`
-                  : `Shift & Attendance Tracking`}
-              </h2>
-              {isViewOnly && (
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> View Only
-                </span>
-              )}
+      {/* View Only Banner (when inspecting another employee's workspace) */}
+      {isViewOnly && selectedEmployeeObj && (
+        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl p-3.5 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+              <Eye className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-gray-500">
-              {isClockedOut
-                ? 'Shift completed and attendance locked for today'
-                : isClockedIn
-                ? 'Shift active • Logging daily activity & calls'
-                : 'Not started today • Clock in to begin recording work'}
-            </p>
+            <div>
+              <h4 className="text-xs font-bold text-amber-900">
+                Viewing {selectedEmployeeObj.firstName} {selectedEmployeeObj.lastName}'s Workspace (Read Only)
+              </h4>
+              <p className="text-[11px] text-amber-700">
+                Shift status: {isClockedOut ? 'Shift Ended' : isClockedIn ? 'Active Now' : 'Not Clocked In'}
+              </p>
+            </div>
           </div>
+          <span className="px-2.5 py-1 rounded-lg bg-amber-200 text-amber-900 text-[10px] font-extrabold uppercase tracking-wider">
+            Supervisor View
+          </span>
         </div>
-
-        {/* Clock In/Out Actions */}
-        {!isViewOnly && (
-          <div className="flex items-center gap-3 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
-            <div className="flex flex-col text-right mr-1">
-              <span className="text-[10px] text-gray-400 font-bold uppercase">Working Time</span>
-              <span className="text-xs font-bold text-gray-800">
-                {isClockedOut 
-                  ? formatTotalDuration(activeLogToday.checkIn, activeLogToday.checkOut)
-                  : isClockedIn ? 'Active Now' : '0m'}
-              </span>
-            </div>
-
-            {!activeLogToday?.checkIn ? (
-              <button
-                onClick={handleClockIn}
-                disabled={clockInMutation.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5" /> Clock In
-              </button>
-            ) : isClockedIn ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
-                  In: {format(new Date(activeLogToday.checkIn), 'hh:mm a')}
-                </span>
-                <button
-                  onClick={handleClockOut}
-                  disabled={clockOutMutation.isPending}
-                  className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Square className="w-3.5 h-3.5" /> Clock Out
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-[10px] text-gray-600 font-semibold bg-white px-2.5 py-1 rounded-md border border-gray-200">
-                <span>In: {format(new Date(activeLogToday.checkIn), 'hh:mm a')}</span>
-                <span>•</span>
-                <span>Out: {format(new Date(activeLogToday.checkOut), 'hh:mm a')}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* STRATEGIC DAILY WORK & PLANNING HUB */}
       {!isViewOnly && (
@@ -180,13 +130,13 @@ export default function WorkspaceHeader({
               className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <Save className="w-3.5 h-3.5" />
-              {saveLogMutation.isPending ? 'Saving...' : 'Save Shift Notes & Next Working Day Plan'}
+              {saveLogMutation.isPending ? 'Saving...' : 'Save Notes/Plan'}
             </button>
           </div>
 
           {/* 3-Part Strategic Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            
+
             {/* 1. Today's Plan (Uneditable / Fixed Reference) */}
             <div className="bg-gradient-to-br from-amber-50/70 to-orange-50/40 rounded-2xl border border-amber-200/80 p-4 space-y-2 flex flex-col justify-between">
               <div>
@@ -261,6 +211,16 @@ export default function WorkspaceHeader({
           </div>
         </div>
       )}
+
+      {/* Mandatory Handover Checkout Modal */}
+      <ShiftCheckoutModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        initialNotes={notes}
+        initialNextDayPlan={nextDayPlan}
+        isLogoutAction={false}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

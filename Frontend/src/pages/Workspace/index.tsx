@@ -18,7 +18,7 @@ import {
   Plus, CheckSquare, Target, User, Shield,
   FileText, Users, Calendar, Phone, DollarSign,
   Filter, Check, AlertCircle, LayoutDashboard, ArrowRight, Lock, MessageSquare,
-  ChevronDown, Eye, X
+  ChevronDown, Eye, X, Briefcase, Palmtree
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
@@ -27,6 +27,10 @@ import WorkspaceHeader from './components/WorkspaceHeader';
 import WorkspaceKpiCards from './components/WorkspaceKpiCards';
 import UnifiedTaskActivityLog from './components/UnifiedTaskActivityLog';
 import MyTasksPanel from './components/MyTasksPanel';
+import DailyProductivitySummary from './components/DailyProductivitySummary';
+import MonthlyPlanPanel from './components/MonthlyPlanPanel';
+import JobDescriptionPanel from './components/JobDescriptionPanel';
+import EmployeeLeavePanel from './components/EmployeeLeavePanel';
 function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
   const diffMs = new Date(checkOut).getTime() - new Date(checkIn).getTime();
   if (diffMs <= 0) return '0m';
@@ -37,7 +41,7 @@ function formatTotalDuration(checkIn: string | Date, checkOut: string | Date) {
   return `${mins}m`;
 }
 
-type TabType = 'today' | 'my_tasks' | 'targets';
+type TabType = 'today' | 'my_tasks' | 'targets' | 'leaves' | 'job_description';
 
 const formatPreview = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -375,29 +379,49 @@ export default function Workspace() {
           <Target className="w-4 h-4" /> Targets & Commissions
         </button>
 
-        {/* Admin "View Employee Workspace" Button Next to Tabs */}
-        {(user?.role === 'OWNER' || user?.role === 'SUPERADMIN') && (
-          <div className="relative ml-auto flex flex-wrap items-center gap-2">
-            {selectedEmployeeUserId ? (
-              <button
-                onClick={() => setSearchParams({})}
-                className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
-              >
-                <X className="w-4 h-4 text-amber-700" /> Clear Employee Filter
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsEmployeeModalOpen(!isEmployeeModalOpen)}
-                className="flex flex-wrap items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
-              >
-                <Users className="w-4 h-4 text-primary-600" /> View Employee Workspace <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        )}
+        <button
+          onClick={() => setActiveTab('leaves')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+            activeTab === 'leaves'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <Palmtree className="w-4 h-4" /> Absence &amp; Leaves
+        </button>
+
+        <button
+          onClick={() => setActiveTab('job_description')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+            activeTab === 'job_description'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" /> Job Description &amp; Expectations
+        </button>
+
+        {/* "View Employee Workspace" Button Next to Tabs */}
+        <div className="relative ml-auto flex flex-wrap items-center gap-2">
+          {selectedEmployeeUserId ? (
+            <button
+              onClick={() => setSearchParams({})}
+              className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+            >
+              <X className="w-4 h-4 text-amber-700" /> Clear Employee Filter
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsEmployeeModalOpen(!isEmployeeModalOpen)}
+              className="flex flex-wrap items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+            >
+              <Users className="w-4 h-4 text-primary-600" /> View Employee Workspace <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* TAB 1: TODAY (Shift Control Bar + Daily Work Planning Hub + Activity Log) */}
+      {/* TAB 1: TODAY (Executive Cockpit: Shift Control + Daily Summary + 3 Sub-Tabs: Overdue, Today's Queue, Today's Timeline) */}
       {activeTab === 'today' && (
         <div className="space-y-6">
           <WorkspaceHeader
@@ -406,6 +430,13 @@ export default function Workspace() {
             activeLogToday={activeLogToday}
             refetch={refetch}
           />
+
+          {/* Auto-Captured Daily Productivity Summary Cards */}
+          <DailyProductivitySummary 
+            isViewOnly={!!selectedEmployeeUserId}
+          />
+
+          {/* 3 Sub-Tabs: Overdue, Today's Queue, Today's Timeline */}
           <UnifiedTaskActivityLog 
             tasks={filteredTasksList} 
             employeesList={employeesList}
@@ -427,100 +458,17 @@ export default function Workspace() {
         />
       )}
 
-      {/* TAB 4: MY TARGETS & COMMISSIONS */}
+      {/* TAB 3: MY TARGETS & COMMISSIONS */}
       {activeTab === 'targets' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Target Meters */}
-            <div className="card bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6 lg:col-span-2">
-              <h2 className="text-base font-bold text-gray-800 flex flex-wrap items-center gap-2">
-                <Target className="w-5 h-5 text-primary-600" /> Monthly Target Progress (Auto-Calculated from Policies & Lead Movements)
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Sales Progress Card */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
-                      <Shield className="w-4 h-4 text-green-600" /> Sales Target
-                    </span>
-                    <span className="text-xs font-bold text-green-600">{target.monthlyTarget > 0 ? target.percentage : 0}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
-                      style={{ width: `${target.monthlyTarget > 0 ? target.percentage : 0}%` }}
-                    />
-                  </div>
-                  <div className="space-y-1 pt-1 text-xs">
-                    <div className="flex justify-between text-gray-500">
-                      <span>Achieved:</span>
-                      <span className="font-bold text-gray-800">₹{(target.progress || 0).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500">
-                      <span>Target:</span>
-                      <span className="font-semibold text-gray-700">₹{(target.monthlyTarget || 0).toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Calls Progress Card */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
-                      <Phone className="w-4 h-4 text-blue-600" /> Calls Target
-                    </span>
-                    <span className="text-xs font-bold text-blue-600">
-                      {target.callsTarget > 0 ? Math.min(100, Math.round(((target.callsProgress || 0) / target.callsTarget) * 100)) : 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-blue-500 h-2.5 rounded-full transition-all duration-500"
-                      style={{ width: `${target.callsTarget > 0 ? Math.min(100, Math.round(((target.callsProgress || 0) / target.callsTarget) * 100)) : 0}%` }}
-                    />
-                  </div>
-                  <div className="space-y-1 pt-1 text-xs">
-                    <div className="flex justify-between text-gray-500">
-                      <span>Calls Made:</span>
-                      <span className="font-bold text-gray-800">{target.callsProgress || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500">
-                      <span>Target:</span>
-                      <span className="font-semibold text-gray-700">{target.callsTarget || 0}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Proposal Progress Card */}
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
-                      <Users className="w-4 h-4 text-purple-600" /> Proposal Target
-                    </span>
-                    <span className="text-xs font-bold text-purple-600">
-                      {target.visitsTarget > 0 ? Math.min(100, Math.round(((target.visitsProgress || 0) / target.visitsTarget) * 100)) : 0}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div
-                      className="bg-purple-500 h-2.5 rounded-full transition-all duration-500"
-                      style={{ width: `${target.visitsTarget > 0 ? Math.min(100, Math.round(((target.visitsProgress || 0) / target.visitsTarget) * 100)) : 0}%` }}
-                    />
-                  </div>
-                  <div className="space-y-1 pt-1 text-xs">
-                    <div className="flex justify-between text-gray-500">
-                      <span>Proposals Done:</span>
-                      <span className="font-bold text-gray-800">{target.visitsProgress || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500">
-                      <span>Target:</span>
-                      <span className="font-semibold text-gray-700">{target.visitsTarget || 0}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* Monthly Target & Plan vs Live Actual Execution (Clubbed) */}
+            <div className="lg:col-span-2">
+              <MonthlyPlanPanel 
+                targetData={target}
+                isViewOnly={!!selectedEmployeeUserId}
+              />
             </div>
 
             {/* Compensation Overview (Backend Sourced) */}
@@ -623,6 +571,24 @@ export default function Workspace() {
             );
           })()}
         </div>
+      )}
+
+      {/* TAB 4: ABSENCE & LEAVES */}
+      {activeTab === 'leaves' && (
+        <EmployeeLeavePanel
+          employeeId={selectedEmployeeUserId}
+          employeeName={selectedEmployeeObj ? `${selectedEmployeeObj.firstName} ${selectedEmployeeObj.lastName}` : undefined}
+          isViewOnly={!!selectedEmployeeUserId}
+        />
+      )}
+
+      {/* TAB 5: JOB DESCRIPTION & ROLE EXPECTATIONS */}
+      {activeTab === 'job_description' && (
+        <JobDescriptionPanel
+          employeeId={selectedEmployeeUserId}
+          employeeName={selectedEmployeeObj ? `${selectedEmployeeObj.firstName} ${selectedEmployeeObj.lastName}` : undefined}
+          isViewOnly={false}
+        />
       )}
 
     </div>

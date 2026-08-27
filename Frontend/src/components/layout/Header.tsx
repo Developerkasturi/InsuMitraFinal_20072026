@@ -7,6 +7,7 @@ import { useAuthStore } from '@store/auth.store';
 import { authService } from '@api/auth.service';
 
 import { useDebounce } from '@hooks/useDebounce';
+import TopBarShiftTracker from './TopBarShiftTracker';
 
 const SECTION_META: Record<string, { label: string; Icon: React.ElementType; color: string; iconBg: string }> = {
   contacts: { label: 'Contacts', Icon: Users, color: 'text-blue-600', iconBg: 'bg-blue-50' },
@@ -219,8 +220,10 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
       )}
 
       {/* Right actions */}
-      <div className="flex flex-wrap items-center gap-2 ml-auto">
+      <div className="flex flex-wrap items-center gap-2.5 ml-auto">
 
+        {/* Live Top Bar Shift Tracker */}
+        <TopBarShiftTracker />
 
         {/* Notification bell */}
         <div className="relative">

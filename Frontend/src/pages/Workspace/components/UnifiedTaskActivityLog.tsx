@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  Plus, CheckSquare, Clock, ListTodo 
+  Plus, CheckSquare, Clock, ListTodo, AlertTriangle 
 } from 'lucide-react';
 import ExhaustiveTaskActivityModal from './ExhaustiveTaskActivityModal';
 import DailyActivityTimeline from './DailyActivityTimeline';
-import TodaysPriorities from './TodaysPriorities';
+import MyTasksPanel from './MyTasksPanel';
+import OverdueWorkPanel from './OverdueWorkPanel';
 
 interface UnifiedTaskActivityLogProps {
   tasks: any[];
@@ -21,7 +22,7 @@ export default function UnifiedTaskActivityLog({
   onAddTask,
   isViewOnly = false
 }: UnifiedTaskActivityLogProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'QUEUE' | 'TIMELINE'>('QUEUE');
+  const [activeSubTab, setActiveSubTab] = useState<'OVERDUE' | 'QUEUE' | 'TIMELINE'>('OVERDUE');
   const [showExhaustiveModal, setShowExhaustiveModal] = useState(false);
   const [modalMode, setModalMode] = useState<'TASK' | 'ACTIVITY'>('TASK');
 
@@ -37,8 +38,23 @@ export default function UnifiedTaskActivityLog({
       
       {/* Action Controls & Sub-Tab Bar */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        {/* Sub-Tab Switcher: 1. Today's Queue, 2. Today's Timeline */}
-        <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+        {/* Sub-Tab Switcher: 1. Overdue, 2. Today's Queue, 3. Today's Timeline */}
+        <div className="flex flex-wrap p-1 bg-slate-100 rounded-xl border border-slate-200 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('OVERDUE')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeSubTab === 'OVERDUE' 
+                ? 'bg-white text-rose-700 shadow-xs' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Overdue
+            <span className="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-800 font-bold border border-rose-200">
+              4
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveSubTab('QUEUE')}
@@ -65,42 +81,42 @@ export default function UnifiedTaskActivityLog({
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" /> Today's Timeline
+            <Clock className="w-3.5 h-3.5 text-primary-600" /> Today's Timeline
           </button>
         </div>
 
-        {/* Action Buttons */}
+        {/* Single Unified Action Button */}
         {!isViewOnly && (
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => handleCreateNew('TASK')}
-              className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-extrabold flex items-center gap-2 transition-all shadow-md shadow-blue-500/25 hover:scale-105 cursor-pointer select-none"
             >
-              <Plus className="w-3.5 h-3.5" /> Schedule Task
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleCreateNew('ACTIVITY')}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-            >
-              <CheckSquare className="w-3.5 h-3.5" /> Log Activity
+              <Plus size={15} strokeWidth={2.5} />
+              <span>Schedule / Log</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* View 1: Today's Queue (Tabular format of all tasks closing today) */}
+      {/* View 1: Overdue & Critical Items */}
+      {activeSubTab === 'OVERDUE' && (
+        <OverdueWorkPanel />
+      )}
+
+      {/* View 2: Today's Queue */}
       {activeSubTab === 'QUEUE' && (
-        <TodaysPriorities 
+        <MyTasksPanel 
           tasks={tasks} 
+          employeesList={employeesList}
           onToggleTask={onToggleTask}
+          onAddTask={onAddTask}
           isViewOnly={isViewOnly} 
         />
       )}
 
-      {/* View 2: Today's Timeline */}
+      {/* View 3: Today's Timeline */}
       {activeSubTab === 'TIMELINE' && (
         <DailyActivityTimeline />
       )}
@@ -117,3 +133,4 @@ export default function UnifiedTaskActivityLog({
     </div>
   );
 }
+
