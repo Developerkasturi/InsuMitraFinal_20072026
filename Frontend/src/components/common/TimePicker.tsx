@@ -1,7 +1,5 @@
 import React, { forwardRef, useRef, useImperativeHandle, useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
-import { TimepickerUI } from 'timepicker-ui';
-import 'timepicker-ui/index.css';
 
 interface TimePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
   value?: string | null | any;
@@ -19,16 +17,36 @@ function formatTime12h(timeStr: string): string {
   if (match12) {
     let h = parseInt(match12[1], 10);
     const m = match12[2];
-    const p = (match12[3] || 'AM').toUpperCase();
+    let p = (match12[3] || '').toUpperCase();
+    if (!p) {
+      p = h >= 12 ? 'PM' : 'AM';
+      if (h > 12) h -= 12;
+      if (h === 0) h = 12;
+    }
     return `${h.toString().padStart(2, '0')}:${m} ${p}`;
   }
   return timeStr;
 }
 
+/** Converts "02:30 PM" to "14:30" for native input */
+function formatTime24h(timeStr: string): string {
+  if (!timeStr) return '';
+  const match = String(timeStr).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const period = (match[3] || '').toUpperCase();
+    if (period === 'PM' && h < 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return `${h.toString().padStart(2, '0')}:${m}`;
+  }
+  return '';
+}
+
 export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
   ({ value, onChange, onTimeChange, className, placeholder = 'hh:mm AM/PM', disabled, required, ...props }, ref) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const nativeTimeRef = useRef<HTMLInputElement | null>(null);
     const [displayVal, setDisplayVal] = useState(() => formatTime12h(value || ''));
 
     useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
@@ -39,61 +57,39 @@ export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
       }
     }, [value]);
 
-    useEffect(() => {
-      if (!containerRef.current) return;
-
-      const pickerElement = containerRef.current;
-      const tm = new TimepickerUI(pickerElement, {
-        clock: {
-          type: '12h',
-          autoSwitchToMinutes: true,
-          incrementMinutes: 5,
-        },
-        ui: {
-          theme: 'basic',
-          animation: true,
-          backdrop: true,
-        },
-        callbacks: {
-          onConfirm: (data) => {
-            const hour = String(data.hour || '10').padStart(2, '0');
-            const minutes = String(data.minutes || '00').padStart(2, '0');
-            const period = String(data.type || 'AM').toUpperCase();
-            const formatted = `${hour}:${minutes} ${period}`;
-            setDisplayVal(formatted);
-            if (onTimeChange) onTimeChange(formatted);
-            if (onChange) {
-              const fakeEvent = { target: { value: formatted }, toString: () => formatted } as any;
-              onChange(fakeEvent);
-            }
-          }
-        }
-      });
-
-      tm.create();
-
-      return () => {
-        try {
-          tm.destroy();
-        } catch {
-          // ignore
-        }
-      };
-    }, [onTimeChange, onChange]);
-
-    const handleTextInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const text = e.target.value;
-      setDisplayVal(text);
-      if (onTimeChange) onTimeChange(text);
+    const handleChange = (newVal: string) => {
+      const formatted = formatTime12h(newVal);
+      setDisplayVal(formatted);
+      if (onTimeChange) onTimeChange(formatted);
       if (onChange) {
-        const fakeEvent = { target: { value: text }, toString: () => text } as any;
+        const fakeEvent = { target: { value: formatted }, toString: () => formatted } as any;
         onChange(fakeEvent);
       }
     };
 
+    const handleNativeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.value) {
+        handleChange(e.target.value);
+      }
+    };
+
+    const openNativePicker = () => {
+      if (disabled) return;
+      if (nativeTimeRef.current) {
+        if ('showPicker' in nativeTimeRef.current && typeof (nativeTimeRef.current as any).showPicker === 'function') {
+          try {
+            (nativeTimeRef.current as any).showPicker();
+          } catch {
+            nativeTimeRef.current.focus();
+          }
+        } else {
+          nativeTimeRef.current.focus();
+        }
+      }
+    };
+
     return (
-      <div ref={containerRef} className="timepicker-ui relative w-full min-w-[130px]">
-        {/* Visible input configured for timepicker-ui */}
+      <div className="relative w-full min-w-[130px] inline-flex items-center">
         <input
           ref={inputRef}
           type="text"
@@ -101,10 +97,20 @@ export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          onChange={handleTextInput}
-          className={`timepicker-ui-input ${className || ''} cursor-pointer pl-3 pr-8 text-slate-800 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs`}
+          onChange={e => handleChange(e.target.value)}
+          className={`w-full ${className || ''} cursor-pointer pl-3 pr-8 py-1.5 text-slate-800 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-2xs`}
           autoComplete="off"
           {...props}
+        />
+
+        {/* Hidden native time input for browser picker modal */}
+        <input
+          ref={nativeTimeRef}
+          type="time"
+          value={formatTime24h(displayVal)}
+          onChange={handleNativeChange}
+          className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
+          tabIndex={-1}
         />
 
         {/* Clock icon button */}
@@ -112,7 +118,8 @@ export const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
           type="button"
           tabIndex={-1}
           disabled={disabled}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors p-0.5 pointer-events-none"
+          onClick={openNativePicker}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors p-0.5 cursor-pointer"
           aria-label="Clock time picker"
         >
           <Clock size={15} />
