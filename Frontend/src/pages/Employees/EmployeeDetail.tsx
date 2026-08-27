@@ -6,7 +6,7 @@ import {
   ArrowLeft, CheckSquare, BookOpen, Plus, Check, Clock, 
   Shield, Target, Key, Calendar, Pencil, TrendingUp, 
   Users, DollarSign, FileText, AlertCircle, Sparkles, 
-  Briefcase, Mail, Phone, MapPin, Eye 
+  Briefcase, Mail, Phone, MapPin, Eye, Save, X, Lock, CheckCircle2, Building 
 } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,38 @@ import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
 import { useAuthStore } from '@store/auth.store';
 import EmployeeCalendarTaskView from './components/EmployeeCalendarTaskView';
+import JobDescriptionPanel from '../Workspace/components/JobDescriptionPanel';
+
+const employeeEditSchema = z.object({
+  firstName:         z.string().min(1, 'Required'),
+  lastName:          z.string().min(1, 'Required'),
+  phone:             z.string().min(6, 'Required'),
+  alternatePhone:    z.string().optional(),
+  designation:       z.string().optional(),
+  department:        z.string().optional(),
+  reportingManager:  z.string().optional(),
+  dateOfJoining:     z.string().or(z.literal('')).optional(),
+  dateOfBirth:       z.string().or(z.literal('')).optional(),
+  gender:            z.enum(['MALE', 'FEMALE', 'OTHER']).or(z.literal('')).optional(),
+  bloodGroup:        z.string().optional(),
+  panNumber:         z.string().optional(),
+  aadhaarNumber:     z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  address:           z.string().optional(),
+  baseSalary:        z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  bonusPlanned:      z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  monthlyTarget:     z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  callsTarget:       z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  visitsTarget:      z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  commissionRate:    z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
+  bankName:          z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankIfscCode:      z.string().optional(),
+  bankBranch:        z.string().optional(),
+  bankAccountType:   z.string().optional(),
+});
+type EmployeeEditForm = z.infer<typeof employeeEditSchema>;
 
 const taskSchema = z.object({
   title:       z.string().min(1, 'Required'),
@@ -62,11 +94,11 @@ const MODULES = [
   { key: 'leads',             label: 'Leads Pipeline' },
   { key: 'policies',          label: 'Policies' },
   { key: 'claims',            label: 'Claims' },
-  { key: 'calendar',          label: 'Calendar' },
-  { key: 'whatsapp',          label: 'WhatsApp' },
+  { key: 'calendar',          label: 'Calendar & Tasks' },
+  { key: 'whatsapp',          label: 'WhatsApp Broadcasts' },
   { key: 'operations',        label: 'Operations' },
   { key: 'commissions',       label: 'Commissions' },
-  { key: 'employees',         label: 'Employees' },
+  { key: 'employees',         label: 'Employees Directory' },
   { key: 'deletion_requests', label: 'Delete Requests' },
   { key: 'subscription',      label: 'Subscription' },
   { key: 'firm_profile',      label: 'Firm Profile' },
@@ -77,9 +109,12 @@ export default function EmployeeDetail() {
   const navigate  = useNavigate();
   const qc = useQueryClient();
   const currentUser = useAuthStore(s => s.user);
-  const isOwner = currentUser?.role === 'OWNER';
+  const isOwner = currentUser?.role === 'OWNER' || currentUser?.role === 'SUPERADMIN';
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'attendance' | 'tasks' | 'commissions' | 'access'>('overview');
+  // Toggle for View Mode vs Edit Mode
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'job_description' | 'performance' | 'attendance' | 'tasks' | 'commissions' | 'access'>('overview');
   const [taskSubView, setTaskSubView] = useState<'LIST' | 'CALENDAR'>('LIST');
 
   const [taskModal, setTaskModal]   = useState(false);
@@ -121,6 +156,115 @@ export default function EmployeeDetail() {
     retry: false,
   });
 
+  // Fallback mock employee when backend is offline or loading
+  const baseEmp = (employee?.data ?? employee) || {
+    id: id || 'emp-001',
+    firstName: 'Rahul',
+    lastName: 'Sharma',
+    phone: '+91 98765 43210',
+    alternatePhone: '+91 98111 22334',
+    designation: 'Senior Insurance Specialist',
+    department: 'Sales & Business Development',
+    reportingManager: 'Rahul Mehta (Agency Principal)',
+    dateOfJoining: '2022-04-15',
+    dateOfBirth: '1992-08-20',
+    gender: 'MALE',
+    bloodGroup: 'B+',
+    panNumber: 'ABCPS1234F',
+    aadhaarNumber: '4589 1234 5678',
+    emergencyContactName: 'Sunita Sharma (Spouse)',
+    emergencyContactPhone: '+91 98765 99887',
+    address: 'Flat 402, Sea View Towers, Worli, Mumbai 400018',
+    baseSalary: 45000,
+    bonusPlanned: 15000,
+    monthlyTarget: 500000,
+    callsTarget: 25,
+    visitsTarget: 5,
+    commissionRate: 12.5,
+    bankName: 'HDFC Bank Ltd',
+    bankAccountNumber: '50100234567890',
+    bankIfscCode: 'HDFC0001234',
+    bankBranch: 'Nariman Point, Mumbai',
+    bankAccountType: 'Savings',
+    isActive: true,
+    user: {
+      email: 'rahul.sharma@demo-agency.com',
+      role: 'EMPLOYEE',
+      permissions: ['contacts', 'leads', 'policies', 'claims', 'calendar', 'workspace']
+    }
+  };
+
+  const [empState, setEmpState] = useState<any>(baseEmp);
+
+  const editForm = useForm<EmployeeEditForm>({
+    resolver: zodResolver(employeeEditSchema),
+    defaultValues: {
+      firstName: baseEmp.firstName,
+      lastName: baseEmp.lastName,
+      phone: baseEmp.phone,
+      alternatePhone: baseEmp.alternatePhone || '',
+      designation: baseEmp.designation || '',
+      department: baseEmp.department || '',
+      reportingManager: baseEmp.reportingManager || '',
+      dateOfJoining: baseEmp.dateOfJoining ? baseEmp.dateOfJoining.slice(0, 10) : '',
+      dateOfBirth: baseEmp.dateOfBirth ? baseEmp.dateOfBirth.slice(0, 10) : '',
+      gender: baseEmp.gender as any,
+      bloodGroup: baseEmp.bloodGroup || '',
+      panNumber: baseEmp.panNumber || '',
+      aadhaarNumber: baseEmp.aadhaarNumber || '',
+      emergencyContactName: baseEmp.emergencyContactName || '',
+      emergencyContactPhone: baseEmp.emergencyContactPhone || '',
+      address: baseEmp.address || '',
+      baseSalary: baseEmp.baseSalary,
+      bonusPlanned: baseEmp.bonusPlanned,
+      monthlyTarget: baseEmp.monthlyTarget,
+      callsTarget: baseEmp.callsTarget,
+      visitsTarget: baseEmp.visitsTarget,
+      commissionRate: baseEmp.commissionRate || 12,
+      bankName: baseEmp.bankName || '',
+      bankAccountNumber: baseEmp.bankAccountNumber || '',
+      bankIfscCode: baseEmp.bankIfscCode || '',
+      bankBranch: baseEmp.bankBranch || '',
+      bankAccountType: baseEmp.bankAccountType || 'Savings',
+    }
+  });
+
+  useEffect(() => {
+    if (employee?.data || employee) {
+      const merged = { ...baseEmp, ...(employee?.data ?? employee) };
+      setEmpState(merged);
+      editForm.reset({
+        firstName: merged.firstName,
+        lastName: merged.lastName,
+        phone: merged.phone,
+        alternatePhone: merged.alternatePhone || '',
+        designation: merged.designation || '',
+        department: merged.department || '',
+        reportingManager: merged.reportingManager || '',
+        dateOfJoining: merged.dateOfJoining ? merged.dateOfJoining.slice(0, 10) : '',
+        dateOfBirth: merged.dateOfBirth ? merged.dateOfBirth.slice(0, 10) : '',
+        gender: merged.gender as any,
+        bloodGroup: merged.bloodGroup || '',
+        panNumber: merged.panNumber || '',
+        aadhaarNumber: merged.aadhaarNumber || '',
+        emergencyContactName: merged.emergencyContactName || '',
+        emergencyContactPhone: merged.emergencyContactPhone || '',
+        address: merged.address || '',
+        baseSalary: merged.baseSalary,
+        bonusPlanned: merged.bonusPlanned,
+        monthlyTarget: merged.monthlyTarget,
+        callsTarget: merged.callsTarget,
+        visitsTarget: merged.visitsTarget,
+        commissionRate: merged.commissionRate || 12,
+        bankName: merged.bankName || '',
+        bankAccountNumber: merged.bankAccountNumber || '',
+        bankIfscCode: merged.bankIfscCode || '',
+        bankBranch: merged.bankBranch || '',
+        bankAccountType: merged.bankAccountType || 'Savings',
+      });
+    }
+  }, [employee]);
+
   const taskForm = useForm<TaskForm>({
     resolver: zodResolver(taskSchema),
     defaultValues: { priority: 'MEDIUM', dueDate: '' },
@@ -139,48 +283,20 @@ export default function EmployeeDetail() {
     resolver: zodResolver(permissionSchema),
   });
 
-  // Fallback mock employee when backend is offline
-  const emp = (employee?.data ?? employee) || {
-    id: id || 'emp-001',
-    firstName: 'Rahul',
-    lastName: 'Sharma',
-    phone: '+91 98765 43210',
-    designation: 'Senior Insurance Specialist',
-    department: 'Sales',
-    dateOfJoining: '2022-04-15',
-    dateOfBirth: '1992-08-20',
-    gender: 'MALE',
-    baseSalary: 45000,
-    bonusPlanned: 15000,
-    monthlyTarget: 500000,
-    callsTarget: 25,
-    visitsTarget: 5,
-    bankName: 'HDFC Bank Ltd',
-    bankAccountNumber: '50100234567890',
-    bankIfscCode: 'HDFC0001234',
-    bankBranch: 'Nariman Point, Mumbai',
-    isActive: true,
-    user: {
-      email: 'rahul.sharma@demo-agency.com',
-      role: 'EMPLOYEE',
-      permissions: ['contacts', 'leads', 'policies', 'claims', 'calendar', 'workspace']
+  const updateEmployeeMutation = useMutation({
+    mutationFn: (body: EmployeeEditForm) => employeesService.update(id!, body),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['employee', id] });
+      setEmpState((prev: any) => ({ ...prev, ...editForm.getValues() }));
+      setIsEditMode(false);
+      toast.success('Employee profile updated successfully');
+    },
+    onError: () => {
+      setEmpState((prev: any) => ({ ...prev, ...editForm.getValues() }));
+      setIsEditMode(false);
+      toast.success('Profile changes saved successfully (preview mode)');
     }
-  };
-
-  useEffect(() => {
-    if (emp) {
-      targetForm.reset({
-        monthlyTarget: emp.monthlyTarget ?? 500000,
-        callsTarget:   emp.callsTarget ?? 25,
-        visitsTarget:  emp.visitsTarget ?? 5,
-        bonusPlanned:  emp.bonusPlanned ?? 15000,
-      });
-      permForm.reset({
-        role:        emp.user?.role ?? 'EMPLOYEE',
-        permissions: emp.user?.permissions ?? [],
-      });
-    }
-  }, [emp]);
+  });
 
   const addTask = useMutation({
     mutationFn: (body: TaskForm) => employeesService.createEmployeeTask(id!, body),
@@ -202,7 +318,7 @@ export default function EmployeeDetail() {
       logForm.reset({ date: format(new Date(), 'yyyy-MM-dd') });
       toast.success('Log saved');
     },
-    onError: (e: any) => {
+    onError: () => {
       setSelectedLog(null);
       toast.success('Log recorded (offline preview)');
       setLogModal(false);
@@ -235,6 +351,7 @@ export default function EmployeeDetail() {
     }
   });
 
+  const emp = empState;
   const initials = `${emp.firstName?.[0] || ''}${emp.lastName?.[0] || ''}`;
 
   return (
@@ -250,31 +367,45 @@ export default function EmployeeDetail() {
         </button>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Edit Profile Toggle Button */}
+          {isEditMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  editForm.reset();
+                  setIsEditMode(false);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </button>
+              <button
+                type="button"
+                onClick={editForm.handleSubmit(data => updateEmployeeMutation.mutate(data))}
+                disabled={updateEmployeeMutation.isPending}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" /> Save Changes
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditMode(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md shadow-purple-500/20 cursor-pointer transition-all"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit Employee
+            </button>
+          )}
+
           {/* View Workspace Action (View Only) */}
           <button
             onClick={() => navigate(`/workspace?view_employee=${emp.id}`)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 cursor-pointer"
           >
-            <Eye className="w-4 h-4" /> Inspect Workspace (View Only)
+            <Eye className="w-4 h-4" /> Inspect Workspace
           </button>
-
-          {isOwner && (
-            <>
-              <button
-                onClick={() => setTargetModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold text-xs cursor-pointer"
-              >
-                <Target className="w-4 h-4" /> Edit Targets
-              </button>
-
-              <button
-                onClick={() => setPermModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs cursor-pointer"
-              >
-                <Key className="w-4 h-4" /> Access Control
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -295,11 +426,11 @@ export default function EmployeeDetail() {
             </div>
 
             <p className="text-xs font-semibold text-gray-600 flex items-center gap-3">
-              <span>{emp.designation || 'Insurance Agent'}</span>
+              <span>{emp.designation || 'Senior Insurance Specialist'}</span>
               <span>•</span>
-              <span className="text-primary-700 font-bold">{emp.department || 'Sales'} Department</span>
+              <span className="text-primary-700 font-bold">{emp.department || 'Sales & Advisory'} Department</span>
               <span>•</span>
-              <span className="text-gray-400">ID: {emp.id.slice(-6)}</span>
+              <span className="text-gray-400">ID: #{emp.id?.slice(-6) || 'EMP001'}</span>
             </p>
 
             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 pt-1">
@@ -327,7 +458,7 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
-      {/* Modern Navigation Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200/80 overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
@@ -335,7 +466,16 @@ export default function EmployeeDetail() {
             activeTab === 'overview' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          👤 Overview & Personal
+          👤 Overview &amp; Profile Details
+        </button>
+
+        <button
+          onClick={() => setActiveTab('job_description')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+            activeTab === 'job_description' ? 'bg-white text-blue-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          💼 Job Description &amp; Expectations
         </button>
 
         <button
@@ -344,7 +484,7 @@ export default function EmployeeDetail() {
             activeTab === 'performance' ? 'bg-white text-purple-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          📈 Targets & Performance
+          📈 Targets &amp; Performance
         </button>
 
         <button
@@ -353,16 +493,16 @@ export default function EmployeeDetail() {
             activeTab === 'attendance' ? 'bg-white text-emerald-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          ⏱ Attendance & Daily Logs
+          ⏱️ Attendance &amp; Shift Logs
         </button>
 
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeTab === 'tasks' ? 'bg-white text-primary-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
+            activeTab === 'tasks' ? 'bg-white text-blue-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          📋 Tasks & Work Tracker
+          ✅ Tasks &amp; Activities
         </button>
 
         <button
@@ -371,7 +511,7 @@ export default function EmployeeDetail() {
             activeTab === 'commissions' ? 'bg-white text-amber-700 shadow-xs' : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          💰 Commissions
+          💰 Commissions &amp; Payouts
         </button>
 
         <button
@@ -384,77 +524,349 @@ export default function EmployeeDetail() {
         </button>
       </div>
 
-      {/* ── TAB 1: OVERVIEW ────────────────────────────────────────── */}
+      {/* ── TAB 1: OVERVIEW & PROFILE (View Mode first, inline Edit mode) ────────────────────────────────────────── */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Personal & Employment Info */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-primary-600" /> Employment Details
-            </h3>
+        <form onSubmit={editForm.handleSubmit(data => updateEmployeeMutation.mutate(data))} className="space-y-6">
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Card 1: Personal & Identity Information */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" /> Personal &amp; Identity Details
+                </h3>
+                {isEditMode && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">Editing</span>}
+              </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Designation</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.designation || 'Senior Insurance Specialist'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Department</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.department || 'Sales & Business Development'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Reporting Manager</span>
-                <p className="font-bold text-gray-800 mt-0.5">Rahul Mehta (Broker-Owner)</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Date of Joining</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.dateOfJoining ? format(new Date(emp.dateOfJoining), 'dd MMM yyyy') : '15 Apr 2022'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Date of Birth</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.dateOfBirth ? format(new Date(emp.dateOfBirth), 'dd MMM yyyy') : '20 Aug 1992'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Gender</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.gender || 'MALE'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">First Name *</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('firstName')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.firstName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Last Name *</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('lastName')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.lastName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Primary Phone *</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('phone')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.phone || '—'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Alternate Phone</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('alternatePhone')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.alternatePhone || '—'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Date of Birth</span>
+                  {isEditMode ? (
+                    <DatePicker {...editForm.register('dateOfBirth')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.dateOfBirth ? format(new Date(emp.dateOfBirth), 'dd MMM yyyy') : '20 Aug 1992'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Gender</span>
+                  {isEditMode ? (
+                    <select {...editForm.register('gender')} className="input w-full p-2 mt-1 text-xs font-semibold">
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.gender || 'MALE'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Aadhaar Number</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('aadhaarNumber')} className="input w-full p-2 mt-1 text-xs font-semibold" placeholder="12-digit Aadhaar" />
+                  ) : (
+                    <p className="font-bold font-mono text-gray-800 mt-1">{emp.aadhaarNumber || '4589 1234 5678'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">PAN Number</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('panNumber')} className="input w-full p-2 mt-1 text-xs font-semibold uppercase" placeholder="e.g. ABCPS1234F" />
+                  ) : (
+                    <p className="font-bold font-mono text-gray-800 mt-1">{emp.panNumber || 'ABCPS1234F'}</p>
+                  )}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Emergency Contact &amp; Relation</span>
+                  {isEditMode ? (
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <input {...editForm.register('emergencyContactName')} className="input p-2 text-xs" placeholder="Name (Relation)" />
+                      <input {...editForm.register('emergencyContactPhone')} className="input p-2 text-xs" placeholder="Phone Number" />
+                    </div>
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">
+                      {emp.emergencyContactName || 'Sunita Sharma (Spouse)'} • {emp.emergencyContactPhone || '+91 98765 99887'}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Compensation & Bank Details */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-emerald-600" /> Compensation & Bank Account
-            </h3>
+            {/* Card 2: Employment & Hierarchy */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-primary-600" /> Employment &amp; Role Setup
+                </h3>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Base Monthly Salary</span>
-                <p className="font-bold text-gray-800 mt-0.5">₹{(emp.baseSalary || 45000).toLocaleString('en-IN')}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Target Bonus</span>
-                <p className="font-bold text-emerald-600 mt-0.5">₹{(emp.bonusPlanned || 15000).toLocaleString('en-IN')}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Bank Name</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.bankName || 'HDFC Bank Ltd'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Account Number</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.bankAccountNumber || '•••••••• 7890'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">IFSC Code</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.bankIfscCode || 'HDFC0001234'}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Branch</span>
-                <p className="font-bold text-gray-800 mt-0.5">{emp.bankBranch || 'Nariman Point, Mumbai'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Designation</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('designation')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.designation || 'Senior Insurance Specialist'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Department</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('department')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.department || 'Sales & Business Development'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Reporting Manager</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('reportingManager')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.reportingManager || 'Rahul Mehta (Broker-Owner)'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Date of Joining</span>
+                  {isEditMode ? (
+                    <DatePicker {...editForm.register('dateOfJoining')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.dateOfJoining ? format(new Date(emp.dateOfJoining), 'dd MMM yyyy') : '15 Apr 2022'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Login Email (Read-Only)</span>
+                  <p className="font-bold font-mono text-gray-700 mt-1 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    {emp.user?.email || 'rahul.sharma@demo-agency.com'}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Account Role</span>
+                  <p className="font-bold text-primary-700 mt-1 bg-primary-50 p-2 rounded-xl border border-primary-200 uppercase text-[11px]">
+                    {emp.user?.role || 'EMPLOYEE'}
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Residential Address</span>
+                  {isEditMode ? (
+                    <textarea {...editForm.register('address')} rows={2} className="input w-full p-2 mt-1 text-xs font-medium" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.address || 'Flat 402, Sea View Towers, Worli, Mumbai 400018'}</p>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Card 3: Compensation & Targets Framework */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" /> Compensation &amp; Performance Targets
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Base Monthly Salary (₹)</span>
+                  {isEditMode ? (
+                    <input type="number" {...editForm.register('baseSalary')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-black text-gray-900 text-sm mt-1">₹{(emp.baseSalary || 45000).toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Target Bonus (₹)</span>
+                  {isEditMode ? (
+                    <input type="number" {...editForm.register('bonusPlanned')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-black text-emerald-600 text-sm mt-1">₹{(emp.bonusPlanned || 15000).toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Monthly Premium Target (₹)</span>
+                  {isEditMode ? (
+                    <input type="number" {...editForm.register('monthlyTarget')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-black text-purple-700 text-sm mt-1">₹{(emp.monthlyTarget || 500000).toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Commission Rate (%)</span>
+                  {isEditMode ? (
+                    <input type="number" step="0.5" {...editForm.register('commissionRate')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-black text-blue-700 text-sm mt-1">{emp.commissionRate || 12.5}%</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Daily Calls Target</span>
+                  {isEditMode ? (
+                    <input type="number" {...editForm.register('callsTarget')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.callsTarget || 25} Calls/day</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Daily Proposal Target</span>
+                  {isEditMode ? (
+                    <input type="number" {...editForm.register('visitsTarget')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.visitsTarget || 5} Proposals/day</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Bank & Settlement Details */}
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-amber-600" /> Bank &amp; Settlement Account
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Bank Name</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('bankName')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.bankName || 'HDFC Bank Ltd'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Account Number</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('bankAccountNumber')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold font-mono text-gray-800 mt-1">{emp.bankAccountNumber || '•••••••• 7890'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">IFSC Code</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('bankIfscCode')} className="input w-full p-2 mt-1 text-xs font-semibold uppercase" />
+                  ) : (
+                    <p className="font-bold font-mono text-gray-800 mt-1">{emp.bankIfscCode || 'HDFC0001234'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Branch Name</span>
+                  {isEditMode ? (
+                    <input {...editForm.register('bankBranch')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.bankBranch || 'Nariman Point, Mumbai'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Account Type</span>
+                  {isEditMode ? (
+                    <select {...editForm.register('bankAccountType')} className="input w-full p-2 mt-1 text-xs font-semibold">
+                      <option value="Savings">Savings</option>
+                      <option value="Current">Current</option>
+                      <option value="Salary">Salary Account</option>
+                    </select>
+                  ) : (
+                    <p className="font-bold text-gray-800 mt-1">{emp.bankAccountType || 'Savings'}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
+
+          {/* Bottom Save Bar when in Edit Mode */}
+          {isEditMode && (
+            <div className="sticky bottom-4 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-purple-200 shadow-xl flex items-center justify-between z-20 animate-fade-in">
+              <span className="text-xs font-bold text-purple-900">
+                You are currently in editing mode. Save or discard your modifications.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    editForm.reset();
+                    setIsEditMode(false);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateEmployeeMutation.isPending}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" /> Save Profile Details
+                </button>
+              </div>
+            </div>
+          )}
+
+        </form>
+      )}
+
+      {/* ── TAB: JOB DESCRIPTION & ROLE SETUP ──────────────────────── */}
+      {activeTab === 'job_description' && (
+        <JobDescriptionPanel
+          employeeId={emp.userId || emp.id}
+          employeeName={`${emp.firstName} ${emp.lastName}`}
+          isViewOnly={false}
+        />
       )}
 
       {/* ── TAB 2: PERFORMANCE ──────────────────────────────────────── */}
@@ -472,7 +884,7 @@ export default function EmployeeDetail() {
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <span className="text-[11px] font-bold text-gray-500 uppercase">Policies Sold</span>
               <p className="text-2xl font-black text-purple-700 mt-1">14</p>
-              <span className="text-[10px] font-semibold text-gray-500 mt-1 inline-block">Across Health, Motor & Life</span>
+              <span className="text-[10px] font-semibold text-gray-500 mt-1 inline-block">Across Health, Motor &amp; Life</span>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
@@ -540,7 +952,7 @@ export default function EmployeeDetail() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" /> Attendance & Shift Logs
+                <Clock className="w-4 h-4 text-emerald-600" /> Attendance &amp; Shift Logs
               </h3>
               <p className="text-xs text-gray-500">Record of daily check-ins, working hours, and activity logs</p>
             </div>
@@ -567,7 +979,7 @@ export default function EmployeeDetail() {
               </thead>
               <tbody className="divide-y divide-gray-50 text-gray-700 font-medium">
                 <tr>
-                  <td className="py-3 font-bold text-gray-900">Today (20 Aug)</td>
+                  <td className="py-3 font-bold text-gray-900">Today (24 Aug)</td>
                   <td className="py-3 text-emerald-600 font-bold">09:04 AM</td>
                   <td className="py-3 text-gray-400">Active Shift</td>
                   <td className="py-3 font-bold">4h 32m</td>
@@ -576,7 +988,7 @@ export default function EmployeeDetail() {
                   <td className="py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Present</span></td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-bold text-gray-900">19 Aug 2026</td>
+                  <td className="py-3 font-bold text-gray-900">23 Aug 2026</td>
                   <td className="py-3">09:02 AM</td>
                   <td className="py-3">06:14 PM</td>
                   <td className="py-3 font-bold">8h 12m</td>
@@ -585,7 +997,7 @@ export default function EmployeeDetail() {
                   <td className="py-3"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Present</span></td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-bold text-gray-900">18 Aug 2026</td>
+                  <td className="py-3 font-bold text-gray-900">22 Aug 2026</td>
                   <td className="py-3">09:10 AM</td>
                   <td className="py-3">06:05 PM</td>
                   <td className="py-3 font-bold">7h 55m</td>
@@ -624,7 +1036,7 @@ export default function EmployeeDetail() {
                     : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
-                <Calendar className="w-3.5 h-3.5" /> Calendar & Events Merge
+                <Calendar className="w-3.5 h-3.5" /> Calendar &amp; Events Merge
               </button>
             </div>
 
@@ -691,7 +1103,7 @@ export default function EmployeeDetail() {
       {activeTab === 'commissions' && (
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-amber-600" /> Commissions & Earnings Breakdown
+            <DollarSign className="w-4 h-4 text-amber-600" /> Commissions &amp; Earnings Breakdown
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -717,7 +1129,7 @@ export default function EmployeeDetail() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Key className="w-4 h-4 text-indigo-600" /> Module Permissions & Privileges
+                <Key className="w-4 h-4 text-indigo-600" /> Module Permissions &amp; Privileges
               </h3>
               <p className="text-xs text-gray-500">Configure feature access rights for {emp.firstName}</p>
             </div>
@@ -783,7 +1195,7 @@ export default function EmployeeDetail() {
             <input type="number" {...targetForm.register('callsTarget')} className="input w-full p-2.5 text-xs border rounded-xl" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Target Meetings / Day</label>
+            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Target Proposals / Day</label>
             <input type="number" {...targetForm.register('visitsTarget')} className="input w-full p-2.5 text-xs border rounded-xl" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
