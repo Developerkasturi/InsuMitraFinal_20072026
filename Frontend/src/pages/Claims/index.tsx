@@ -2586,37 +2586,18 @@ export default function Claims() {
 
       {/* Unified Search & Actions Row (Policy UI Style) */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
-        {/* Left Side: Search Bar & Export Buttons (Excel, PDF) */}
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        {/* Left Side: Search Bar ONLY */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="relative w-full lg:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search claims by ID or customer..."
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
             />
           </div>
-          {/* Export Buttons */}
-          <button
-            type="button"
-            onClick={exportClaimsToExcel}
-            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
-            title="Export to Excel"
-          >
-            <Download size={14} className="text-emerald-600" />
-            <span className="hidden sm:inline">Excel</span>
-          </button>
-          <button
-            type="button"
-            onClick={exportClaimsToPdf}
-            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
-            title="Export to PDF"
-          >
-            <FileText size={14} className="text-red-500" />
-            <span className="hidden sm:inline">PDF</span>
-          </button>
         </div>
 
         {/* Right Side: View Mode Toggle, Show Analytics & Advanced Filters Toggle */}
@@ -3132,21 +3113,46 @@ export default function Claims() {
           </div>
 
           {/* Action Buttons at bottom of Card */}
-          <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
-            <button
-              type="button"
-              onClick={resetAllModalFilters}
-              className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-            >
-              Reset Filters
-            </button>
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(false)}
-              className="px-6 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
-            >
-              Apply Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
-            </button>
+          <div className="flex flex-wrap justify-between items-center gap-3 mt-6 pt-4 border-t border-slate-200/70">
+            {/* Export Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 mr-1">Export Claims Data:</span>
+              <button
+                type="button"
+                onClick={exportClaimsToExcel}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to Excel"
+              >
+                <Download size={14} className="text-emerald-600" />
+                <span>Export Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={exportClaimsToPdf}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to PDF"
+              >
+                <FileText size={14} className="text-red-500" />
+                <span>Export PDF</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={resetAllModalFilters}
+                className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+              >
+                Reset Filters
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="px-6 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+              >
+                Apply Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1802,25 +1802,6 @@ export default function Policies() {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
                   />
                 </div>
-                {/* Export Buttons */}
-                <button
-                  type="button"
-                  onClick={exportPoliciesToExcel}
-                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
-                  title="Export to Excel"
-                >
-                  <Download size={14} className="text-emerald-600" />
-                  <span className="hidden sm:inline">Excel</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={exportPoliciesToPdf}
-                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
-                  title="Export to PDF"
-                >
-                  <FileText size={14} className="text-red-500" />
-                  <span className="hidden sm:inline">PDF</span>
-                </button>
               </div>
 
               {/* Right Side: Quick Select Category Filters, Column Picker & Filters Toggle */}
@@ -2385,21 +2366,46 @@ export default function Policies() {
               </div>
 
               {/* Actions */}
-              <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
-                <button
-                  type="button"
-                  onClick={() => { setTempFilters(defaultFilters); setAppliedFilters(defaultFilters); setPage(1); }}
-                  className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-                >
-                  Reset Filters
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAppliedFilters(tempFilters); setPage(1); }}
-                  className="px-6 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 hover:scale-105 cursor-pointer"
-                >
-                  Apply Filters {activePoliciesFilterCount > 0 ? `(${activePoliciesFilterCount})` : ''}
-                </button>
+              <div className="flex flex-wrap justify-between items-center gap-3 mt-6 pt-4 border-t border-slate-200/70">
+                {/* Export Buttons */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500 mr-1">Export Data:</span>
+                  <button
+                    type="button"
+                    onClick={exportPoliciesToExcel}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                    title="Export to Excel"
+                  >
+                    <Download size={14} className="text-emerald-600" />
+                    <span>Export Excel</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportPoliciesToPdf}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                    title="Export to PDF"
+                  >
+                    <FileText size={14} className="text-red-500" />
+                    <span>Export PDF</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setTempFilters(defaultFilters); setAppliedFilters(defaultFilters); setPage(1); }}
+                    className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAppliedFilters(tempFilters); setPage(1); }}
+                    className="px-6 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 hover:scale-105 cursor-pointer"
+                  >
+                    Apply Filters {activePoliciesFilterCount > 0 ? `(${activePoliciesFilterCount})` : ''}
+                  </button>
+                </div>
               </div>
             </div>
           )}
