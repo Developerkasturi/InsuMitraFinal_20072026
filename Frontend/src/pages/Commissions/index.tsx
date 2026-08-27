@@ -15,6 +15,8 @@ import clsx from 'clsx';
 import { useAuthStore } from '@store/auth.store';
 import { sortData } from '../../utils/sortUtils';
 import { deletionRequestsService } from '@api/deletionRequestsService';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
 interface Commission {
   id: string; amount: number; rate: number; isPaid: boolean; paidAt?: string;
@@ -75,8 +77,8 @@ export default function Commissions() {
   const qc = useQueryClient();
 
   // Mock UI Filter State for top filter bar (Frontend only)
-  const [startDate, setStartDate] = useState('2026-05-01');
-  const [endDate, setEndDate]     = useState('2026-06-20');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate]     = useState('');
   const [insCategory, setInsCategory] = useState('All');
   const [insCompany, setInsCompany]   = useState('All');
   const [insCategoryPlan, setInsCategoryPlan] = useState('All');
@@ -243,12 +245,25 @@ export default function Commissions() {
   };
 
   const allRows: Commission[] = data?.data ?? [];
-  const filtered = search.trim()
-    ? allRows.filter(r =>
-        r.policy?.policyNumber?.toLowerCase().includes(search.toLowerCase()) ||
-        `${r.beneficiary?.employeeProfile?.firstName ?? ''} ${r.beneficiary?.employeeProfile?.lastName ?? ''}`.toLowerCase().includes(search.toLowerCase())
-      )
-    : allRows;
+  const filtered = useMemo(() => {
+    return allRows.filter((r: any) => {
+      if (search.trim()) {
+        const matchesSearch =
+          r.policy?.policyNumber?.toLowerCase().includes(search.toLowerCase()) ||
+          `${r.beneficiary?.employeeProfile?.firstName ?? ''} ${r.beneficiary?.employeeProfile?.lastName ?? ''}`.toLowerCase().includes(search.toLowerCase());
+        if (!matchesSearch) return false;
+      }
+      if (startDate) {
+        const rDate = r.paidAt || r.createdAt;
+        if (rDate && new Date(rDate) < new Date(startDate)) return false;
+      }
+      if (endDate) {
+        const rDate = r.paidAt || r.createdAt;
+        if (rDate && new Date(rDate) > new Date(endDate + 'T23:59:59')) return false;
+      }
+      return true;
+    });
+  }, [allRows, search, startDate, endDate]);
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -264,6 +279,86 @@ export default function Commissions() {
       return row[key];
     });
   }, [filtered, sortKey, sortDir]);
+
+  const exportCommissionsToExcel = () => {
+    const dataToExport = sortedFiltered.map((c: any) => ({
+      'Commission ID': c.id,
+      'Policy Number': c.policy?.policyNumber || 'N/A',
+      'Beneficiary / Employee': c.beneficiary?.employeeProfile ? `${c.beneficiary.employeeProfile.firstName} ${c.beneficiary.employeeProfile.lastName}` : 'N/A',
+      'Commission Year': c.commissionYear?.name || 'N/A',
+      'Base Amount': c.amount ? `₹${Number(c.amount).toLocaleString('en-IN')}` : '₹0',
+      'Addon Amount': c.addon ? `₹${Number(c.addon).toLocaleString('en-IN')}` : '₹0',
+      'Deductible Amount': c.deductible ? `₹${Number(c.deductible).toLocaleString('en-IN')}` : '₹0',
+      'Payment Status': c.isPaid ? 'Paid' : 'Unpaid',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Commissions");
+    XLSX.writeFile(workbook, `Commissions_Export_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`);
+  };
+
+  const exportCommissionsToPdf = () => {
+    const rowsHtml = sortedFiltered.map((c: any, index: number) => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">${index + 1}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${c.policy?.policyNumber || 'N/A'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${c.beneficiary?.employeeProfile ? `${c.beneficiary.employeeProfile.firstName} ${c.beneficiary.employeeProfile.lastName}` : 'N/A'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #16a34a;">₹${Number(c.amount || 0).toLocaleString('en-IN')}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${c.isPaid ? 'PAID' : 'UNPAID'}</td>
+      </tr>
+    `).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Commissions Report</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #1e293b; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">Commissions Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedFiltered.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 8%;">Sr</th>
+                <th style="width: 25%;">Policy No</th>
+                <th style="width: 35%;">Beneficiary</th>
+                <th style="width: 17%; text-align: right;">Amount</th>
+                <th style="width: 15%; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const selectedPoliciesList = useMemo(() => {
     return selectedIds.map(id => {
@@ -333,19 +428,36 @@ export default function Commissions() {
         </button>
       </div>
 
-      {/* ── ACTION BUTTONS BAR ─────────────────────────────────────────── */}
-      <div className="flex justify-end items-center gap-2">
-        <button 
-          onClick={() => setShowFilter(!showFilter)} 
-          className={clsx(
-            "h-9 px-3.5 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-xl border transition-all shadow-2xs",
-            showFilter ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-          )}
-        >
-          <Filter size={14} className={showFilter ? "text-indigo-600" : "text-slate-500"} />
-          <span>Filter</span>
-          {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
+      {/* ── ACTION BUTTONS & SEARCH BAR ─────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
+        {/* Left Side: Search Bar ONLY */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="relative w-full lg:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search policy#, employee..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+            />
+          </div>
+        </div>
+
+        {/* Right Side: Filter Toggle Button */}
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowFilter(!showFilter)} 
+            className={clsx(
+              "h-9 px-3.5 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-xl border transition-all shadow-2xs",
+              showFilter ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+            )}
+          >
+            <Filter size={14} className={showFilter ? "text-indigo-600" : "text-slate-500"} />
+            <span>Filter</span>
+            {showFilter ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* ── FILTER PRESETS / PARAMETER CONTROLS (SHOW ONLY ON TOGGLE) ──────── */}
@@ -363,11 +475,24 @@ export default function Commissions() {
 
           {/* Filter Grid - Row 1 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Dates</label>
-              <div className="flex items-center border border-slate-200 rounded-xl px-2.5 py-1.5 bg-slate-50/50 text-xs font-semibold text-slate-700">
-                <input type="text" value={`${startDate}  ~  ${endDate}`} onChange={() => {}} className="bg-transparent outline-none w-full text-xs font-medium" />
-                <Calendar size={13} className="text-slate-400 shrink-0" />
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Select Dates (From - To)</label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
+                  title="From Date"
+                />
+                <span className="text-slate-400 font-bold">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
+                  title="To Date"
+                />
               </div>
             </div>
 
@@ -494,19 +619,57 @@ export default function Commissions() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Active / Inactive</label>
-                <select value={activeState} onChange={e => setActiveState(e.target.value)} className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white text-xs font-medium text-slate-700 outline-none focus:border-indigo-500">
-                  <option>Active</option>
-                  <option>Inactive</option>
-                  <option>All</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-1">
-                <button className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-semibold hover:bg-slate-100 transition-colors">Reset</button>
-                <button className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Apply</button>
-              </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Active / Inactive</label>
+              <select value={activeState} onChange={e => setActiveState(e.target.value)} className="w-full border border-slate-200 rounded-xl px-2.5 py-1.5 bg-white text-xs font-medium text-slate-700 outline-none focus:border-indigo-500">
+                <option>Active</option>
+                <option>Inactive</option>
+                <option>All</option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* Action Buttons at bottom of Filter Card */}
+          <div className="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-slate-100">
+            {/* Export Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 mr-1">Export Data:</span>
+              <button
+                type="button"
+                onClick={exportCommissionsToExcel}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to Excel"
+              >
+                <Download size={14} className="text-emerald-600" />
+                <span>Export Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={exportCommissionsToPdf}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to PDF"
+              >
+                <FileText size={14} className="text-red-500" />
+                <span>Export PDF</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button 
+                type="button" 
+                onClick={() => { setInsCategory('All'); setInsCompany('All'); setInsCategoryPlan('All'); setBusinessCat('All'); setPlanName('All'); setAssignedEmp('All'); setBaFilter('All'); setRmFilter('All'); setMinSum(''); setMaxSum(''); setActiveState('Active'); }} 
+                className="px-4 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold hover:bg-slate-100 transition-colors shadow-2xs cursor-pointer"
+              >
+                Reset
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowFilter(false)} 
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md shadow-indigo-500/20 cursor-pointer"
+              >
+                Apply
+              </button>
             </div>
           </div>
         </div>

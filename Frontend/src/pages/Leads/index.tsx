@@ -2282,39 +2282,22 @@ const medicalOptions = [
 
       {/* Unified Search & Actions Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
-        {/* Left: Search Bar */}
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search leads by name or phone..."
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
-          />
+        {/* Left Side: Search Bar ONLY */}
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="relative w-full lg:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search leads by name, phone..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+            />
+          </div>
         </div>
 
         {/* Right: View toggle and controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Export Buttons */}
-          <button
-            type="button"
-            onClick={exportLeadsToExcel}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
-            title="Export to Excel"
-          >
-            <Download size={13} className="text-emerald-600" />
-            <span className="hidden sm:inline">Excel</span>
-          </button>
-          <button
-            type="button"
-            onClick={exportLeadsToPdf}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
-            title="Export to PDF"
-          >
-            <FileText size={13} className="text-red-500" />
-            <span className="hidden sm:inline">PDF</span>
-          </button>
           {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
             <button
@@ -2631,8 +2614,32 @@ const medicalOptions = [
             </select>
           </div>
 
-          {activeFilterCount > 0 && (
-            <div className="col-span-1 sm:col-span-2 lg:col-span-3 flex justify-end pt-2 border-t border-slate-200">
+          {/* Filter Panel Footer Action Bar */}
+          <div className="col-span-1 sm:col-span-2 lg:col-span-3 flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-slate-200">
+            {/* Export Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 mr-1">Export Leads Data:</span>
+              <button
+                type="button"
+                onClick={exportLeadsToExcel}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to Excel"
+              >
+                <Download size={14} className="text-emerald-600" />
+                <span>Export Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={exportLeadsToPdf}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+                title="Export to PDF"
+              >
+                <FileText size={14} className="text-red-500" />
+                <span>Export PDF</span>
+              </button>
+            </div>
+
+            {activeFilterCount > 0 && (
               <button
                 onClick={() => {
                   setFilterPlans([]); setFilterStatuses([]); setFilterStages([]); setFilterTypes([]);
@@ -2642,12 +2649,12 @@ const medicalOptions = [
                   setFilterExpectedPremiumMin(''); setFilterExpectedPremiumMax('');
                   setFilterLeadSource('');
                 }}
-                className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-extrabold cursor-pointer px-3 py-1 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-extrabold cursor-pointer px-3 py-1.5 bg-red-50 hover:bg-red-100 rounded-xl transition-colors shadow-2xs"
               >
                 <X size={13} /> Clear all filters
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
