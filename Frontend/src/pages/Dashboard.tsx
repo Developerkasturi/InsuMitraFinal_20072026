@@ -798,6 +798,7 @@ function DatabaseSummary({ summaryData }: { summaryData: any }) {
 
 // ── Claims Reports Panel Component ───────────────────────────────────────────
 function ClaimsReportsTab() {
+  const navigate = useNavigate();
   const { data: claimsRes, isLoading: claimsLoading } = useClaims({ page: 1, limit: 1000 });
   const rawClaims = claimsRes?.data ?? [];
   const claims = (rawClaims && rawClaims.length > 0) ? rawClaims : FALLBACK_CLAIMS_FOR_REPORTS;
