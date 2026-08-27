@@ -467,6 +467,14 @@ export default function Leads() {
   const [filterEmployee, setFilterEmployee] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterEnquiryDateFrom, setFilterEnquiryDateFrom] = useState('');
+  const [filterEnquiryDateTo, setFilterEnquiryDateTo] = useState('');
+  const [filterFinalSellsFrom, setFilterFinalSellsFrom] = useState('');
+  const [filterFinalSellsTo, setFilterFinalSellsTo] = useState('');
+  const [filterExpectedPremiumMin, setFilterExpectedPremiumMin] = useState('');
+  const [filterExpectedPremiumMax, setFilterExpectedPremiumMax] = useState('');
+  const [filterLeadSource, setFilterLeadSource] = useState('');
+  const [selectedQuickFilter, setSelectedQuickFilter] = useState('ALL');
   const [search, setSearch] = useState('');
 
   const [planFilterOpen, setPlanFilterOpen] = useState(false);
@@ -1024,9 +1032,79 @@ export default function Leads() {
         const toDate = new Date(filterDateTo); toDate.setHours(23, 59, 59, 999);
         if (!lead.followUpDate || new Date(lead.followUpDate) > toDate) return false;
       }
+
+      // Date of First Enquiry (Lead Creation Date)
+      if (filterEnquiryDateFrom) {
+        const fromDate = new Date(filterEnquiryDateFrom); fromDate.setHours(0, 0, 0, 0);
+        if (!lead.createdAt || new Date(lead.createdAt) < fromDate) return false;
+      }
+      if (filterEnquiryDateTo) {
+        const toDate = new Date(filterEnquiryDateTo); toDate.setHours(23, 59, 59, 999);
+        if (!lead.createdAt || new Date(lead.createdAt) > toDate) return false;
+      }
+
+      // Date of Final Sells (Completed / Payment Done stage date)
+      if (filterFinalSellsFrom) {
+        const fromDate = new Date(filterFinalSellsFrom); fromDate.setHours(0, 0, 0, 0);
+        const isClosed = lead.stage === 'PAYMENT_DONE' || lead.stage === 'PROCESS_COMPLETED';
+        const sellDate = lead.updatedAt || lead.createdAt;
+        if (!isClosed || !sellDate || new Date(sellDate) < fromDate) return false;
+      }
+      if (filterFinalSellsTo) {
+        const toDate = new Date(filterFinalSellsTo); toDate.setHours(23, 59, 59, 999);
+        const isClosed = lead.stage === 'PAYMENT_DONE' || lead.stage === 'PROCESS_COMPLETED';
+        const sellDate = lead.updatedAt || lead.createdAt;
+        if (!isClosed || !sellDate || new Date(sellDate) > toDate) return false;
+      }
+
+      // Expected Premium Range Filter
+      if (filterExpectedPremiumMin) {
+        if ((lead.premiumBudget ?? 0) < Number(filterExpectedPremiumMin)) return false;
+      }
+      if (filterExpectedPremiumMax) {
+        if ((lead.premiumBudget ?? 0) > Number(filterExpectedPremiumMax)) return false;
+      }
+
+      // Lead Source Filter
+      if (filterLeadSource) {
+        const lSource = (lead.source || '').toLowerCase();
+        if (!lSource.includes(filterLeadSource.toLowerCase())) return false;
+      }
+
+      // Quick Select Filter
+      if (selectedQuickFilter !== 'ALL') {
+        if (selectedQuickFilter === 'HOT') {
+          const isHotStatus = extra.leadStatus === 'HOT';
+          const isHotDerived = deriveHotness(lead) === 'HOT';
+          if (!isHotStatus && !isHotDerived) return false;
+        } else if (selectedQuickFilter === 'VERY_HOT') {
+          if (extra.leadStatus !== 'VERY_HOT') return false;
+        } else if (selectedQuickFilter === 'HEALTH') {
+          const cat = (lead.plan?.category || '').toUpperCase();
+          const hasHealthInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('health'));
+          if (cat !== 'HEALTH' && !hasHealthInterest) return false;
+        } else if (selectedQuickFilter === 'LIFE') {
+          const cat = (lead.plan?.category || '').toUpperCase();
+          const hasLifeInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('life'));
+          if (cat !== 'LIFE' && !hasLifeInterest) return false;
+        } else if (selectedQuickFilter === 'MF') {
+          const cat = (lead.plan?.category || '').toUpperCase();
+          const hasMfInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('mutual') || i.toLowerCase().includes('fund') || i.toLowerCase() === 'mf');
+          if (cat !== 'MF' && !hasMfInterest) return false;
+        } else if (selectedQuickFilter === 'THIS_WEEK') {
+          if (!lead.followUpDate) return false;
+          const fDate = new Date(lead.followUpDate);
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          const weekFromNow = new Date(now.getTime() + 7 * 86400000);
+          weekFromNow.setHours(23, 59, 59, 999);
+          if (fDate < now || fDate > weekFromNow) return false;
+        }
+      }
+
       return true;
     });
-  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterStages, filterTypes, filterDateFrom, filterDateTo]);
+  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterStages, filterTypes, filterDateFrom, filterDateTo, filterEnquiryDateFrom, filterEnquiryDateTo, filterFinalSellsFrom, filterFinalSellsTo, filterExpectedPremiumMin, filterExpectedPremiumMax, filterLeadSource, selectedQuickFilter]);
 
   // Sorted leads for table
   const sortedLeads = useMemo(() => {
@@ -2161,7 +2239,11 @@ const medicalOptions = [
 
   const activeFilterCount =
     filterPlans.length + filterStatuses.length + filterStages.length + filterTypes.length +
-    (filterEmployee ? 1 : 0) + (filterDateFrom ? 1 : 0) + (filterDateTo ? 1 : 0);
+    (filterEmployee ? 1 : 0) + (filterDateFrom ? 1 : 0) + (filterDateTo ? 1 : 0) +
+    (filterEnquiryDateFrom ? 1 : 0) + (filterEnquiryDateTo ? 1 : 0) +
+    (filterFinalSellsFrom ? 1 : 0) + (filterFinalSellsTo ? 1 : 0) +
+    (filterExpectedPremiumMin ? 1 : 0) + (filterExpectedPremiumMax ? 1 : 0) +
+    (filterLeadSource ? 1 : 0);
 
   if (isLoading) return <div className="flex h-48 items-center justify-center text-gray-400">Loading pipeline…</div>;
 
@@ -2295,11 +2377,54 @@ const medicalOptions = [
         </div>
       </div>
 
+      {/* Quick Filters Pill Bar */}
+      <div className="flex flex-wrap items-center gap-2 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-2xs animate-fadeIn">
+        <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
+          <Flame size={13} className="text-amber-500" /> Quick Filters:
+        </span>
+        {[
+          { key: 'ALL', label: 'All Leads' },
+          { key: 'HOT', label: 'Hot', icon: '🔥' },
+          { key: 'VERY_HOT', label: 'Very Hot', icon: '💥' },
+          { key: 'HEALTH', label: 'Health', icon: '🏥' },
+          { key: 'LIFE', label: 'Life', icon: '🛡️' },
+          { key: 'MF', label: 'Mutual Funds (MF)', icon: '📈' },
+          { key: 'THIS_WEEK', label: 'Followup: This Week', icon: '📅' },
+        ].map(q => {
+          const isSelected = selectedQuickFilter === q.key;
+          return (
+            <button
+              key={q.key}
+              type="button"
+              onClick={() => setSelectedQuickFilter(q.key)}
+              className={clsx(
+                'inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
+                isSelected
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+              )}
+            >
+              {q.icon && <span>{q.icon}</span>}
+              <span>{q.label}</span>
+            </button>
+          );
+        })}
+        {selectedQuickFilter !== 'ALL' && (
+          <button
+            type="button"
+            onClick={() => setSelectedQuickFilter('ALL')}
+            className="text-[11px] font-extrabold text-red-500 hover:text-red-700 ml-auto cursor-pointer px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+          >
+            Reset Quick Filter
+          </button>
+        )}
+      </div>
+
 
 
       {/* Filter panel */}
       {showFilters && (
-        <div className="card-panel grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50/50 p-4 border rounded-xl">
+        <div className="card-panel grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-50/50 p-4 border rounded-xl animate-fadeIn text-xs">
           {/* Lead Stage Filter */}
           <div>
             <label className="label text-[11px] font-bold text-gray-700">Lead Stage (Multi-Select)</label>
@@ -2421,9 +2546,10 @@ const medicalOptions = [
             </div>
           </div>
 
+          {/* Assigned Employee */}
           <div>
             <label className="label text-[11px] font-bold text-gray-700">Assigned Employee</label>
-            <select value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)} className="input text-xs font-semibold">
+            <select value={filterEmployee} onChange={e => setFilterEmployee(e.target.value)} className="input text-xs font-semibold w-full bg-white shadow-2xs">
               <option value="">All Employees</option>
               {employeesList.map((emp: any) => {
                 const empUserId = emp.userId || emp.user?.id || emp.id;
@@ -2437,21 +2563,88 @@ const medicalOptions = [
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="label text-[11px]">Next Follow-up Date</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-[280px]">
-              <DatePicker value={filterDateFrom} onChange={setFilterDateFrom} className="input text-xs min-w-[130px]" />
-              <DatePicker value={filterDateTo} onChange={setFilterDateTo} className="input text-xs min-w-[130px]" />
+          {/* Next Follow-up Date */}
+          <div className="space-y-1">
+            <label className="label text-[11px] font-bold text-gray-700">Next Follow-up Date</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <DatePicker value={filterDateFrom} onChange={setFilterDateFrom} className="input text-xs" title="From" />
+              <DatePicker value={filterDateTo} onChange={setFilterDateTo} className="input text-xs" title="To" />
             </div>
           </div>
 
+          {/* Date of 1st Enquiry (Lead Creation Date) */}
+          <div className="space-y-1">
+            <label className="label text-[11px] font-bold text-gray-700">Date of 1st Enquiry (Creation Date)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <DatePicker value={filterEnquiryDateFrom} onChange={setFilterEnquiryDateFrom} className="input text-xs" title="From" />
+              <DatePicker value={filterEnquiryDateTo} onChange={setFilterEnquiryDateTo} className="input text-xs" title="To" />
+            </div>
+          </div>
+
+          {/* Date of Final Sells */}
+          <div className="space-y-1">
+            <label className="label text-[11px] font-bold text-gray-700">Date of Final Sells</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <DatePicker value={filterFinalSellsFrom} onChange={setFilterFinalSellsFrom} className="input text-xs" title="From" />
+              <DatePicker value={filterFinalSellsTo} onChange={setFilterFinalSellsTo} className="input text-xs" title="To" />
+            </div>
+          </div>
+
+          {/* Expected Premium Range */}
+          <div className="space-y-1">
+            <label className="label text-[11px] font-bold text-gray-700">Expected Premium Range</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                placeholder="Min ₹"
+                className="input text-xs w-full bg-white shadow-2xs"
+                value={filterExpectedPremiumMin}
+                onChange={e => setFilterExpectedPremiumMin(e.target.value)}
+              />
+              <span className="text-gray-400 font-bold">-</span>
+              <input
+                type="number"
+                placeholder="Max ₹"
+                className="input text-xs w-full bg-white shadow-2xs"
+                value={filterExpectedPremiumMax}
+                onChange={e => setFilterExpectedPremiumMax(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Lead Source */}
+          <div>
+            <label className="label text-[11px] font-bold text-gray-700">Lead Source</label>
+            <select
+              value={filterLeadSource}
+              onChange={e => setFilterLeadSource(e.target.value)}
+              className="input text-xs font-semibold w-full bg-white shadow-2xs"
+            >
+              <option value="">All Sources</option>
+              <option value="Social Media">Social Media</option>
+              <option value="Referral">Referral</option>
+              <option value="Website">Website</option>
+              <option value="Cold Call">Cold Call</option>
+              <option value="Walk-in">Walk-in</option>
+              <option value="Campaign">Campaign</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
           {activeFilterCount > 0 && (
-            <div className="col-span-2 lg:col-span-3 flex justify-end">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-3 flex justify-end pt-2 border-t border-slate-200">
               <button
-                onClick={() => { setFilterPlans([]); setFilterStatuses([]); setFilterStages([]); setFilterTypes([]); setFilterEmployee(''); setFilterDateFrom(''); setFilterDateTo(''); }}
-                className="text-xs text-red-500 hover:text-red-700 flex flex-wrap items-center gap-1 font-bold"
+                onClick={() => {
+                  setFilterPlans([]); setFilterStatuses([]); setFilterStages([]); setFilterTypes([]);
+                  setFilterEmployee(''); setFilterDateFrom(''); setFilterDateTo('');
+                  setFilterEnquiryDateFrom(''); setFilterEnquiryDateTo('');
+                  setFilterFinalSellsFrom(''); setFilterFinalSellsTo('');
+                  setFilterExpectedPremiumMin(''); setFilterExpectedPremiumMax('');
+                  setFilterLeadSource('');
+                }}
+                className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 font-extrabold cursor-pointer px-3 py-1 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
               >
-                <X size={11} /> Clear all filters
+                <X size={13} /> Clear all filters
               </button>
             </div>
           )}

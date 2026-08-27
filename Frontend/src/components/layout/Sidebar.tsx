@@ -23,7 +23,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
   { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
   { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
-  { to: '/insumitra/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
+  { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
   { to: '/employees',    label: 'Employees',    Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
   { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
@@ -31,7 +31,7 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
 ];
 
 const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
-const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/insumitra/operations'];
+const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
 const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
@@ -149,7 +149,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
   const planName = subRes?.data?.plan?.name || 'Free';
 
   const isFeatureEnabled = (feature?: string) => {
-    if (user?.role === 'SUPERADMIN') return true;
+    if (user?.role === 'SUPERADMIN' || user?.role === 'OWNER') return true;
     if (!feature) return true;
     const free    = ['contacts', 'policies', 'claims', 'calendar', 'workspace'];
     const starter = [...free, 'dashboard', 'leads', 'documents', 'operations'];
@@ -166,7 +166,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
     if (user?.role === 'EMPLOYEE') {
       const perms: string[] = (user as any)?.permissions || [];
       const modKey = item.to.replace('/', '').replace('-', '_');
-      const hasPerm = perms.some((p: string) => p.includes(modKey));
+      const hasPerm = perms.some((p: string) => p.includes(modKey) || p.includes('employee'));
       if (hasPerm) return true;
     }
     return !item.roles || item.roles.includes(user?.role ?? '');

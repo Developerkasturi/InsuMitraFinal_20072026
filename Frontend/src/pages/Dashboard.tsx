@@ -119,11 +119,11 @@ const MOCK_TENURE_WISE = [
   { month: 'Jan', year1: 120, year2: 45, year3: 30, year4: 10, year5: 5 },
   { month: 'Feb', year1: 110, year2: 50, year3: 25, year4: 12, year5: 4 },
   { month: 'Mar', year1: 140, year2: 60, year3: 35, year4: 15, year5: 8 },
-  { month: 'Apr', year1: 105, year2: 40, year3: 20, year4: 8,  year5: 3 },
+  { month: 'Apr', year1: 105, year2: 40, year3: 20, year4: 8, year5: 3 },
   { month: 'May', year1: 115, year2: 48, year3: 28, year4: 11, year5: 6 },
   { month: 'Jun', year1: 125, year2: 55, year3: 32, year4: 14, year5: 7 },
-  { month: 'Jul', year1: 95,  year2: 38, year3: 18, year4: 7,  year5: 2 },
-  { month: 'Aug', year1: 108, year2: 42, year3: 22, year4: 9,  year5: 4 },
+  { month: 'Jul', year1: 95, year2: 38, year3: 18, year4: 7, year5: 2 },
+  { month: 'Aug', year1: 108, year2: 42, year3: 22, year4: 9, year5: 4 },
   { month: 'Sep', year1: 130, year2: 58, year3: 34, year4: 16, year5: 9 },
   { month: 'Oct', year1: 145, year2: 65, year3: 40, year4: 18, year5: 10 },
   { month: 'Nov', year1: 118, year2: 52, year3: 29, year4: 13, year5: 5 },
@@ -139,12 +139,12 @@ const TENURE_BARS = [
 ];
 
 const MOCK_LEADS_STATUS_WISE = [
-  { stage: 'To Contact',        hot: 25, warm: 40, cold: 60, dropped: 10, converted: 0  },
-  { stage: 'Contacted',         hot: 35, warm: 50, cold: 40, dropped: 15, converted: 0  },
-  { stage: 'Proposal Sent',     hot: 45, warm: 30, cold: 20, dropped: 5,  converted: 0  },
-  { stage: 'Login Progress',    hot: 55, warm: 20, cold: 10, dropped: 2,  converted: 0  },
-  { stage: 'Payment Done',      hot: 60, warm: 10, cold: 5,  dropped: 1,  converted: 80 },
-  { stage: 'Process Completed', hot: 20, warm: 5,  cold: 2,  dropped: 0,  converted: 95 },
+  { stage: 'To Contact', hot: 25, warm: 40, cold: 60, dropped: 10, converted: 0 },
+  { stage: 'Contacted', hot: 35, warm: 50, cold: 40, dropped: 15, converted: 0 },
+  { stage: 'Proposal Sent', hot: 45, warm: 30, cold: 20, dropped: 5, converted: 0 },
+  { stage: 'Login Progress', hot: 55, warm: 20, cold: 10, dropped: 2, converted: 0 },
+  { stage: 'Payment Done', hot: 60, warm: 10, cold: 5, dropped: 1, converted: 80 },
+  { stage: 'Process Completed', hot: 20, warm: 5, cold: 2, dropped: 0, converted: 95 },
 ];
 
 const LEAD_STATUS_BARS = [
@@ -253,7 +253,7 @@ function ContactsBreakdownCard({ data }: { data: { head: number, dependent: numb
             <Users size={16} />
           </div>
         </div>
-        
+
         <div className="mb-4">
           <span className="text-3xl font-extrabold text-gray-900">{fmt(data.total)}</span>
           <p className="text-[10px] font-semibold text-gray-400 mt-1 uppercase tracking-wide">Total registered contacts</p>
@@ -262,7 +262,7 @@ function ContactsBreakdownCard({ data }: { data: { head: number, dependent: numb
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-[11px] font-bold text-gray-700 mb-1.5">
-              <span className="flex flex-wrap items-center gap-1.5"><UserPlus size={13} className="text-blue-500"/> Head of Family</span>
+              <span className="flex flex-wrap items-center gap-1.5"><UserPlus size={13} className="text-blue-500" /> Head of Family</span>
               <span>{fmt(data.head)} ({headPct}%)</span>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
@@ -271,7 +271,7 @@ function ContactsBreakdownCard({ data }: { data: { head: number, dependent: numb
           </div>
           <div>
             <div className="flex justify-between text-[11px] font-bold text-gray-700 mb-1.5">
-              <span className="flex flex-wrap items-center gap-1.5"><Users size={13} className="text-amber-500"/> Dependents</span>
+              <span className="flex flex-wrap items-center gap-1.5"><Users size={13} className="text-amber-500" /> Dependents</span>
               <span>{fmt(data.dependent)} ({depPct}%)</span>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
@@ -295,7 +295,7 @@ function MfLeadsSummaryCard({ data }: { data: any }) {
             <TrendingUp size={16} />
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-3 mt-2">
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wide">Active SIP Amt</p>
@@ -546,7 +546,7 @@ function ClaimsReportsTab() {
         const typeMatch = (c.claimType || '').toUpperCase() === claimType.toUpperCase();
         if (!typeMatch) return false;
       }
-      
+
       // Filter by Company
       if (selectedCompany !== 'ALL') {
         const comp = c.policy?.plan?.company?.name;
@@ -609,7 +609,7 @@ function ClaimsReportsTab() {
       }
       map.set(comp, entry);
     });
-    
+
     const sorted = Array.from(map.values()).sort((a, b) => b.claimed - a.claimed);
     if (graphCompanySelect === 'ALL') {
       return sorted.slice(0, 5); // Default top 5
@@ -790,7 +790,7 @@ function ClaimsReportsTab() {
             ]}
           />
         </div>
-        
+
         <LineChartWidget
           title="Claims Collection Trend over Time (₹)"
           data={timeGraphData}
@@ -920,13 +920,6 @@ export default function Dashboard() {
           >
             <RefreshCw size={13} className={kpiLoading ? 'animate-spin' : ''} />
             Refresh
-          </button>
-          <button
-            onClick={() => navigate('/policies?action=new')}
-            className="btn-primary h-9 py-0 px-3 text-xs flex flex-wrap items-center gap-1.5 font-bold"
-          >
-            <Plus size={13} />
-            New Policy
           </button>
         </div>
       </div>

@@ -415,22 +415,59 @@ export default function Policies() {
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('ALL');
 
   const defaultFilters = {
-    agency: '',
+    companyCategory: '',
     company: '',
+    planCategory: '',
     plan: '',
+    businessCategory: '',
+    policyType: '',
+    agency: '',
+    agentName: '',
+    familySize: '',
+    city: '',
+    zoneTier: '',
     sumInsuredMin: '',
     sumInsuredMax: '',
+    deductible: '',
+    riders: '',
+    policyTenure: '',
+    policyTerm: '',
+    ageAtEntryMin: '',
+    ageAtEntryMax: '',
+    ageAtLastPremiumMin: '',
+    ageAtLastPremiumMax: '',
+    ageAtMaturityMin: '',
+    ageAtMaturityMax: '',
     startDateFrom: '',
     startDateTo: '',
     endDateFrom: '',
     endDateTo: '',
+    firstInceptionFrom: '',
+    firstInceptionTo: '',
     status: '',
+    assignedTo: '',
+    installmentCase: '',
+    loanProvider: '',
+    installmentFrequency: '',
+    noOfInstallments: '',
+    firstInstallmentFrom: '',
+    firstInstallmentTo: '',
+    lastInstallmentFrom: '',
+    lastInstallmentTo: '',
+    bankName: '',
     premiumMin: '',
     premiumMax: '',
-    policyType: '',
   };
   const [tempFilters, setTempFilters] = useState(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
+
+  const activePoliciesFilterCount = useMemo(() => {
+    let count = 0;
+    Object.entries(appliedFilters).forEach(([_k, v]) => {
+      if (v !== '' && v !== 'ALL') count++;
+    });
+    return count;
+  }, [appliedFilters]);
 
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
@@ -735,12 +772,43 @@ export default function Policies() {
 
     // Company Filter
     if (appliedFilters.company) {
-      list = list.filter((p: any) => p.plan?.company?.name === appliedFilters.company);
+      list = list.filter((p: any) => {
+        const comp = (p.plan?.company?.name || '').toLowerCase();
+        return comp.includes(appliedFilters.company.toLowerCase());
+      });
+    }
+
+    // Company Category Filter
+    if (appliedFilters.companyCategory) {
+      list = list.filter((p: any) => {
+        const cat = (p.plan?.company?.category || p.plan?.category || '').toUpperCase();
+        return cat.includes(appliedFilters.companyCategory.toUpperCase());
+      });
+    }
+
+    // Plan Category Filter
+    if (appliedFilters.planCategory) {
+      list = list.filter((p: any) => {
+        const cat = (p.plan?.category || '').toUpperCase();
+        return cat.includes(appliedFilters.planCategory.toUpperCase());
+      });
     }
 
     // Plan Filter
     if (appliedFilters.plan) {
-      list = list.filter((p: any) => p.plan?.id === appliedFilters.plan || p.planId === appliedFilters.plan);
+      list = list.filter((p: any) => {
+        const pId = p.plan?.id || p.planId || '';
+        const pName = (p.plan?.name || '').toLowerCase();
+        return pId === appliedFilters.plan || pName.includes(appliedFilters.plan.toLowerCase());
+      });
+    }
+
+    // Business Category Filter
+    if (appliedFilters.businessCategory) {
+      list = list.filter((p: any) => {
+        const bCat = (p.policyType || p.type || '').toUpperCase();
+        return bCat === appliedFilters.businessCategory.toUpperCase();
+      });
     }
 
     // Status Filter
@@ -750,7 +818,45 @@ export default function Policies() {
 
     // Policy Type Filter
     if (appliedFilters.policyType) {
-      list = list.filter((p: any) => p.policyType === appliedFilters.policyType);
+      list = list.filter((p: any) => {
+        const pType = (p.policyCategory || p.type || p.policyType || '').toLowerCase();
+        return pType.includes(appliedFilters.policyType.toLowerCase());
+      });
+    }
+
+    // Agency / Agent Name Filter
+    if (appliedFilters.agency || appliedFilters.agentName) {
+      const term = (appliedFilters.agency || appliedFilters.agentName).toLowerCase();
+      list = list.filter((p: any) => {
+        const code = (p.agentCode || '').toLowerCase();
+        const empName = (p.assignedEmployee?.employeeProfile?.firstName || '').toLowerCase();
+        return code.includes(term) || empName.includes(term);
+      });
+    }
+
+    // Family Size Filter
+    if (appliedFilters.familySize) {
+      const targetSize = Number(appliedFilters.familySize);
+      list = list.filter((p: any) => {
+        const size = p.connectedPersons?.length ? p.connectedPersons.length + 1 : 1;
+        return targetSize >= 5 ? size >= 5 : size === targetSize;
+      });
+    }
+
+    // City Filter
+    if (appliedFilters.city) {
+      list = list.filter((p: any) => {
+        const city = (p.contact?.address?.city || p.contact?.city || '').toLowerCase();
+        return city.includes(appliedFilters.city.toLowerCase());
+      });
+    }
+
+    // Zone Location Tier Filter
+    if (appliedFilters.zoneTier) {
+      list = list.filter((p: any) => {
+        const tier = (p.zoneTier || p.notes || '').toLowerCase();
+        return tier.includes(appliedFilters.zoneTier.toLowerCase());
+      });
     }
 
     // Sum Insured filter
@@ -761,12 +867,83 @@ export default function Policies() {
       list = list.filter((p: any) => (p.sumAssured ?? 0) <= Number(appliedFilters.sumInsuredMax));
     }
 
+    // Deductible Filter
+    if (appliedFilters.deductible) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const ded = (extra.deductible || p.deductible || '').toLowerCase();
+        return ded.includes(appliedFilters.deductible.toLowerCase());
+      });
+    }
+
+    // Riders / Addons Filter
+    if (appliedFilters.riders) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const ridersStr = JSON.stringify(extra.riders || p.riders || '').toLowerCase();
+        return ridersStr.includes(appliedFilters.riders.toLowerCase());
+      });
+    }
+
+    // Policy Tenure Filter
+    if (appliedFilters.policyTenure) {
+      list = list.filter((p: any) => {
+        const tenure = String(p.tenure || p.duration || '1 Year').toLowerCase();
+        return tenure.includes(appliedFilters.policyTenure.toLowerCase());
+      });
+    }
+
+    // Policy Term Filter
+    if (appliedFilters.policyTerm) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const termVal = String(extra.premiumPaymentPeriod || p.policyTerm || '');
+        return termVal.includes(appliedFilters.policyTerm);
+      });
+    }
+
     // Premium filter
     if (appliedFilters.premiumMin) {
       list = list.filter((p: any) => (p.premiumAmount ?? 0) >= Number(appliedFilters.premiumMin));
     }
     if (appliedFilters.premiumMax) {
       list = list.filter((p: any) => (p.premiumAmount ?? 0) <= Number(appliedFilters.premiumMax));
+    }
+
+    // Age at Entry Filter
+    if (appliedFilters.ageAtEntryMin || appliedFilters.ageAtEntryMax) {
+      list = list.filter((p: any) => {
+        if (!p.startDate || !p.contact?.dateOfBirth) return true;
+        const entryAge = new Date(p.startDate).getFullYear() - new Date(p.contact.dateOfBirth).getFullYear();
+        if (appliedFilters.ageAtEntryMin && entryAge < Number(appliedFilters.ageAtEntryMin)) return false;
+        if (appliedFilters.ageAtEntryMax && entryAge > Number(appliedFilters.ageAtEntryMax)) return false;
+        return true;
+      });
+    }
+
+    // Age at Last Premium Filter
+    if (appliedFilters.ageAtLastPremiumMin || appliedFilters.ageAtLastPremiumMax) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const lpDate = extra.lastPremiumDate || p.lastPremiumDate || p.endDate;
+        if (!lpDate || !p.contact?.dateOfBirth) return true;
+        const lpAge = new Date(lpDate).getFullYear() - new Date(p.contact.dateOfBirth).getFullYear();
+        if (appliedFilters.ageAtLastPremiumMin && lpAge < Number(appliedFilters.ageAtLastPremiumMin)) return false;
+        if (appliedFilters.ageAtLastPremiumMax && lpAge > Number(appliedFilters.ageAtLastPremiumMax)) return false;
+        return true;
+      });
+    }
+
+    // Age at Maturity Filter
+    if (appliedFilters.ageAtMaturityMin || appliedFilters.ageAtMaturityMax) {
+      list = list.filter((p: any) => {
+        const matDate = p.maturityDate || p.endDate;
+        if (!matDate || !p.contact?.dateOfBirth) return true;
+        const matAge = new Date(matDate).getFullYear() - new Date(p.contact.dateOfBirth).getFullYear();
+        if (appliedFilters.ageAtMaturityMin && matAge < Number(appliedFilters.ageAtMaturityMin)) return false;
+        if (appliedFilters.ageAtMaturityMax && matAge > Number(appliedFilters.ageAtMaturityMax)) return false;
+        return true;
+      });
     }
 
     // Policy Duration Date Range
@@ -781,6 +958,98 @@ export default function Policies() {
     }
     if (appliedFilters.endDateTo) {
       list = list.filter((p: any) => p.endDate && new Date(p.endDate) <= new Date(appliedFilters.endDateTo));
+    }
+
+    // Policy 1st Inception Date Filter
+    if (appliedFilters.firstInceptionFrom) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const fDate = extra.firstPremiumDate || p.startDate;
+        return fDate && new Date(fDate) >= new Date(appliedFilters.firstInceptionFrom);
+      });
+    }
+    if (appliedFilters.firstInceptionTo) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const fDate = extra.firstPremiumDate || p.startDate;
+        return fDate && new Date(fDate) <= new Date(appliedFilters.firstInceptionTo);
+      });
+    }
+
+    // Assigned To Filter
+    if (appliedFilters.assignedTo) {
+      list = list.filter((p: any) => p.assignedEmployeeId === appliedFilters.assignedTo);
+    }
+
+    // Installment Case Filter
+    if (appliedFilters.installmentCase && appliedFilters.installmentCase !== 'ALL') {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const isEmi = !!(extra.emiCase || p.emiCase);
+        return appliedFilters.installmentCase === 'YES' ? isEmi : !isEmi;
+      });
+    }
+
+    // Loan Provider Filter
+    if (appliedFilters.loanProvider) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const lp = (extra.emiGateway || p.loanProvider || '').toLowerCase();
+        return lp.includes(appliedFilters.loanProvider.toLowerCase());
+      });
+    }
+
+    // Installment Frequency Filter
+    if (appliedFilters.installmentFrequency && appliedFilters.installmentFrequency !== 'ALL') {
+      list = list.filter((p: any) => p.paymentFrequency === appliedFilters.installmentFrequency);
+    }
+
+    // No of Installments Filter
+    if (appliedFilters.noOfInstallments) {
+      list = list.filter((p: any) => {
+        const count = String(p.noOfInstallments || '');
+        return count.includes(appliedFilters.noOfInstallments);
+      });
+    }
+
+    // 1st Installment Date Range Filter
+    if (appliedFilters.firstInstallmentFrom) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const d = extra.firstPremiumDate || p.startDate;
+        return d && new Date(d) >= new Date(appliedFilters.firstInstallmentFrom);
+      });
+    }
+    if (appliedFilters.firstInstallmentTo) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const d = extra.firstPremiumDate || p.startDate;
+        return d && new Date(d) <= new Date(appliedFilters.firstInstallmentTo);
+      });
+    }
+
+    // Last Installment Date Range Filter
+    if (appliedFilters.lastInstallmentFrom) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const d = extra.lastPremiumDate || p.endDate;
+        return d && new Date(d) >= new Date(appliedFilters.lastInstallmentFrom);
+      });
+    }
+    if (appliedFilters.lastInstallmentTo) {
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const d = extra.lastPremiumDate || p.endDate;
+        return d && new Date(d) <= new Date(appliedFilters.lastInstallmentTo);
+      });
+    }
+
+    // Bank Name Filter
+    if (appliedFilters.bankName) {
+      list = list.filter((p: any) => {
+        const bk = (p.bankName || p.contact?.bankAccounts?.[0]?.bankName || '').toLowerCase();
+        return bk.includes(appliedFilters.bankName.toLowerCase());
+      });
     }
 
     return list;
@@ -1632,16 +1901,89 @@ export default function Policies() {
                 <button
                   onClick={() => setFiltersOpen(!filtersOpen)}
                   className={clsx(
-                    "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
+                    "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white",
                     filtersOpen && "bg-blue-50 border-blue-200 text-blue-600"
                   )}
                   title="Advanced Filters"
                 >
-                  <Filter size={14} />
+                  <Filter size={14} className={filtersOpen || activePoliciesFilterCount > 0 ? "text-blue-600" : "text-slate-500"} />
+                  <span className="hidden sm:inline">Filters</span>
+                  {activePoliciesFilterCount > 0 && (
+                    <span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-black leading-none">
+                      {activePoliciesFilterCount}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
           </div>
+
+          {/* Active Filter Badges Bar */}
+          {activePoliciesFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/60 p-2.5 rounded-2xl border border-blue-100/90 shadow-2xs mb-4 animate-fadeIn">
+              <span className="text-[11px] font-extrabold text-blue-800 mr-1 flex items-center gap-1">
+                <Filter size={13} className="text-blue-600" /> Active Filters ({activePoliciesFilterCount}):
+              </span>
+
+              {Object.entries(appliedFilters).map(([k, v]) => {
+                if (!v || v === 'ALL') return null;
+                const labelMap: Record<string, string> = {
+                  companyCategory: 'Comp Category',
+                  company: 'Company',
+                  planCategory: 'Plan Category',
+                  plan: 'Plan',
+                  businessCategory: 'Business Cat',
+                  policyType: 'Policy Type',
+                  agentName: 'Agent',
+                  familySize: 'Family Size',
+                  city: 'City',
+                  zoneTier: 'Zone Tier',
+                  sumInsuredMin: 'Min SI',
+                  sumInsuredMax: 'Max SI',
+                  deductible: 'Deductible',
+                  riders: 'Riders',
+                  policyTenure: 'Tenure',
+                  policyTerm: 'Term',
+                  startDateFrom: 'Start From',
+                  startDateTo: 'Start To',
+                  endDateFrom: 'End From',
+                  endDateTo: 'End To',
+                  status: 'Status',
+                  installmentCase: 'Installment Case',
+                  loanProvider: 'Loan Provider',
+                  installmentFrequency: 'Frequency',
+                  bankName: 'Bank',
+                };
+                const displayKey = labelMap[k] || k;
+                return (
+                  <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+                    {displayKey}: {String(v)}
+                    <span
+                      className="cursor-pointer hover:text-red-500 font-bold ml-1"
+                      onClick={() => {
+                        const updated = { ...appliedFilters, [k]: '' };
+                        setAppliedFilters(updated);
+                        setTempFilters(updated);
+                      }}
+                    >
+                      ×
+                    </span>
+                  </span>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAppliedFilters(defaultFilters);
+                  setTempFilters(defaultFilters);
+                }}
+                className="text-[11px] font-extrabold text-red-600 hover:text-red-800 hover:underline cursor-pointer ml-auto px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
 
           {selectedIds.length > 0 && user?.role === 'OWNER' && (
             <div className="flex items-center justify-between p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all animate-fadeIn">
@@ -1681,31 +2023,38 @@ export default function Policies() {
           )}
 
           {filtersOpen && (
-            <div className="card bg-gray-50/50 p-5 rounded-xl border border-slate-200 shadow-sm mt-2 mb-4 animate-fadeIn">
+            <div className="card bg-gray-50/50 p-5 rounded-2xl border border-slate-200 shadow-sm mt-2 mb-4 animate-fadeIn">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/70">
-                <h3 className="text-sm font-bold text-slate-800 flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                   <Filter size={16} className="text-blue-600" />
                   Advanced Filters
                 </h3>
+                {activePoliciesFilterCount > 0 && (
+                  <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                    {activePoliciesFilterCount} {activePoliciesFilterCount === 1 ? 'Filter' : 'Filters'} Active
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 text-xs">
 
-                {/* Agency */}
+                {/* 1. Insurance Company Category */}
                 <div>
-                  <label className="label">Select Agency</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.agency} onChange={e => setTempFilters({ ...tempFilters, agency: e.target.value })}>
-                    <option value="">All Agencies</option>
-                    {agencyRes?.data?.map((ag: any) => (
-                      <option key={ag.id} value={ag.agentCode}>{ag.name} ({ag.agentCode || 'N/A'})</option>
-                    ))}
+                  <label className="label text-[11px] font-bold text-slate-600">Company Category</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.companyCategory} onChange={e => setTempFilters({ ...tempFilters, companyCategory: e.target.value })}>
+                    <option value="">All Categories</option>
+                    <option value="HEALTH">Health Insurance</option>
+                    <option value="LIFE">Life Insurance</option>
+                    <option value="GENERAL">General Insurance</option>
+                    <option value="MOTOR">Motor Insurance</option>
+                    <option value="OTHER">Other Category</option>
                   </select>
                 </div>
 
-                {/* Company */}
+                {/* 2. Insurance Company Name */}
                 <div>
-                  <label className="label">Select Company</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.company} onChange={e => setTempFilters({ ...tempFilters, company: e.target.value })}>
+                  <label className="label text-[11px] font-bold text-slate-600">Company Name</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.company} onChange={e => setTempFilters({ ...tempFilters, company: e.target.value })}>
                     <option value="">All Companies</option>
                     {filterCompaniesOptions.map(comp => (
                       <option key={comp} value={comp}>{comp}</option>
@@ -1713,10 +2062,24 @@ export default function Policies() {
                   </select>
                 </div>
 
-                {/* Plan */}
+                {/* 3. Insurance Plan Category */}
                 <div>
-                  <label className="label">Select Plan</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.plan} onChange={e => setTempFilters({ ...tempFilters, plan: e.target.value })}>
+                  <label className="label text-[11px] font-bold text-slate-600">Plan Category</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.planCategory} onChange={e => setTempFilters({ ...tempFilters, planCategory: e.target.value })}>
+                    <option value="">All Plan Categories</option>
+                    <option value="HEALTH">Health</option>
+                    <option value="LIFE">Life</option>
+                    <option value="ACCIDENT">Accident</option>
+                    <option value="MOTOR">Motor</option>
+                    <option value="MF">Mutual Funds</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+
+                {/* 4. Plan Name */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Plan Name</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.plan} onChange={e => setTempFilters({ ...tempFilters, plan: e.target.value })}>
                     <option value="">All Plans</option>
                     {filterPlansOptions.map((p: any) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -1724,67 +2087,299 @@ export default function Policies() {
                   </select>
                 </div>
 
-                {/* Status */}
+                {/* 5. Business Category */}
                 <div>
-                  <label className="label">Policy Status</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.status} onChange={e => setTempFilters({ ...tempFilters, status: e.target.value })}>
-                    <option value="">All Statuses</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="EXPIRED">Expired</option>
-                    <option value="PENDING">Pending</option>
-                  </select>
-                </div>
-
-                {/* Policy Type */}
-                <div>
-                  <label className="label">Policy Type</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.policyType} onChange={e => setTempFilters({ ...tempFilters, policyType: e.target.value })}>
-                    <option value="">All Types</option>
+                  <label className="label text-[11px] font-bold text-slate-600">Business Category</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.businessCategory} onChange={e => setTempFilters({ ...tempFilters, businessCategory: e.target.value })}>
+                    <option value="">All Business Categories</option>
                     <option value="FRESH">Fresh</option>
-                    <option value="PORT">Port</option>
+                    <option value="PORT">Porting</option>
                     <option value="RENEWAL">Renewal</option>
+                    <option value="ROLLOVER">Rollover</option>
                   </select>
                 </div>
 
-                {/* Sum Insured Range */}
+                {/* 6. Policy Type */}
                 <div>
-                  <label className="label">Sum Insured Range</label>
-                  <div className="flex gap-2 items-center">
-                    <input type="number" placeholder="Min" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.sumInsuredMin} onChange={e => setTempFilters({ ...tempFilters, sumInsuredMin: e.target.value })} />
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Type</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.policyType} onChange={e => setTempFilters({ ...tempFilters, policyType: e.target.value })}>
+                    <option value="">All Types</option>
+                    <option value="INDIVIDUAL">Individual</option>
+                    <option value="FLOATER">Family Floater</option>
+                    <option value="MULTI_INDIVIDUAL">Multi Individual</option>
+                    <option value="GROUP">Group</option>
+                  </select>
+                </div>
+
+                {/* 7. Agent Name / Agency */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Agent Name / Agency</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.agency} onChange={e => setTempFilters({ ...tempFilters, agency: e.target.value })}>
+                    <option value="">All Agents</option>
+                    {agencyRes?.data?.map((ag: any) => (
+                      <option key={ag.id} value={ag.agentCode}>{ag.name} ({ag.agentCode || 'N/A'})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 8. Family Size */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Family Size</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.familySize} onChange={e => setTempFilters({ ...tempFilters, familySize: e.target.value })}>
+                    <option value="">All Sizes</option>
+                    <option value="1">1 Person (Individual)</option>
+                    <option value="2">2 Persons (1+1)</option>
+                    <option value="3">3 Persons (2+1)</option>
+                    <option value="4">4 Persons (2+2)</option>
+                    <option value="5">5+ Persons</option>
+                  </select>
+                </div>
+
+                {/* 9. Policy Zone Location City */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy City</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mumbai, Delhi..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.city}
+                    onChange={e => setTempFilters({ ...tempFilters, city: e.target.value })}
+                  />
+                </div>
+
+                {/* 10. Policy Zone Location Tier */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Location Tier</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.zoneTier} onChange={e => setTempFilters({ ...tempFilters, zoneTier: e.target.value })}>
+                    <option value="">All Tiers</option>
+                    <option value="Tier 1">Tier 1 (Metro)</option>
+                    <option value="Tier 2">Tier 2</option>
+                    <option value="Tier 3">Tier 3 / Semi-Urban</option>
+                  </select>
+                </div>
+
+                {/* 11. Sum Insured Range */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Sum Insured Range</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input type="number" placeholder="Min ₹" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.sumInsuredMin} onChange={e => setTempFilters({ ...tempFilters, sumInsuredMin: e.target.value })} />
                     <span className="text-gray-400 font-bold">-</span>
-                    <input type="number" placeholder="Max" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.sumInsuredMax} onChange={e => setTempFilters({ ...tempFilters, sumInsuredMax: e.target.value })} />
+                    <input type="number" placeholder="Max ₹" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.sumInsuredMax} onChange={e => setTempFilters({ ...tempFilters, sumInsuredMax: e.target.value })} />
                   </div>
                 </div>
 
-                {/* Premium Range */}
+                {/* 12. Deductible */}
                 <div>
-                  <label className="label">Premium Range</label>
-                  <div className="flex gap-2 items-center">
-                    <input type="number" placeholder="Min" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.premiumMin} onChange={e => setTempFilters({ ...tempFilters, premiumMin: e.target.value })} />
+                  <label className="label text-[11px] font-bold text-slate-600">Deductible</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ₹25,000, None..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.deductible}
+                    onChange={e => setTempFilters({ ...tempFilters, deductible: e.target.value })}
+                  />
+                </div>
+
+                {/* 13. Riders / Addons */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Riders / Addons</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Critical Illness, NCB Protect..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.riders}
+                    onChange={e => setTempFilters({ ...tempFilters, riders: e.target.value })}
+                  />
+                </div>
+
+                {/* 14. Policy Tenure */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Tenure</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.policyTenure} onChange={e => setTempFilters({ ...tempFilters, policyTenure: e.target.value })}>
+                    <option value="">All Tenures</option>
+                    <option value="1 Year">1 Year</option>
+                    <option value="2 Years">2 Years</option>
+                    <option value="3 Years">3 Years</option>
+                    <option value="5 Years">5 Years</option>
+                  </select>
+                </div>
+
+                {/* 15. Policy Term */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Term (Years)</label>
+                  <input
+                    type="number"
+                    placeholder="Coverage Period in Years..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.policyTerm}
+                    onChange={e => setTempFilters({ ...tempFilters, policyTerm: e.target.value })}
+                  />
+                </div>
+
+                {/* 16. Age at Entry */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Age at Entry</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input type="number" placeholder="Min" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtEntryMin} onChange={e => setTempFilters({ ...tempFilters, ageAtEntryMin: e.target.value })} />
                     <span className="text-gray-400 font-bold">-</span>
-                    <input type="number" placeholder="Max" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.premiumMax} onChange={e => setTempFilters({ ...tempFilters, premiumMax: e.target.value })} />
+                    <input type="number" placeholder="Max" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtEntryMax} onChange={e => setTempFilters({ ...tempFilters, ageAtEntryMax: e.target.value })} />
                   </div>
                 </div>
 
-                {/* Start Date Range */}
+                {/* 17. Age at Last Premium */}
                 <div>
-                  <label className="label">Policy Start Date</label>
-                  <div className="flex gap-2 items-center">
+                  <label className="label text-[11px] font-bold text-slate-600">Age at Last Premium</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input type="number" placeholder="Min" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtLastPremiumMin} onChange={e => setTempFilters({ ...tempFilters, ageAtLastPremiumMin: e.target.value })} />
+                    <span className="text-gray-400 font-bold">-</span>
+                    <input type="number" placeholder="Max" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtLastPremiumMax} onChange={e => setTempFilters({ ...tempFilters, ageAtLastPremiumMax: e.target.value })} />
+                  </div>
+                </div>
+
+                {/* 18. Age at Maturity */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Age at Maturity</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input type="number" placeholder="Min" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtMaturityMin} onChange={e => setTempFilters({ ...tempFilters, ageAtMaturityMin: e.target.value })} />
+                    <span className="text-gray-400 font-bold">-</span>
+                    <input type="number" placeholder="Max" className="input text-xs w-full bg-white shadow-2xs" value={tempFilters.ageAtMaturityMax} onChange={e => setTempFilters({ ...tempFilters, ageAtMaturityMax: e.target.value })} />
+                  </div>
+                </div>
+
+                {/* 19. Policy Start Date */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Start Date</label>
+                  <div className="flex gap-2 items-center mt-1">
                     <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateFrom} onChange={val => setTempFilters({ ...tempFilters, startDateFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
                     <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateTo} onChange={val => setTempFilters({ ...tempFilters, startDateTo: val })} title="To" />
                   </div>
                 </div>
 
-                {/* End Date Range */}
+                {/* 20. Policy End Date */}
                 <div>
-                  <label className="label">Policy End Date</label>
-                  <div className="flex gap-2 items-center">
+                  <label className="label text-[11px] font-bold text-slate-600">Policy End Date</label>
+                  <div className="flex gap-2 items-center mt-1">
                     <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateFrom} onChange={val => setTempFilters({ ...tempFilters, endDateFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
                     <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateTo} onChange={val => setTempFilters({ ...tempFilters, endDateTo: val })} title="To" />
                   </div>
+                </div>
+
+                {/* 21. Policy 1st Inception Date */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy 1st Inception Date</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionFrom} onChange={val => setTempFilters({ ...tempFilters, firstInceptionFrom: val })} title="From" />
+                    <span className="text-gray-400 font-bold">-</span>
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionTo} onChange={val => setTempFilters({ ...tempFilters, firstInceptionTo: val })} title="To" />
+                  </div>
+                </div>
+
+                {/* 22. Policy Status */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Status</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.status} onChange={e => setTempFilters({ ...tempFilters, status: e.target.value })}>
+                    <option value="">All Statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="EXPIRED">Expired</option>
+                    <option value="LAPSED">Lapsed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="SURRENDERED">Surrendered</option>
+                  </select>
+                </div>
+
+                {/* 23. Assigned To */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Assigned To</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.assignedTo} onChange={e => setTempFilters({ ...tempFilters, assignedTo: e.target.value })}>
+                    <option value="">All Assignees</option>
+                    {employeeResults?.data?.map((emp: any) => (
+                      <option key={emp.id} value={emp.userId}>
+                        {emp.firstName || emp.employeeProfile?.firstName || 'Unknown'} {emp.lastName || emp.employeeProfile?.lastName || ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 24. Installment Case? */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Installment Case?</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.installmentCase} onChange={e => setTempFilters({ ...tempFilters, installmentCase: e.target.value })}>
+                    <option value="">All Cases</option>
+                    <option value="YES">Yes (EMI / Installment)</option>
+                    <option value="NO">No (Single Payment)</option>
+                  </select>
+                </div>
+
+                {/* 25. Loan Provider */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Loan Provider</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bajaj Finance, HDFC..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.loanProvider}
+                    onChange={e => setTempFilters({ ...tempFilters, loanProvider: e.target.value })}
+                  />
+                </div>
+
+                {/* 26. Installment Frequency */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Installment Frequency</label>
+                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.installmentFrequency} onChange={e => setTempFilters({ ...tempFilters, installmentFrequency: e.target.value })}>
+                    <option value="">All Frequencies</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="QUARTERLY">Quarterly</option>
+                    <option value="HALF_YEARLY">Half Yearly</option>
+                    <option value="YEARLY">Yearly</option>
+                    <option value="SINGLE">Single</option>
+                  </select>
+                </div>
+
+                {/* 27. No. of Installments */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">No. of Installments</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 12, 4, 2..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.noOfInstallments}
+                    onChange={e => setTempFilters({ ...tempFilters, noOfInstallments: e.target.value })}
+                  />
+                </div>
+
+                {/* 28. 1st Installment Date */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">1st Installment Date</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentFrom} onChange={val => setTempFilters({ ...tempFilters, firstInstallmentFrom: val })} title="From" />
+                    <span className="text-gray-400 font-bold">-</span>
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentTo} onChange={val => setTempFilters({ ...tempFilters, firstInstallmentTo: val })} title="To" />
+                  </div>
+                </div>
+
+                {/* 29. Last Installment Date */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Last Installment Date</label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentFrom} onChange={val => setTempFilters({ ...tempFilters, lastInstallmentFrom: val })} title="From" />
+                    <span className="text-gray-400 font-bold">-</span>
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentTo} onChange={val => setTempFilters({ ...tempFilters, lastInstallmentTo: val })} title="To" />
+                  </div>
+                </div>
+
+                {/* 30. Bank Name */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Bank Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ICICI, HDFC, SBI..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.bankName}
+                    onChange={e => setTempFilters({ ...tempFilters, bankName: e.target.value })}
+                  />
                 </div>
 
               </div>
@@ -1794,16 +2389,16 @@ export default function Policies() {
                 <button
                   type="button"
                   onClick={() => { setTempFilters(defaultFilters); setAppliedFilters(defaultFilters); setPage(1); }}
-                  className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs"
+                  className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                 >
-                  Reset
+                  Reset Filters
                 </button>
                 <button
                   type="button"
                   onClick={() => { setAppliedFilters(tempFilters); setPage(1); }}
-                  className="px-6 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 hover:scale-105"
+                  className="px-6 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 hover:scale-105 cursor-pointer"
                 >
-                  Apply Filters
+                  Apply Filters {activePoliciesFilterCount > 0 ? `(${activePoliciesFilterCount})` : ''}
                 </button>
               </div>
             </div>

@@ -282,6 +282,182 @@ export default function Contacts() {
   const { user: authUser } = useAuthStore();
   const [formMedHistory, setFormMedHistory] = useState<string[]>([]);
   const [formRelationships, setFormRelationships] = useState<any[]>([]);
+
+  // 15 Detailed Filter State Variables for Contacts Page
+  const [filterFollowUpFrom, setFilterFollowUpFrom] = useState('');
+  const [filterFollowUpTo, setFilterFollowUpTo] = useState('');
+  const [filterGender, setFilterGender] = useState('ALL');
+  const [filterMaritalStatus, setFilterMaritalStatus] = useState('ALL');
+  const [filterAgeRange, setFilterAgeRange] = useState('ALL');
+  const [filterIncomeRange, setFilterIncomeRange] = useState('ALL');
+  const [filterEducation, setFilterEducation] = useState('ALL');
+  const [filterOccupation, setFilterOccupation] = useState('ALL');
+  const [filterResidency, setFilterResidency] = useState('ALL');
+  const [filterState, setFilterState] = useState('');
+  const [filterCity, setFilterCity] = useState('');
+  const [filterBank, setFilterBank] = useState('');
+  const [filterMedicalHistory, setFilterMedicalHistory] = useState<string[]>([]);
+  const [filterActiveStatus, setFilterActiveStatus] = useState('ALL');
+  const [filterPolicyCombo, setFilterPolicyCombo] = useState('ALL');
+  const [filterRole, setFilterRole] = useState('ALL');
+
+  const resetAllContactsFilters = () => {
+    setFilterFollowUpFrom('');
+    setFilterFollowUpTo('');
+    setFilterGender('ALL');
+    setFilterMaritalStatus('ALL');
+    setFilterAgeRange('ALL');
+    setFilterIncomeRange('ALL');
+    setFilterEducation('ALL');
+    setFilterOccupation('ALL');
+    setFilterResidency('ALL');
+    setFilterState('');
+    setFilterCity('');
+    setFilterBank('');
+    setFilterMedicalHistory([]);
+    setFilterActiveStatus('ALL');
+    setFilterPolicyCombo('ALL');
+    setFilterRole('ALL');
+    setFilterProducts([]);
+    setExcludeProduct(false);
+    setDateFrom('');
+    setDateTo('');
+    setSearch('');
+    setSelectedFilters([]);
+  };
+
+  const activeContactsFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterFollowUpFrom || filterFollowUpTo) count++;
+    if (filterGender !== 'ALL') count++;
+    if (filterMaritalStatus !== 'ALL') count++;
+    if (filterAgeRange !== 'ALL') count++;
+    if (filterIncomeRange !== 'ALL') count++;
+    if (filterEducation !== 'ALL') count++;
+    if (filterOccupation !== 'ALL') count++;
+    if (filterResidency !== 'ALL') count++;
+    if (filterState) count++;
+    if (filterCity) count++;
+    if (filterBank) count++;
+    if (filterMedicalHistory.length > 0) count++;
+    if (filterActiveStatus !== 'ALL') count++;
+    if (filterPolicyCombo !== 'ALL') count++;
+    if (filterRole !== 'ALL') count++;
+    if (filterProducts.length > 0) count++;
+    if (dateFrom || dateTo) count++;
+    return count;
+  }, [
+    filterFollowUpFrom, filterFollowUpTo, filterGender, filterMaritalStatus, filterAgeRange,
+    filterIncomeRange, filterEducation, filterOccupation, filterResidency, filterState,
+    filterCity, filterBank, filterMedicalHistory, filterActiveStatus, filterPolicyCombo,
+    filterRole, filterProducts, dateFrom, dateTo
+  ]);
+
+  const exportContactsToExcel = () => {
+    const dataToExport = sortedAndFilteredData.map((c: any) => {
+      const contactPolicies = policyMap[c.id] ?? c.policies ?? [];
+      const policySummary = contactPolicies.map((p: any) => p.plan?.name || p.plan?.category || p.policyNumber).join('; ');
+      return {
+        'Contact ID': c.contactId || c.id,
+        'First Name': c.firstName || c.contact?.firstName || '',
+        'Last Name': c.lastName || c.contact?.lastName || '',
+        'Phone / WhatsApp': c.phone || c.contact?.phone || '',
+        'Email': c.email || c.contact?.email || '',
+        'Gender': c.gender || c.contact?.gender || '',
+        'Marital Status': c.maritalStatus || c.contact?.maritalStatus || '',
+        'Date of Birth': c.dateOfBirth ? new Date(c.dateOfBirth).toLocaleDateString() : '',
+        'Annual Income': c.annualIncome || '',
+        'Education': c.education || '',
+        'Occupation': c.occupationType || c.contact?.occupations?.[0]?.type || '',
+        'State': c.state || c.contact?.addresses?.[0]?.state || '',
+        'City': c.city || c.contact?.addresses?.[0]?.city || '',
+        'Bank Name': c.bankName || c.contact?.bankAccounts?.[0]?.bankName || '',
+        'Lead Stage': c.leadStage || '',
+        'Lead Status': c.leadStatus || '',
+        'Next Follow-up': c.followUpDate ? new Date(c.followUpDate).toLocaleDateString() : '',
+        'Policies': policySummary || 'None',
+        'Status': c.isActive !== false ? 'Active' : 'Inactive',
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Contacts');
+    XLSX.writeFile(workbook, `contacts_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success('Contacts exported to Excel successfully!');
+  };
+
+  const exportContactsToPdf = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print PDF');
+      return;
+    }
+
+    const rowsHtml = sortedAndFilteredData.map((c: any) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 8px;">${((c.firstName || '') + ' ' + (c.lastName || '')).trim() || 'N/A'}</td>
+        <td style="padding: 8px; font-weight: 600;">${c.phone || 'N/A'}</td>
+        <td style="padding: 8px;">${c.email || 'N/A'}</td>
+        <td style="padding: 8px;">${c.city || c.contact?.addresses?.[0]?.city || 'N/A'}</td>
+        <td style="padding: 8px;">${c.leadStage || 'N/A'}</td>
+        <td style="padding: 8px;">${c.leadStatus || 'N/A'}</td>
+        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${c.isActive !== false ? '#def7ec; color: #03543f;' : '#fde8e8; color: #9b1c1c;'} font-size: 10px; font-weight: bold;">${c.isActive !== false ? 'Active' : 'Inactive'}</span></td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Contacts Export Report</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #f8fafc; border-bottom: 2px solid #e2e8f0; padding: 10px 8px; text-align: left; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #64748b; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; padding-bottom: 12px; }
+            .title { font-size: 20px; font-weight: 800; color: #1e3a8a; }
+            .meta { font-size: 11px; color: #64748b; text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">INSU-MITRA</div>
+              <div style="font-size: 12px; color: #475569; font-weight: 600;">Contacts Export Report</div>
+            </div>
+            <div class="meta">
+              <div>Date: ${new Date().toLocaleString()}</div>
+              <div>Record Count: ${sortedAndFilteredData.length}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25%;">Name</th>
+                <th style="width: 15%;">Phone</th>
+                <th style="width: 20%;">Email</th>
+                <th style="width: 15%;">City</th>
+                <th style="width: 10%;">Stage</th>
+                <th style="width: 10%;">Status</th>
+                <th style="width: 5%; text-align: center;">Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const [newRelType, setNewRelType] = useState('');
   const [newRelName, setNewRelName] = useState('');
   const [newRelPhone, setNewRelPhone] = useState('');
@@ -1888,9 +2064,133 @@ export default function Contacts() {
           if (!ok) return false;
         }
       }
+      // 1. Next Follow-up Date Filter
+      if (filterFollowUpFrom || filterFollowUpTo) {
+        const fuDate = item.followUpDate || item.productInterests?.[0]?.followUpDate;
+        if (!fuDate) return false;
+        const fuTime = new Date(fuDate).getTime();
+        if (isNaN(fuTime)) return false;
+        if (filterFollowUpFrom && fuTime < new Date(filterFollowUpFrom).getTime()) return false;
+        if (filterFollowUpTo && fuTime > new Date(filterFollowUpTo).getTime() + 86400000) return false;
+      }
+
+      // 2. Gender Filter
+      if (filterGender && filterGender !== 'ALL') {
+        const g = item.gender || item.contact?.gender || '';
+        if (g.toUpperCase() !== filterGender.toUpperCase()) return false;
+      }
+
+      // 3. Marital Status Filter
+      if (filterMaritalStatus && filterMaritalStatus !== 'ALL') {
+        const ms = item.maritalStatus || item.contact?.maritalStatus || '';
+        if (ms.toUpperCase() !== filterMaritalStatus.toUpperCase()) return false;
+      }
+
+      // 4. Age Range Filter
+      if (filterAgeRange && filterAgeRange !== 'ALL') {
+        const dob = item.dateOfBirth || item.contact?.dateOfBirth;
+        if (!dob) return false;
+        const age = calculateAge(dob);
+        if (filterAgeRange === '0_18' && !(age >= 0 && age <= 18)) return false;
+        if (filterAgeRange === '19_25' && !(age >= 19 && age <= 25)) return false;
+        if (filterAgeRange === '26_30' && !(age >= 26 && age <= 30)) return false;
+        if (filterAgeRange === '31_35' && !(age >= 31 && age <= 35)) return false;
+        if (filterAgeRange === '36_40' && !(age >= 36 && age <= 40)) return false;
+        if (filterAgeRange === '41_50' && !(age >= 41 && age <= 50)) return false;
+        if (filterAgeRange === '51_60' && !(age >= 51 && age <= 60)) return false;
+        if (filterAgeRange === '61_75' && !(age >= 61 && age <= 75)) return false;
+        if (filterAgeRange === '75_PLUS' && !(age > 75)) return false;
+      }
+
+      // 5. Annual Income Filter
+      if (filterIncomeRange && filterIncomeRange !== 'ALL') {
+        const inc = Number(item.annualIncome || item.contact?.annualIncome || 0);
+        if (filterIncomeRange === '0_2.5L' && !(inc >= 0 && inc <= 250000)) return false;
+        if (filterIncomeRange === '2.5L_5L' && !(inc > 250000 && inc <= 500000)) return false;
+        if (filterIncomeRange === '5L_10L' && !(inc > 500000 && inc <= 1000000)) return false;
+        if (filterIncomeRange === '10L_25L' && !(inc > 1000000 && inc <= 2500000)) return false;
+        if (filterIncomeRange === '25L_50L' && !(inc > 2500000 && inc <= 5000000)) return false;
+        if (filterIncomeRange === '50L_PLUS' && !(inc > 5000000)) return false;
+      }
+
+      // 6. Education Filter
+      if (filterEducation && filterEducation !== 'ALL') {
+        const edu = (item.education || item.contact?.education || '').toLowerCase();
+        if (!edu.includes(filterEducation.toLowerCase())) return false;
+      }
+
+      // 7. Occupation Filter
+      if (filterOccupation && filterOccupation !== 'ALL') {
+        const occ = (item.occupationType || item.contact?.occupations?.[0]?.type || item.occupations?.[0]?.type || '').toLowerCase();
+        if (!occ.includes(filterOccupation.toLowerCase())) return false;
+      }
+
+      // 8. Residency Status Filter (Indian / NRI / OCI)
+      if (filterResidency && filterResidency !== 'ALL') {
+        const res = (item.residencyStatus || item.contact?.residencyStatus || item.notes || '').toLowerCase();
+        if (!res.includes(filterResidency.toLowerCase())) return false;
+      }
+
+      // 9. State Filter
+      if (filterState) {
+        const st = (item.state || item.contact?.addresses?.[0]?.state || '').toLowerCase();
+        if (!st.includes(filterState.toLowerCase())) return false;
+      }
+
+      // 10. City Filter
+      if (filterCity) {
+        const ct = (item.city || item.contact?.city || item.contact?.addresses?.[0]?.city || '').toLowerCase();
+        if (!ct.includes(filterCity.toLowerCase())) return false;
+      }
+
+      // 11. Bank Filter
+      if (filterBank) {
+        const bk = (item.bankName || item.contact?.bankName || item.contact?.bankAccounts?.[0]?.bankName || '').toLowerCase();
+        if (!bk.includes(filterBank.toLowerCase())) return false;
+      }
+
+      // 12. Medical History Filter
+      if (filterMedicalHistory && filterMedicalHistory.length > 0) {
+        const medStr = JSON.stringify(item.medicalHistory || item.declaredMedicalHistory || item.notes || '').toLowerCase();
+        const matchesMed = filterMedicalHistory.every(m => medStr.includes(m.toLowerCase()));
+        if (!matchesMed) return false;
+      }
+
+      // 13. Active / Inactive Status Filter
+      if (filterActiveStatus && filterActiveStatus !== 'ALL') {
+        if (filterActiveStatus === 'Active' && !item.isActive) return false;
+        if (filterActiveStatus === 'Inactive' && item.isActive) return false;
+      }
+
+      // 14. Policy Combo Filter (Health No Term / Term No Health)
+      if (filterPolicyCombo && filterPolicyCombo !== 'ALL') {
+        const contactPolicies = policyMap[item.id] ?? item.policies ?? [];
+        const hasHealth = contactPolicies.some((p: any) =>
+          (p.plan?.category || p.category || p.plan?.name || '').toLowerCase().includes('health')
+        ) || (item.tags || []).some((t: string) => t.toLowerCase() === 'health');
+
+        const hasTerm = contactPolicies.some((p: any) =>
+          (p.plan?.category || p.category || p.plan?.name || '').toLowerCase().includes('term')
+        ) || (item.tags || []).some((t: string) => t.toLowerCase() === 'term');
+
+        if (filterPolicyCombo === 'HEALTH_NO_TERM' && !(hasHealth && !hasTerm)) return false;
+        if (filterPolicyCombo === 'TERM_NO_HEALTH' && !(hasTerm && !hasHealth)) return false;
+      }
+
+      // 15. Role Filter
+      if (filterRole && filterRole !== 'ALL') {
+        const r = (item.role || item.user?.role || '').toUpperCase();
+        if (r && r !== filterRole) return false;
+      }
+
       return true;
     });
-  }, [activeTab, contactsRes, birthdayRes, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProducts, excludeProduct]);
+  }, [
+    activeTab, contactsRes, birthdayRes, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProducts, excludeProduct,
+    filterFollowUpFrom, filterFollowUpTo, filterGender, filterMaritalStatus, filterAgeRange, filterIncomeRange,
+    filterEducation, filterOccupation, filterResidency, filterState, filterCity, filterBank, filterMedicalHistory,
+    filterActiveStatus, filterPolicyCombo, filterRole
+  ]);
 
   // Client-side Sorting Memo
   const sortedAndFilteredData = useMemo(() => {
@@ -2472,10 +2772,10 @@ export default function Contacts() {
 
       {/* Main Control Hub Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
-        {/* Single Row Layout */}
+        {/* Single Row Layout (Policy & Claims UI Style) */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
 
-          {/* Left Side: Search Bar ONLY */}
+          {/* Left Side: Search Bar & Export Buttons (Excel, PDF) */}
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <div className="relative w-full lg:w-64">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2486,6 +2786,25 @@ export default function Contacts() {
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
               />
             </div>
+            {/* Export Buttons */}
+            <button
+              type="button"
+              onClick={exportContactsToExcel}
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+              title="Export to Excel"
+            >
+              <FileText size={14} className="text-emerald-600" />
+              <span className="hidden sm:inline">Excel</span>
+            </button>
+            <button
+              type="button"
+              onClick={exportContactsToPdf}
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
+              title="Export to PDF"
+            >
+              <FileText size={14} className="text-red-500" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
           </div>
 
           {/* Right Side: Active/Inactive Badges, All Products Filter, Date Range Selector & Column Settings */}
@@ -2671,77 +2990,397 @@ export default function Contacts() {
             <button
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
               className={clsx(
-                "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all",
+                "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white",
                 showAdvancedFilters && "bg-blue-50 border-blue-200 text-blue-600"
               )}
               title="Advanced Filters"
             >
-              <Filter size={14} />
+              <Filter size={14} className={showAdvancedFilters || activeContactsFilterCount > 0 ? "text-blue-600" : "text-slate-500"} />
+              <span className="hidden sm:inline">Filters</span>
+              {activeContactsFilterCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-black leading-none">
+                  {activeContactsFilterCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Active Filter Badges Bar */}
+      {activeContactsFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/60 p-2.5 rounded-2xl border border-blue-100/90 shadow-2xs animate-fadeIn">
+          <span className="text-[11px] font-extrabold text-blue-800 mr-1 flex items-center gap-1">
+            <Filter size={13} className="text-blue-600" /> Active Filters ({activeContactsFilterCount}):
+          </span>
+
+          {(filterFollowUpFrom || filterFollowUpTo) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Follow-up: {filterFollowUpFrom || 'Start'} to {filterFollowUpTo || 'End'}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => { setFilterFollowUpFrom(''); setFilterFollowUpTo(''); }}>×</span>
+            </span>
+          )}
+          {filterGender !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Gender: {filterGender}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterGender('ALL')}>×</span>
+            </span>
+          )}
+          {filterMaritalStatus !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Marital: {filterMaritalStatus}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterMaritalStatus('ALL')}>×</span>
+            </span>
+          )}
+          {filterAgeRange !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Age: {filterAgeRange.replace('_', '-').replace('-PLUS', '+')}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterAgeRange('ALL')}>×</span>
+            </span>
+          )}
+          {filterIncomeRange !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Income: {filterIncomeRange.replace('_', '-').replace('-PLUS', '+')}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterIncomeRange('ALL')}>×</span>
+            </span>
+          )}
+          {filterEducation !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Education: {filterEducation}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterEducation('ALL')}>×</span>
+            </span>
+          )}
+          {filterOccupation !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Occupation: {filterOccupation}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterOccupation('ALL')}>×</span>
+            </span>
+          )}
+          {filterResidency !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Residency: {filterResidency}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterResidency('ALL')}>×</span>
+            </span>
+          )}
+          {filterState && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              State: {filterState}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterState('')}>×</span>
+            </span>
+          )}
+          {filterCity && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              City: {filterCity}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterCity('')}>×</span>
+            </span>
+          )}
+          {filterBank && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Bank: {filterBank}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterBank('')}>×</span>
+            </span>
+          )}
+          {filterMedicalHistory.length > 0 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Medical: {filterMedicalHistory.join(', ')}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterMedicalHistory([])}>×</span>
+            </span>
+          )}
+          {filterActiveStatus !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Status: {filterActiveStatus}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterActiveStatus('ALL')}>×</span>
+            </span>
+          )}
+          {filterPolicyCombo !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Combo: {filterPolicyCombo === 'HEALTH_NO_TERM' ? 'Health (No Term)' : 'Term (No Health)'}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterPolicyCombo('ALL')}>×</span>
+            </span>
+          )}
+          {filterRole !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Role: {filterRole}
+              <span className="cursor-pointer hover:text-red-500 font-bold ml-1" onClick={() => setFilterRole('ALL')}>×</span>
+            </span>
+          )}
+          {filterProducts.length > 0 && excludeProduct && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-800 text-xs font-bold rounded-xl border border-rose-200 shadow-2xs">
+              Not Purchased: {filterProducts.join(', ')}
+              <span className="cursor-pointer hover:text-red-600 font-bold ml-1" onClick={() => { setFilterProducts([]); setExcludeProduct(false); }}>×</span>
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={resetAllContactsFilters}
+            className="text-[11px] font-extrabold text-red-600 hover:text-red-800 hover:underline cursor-pointer ml-auto px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
       {/* Advanced Filters Panel */}
       {showAdvancedFilters && (
-        <div className="card grid grid-cols-1 sm:grid-cols-4 gap-4 bg-gradient-to-r from-slate-50 via-blue-50/20 to-slate-50 rounded-2xl border border-slate-200/70 p-4 mb-2 shadow-sm animate-fadeIn">
-          <div>
-            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Agent</label>
-            <select
-              value={leadInfoFields.assignedEmployeeId}
-              onChange={e => setLeadInfoFields(prev => ({ ...prev, assignedEmployeeId: e.target.value }))}
-              className="input text-xs font-semibold"
-            >
-              <option value="">All Agents</option>
-              {employeesList.map((emp: any) => {
-                const empUserId = emp.userId || emp.user?.id || emp.id;
-                const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
-                return (
-                  <option key={emp.id || empUserId} value={empUserId}>
-                    {empName}
-                  </option>
-                );
-              })}
-            </select>
+        <div className="card bg-gray-50/50 p-5 rounded-2xl border border-slate-200 shadow-sm mt-2 mb-4 animate-fadeIn">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/70">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <Filter size={16} className="text-blue-600" />
+              Advanced Filters
+            </h3>
+            {activeContactsFilterCount > 0 && (
+              <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                {activeContactsFilterCount} {activeContactsFilterCount === 1 ? 'Filter' : 'Filters'} Active
+              </span>
+            )}
           </div>
-          <div>
-            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lead Source</label>
-            <select
-              value={leadInfoFields.leadSource}
-              onChange={e => setLeadInfoFields(prev => ({ ...prev, leadSource: e.target.value }))}
-              className="input text-xs font-semibold"
-            >
-              <option value="By Agent">By Agent</option>
-              <option value="Online">Online</option>
-              <option value="Referral">Referral</option>
-              <option value="Walk-in">Walk-in</option>
-            </select>
-          </div>
-          <div>
-            <label className="label text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Type</label>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <select
-                value={filterProducts[0] || 'ALL'}
-                onChange={e => setFilterProducts(e.target.value === 'ALL' ? [] : [e.target.value])}
-                className="input py-1.5 text-xs font-semibold flex-1"
-              >
-                <option value="ALL">All Categories</option>
-                <option value="HEALTH">Health</option>
-                <option value="LIFE">Life</option>
-                <option value="MF">MF (Mutual Funds)</option>
-                <option value="ACCIDENT">Accident</option>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 text-xs">
+
+            {/* 1. Next Followup Date Range */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Next Follow-up Date</label>
+              <div className="flex gap-2 items-center mt-1">
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterFollowUpFrom} onChange={val => setFilterFollowUpFrom(val)} title="From" />
+                <span className="text-gray-400 font-bold">-</span>
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterFollowUpTo} onChange={val => setFilterFollowUpTo(val)} title="To" />
+              </div>
+            </div>
+
+            {/* 2. Gender */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Gender</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+                <option value="ALL">All Genders</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
                 <option value="OTHER">Other</option>
               </select>
-              <label className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none text-[10px] font-extrabold text-slate-600 bg-white border border-slate-200 px-2 py-1.5 rounded-lg shadow-2xs shrink-0 hover:bg-slate-50 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={excludeProduct}
-                  onChange={e => setExcludeProduct(e.target.checked)}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
-                />
-                <span>Exclude</span>
-              </label>
             </div>
+
+            {/* 3. Married Status */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Marital Status</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterMaritalStatus} onChange={e => setFilterMaritalStatus(e.target.value)}>
+                <option value="ALL">All Statuses</option>
+                <option value="SINGLE">Single</option>
+                <option value="MARRIED">Married</option>
+                <option value="DIVORCED">Divorced</option>
+                <option value="WIDOWED">Widowed</option>
+              </select>
+            </div>
+
+            {/* 4. Age (Slabwise) */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Age Group (Slabwise)</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterAgeRange} onChange={e => setFilterAgeRange(e.target.value)}>
+                <option value="ALL">All Ages</option>
+                <option value="0_18">0 to 18 Years</option>
+                <option value="19_25">19 to 25 Years</option>
+                <option value="26_30">26 to 30 Years</option>
+                <option value="31_35">31 to 35 Years</option>
+                <option value="36_40">36 to 40 Years</option>
+                <option value="41_50">41 to 50 Years</option>
+                <option value="51_60">51 to 60 Years</option>
+                <option value="61_75">61 to 75 Years</option>
+                <option value="75_PLUS">75+ Years</option>
+              </select>
+            </div>
+
+            {/* 5. Annual Income (Slabwise) */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Annual Income (Slabwise)</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterIncomeRange} onChange={e => setFilterIncomeRange(e.target.value)}>
+                <option value="ALL">All Income Slabs</option>
+                <option value="0_2.5L">0 to ₹2.5 Lakhs</option>
+                <option value="2.5L_5L">₹2.5L to ₹5 Lakhs</option>
+                <option value="5L_10L">₹5L to ₹10 Lakhs</option>
+                <option value="10L_25L">₹10L to ₹25 Lakhs</option>
+                <option value="25L_50L">₹25L to ₹50 Lakhs</option>
+                <option value="50L_PLUS">Above ₹50 Lakhs</option>
+              </select>
+            </div>
+
+            {/* 6. Education */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Education</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterEducation} onChange={e => setFilterEducation(e.target.value)}>
+                <option value="ALL">All Education Levels</option>
+                {EDUCATION_OPTIONS.map(edu => (
+                  <option key={edu} value={edu}>{edu}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 7. Occupation Type */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Occupation Type</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterOccupation} onChange={e => setFilterOccupation(e.target.value)}>
+                <option value="ALL">All Occupations</option>
+                {OCCUPATION_TYPE_OPTIONS.map(occ => (
+                  <option key={occ} value={occ}>{occ}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 8. Residency Status (Indian / NRI / OCI) */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Residency Status</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterResidency} onChange={e => setFilterResidency(e.target.value)}>
+                <option value="ALL">All Residency Types</option>
+                <option value="Indian">Indian Resident</option>
+                <option value="NRI">NRI (Non-Resident Indian)</option>
+                <option value="OCI">OCI (Overseas Citizen)</option>
+              </select>
+            </div>
+
+            {/* 9. State */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">State</label>
+              <input
+                type="text"
+                placeholder="e.g. Maharashtra, Delhi..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterState}
+                onChange={e => setFilterState(e.target.value)}
+              />
+            </div>
+
+            {/* 10. City */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">City</label>
+              <input
+                type="text"
+                placeholder="e.g. Mumbai, Pune..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterCity}
+                onChange={e => setFilterCity(e.target.value)}
+              />
+            </div>
+
+            {/* 11. Bank */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Bank Name</label>
+              <input
+                type="text"
+                placeholder="e.g. HDFC, ICICI, SBI..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterBank}
+                onChange={e => setFilterBank(e.target.value)}
+              />
+            </div>
+
+            {/* 12. Active Status */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Contact Active Status</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterActiveStatus} onChange={e => setFilterActiveStatus(e.target.value)}>
+                <option value="ALL">All Contacts (Active & Inactive)</option>
+                <option value="Active">Active Only</option>
+                <option value="Inactive">Inactive Only</option>
+              </select>
+            </div>
+
+            {/* 13. Policy Combination Segment (Health / Term) */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Policy Combination Segment</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterPolicyCombo} onChange={e => setFilterPolicyCombo(e.target.value)}>
+                <option value="ALL">All Clients</option>
+                <option value="HEALTH_NO_TERM">Health but No Term</option>
+                <option value="TERM_NO_HEALTH">Term but No Health</option>
+              </select>
+            </div>
+
+            {/* 14. Role */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Role</label>
+              <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+                <option value="ALL">All Roles</option>
+                <option value="SUPERADMIN">Super Admin</option>
+                <option value="ADMIN">Admin</option>
+                <option value="EMPLOYEE">Employee</option>
+                <option value="CUSTOMER">Customer</option>
+                <option value="AGENT">Agent</option>
+              </select>
+            </div>
+
+            {/* 15. Assigned Agent */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Assigned Agent</label>
+              <select
+                value={leadInfoFields.assignedEmployeeId}
+                onChange={e => setLeadInfoFields(prev => ({ ...prev, assignedEmployeeId: e.target.value }))}
+                className="input text-xs w-full bg-white shadow-2xs mt-1 font-semibold"
+              >
+                <option value="">All Agents</option>
+                {employeesList.map((emp: any) => {
+                  const empUserId = emp.userId || emp.user?.id || emp.id;
+                  const empName = `${emp.firstName || emp.user?.firstName || ''} ${emp.lastName || emp.user?.lastName || ''}`.trim() || emp.email || 'Employee';
+                  return (
+                    <option key={emp.id || empUserId} value={empUserId}>
+                      {empName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 16. Product Not Purchased (Exclude Filter) */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Product Not Purchased</label>
+              <select
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterProducts.length > 0 && excludeProduct ? filterProducts[0] : 'NONE'}
+                onChange={e => {
+                  if (e.target.value === 'NONE') {
+                    if (excludeProduct) {
+                      setFilterProducts([]);
+                      setExcludeProduct(false);
+                    }
+                  } else {
+                    setFilterProducts([e.target.value]);
+                    setExcludeProduct(true);
+                  }
+                }}
+              >
+                <option value="NONE">None (Select Category...)</option>
+                <option value="HEALTH">Health (Not Purchased)</option>
+                <option value="LIFE">Life (Not Purchased)</option>
+                <option value="MF">Mutual Funds / MF (Not Purchased)</option>
+                <option value="ACCIDENT">Accident (Not Purchased)</option>
+                <option value="OTHER">Other Products (Not Purchased)</option>
+              </select>
+            </div>
+
+            {/* 17. Medical History Multi-Select */}
+            <div className="sm:col-span-2">
+              <MultiSelectBox
+                label="Medical History (BP, Sugar, Thyroid, etc.)"
+                selectedValues={filterMedicalHistory}
+                onChange={setFilterMedicalHistory}
+                badgeColor="blue"
+                placeholder="Select Medical Conditions to filter..."
+              />
+            </div>
+
+          </div>
+
+          {/* Card Actions */}
+          <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
+            <button
+              type="button"
+              onClick={resetAllContactsFilters}
+              className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            >
+              Reset Filters
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters(false)}
+              className="px-6 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              Apply Filters {activeContactsFilterCount > 0 ? `(${activeContactsFilterCount})` : ''}
+            </button>
           </div>
         </div>
       )}

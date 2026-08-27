@@ -64,6 +64,24 @@ const UI_TO_BACKEND: Record<string, string> = {
   Settled: 'SETTLED',
 };
 
+const CLAIM_DOC_TYPES = [
+  { value: 'CLAIM_FORM',              label: 'Claim Form' },
+  { value: 'DISCHARGE_SUMMARY',       label: 'Discharge Summary' },
+  { value: 'OT_NOTES_IPD_PAPERS',     label: 'OT Notes / IPD Papers' },
+  { value: 'HOSPITAL_BILL',           label: 'Hospital Bill / Breakup Bill' },
+  { value: 'PHARMACY_MEDICINES_BILL', label: 'Pharmacy / Medicines Bill' },
+  { value: 'INVESTIGATION_LAB_BILL',  label: 'Investigation / Lab Bill' },
+  { value: 'BLOOD_ANESTHESIA_BILL',   label: 'Blood / Anesthesia Bill' },
+  { value: 'IMPORTANT_LAB_REPORTS',   label: 'Important Lab Reports' },
+  { value: 'IMP_BILLS',               label: 'Imp Bills' },
+  { value: 'OTHER_IMP_DOCS',          label: 'Other Imp Documents' },
+  { value: 'QUERY_LETTER',            label: 'Claim Query Letter' },
+  { value: 'REPLY_DOCS',              label: 'Reply Documents' },
+  { value: 'SETTLEMENT_LETTER',       label: 'Claim Settlement Letter' },
+  { value: 'REJECTION_LETTER',        label: 'Rejection Letter' },
+  { value: 'OTHER',                   label: 'Other' },
+];
+
 export function getClaimNotesData(notesField?: string | null) {
   const defaultNotes = { 
     diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: '', statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0, subClaimNo: '', uiClaimStatus: '', comment: '', insuranceCompanyCategory: '', insuranceCompany: '', insuranceProductName: '', agentName: '',
@@ -323,6 +341,12 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [rejectionLetterFile, setRejectionLetterFile] = useState<File | null>(null);
   const [fileUploadComment, setFileUploadComment] = useState(notesData.fileUploadComment || '');
   const [uploading, setUploading] = useState(false);
+
+  const [docUploadOpen, setDocUploadOpen] = useState(false);
+  const [docUploadFields, setDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
+    type: 'CLAIM_FORM', title: '', description: '', file: null,
+  });
+  const [editDocsList, setEditDocsList] = useState<{ type: string; title: string; description: string; file: File }[]>([]);
 
   // Split expense charges
   const [amtHospital, setAmtHospital] = useState(notesData.amtHospital || 0);
@@ -1368,6 +1392,9 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                 <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">F</span>
                   File Uploads
+                  {editDocsList.length > 0 && (
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black">{editDocsList.length}</span>
+                  )}
                 </h4>
                 <div className="flex items-center gap-2">
                   <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['documents'] ? 'rotate-180' : ''}`} />
@@ -1375,71 +1402,149 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               </div>
               {!collapsedSections['documents'] && (
                 <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="label text-[11px]">Claim Form</label>
-                      <input type="file" onChange={e => setClaimFormFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                  {/* Upload button */}
+                  <button
+                    type="button"
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); setDocUploadOpen(true); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02]"
+                  >
+                    <Upload size={14} />
+                    Upload Document
+                  </button>
+
+                  {/* Uploaded docs list */}
+                  {editDocsList.length === 0 ? (
+                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center">
+                      <FileText size={32} className="mx-auto text-slate-300 mb-2" />
+                      <p className="text-xs text-slate-400 font-semibold">No documents added yet.</p>
+                      <p className="text-[11px] text-slate-300 mt-1">Click "Upload Document" to attach files.</p>
                     </div>
-                    <div>
-                      <label className="label text-[11px]">Discharge Summary</label>
-                      <input type="file" onChange={e => setDischargeSummaryFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {editDocsList.map((doc, idx) => (
+                        <div key={idx} className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 hover:border-blue-300 transition-colors group">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shrink-0">
+                            <FileText size={16} className="text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">{doc.title || doc.file.name}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label ?? doc.type}</p>
+                            {doc.description && <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.description}</p>}
+                            <p className="text-[10px] text-slate-300 mt-0.5">{(doc.file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditDocsList(prev => prev.filter((_, i) => i !== idx))}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-lg"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <label className="label text-[11px]">Operation Theatre Notes / IPD Papers</label>
-                      <input type="file" onChange={e => setOtNotesFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Hospital Bill, Breakup Bill</label>
-                      <input type="file" onChange={e => setHospitalBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Pharmacy, Medicines</label>
-                      <input type="file" onChange={e => setPharmacyBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Investigation, Lab Reports</label>
-                      <input type="file" onChange={e => setInvestigationBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Bill - Blood Bags, Anesthesia, Other</label>
-                      <input type="file" onChange={e => setBloodBagsBillFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Reports - Important Lab Reports</label>
-                      <input type="file" onChange={e => setLabReportsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Imp Bills</label>
-                      <input type="file" onChange={e => setBillsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Other IMP Documents</label>
-                      <input type="file" onChange={e => setOtherImpDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Claim Query Letter</label>
-                      <input type="file" onChange={e => setQueryLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Reply Documents</label>
-                      <input type="file" onChange={e => setReplyDocsFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Claim Settlement Letter</label>
-                      <input type="file" onChange={e => setSettlementLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div>
-                      <label className="label text-[11px]">Rejection Letter</label>
-                      <input type="file" onChange={e => setRejectionLetterFile(e.target.files?.[0] || null)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
-                    <div className="col-span-1 sm:col-span-2">
-                      <label className="label text-[11px]">Comment</label>
-                      <input type="text" value={fileUploadComment} onChange={e => setFileUploadComment(e.target.value)} className="input w-full bg-white mt-1 text-xs py-1" />
-                    </div>
+                  )}
+
+                  {/* Comment */}
+                  <div>
+                    <label className="label text-[11px]">Comment</label>
+                    <input type="text" value={fileUploadComment} onChange={e => setFileUploadComment(e.target.value)} className="input w-full bg-white mt-1 text-xs py-1" placeholder="Optional notes about these documents" />
                   </div>
                 </div>
               )}
             </div>
+
+            {/* ── Doc Upload Sub-Modal ─────────────────────────────────────── */}
+            <Modal
+              open={docUploadOpen}
+              onClose={() => { setDocUploadOpen(false); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+              title="Upload Document"
+              size="md"
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={docUploadFields.type}
+                    onChange={e => setDocUploadFields(p => ({ ...p, type: e.target.value }))}
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                  >
+                    {CLAIM_DOC_TYPES.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Title <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={docUploadFields.title}
+                    onChange={e => setDocUploadFields(p => ({ ...p, title: e.target.value }))}
+                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                    placeholder="e.g. Discharge Summary – Apollo Jan 2025"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={docUploadFields.description}
+                    onChange={e => setDocUploadFields(p => ({ ...p, description: e.target.value }))}
+                    className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200"
+                    placeholder="Optional notes about this document"
+                  />
+                </div>
+                <div>
+                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Choose File <span className="text-red-500">*</span></label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
+                    <input
+                      type="file"
+                      onChange={e => setDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    className="btn-secondary px-4 py-2 text-xs"
+                    onClick={() => { setDocUploadOpen(false); setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null }); }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary px-4 py-2 text-xs"
+                    onClick={() => {
+                      if (!docUploadFields.title.trim()) { toast.error('Please enter a document title.'); return; }
+                      if (!docUploadFields.file) { toast.error('Please choose a file.'); return; }
+                      const setterMap: Record<string, (f: File | null) => void> = {
+                        CLAIM_FORM: setClaimFormFile,
+                        DISCHARGE_SUMMARY: setDischargeSummaryFile,
+                        OT_NOTES_IPD_PAPERS: setOtNotesFile,
+                        HOSPITAL_BILL: setHospitalBillFile,
+                        PHARMACY_MEDICINES_BILL: setPharmacyBillFile,
+                        INVESTIGATION_LAB_BILL: setInvestigationBillFile,
+                        BLOOD_ANESTHESIA_BILL: setBloodBagsBillFile,
+                        IMPORTANT_LAB_REPORTS: setLabReportsFile,
+                        IMP_BILLS: setBillsFile,
+                        OTHER_IMP_DOCS: setOtherImpDocsFile,
+                        QUERY_LETTER: setQueryLetterFile,
+                        REPLY_DOCS: setReplyDocsFile,
+                        SETTLEMENT_LETTER: setSettlementLetterFile,
+                        REJECTION_LETTER: setRejectionLetterFile,
+                      };
+                      setterMap[docUploadFields.type]?.(docUploadFields.file);
+                      setEditDocsList(prev => [...prev, { type: docUploadFields.type, title: docUploadFields.title, description: docUploadFields.description, file: docUploadFields.file! }]);
+                      setDocUploadOpen(false);
+                      setDocUploadFields({ type: 'CLAIM_FORM', title: '', description: '', file: null });
+                      toast.success('Document added!');
+                    }}
+                  >
+                    Add Document
+                  </button>
+                </div>
+              </div>
+            </Modal>
           </div>
         )}
   </div>
@@ -1527,6 +1632,97 @@ export default function Claims() {
   const [analyticsDuration, setAnalyticsDuration] = useState('ALL');
   const [showAnalytics, setShowAnalytics] = useState(false);
 
+  // In-Page Expandable Advanced Filters Card (Policy Page Style) & 20 Parameters
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterProposerName, setFilterProposerName] = useState('');
+  const [filterCompanyName, setFilterCompanyName] = useState('');
+  const [filterPlanName, setFilterPlanName] = useState('');
+  const [filterAssignedEmployee, setFilterAssignedEmployee] = useState('');
+  const [filterAgentName, setFilterAgentName] = useState('');
+  const [filterClaimTypeModal, setFilterClaimTypeModal] = useState('ALL');
+  const [filterClaimStatusModal, setFilterClaimStatusModal] = useState('ALL');
+  const [filterClaimedAmountRange, setFilterClaimedAmountRange] = useState('ALL');
+  const [filterSettledMin, setFilterSettledMin] = useState('');
+  const [filterSettledMax, setFilterSettledMax] = useState('');
+  const [filterDeductedMin, setFilterDeductedMin] = useState('');
+  const [filterDeductedMax, setFilterDeductedMax] = useState('');
+  const [filterHospitalState, setFilterHospitalState] = useState('');
+  const [filterHospitalCity, setFilterHospitalCity] = useState('');
+  const [filterHospitalNameModal, setFilterHospitalNameModal] = useState('');
+  const [filterDoctorName, setFilterDoctorName] = useState('');
+  const [filterAdmissionDateFrom, setFilterAdmissionDateFrom] = useState('');
+  const [filterAdmissionDateTo, setFilterAdmissionDateTo] = useState('');
+  const [filterDischargeDateFrom, setFilterDischargeDateFrom] = useState('');
+  const [filterDischargeDateTo, setFilterDischargeDateTo] = useState('');
+  const [filterAffectedOrgan, setFilterAffectedOrgan] = useState('');
+  const [filterRoomCategory, setFilterRoomCategory] = useState('');
+  const [filterTypeOfManagement, setFilterTypeOfManagement] = useState('');
+  const [filterTypeOfAdmission, setFilterTypeOfAdmission] = useState('');
+  const [filterCreationDateFrom, setFilterCreationDateFrom] = useState('');
+  const [filterCreationDateTo, setFilterCreationDateTo] = useState('');
+
+  const resetAllModalFilters = () => {
+    setFilterProposerName('');
+    setFilterCompanyName('');
+    setFilterPlanName('');
+    setFilterAssignedEmployee('');
+    setFilterAgentName('');
+    setFilterClaimTypeModal('ALL');
+    setFilterClaimStatusModal('ALL');
+    setFilterClaimedAmountRange('ALL');
+    setFilterSettledMin('');
+    setFilterSettledMax('');
+    setFilterDeductedMin('');
+    setFilterDeductedMax('');
+    setFilterHospitalState('');
+    setFilterHospitalCity('');
+    setFilterHospitalNameModal('');
+    setFilterDoctorName('');
+    setFilterAdmissionDateFrom('');
+    setFilterAdmissionDateTo('');
+    setFilterDischargeDateFrom('');
+    setFilterDischargeDateTo('');
+    setFilterAffectedOrgan('');
+    setFilterRoomCategory('');
+    setFilterTypeOfManagement('');
+    setFilterTypeOfAdmission('');
+    setFilterCreationDateFrom('');
+    setFilterCreationDateTo('');
+  };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterProposerName) count++;
+    if (filterCompanyName) count++;
+    if (filterPlanName) count++;
+    if (filterAssignedEmployee) count++;
+    if (filterAgentName) count++;
+    if (filterClaimTypeModal !== 'ALL') count++;
+    if (filterClaimStatusModal !== 'ALL') count++;
+    if (filterClaimedAmountRange !== 'ALL') count++;
+    if (filterSettledMin || filterSettledMax) count++;
+    if (filterDeductedMin || filterDeductedMax) count++;
+    if (filterHospitalState) count++;
+    if (filterHospitalCity) count++;
+    if (filterHospitalNameModal) count++;
+    if (filterDoctorName) count++;
+    if (filterAdmissionDateFrom || filterAdmissionDateTo) count++;
+    if (filterDischargeDateFrom || filterDischargeDateTo) count++;
+    if (filterAffectedOrgan) count++;
+    if (filterRoomCategory) count++;
+    if (filterTypeOfManagement) count++;
+    if (filterTypeOfAdmission) count++;
+    if (filterCreationDateFrom || filterCreationDateTo) count++;
+    return count;
+  }, [
+    filterProposerName, filterCompanyName, filterPlanName, filterAssignedEmployee, filterAgentName,
+    filterClaimTypeModal, filterClaimStatusModal, filterClaimedAmountRange, filterSettledMin, filterSettledMax,
+    filterDeductedMin, filterDeductedMax, filterHospitalState, filterHospitalCity, filterHospitalNameModal,
+    filterDoctorName, filterAdmissionDateFrom, filterAdmissionDateTo, filterDischargeDateFrom, filterDischargeDateTo,
+    filterAffectedOrgan, filterRoomCategory, filterTypeOfManagement, filterTypeOfAdmission,
+    filterCreationDateFrom, filterCreationDateTo
+  ]);
+
   // View Mode
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
@@ -1545,30 +1741,30 @@ export default function Claims() {
       const claimNo = (c.claimNumber || '').toLowerCase();
       if (search && !clientName.includes(sTerm) && !claimNo.includes(sTerm)) return false;
 
-      // 2. Status Filter
+      // 2. Status Filter (Analytics Top Bar)
       if (filterStatus !== 'All') {
         const uStatus = BACKEND_TO_UI[c.status] || 'Pending';
         if (uStatus !== filterStatus) return false;
       }
 
-      // 3. Claim Type Filter
+      // 3. Claim Type Filter (Analytics Top Bar)
       if (filterClaimType !== 'ALL') {
         if (c.claimType?.toLowerCase() !== filterClaimType.toLowerCase()) return false;
       }
 
-      // 4. Company Filter
+      // 4. Company Filter (Analytics Top Bar)
       if (filterCompany) {
         const companyName = (c.policy?.plan?.company?.name || '').toLowerCase();
         if (!companyName.includes(filterCompany.toLowerCase())) return false;
       }
 
-      // 5. Hospital Filter
+      // 5. Hospital Filter (Analytics Top Bar)
       if (filterHospital) {
         const hospitalName = (notes.hospital || '').toLowerCase();
         if (!hospitalName.includes(filterHospital.toLowerCase())) return false;
       }
 
-      // 6. Date range Filter
+      // 6. Date range Filter (Analytics Top Bar)
       if (filterStartDate) {
         const start = new Date(filterStartDate).getTime();
         const date = new Date(c.intimatedAt).getTime();
@@ -1595,9 +1791,187 @@ export default function Claims() {
       // 8. Agent Filter
       if (filterAgent && c.assignedEmployeeId !== filterAgent) return false;
 
+      // --- DEDICATED 20 FILTERS EVALUATION ---
+
+      // 1. Proposer Name Filter
+      if (filterProposerName) {
+        const pTerm = filterProposerName.toLowerCase();
+        const contactName = `${c.contact?.firstName || ''} ${c.contact?.lastName || ''}`.toLowerCase();
+        const pName = (notes.patientName || '').toLowerCase();
+        if (!contactName.includes(pTerm) && !pName.includes(pTerm)) return false;
+      }
+
+      // 2. Company Name Filter
+      if (filterCompanyName) {
+        const compTerm = filterCompanyName.toLowerCase();
+        const c1 = (c.policy?.plan?.company?.name || '').toLowerCase();
+        const c2 = (notes.insuranceCompany || '').toLowerCase();
+        if (!c1.includes(compTerm) && !c2.includes(compTerm)) return false;
+      }
+
+      // 3. Plan Name Filter
+      if (filterPlanName) {
+        const planTerm = filterPlanName.toLowerCase();
+        const p1 = (c.policy?.plan?.name || '').toLowerCase();
+        const p2 = (notes.insuranceProductName || '').toLowerCase();
+        if (!p1.includes(planTerm) && !p2.includes(planTerm)) return false;
+      }
+
+      // 4. Assigned Employee Filter
+      if (filterAssignedEmployee) {
+        if (c.assignedEmployeeId !== filterAssignedEmployee) return false;
+      }
+
+      // 5. Agent Name Filter
+      if (filterAgentName) {
+        const agTerm = filterAgentName.toLowerCase();
+        const a1 = (notes.agentName || '').toLowerCase();
+        const a2 = (c.policy?.agent?.firstName ? `${c.policy.agent.firstName} ${c.policy.agent.lastName}` : '').toLowerCase();
+        if (!a1.includes(agTerm) && !a2.includes(agTerm)) return false;
+      }
+
+      // 6. Claim Type Filter (Modal)
+      if (filterClaimTypeModal !== 'ALL') {
+        if ((c.claimType || '').toLowerCase() !== filterClaimTypeModal.toLowerCase()) return false;
+      }
+
+      // 7. Claim Status Filter (Modal)
+      if (filterClaimStatusModal !== 'ALL') {
+        const uiStatus = BACKEND_TO_UI[c.status] || 'Pending';
+        const notesStatus = notes.uiClaimStatus || '';
+        if (
+          uiStatus.toLowerCase() !== filterClaimStatusModal.toLowerCase() &&
+          notesStatus.toLowerCase() !== filterClaimStatusModal.toLowerCase() &&
+          (c.status || '').toLowerCase() !== filterClaimStatusModal.toLowerCase()
+        ) return false;
+      }
+
+      // 8. Claimed Amount Range Filter (0-50,000 / 50,001-1,00,000 / 1,00,001-2,00,000 / 2,00,001-4,00,000 / 4,00,001-10,00,000 / 10,00,001-20,00,000 / 20,00,001+)
+      if (filterClaimedAmountRange !== 'ALL') {
+        const amt = Number(c.claimAmount || 0);
+        if (filterClaimedAmountRange === '0_50K' && !(amt >= 0 && amt <= 50000)) return false;
+        if (filterClaimedAmountRange === '50K_1L' && !(amt >= 50001 && amt <= 100000)) return false;
+        if (filterClaimedAmountRange === '1L_2L' && !(amt >= 100001 && amt <= 200000)) return false;
+        if (filterClaimedAmountRange === '2L_4L' && !(amt >= 200001 && amt <= 400000)) return false;
+        if (filterClaimedAmountRange === '4L_10L' && !(amt >= 400001 && amt <= 1000000)) return false;
+        if (filterClaimedAmountRange === '10L_20L' && !(amt >= 1000001 && amt <= 2000000)) return false;
+        if (filterClaimedAmountRange === '20L_ABOVE' && !(amt > 2000000)) return false;
+      }
+
+      // 9. Settled Amount (Min / Max)
+      const settledAmt = Number(c.approvedAmount ?? notes.amtPayableToInsured ?? 0);
+      if (filterSettledMin && settledAmt < Number(filterSettledMin)) return false;
+      if (filterSettledMax && settledAmt > Number(filterSettledMax)) return false;
+
+      // 10. Deducted Amount (Min / Max)
+      const claimedAmt = Number(c.claimAmount || 0);
+      const calculatedDeducted = Number(notes.amtPatientToPay ?? notes.amtNonPayables ?? (claimedAmt > settledAmt ? claimedAmt - settledAmt : 0));
+      if (filterDeductedMin && calculatedDeducted < Number(filterDeductedMin)) return false;
+      if (filterDeductedMax && calculatedDeducted > Number(filterDeductedMax)) return false;
+
+      // 11. Hospital State Filter
+      if (filterHospitalState) {
+        const stateTerm = filterHospitalState.toLowerCase();
+        const hState = (notes.hospitalState || '').toLowerCase();
+        if (!hState.includes(stateTerm)) return false;
+      }
+
+      // 12. Hospital City Filter
+      if (filterHospitalCity) {
+        const cityTerm = filterHospitalCity.toLowerCase();
+        const hCity = (notes.hospitalCity || '').toLowerCase();
+        if (!hCity.includes(cityTerm)) return false;
+      }
+
+      // 13. Hospital Name Filter
+      if (filterHospitalNameModal) {
+        const hTerm = filterHospitalNameModal.toLowerCase();
+        const h1 = (notes.hospital || '').toLowerCase();
+        const h2 = (notes.hospitalName || '').toLowerCase();
+        if (!h1.includes(hTerm) && !h2.includes(hTerm)) return false;
+      }
+
+      // 14. Doctor Name Filter
+      if (filterDoctorName) {
+        const docTerm = filterDoctorName.toLowerCase();
+        let doctorMatch = false;
+        try {
+          const docs = JSON.parse(notes.hospitalDoctors || '[]');
+          if (Array.isArray(docs)) {
+            doctorMatch = docs.some((d: any) => (d.name || '').toLowerCase().includes(docTerm));
+          }
+        } catch {}
+        if (!doctorMatch && !(notes.hospitalDoctors || '').toLowerCase().includes(docTerm)) return false;
+      }
+
+      // 15. Date of Admission Filter
+      if (filterAdmissionDateFrom || filterAdmissionDateTo) {
+        const admStr = notes.admissionAt || notes.deathAdmissionDate || '';
+        if (!admStr) return false;
+        const admTime = new Date(admStr).getTime();
+        if (filterAdmissionDateFrom && admTime < new Date(filterAdmissionDateFrom).getTime()) return false;
+        if (filterAdmissionDateTo && admTime > new Date(filterAdmissionDateTo).getTime() + 86400000) return false;
+      }
+
+      // 16. Date of Discharge Filter
+      if (filterDischargeDateFrom || filterDischargeDateTo) {
+        const disStr = notes.dischargeAt || '';
+        if (!disStr) return false;
+        const disTime = new Date(disStr).getTime();
+        if (filterDischargeDateFrom && disTime < new Date(filterDischargeDateFrom).getTime()) return false;
+        if (filterDischargeDateTo && disTime > new Date(filterDischargeDateTo).getTime() + 86400000) return false;
+      }
+
+      // 17. Affected Organ / Body Part Filter
+      if (filterAffectedOrgan) {
+        const organTerm = filterAffectedOrgan.toLowerCase();
+        const diag1 = (notes.diagnosis || '').toLowerCase();
+        const diag2 = (notes.diagnosisSimple || '').toLowerCase();
+        if (!diag1.includes(organTerm) && !diag2.includes(organTerm)) return false;
+      }
+
+      // 18. Room Category Filter
+      if (filterRoomCategory) {
+        const roomTerm = filterRoomCategory.toLowerCase();
+        const room = (notes.roomCategory || '').toLowerCase();
+        if (!room.includes(roomTerm)) return false;
+      }
+
+      // 19. Type of Management Filter
+      if (filterTypeOfManagement) {
+        const mgmtTerm = filterTypeOfManagement.toLowerCase();
+        const mgmt = (notes.typeOfManagement || '').toLowerCase();
+        if (!mgmt.includes(mgmtTerm)) return false;
+      }
+
+      // 20. Type of Admission Filter
+      if (filterTypeOfAdmission) {
+        const admTypeTerm = filterTypeOfAdmission.toLowerCase();
+        const admType = (notes.typeOfAdmission || '').toLowerCase();
+        if (!admType.includes(admTypeTerm)) return false;
+      }
+
+      // 21. Claim Creation Date Filter
+      if (filterCreationDateFrom || filterCreationDateTo) {
+        const createdStr = c.createdAt || c.intimatedAt || (notes as any).createdDate || '';
+        if (!createdStr) return false;
+        const createdTime = new Date(createdStr).getTime();
+        if (isNaN(createdTime)) return false;
+        if (filterCreationDateFrom && createdTime < new Date(filterCreationDateFrom).getTime()) return false;
+        if (filterCreationDateTo && createdTime > new Date(filterCreationDateTo).getTime() + 86400000) return false;
+      }
+
       return true;
     });
-  }, [rawClaims, search, filterStatus, filterStartDate, filterEndDate, filterCompany, filterHospital, filterClaimType, analyticsDuration, filterAgent]);
+  }, [
+    rawClaims, search, filterStatus, filterStartDate, filterEndDate, filterCompany, filterHospital, filterClaimType, analyticsDuration, filterAgent,
+    filterProposerName, filterCompanyName, filterPlanName, filterAssignedEmployee, filterAgentName,
+    filterClaimTypeModal, filterClaimStatusModal, filterClaimedAmountRange, filterSettledMin, filterSettledMax,
+    filterDeductedMin, filterDeductedMax, filterHospitalState, filterHospitalCity, filterHospitalNameModal,
+    filterDoctorName, filterAdmissionDateFrom, filterAdmissionDateTo, filterDischargeDateFrom, filterDischargeDateTo,
+    filterAffectedOrgan, filterRoomCategory, filterTypeOfManagement, filterTypeOfAdmission,
+    filterCreationDateFrom, filterCreationDateTo
+  ]);
 
   // Client-side Sorting
   const sortedClaims = useMemo(() => {
@@ -2210,41 +2584,43 @@ export default function Claims() {
         </button>
       </div>
 
-      {/* Unified Search & Actions Row */}
+      {/* Unified Search & Actions Row (Policy UI Style) */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
-        {/* Left: Search Bar */}
-        <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search claims by ID or customer..."
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
-          />
-        </div>
-
-        {/* Right: View toggle and controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Left Side: Search Bar & Export Buttons (Excel, PDF) */}
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search claims by ID or customer..."
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs bg-slate-50/50 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
+            />
+          </div>
           {/* Export Buttons */}
           <button
             type="button"
             onClick={exportClaimsToExcel}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
             title="Export to Excel"
           >
-            <Download size={13} className="text-emerald-600" />
+            <Download size={14} className="text-emerald-600" />
             <span className="hidden sm:inline">Excel</span>
           </button>
           <button
             type="button"
             onClick={exportClaimsToPdf}
-            className="btn-secondary h-9 py-0 px-3 text-xs flex items-center gap-1.5 font-bold cursor-pointer rounded-lg bg-white shadow-2xs"
+            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white"
             title="Export to PDF"
           >
-            <FileText size={13} className="text-red-500" />
+            <FileText size={14} className="text-red-500" />
             <span className="hidden sm:inline">PDF</span>
           </button>
+        </div>
+
+        {/* Right Side: View Mode Toggle, Show Analytics & Advanced Filters Toggle */}
+        <div className="flex flex-wrap items-center gap-2 justify-end">
           {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
             <button
@@ -2270,8 +2646,510 @@ export default function Claims() {
           >
             {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
           </button>
+
+          {/* Advanced Filters Toggle Button (Policy Page Style) */}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className={clsx(
+              'p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white shrink-0',
+              filtersOpen && 'bg-blue-50 border-blue-200 text-blue-600 font-extrabold'
+            )}
+            title="Advanced Filters"
+          >
+            <Filter size={14} className={filtersOpen || activeFilterCount > 0 ? 'text-blue-600' : 'text-slate-500'} />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-black leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Active Filter Badges Bar */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/60 p-2.5 rounded-2xl border border-blue-100/90 shadow-2xs animate-fadeIn">
+          <span className="text-[11px] font-extrabold text-blue-800 mr-1 flex items-center gap-1">
+            <Filter size={13} className="text-blue-600" /> Active Filters ({activeFilterCount}):
+          </span>
+
+          {filterProposerName && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Proposer: {filterProposerName}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterProposerName('')} />
+            </span>
+          )}
+          {filterCompanyName && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Company: {filterCompanyName}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterCompanyName('')} />
+            </span>
+          )}
+          {filterPlanName && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Plan: {filterPlanName}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterPlanName('')} />
+            </span>
+          )}
+          {filterAssignedEmployee && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Employee: {employees.find((e: any) => e.id === filterAssignedEmployee || e.userId === filterAssignedEmployee)?.firstName || filterAssignedEmployee}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterAssignedEmployee('')} />
+            </span>
+          )}
+          {filterAgentName && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Agent: {filterAgentName}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterAgentName('')} />
+            </span>
+          )}
+          {filterClaimTypeModal !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Type: {filterClaimTypeModal}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterClaimTypeModal('ALL')} />
+            </span>
+          )}
+          {filterClaimStatusModal !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Status: {filterClaimStatusModal}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterClaimStatusModal('ALL')} />
+            </span>
+          )}
+          {filterClaimedAmountRange !== 'ALL' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Claimed: {
+                filterClaimedAmountRange === '0_50K' ? '0 - 50,000' :
+                filterClaimedAmountRange === '50K_1L' ? '50,001 - 1,00,000' :
+                filterClaimedAmountRange === '1L_2L' ? '1,00,001 - 2,00,000' :
+                filterClaimedAmountRange === '2L_4L' ? '2,00,001 - 4,00,000' :
+                filterClaimedAmountRange === '4L_10L' ? '4,00,001 - 10,00,000' :
+                filterClaimedAmountRange === '10L_20L' ? '10,00,001 - 20,00,000' :
+                '20,00,001+'
+              }
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterClaimedAmountRange('ALL')} />
+            </span>
+          )}
+          {(filterSettledMin || filterSettledMax) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Settled: ₹{filterSettledMin || '0'} - ₹{filterSettledMax || '∞'}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => { setFilterSettledMin(''); setFilterSettledMax(''); }} />
+            </span>
+          )}
+          {(filterDeductedMin || filterDeductedMax) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Deducted: ₹{filterDeductedMin || '0'} - ₹{filterDeductedMax || '∞'}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => { setFilterDeductedMin(''); setFilterDeductedMax(''); }} />
+            </span>
+          )}
+          {filterHospitalState && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              State: {filterHospitalState}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterHospitalState('')} />
+            </span>
+          )}
+          {filterHospitalCity && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              City: {filterHospitalCity}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterHospitalCity('')} />
+            </span>
+          )}
+          {filterHospitalNameModal && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Hospital: {filterHospitalNameModal}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterHospitalNameModal('')} />
+            </span>
+          )}
+          {filterDoctorName && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Doctor: {filterDoctorName}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterDoctorName('')} />
+            </span>
+          )}
+          {(filterAdmissionDateFrom || filterAdmissionDateTo) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Admission: {filterAdmissionDateFrom || 'Start'} to {filterAdmissionDateTo || 'End'}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => { setFilterAdmissionDateFrom(''); setFilterAdmissionDateTo(''); }} />
+            </span>
+          )}
+          {(filterDischargeDateFrom || filterDischargeDateTo) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Discharge: {filterDischargeDateFrom || 'Start'} to {filterDischargeDateTo || 'End'}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => { setFilterDischargeDateFrom(''); setFilterDischargeDateTo(''); }} />
+            </span>
+          )}
+          {filterAffectedOrgan && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Organ/Body Part: {filterAffectedOrgan}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterAffectedOrgan('')} />
+            </span>
+          )}
+          {filterRoomCategory && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Room: {filterRoomCategory}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterRoomCategory('')} />
+            </span>
+          )}
+          {filterTypeOfManagement && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Management: {filterTypeOfManagement}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterTypeOfManagement('')} />
+            </span>
+          )}
+          {filterTypeOfAdmission && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Admission Type: {filterTypeOfAdmission}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => setFilterTypeOfAdmission('')} />
+            </span>
+          )}
+          {(filterCreationDateFrom || filterCreationDateTo) && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-xl border border-blue-200 shadow-2xs">
+              Claim Created: {filterCreationDateFrom || 'Start'} to {filterCreationDateTo || 'End'}
+              <X size={12} className="cursor-pointer hover:text-red-500 transition-colors" onClick={() => { setFilterCreationDateFrom(''); setFilterCreationDateTo(''); }} />
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={resetAllModalFilters}
+            className="text-[11px] font-extrabold text-red-600 hover:text-red-800 hover:underline cursor-pointer ml-auto px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* In-Page Expandable Advanced Filters Card (Policy Page Style) */}
+      {filtersOpen && (
+        <div className="card bg-gray-50/50 p-5 rounded-2xl border border-slate-200 shadow-sm mt-2 mb-4 animate-fadeIn">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/70">
+            <h3 className="text-sm font-bold text-slate-800 flex flex-wrap items-center gap-2">
+              <Filter size={16} className="text-blue-600" />
+              Advanced Filters
+            </h3>
+            {activeFilterCount > 0 && (
+              <span className="text-xs font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100">
+                {activeFilterCount} {activeFilterCount === 1 ? 'Filter' : 'Filters'} Active
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 text-xs">
+            {/* 1. Proposer Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Proposer Name</label>
+              <input
+                type="text"
+                placeholder="Search proposer/client name..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterProposerName}
+                onChange={e => setFilterProposerName(e.target.value)}
+              />
+            </div>
+
+            {/* 2. Company Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Company Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Star Health, Neva Bupa..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterCompanyName}
+                onChange={e => setFilterCompanyName(e.target.value)}
+              />
+            </div>
+
+            {/* 3. Plan Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Plan Name</label>
+              <input
+                type="text"
+                placeholder="Search plan name..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterPlanName}
+                onChange={e => setFilterPlanName(e.target.value)}
+              />
+            </div>
+
+            {/* 4. Assigned Employee */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Assigned Employee</label>
+              <select
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterAssignedEmployee}
+                onChange={e => setFilterAssignedEmployee(e.target.value)}
+              >
+                <option value="">All Employees</option>
+                {employees.map((emp: any) => (
+                  <option key={emp.id} value={emp.userId || emp.id}>
+                    {emp.firstName} {emp.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 5. Agent Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Agent Name</label>
+              <input
+                type="text"
+                placeholder="Search agent name..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterAgentName}
+                onChange={e => setFilterAgentName(e.target.value)}
+              />
+            </div>
+
+            {/* 6. Claim Type */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Claim Type</label>
+              <select
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterClaimTypeModal}
+                onChange={e => setFilterClaimTypeModal(e.target.value)}
+              >
+                <option value="ALL">All Claim Types</option>
+                <option value="Cashless">Cashless</option>
+                <option value="Reimbursement">Reimbursement</option>
+                <option value="Pre-Post Hospitalization">Pre-Post Hospitalization</option>
+                <option value="Accident">Accident</option>
+                <option value="Death Claim">Death Claim</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* 7. Claim Status */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Claim Status</label>
+              <select
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterClaimStatusModal}
+                onChange={e => setFilterClaimStatusModal(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Approved">Approved</option>
+                <option value="Settled">Settled</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Intimated">Intimated</option>
+                <option value="Discharge Done">Discharge Done</option>
+                <option value="Query Raised">Query Raised</option>
+                <option value="Query Resolved">Query Resolved</option>
+                <option value="Partially Approved">Partially Approved</option>
+              </select>
+            </div>
+
+            {/* 8. Claimed Amount Range */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Claimed Amount Range</label>
+              <select
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterClaimedAmountRange}
+                onChange={e => setFilterClaimedAmountRange(e.target.value)}
+              >
+                <option value="ALL">All Amount Ranges</option>
+                <option value="0_50K">0 to 50,000</option>
+                <option value="50K_1L">50,001 to 1,00,000</option>
+                <option value="1L_2L">1,00,001 to 2,00,000</option>
+                <option value="2L_4L">2,00,001 to 4,00,000</option>
+                <option value="4L_10L">4,00,001 to 10,00,000</option>
+                <option value="10L_20L">10,00,001 to 20,00,000</option>
+                <option value="20L_ABOVE">20,00,001 and above</option>
+              </select>
+            </div>
+
+            {/* 9. Settled Amount Range */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Settled Amount Range</label>
+              <div className="flex gap-2 items-center mt-1">
+                <input
+                  type="number"
+                  placeholder="Min ₹"
+                  className="input text-xs w-full bg-white shadow-2xs"
+                  value={filterSettledMin}
+                  onChange={e => setFilterSettledMin(e.target.value)}
+                />
+                <span className="text-gray-400 font-bold">-</span>
+                <input
+                  type="number"
+                  placeholder="Max ₹"
+                  className="input text-xs w-full bg-white shadow-2xs"
+                  value={filterSettledMax}
+                  onChange={e => setFilterSettledMax(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* 10. Deducted Amount Range */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Deducted Amount Range</label>
+              <div className="flex gap-2 items-center mt-1">
+                <input
+                  type="number"
+                  placeholder="Min ₹"
+                  className="input text-xs w-full bg-white shadow-2xs"
+                  value={filterDeductedMin}
+                  onChange={e => setFilterDeductedMin(e.target.value)}
+                />
+                <span className="text-gray-400 font-bold">-</span>
+                <input
+                  type="number"
+                  placeholder="Max ₹"
+                  className="input text-xs w-full bg-white shadow-2xs"
+                  value={filterDeductedMax}
+                  onChange={e => setFilterDeductedMax(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* 11. Hospital State */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Hospital State</label>
+              <input
+                type="text"
+                placeholder="e.g. Maharashtra, Gujarat..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterHospitalState}
+                onChange={e => setFilterHospitalState(e.target.value)}
+              />
+            </div>
+
+            {/* 12. Hospital City */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Hospital City</label>
+              <input
+                type="text"
+                placeholder="e.g. Mumbai, Pune..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterHospitalCity}
+                onChange={e => setFilterHospitalCity(e.target.value)}
+              />
+            </div>
+
+            {/* 13. Hospital Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Hospital Name</label>
+              <input
+                type="text"
+                placeholder="Search hospital name..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterHospitalNameModal}
+                onChange={e => setFilterHospitalNameModal(e.target.value)}
+              />
+            </div>
+
+            {/* 14. Doctor Name */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Doctor Name</label>
+              <input
+                type="text"
+                placeholder="Search doctor name..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterDoctorName}
+                onChange={e => setFilterDoctorName(e.target.value)}
+              />
+            </div>
+
+            {/* 15. Claim Creation Date */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Claim Creation Date</label>
+              <div className="flex gap-2 items-center mt-1">
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterCreationDateFrom} onChange={val => setFilterCreationDateFrom(val)} title="From" />
+                <span className="text-gray-400 font-bold">-</span>
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterCreationDateTo} onChange={val => setFilterCreationDateTo(val)} title="To" />
+              </div>
+            </div>
+
+            {/* 16. Date of Admission */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Date of Admission</label>
+              <div className="flex gap-2 items-center mt-1">
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterAdmissionDateFrom} onChange={val => setFilterAdmissionDateFrom(val)} title="From" />
+                <span className="text-gray-400 font-bold">-</span>
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterAdmissionDateTo} onChange={val => setFilterAdmissionDateTo(val)} title="To" />
+              </div>
+            </div>
+
+            {/* 17. Date of Discharge */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Date of Discharge</label>
+              <div className="flex gap-2 items-center mt-1">
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterDischargeDateFrom} onChange={val => setFilterDischargeDateFrom(val)} title="From" />
+                <span className="text-gray-400 font-bold">-</span>
+                <DatePicker className="input text-xs w-full shadow-2xs" value={filterDischargeDateTo} onChange={val => setFilterDischargeDateTo(val)} title="To" />
+              </div>
+            </div>
+
+            {/* 18. Affected Organ / Body part */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Affected Organ / Body Part</label>
+              <input
+                type="text"
+                placeholder="e.g. Heart, Knee, Kidney..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterAffectedOrgan}
+                onChange={e => setFilterAffectedOrgan(e.target.value)}
+              />
+            </div>
+
+            {/* 19. Room Category */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Room Category</label>
+              <input
+                type="text"
+                placeholder="e.g. Single AC, Twin Sharing..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterRoomCategory}
+                onChange={e => setFilterRoomCategory(e.target.value)}
+              />
+            </div>
+
+            {/* 20. Type of Management */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Type of Management</label>
+              <input
+                type="text"
+                placeholder="e.g. Medical, Surgical..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterTypeOfManagement}
+                onChange={e => setFilterTypeOfManagement(e.target.value)}
+              />
+            </div>
+
+            {/* 21. Type of Admission */}
+            <div>
+              <label className="label text-[11px] font-bold text-slate-600">Type of Admission</label>
+              <input
+                type="text"
+                placeholder="e.g. Emergency, Planned..."
+                className="input text-xs w-full bg-white shadow-2xs mt-1"
+                value={filterTypeOfAdmission}
+                onChange={e => setFilterTypeOfAdmission(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons at bottom of Card */}
+          <div className="flex flex-wrap justify-end gap-3 mt-6 pt-4 border-t border-slate-200/70">
+            <button
+              type="button"
+              onClick={resetAllModalFilters}
+              className="px-6 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            >
+              Reset Filters
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="px-6 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+            >
+              Apply Filters {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Analytics & Reports Collapsible Card */}
       {showAnalytics && (

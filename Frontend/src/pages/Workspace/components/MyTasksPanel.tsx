@@ -293,9 +293,10 @@ export default function MyTasksPanel({
             <button
               type="button"
               onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
-              className="btn-primary flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-extrabold flex items-center gap-2 transition-all shadow-md shadow-blue-500/25 hover:scale-105 cursor-pointer select-none"
             >
-              <Plus className="w-4 h-4" /> Schedule Task
+              <Plus size={15} strokeWidth={2.5} />
+              <span>Schedule / Log</span>
             </button>
           )}
         </div>
@@ -397,8 +398,11 @@ export default function MyTasksPanel({
                         {/* Title & Entity */}
                         <td className="py-3 px-4 max-w-xs">
                           <div className="space-y-0.5">
-                            <p className={`font-bold text-gray-900 ${isDone ? 'line-through text-gray-500' : ''}`}>
-                              {task.title}
+                            <p className={`font-bold text-gray-900 flex items-center gap-1.5 flex-wrap ${isDone ? 'line-through text-gray-500' : ''}`}>
+                              <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
+                                {task.taskNumber || (task.id?.length > 6 ? `#TSK-${task.id.slice(-4).toUpperCase()}` : `#TSK-${task.id || '101'}`)}
+                              </span>
+                              <span>{task.title}</span>
                             </p>
                             {task.entityName && (
                               <p className="text-[11px] text-primary-700 font-semibold flex items-center gap-1">

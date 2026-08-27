@@ -40,6 +40,7 @@ const EmployeeTargets  = lazy(() => import('@pages/Employees/Targets'));
 const EmployeeAttend   = lazy(() => import('@pages/Employees/Attendance'));
 const EmployeeEod      = lazy(() => import('@pages/Employees/EodReports'));
 const EmployeeAccess   = lazy(() => import('@pages/Employees/AccessControl'));
+const EmployeeJobDescriptions = lazy(() => import('@pages/Employees/JobDescriptions'));
 const EmployeeDetail   = lazy(() => import('@pages/Employees/EmployeeDetail'));
 const Commissions    = lazy(() => import('@pages/Commissions'));
 const WhatsApp       = lazy(() => import('@pages/WhatsApp'));
@@ -70,8 +71,11 @@ function AdminOrAuthorizedRoute({ children, permission }: { children: React.Reac
   const user = useAuthStore(s => s.user);
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'OWNER' || user.role === 'SUPERADMIN') return <>{children}</>;
-  if (user.role === 'EMPLOYEE' && permission && (user as any).permissions?.includes(permission)) {
-    return <>{children}</>;
+  if (user.role === 'EMPLOYEE') {
+    const perms: string[] = (user as any)?.permissions || [];
+    if (!permission || perms.includes(permission) || perms.includes('manage_employees') || perms.includes('view_employees')) {
+      return <>{children}</>;
+    }
   }
   return <Navigate to="/workspace" replace />;
 }
@@ -238,6 +242,7 @@ export default function App() {
           <Route path="attendance"     element={<Suspense fallback={<Loader />}><EmployeeAttend /></Suspense>} />
           <Route path="eod-reports"    element={<Suspense fallback={<Loader />}><EmployeeEod /></Suspense>} />
           <Route path="access-control" element={<Suspense fallback={<Loader />}><EmployeeAccess /></Suspense>} />
+          <Route path="job-descriptions" element={<Suspense fallback={<Loader />}><EmployeeJobDescriptions /></Suspense>} />
         </Route>
         <Route path="employees/:id" element={<AdminOrAuthorizedRoute permission="manage_employees"><PlanProtectedRoute feature="employees"><Suspense fallback={<Loader />}><EmployeeDetail /></Suspense></PlanProtectedRoute></AdminOrAuthorizedRoute>} />
         <Route path="commissions"  element={<OwnerRoute><PlanProtectedRoute feature="commissions"><Suspense fallback={<Loader />}><Commissions /></Suspense></PlanProtectedRoute></OwnerRoute>} />
@@ -246,10 +251,10 @@ export default function App() {
         <Route path="settings"     element={<OwnerRoute><Suspense fallback={<Loader />}><Settings /></Suspense></OwnerRoute>} />
         <Route path="firm-profile" element={<OwnerRoute><PlanProtectedRoute feature="branding"><Suspense fallback={<Loader />}><FirmProfile /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="subscription" element={<OwnerRoute><Suspense fallback={<Loader />}><Subscription /></Suspense></OwnerRoute>} />
-        <Route path="insumitra/operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
+        <Route path="operations"   element={<OwnerRoute><PlanProtectedRoute feature="operations"><Suspense fallback={<Loader />}><Insurance /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="documents"    element={<OwnerRoute><PlanProtectedRoute feature="documents"><Suspense fallback={<Loader />}><Documents /></Suspense></PlanProtectedRoute></OwnerRoute>} />
         <Route path="search"       element={<OwnerRoute><Suspense fallback={<Loader />}><GlobalSearch /></Suspense></OwnerRoute>} />
-        <Route path="deletion-requests" element={<Navigate to="/insumitra/operations?tab=delete_requests" replace />} />
+        <Route path="deletion-requests" element={<Navigate to="/operations?tab=delete_requests" replace />} />
       </Route>
 
       <Route path="*" element={<IndexRedirect />} />
