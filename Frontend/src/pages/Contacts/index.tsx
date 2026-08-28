@@ -22,6 +22,8 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import { sortData } from '../../utils/sortUtils';
 import ContactDetailModal from './ContactDetailModal';
+import PolicyDetailModal from '../Policies/PolicyDetailModal';
+import CreatePolicyModal from '../Policies/CreatePolicyModal';
 import * as XLSX from 'xlsx';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
 import { DatalistInput } from '@comps/common/DatalistInput';
@@ -279,6 +281,10 @@ export default function Contacts() {
   const [excludeProduct, setExcludeProduct] = useState(false);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedPolicyModalId, setSelectedPolicyModalId] = useState<string | null>(null);
+  const [createPolicyModalOpen, setCreatePolicyModalOpen] = useState(false);
+  const [expandedPolicyIds, setExpandedPolicyIds] = useState<Record<string, boolean>>({});
+  const [policyToEdit, setPolicyToEdit] = useState<any | null>(null);
   const { user: authUser } = useAuthStore();
   const [formMedHistory, setFormMedHistory] = useState<string[]>([]);
   const [formRelationships, setFormRelationships] = useState<any[]>([]);
@@ -879,6 +885,14 @@ export default function Contacts() {
     search: search || undefined
   });
 
+  const contactsListArray = useMemo(() => {
+    if (!contactsRes) return [];
+    if (Array.isArray(contactsRes.data)) return contactsRes.data;
+    if (Array.isArray(contactsRes.data?.data)) return contactsRes.data.data;
+    if (Array.isArray(contactsRes)) return contactsRes;
+    return [];
+  }, [contactsRes]);
+
   const { data: birthdayRes, isLoading: birthdayLoading } = useUpcomingBirthdays(30, activeTab === 'birthdays');
   const birthdayList = birthdayRes?.data ?? [];
 
@@ -889,26 +903,38 @@ export default function Contacts() {
   const { data: policiesRes } = useQuery({
     queryKey: ['contacts-policies-list'],
     queryFn: () => policiesService.list({ limit: 200, sortBy: 'createdAt', sortOrder: 'desc' }),
-    enabled: activeTab === 'customers',
-    staleTime: 60_000,
+    enabled: activeTab === 'customers' || leadModalOpen || createPolicyModalOpen,
+    staleTime: 0,
   });
 
   const { data: claimsRes } = useQuery({
     queryKey: ['contacts-claims-list'],
     queryFn: () => claimsService.list({ limit: 200, sortBy: 'createdAt', sortOrder: 'desc' }),
-    enabled: activeTab === 'customers',
+    enabled: activeTab === 'customers' || leadModalOpen,
     staleTime: 60_000,
   });
+
+  // Extract policy array safely handling direct arrays & paginated response structures
+  const policyListArray = useMemo(() => {
+    if (!policiesRes) return [];
+    if (Array.isArray(policiesRes.data)) return policiesRes.data;
+    if (Array.isArray(policiesRes.data?.data)) return policiesRes.data.data;
+    if (Array.isArray(policiesRes)) return policiesRes;
+    return [];
+  }, [policiesRes]);
 
   // Build contactId → [policies] and contactId → [claims] maps for O(1) lookups
   const policyMap = useMemo(() => {
     const map: Record<string, any[]> = {};
-    (policiesRes?.data ?? []).forEach((p: any) => {
-      if (!map[p.contactId]) map[p.contactId] = [];
-      map[p.contactId].push(p);
+    policyListArray.forEach((p: any) => {
+      const keys = [p.contactId, p.contact?.id, p.contact?.contactId].filter(Boolean);
+      keys.forEach(k => {
+        if (!map[k]) map[k] = [];
+        map[k].push(p);
+      });
     });
     return map;
-  }, [policiesRes]);
+  }, [policyListArray]);
 
   const claimMap = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -1944,7 +1970,7 @@ export default function Contacts() {
   const filteredData = useMemo(() => {
     const list = activeTab === 'birthdays'
       ? (birthdayRes?.data ?? [])
-      : (contactsRes?.data || []);
+      : contactsListArray;
 
     return list.filter((item: any) => {
       // Employee role data isolation safeguard: only see self-assigned, unassigned, or contacts with self-assigned sub-resources
@@ -2446,18 +2472,26 @@ export default function Contacts() {
       render: r => {
         const policies = policyMap[r.id] ?? [];
         if (policies.length === 0) return <span className="text-slate-400 text-xs">—</span>;
-        const cats = [...new Set(policies.map((p: any) =>
-          p.plan?.category
-            ? p.plan.category.charAt(0).toUpperCase() + p.plan.category.slice(1).toLowerCase()
-            : p.plan?.name
-        ).filter(Boolean))];
         return (
           <div className="flex gap-1 flex-wrap">
-            {cats.map((cat: string) => (
-              <span key={cat} className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200/60 text-[10px] font-extrabold shadow-2xs">
-                {cat}
-              </span>
-            ))}
+            {policies.map((p: any) => {
+              const label = p.plan?.category
+                ? p.plan.category.charAt(0).toUpperCase() + p.plan.category.slice(1).toLowerCase()
+                : (p.plan?.name || p.policyNumber || 'Policy');
+              return (
+                <button
+                  key={p.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPolicyModalId(p.id);
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200/60 text-[10px] font-extrabold shadow-2xs transition-all cursor-pointer"
+                  title={`Click to view policy details ${p.policyNumber ? `(${p.policyNumber})` : ''}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         );
       }
@@ -3399,7 +3433,7 @@ export default function Contacts() {
         <DataTable
           columns={activeCols}
           data={sortedAndFilteredData}
-          total={activeTab === 'birthdays' ? birthdayList.length : contactsRes?.meta?.total}
+          total={activeTab === 'birthdays' ? birthdayList.length : (contactsRes?.meta?.total ?? contactsRes?.total ?? contactsRes?.meta?.totalCount ?? contactsListArray.length)}
           page={page}
           pageSize={20}
           loading={activeTab === 'birthdays' ? birthdayLoading : contactsLoading}
@@ -5081,121 +5115,210 @@ export default function Contacts() {
               </div>
             )}
 
-            {activeLeadTab === 'Policy' && (
-              <div className="h-full flex flex-col">
-                {/* Action buttons */}
-                <div className="flex items-center justify-between gap-3 mb-3 flex-shrink-0">
-                  <p className="text-[11px] text-slate-500 font-semibold">
-                    Policies are created in the main policy form and will appear here after saving.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!editContactId) {
-                        toast.error('Please save the contact details first before adding a policy.');
-                        return;
-                      }
-                      navigate(`/policies?action=add&contactId=${editContactId}&keepOpen=1`, {
-                        state: {
-                          returnRoute: '/contacts',
-                          returnPayload: {
-                            reopenContactId: editContactId,
-                            reopenTab: 'Policy',
-                          },
-                        },
-                      });
-                    }}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-blue-400 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
-                  >
-                    + Add New Policy
-                  </button>
-                </div>
+            {activeLeadTab === 'Policy' && (() => {
+              const direct = loadedContact?.policies || [];
+              const map1 = loadedContact?.id ? (policyMap[loadedContact.id] || []) : [];
+              const map2 = loadedContact?.contactId ? (policyMap[loadedContact.contactId] || []) : [];
+              const map3 = editContactId ? (policyMap[editContactId] || []) : [];
+              const combined = [...direct, ...map1, ...map2, ...map3];
+              const uniqueMap = new Map();
+              combined.forEach(p => { if (p && p.id) uniqueMap.set(p.id, p); });
+              const displayedPolicies = Array.from(uniqueMap.values());
 
-                <div className="grid gap-3 mb-3">
-                  {((loadedContact?.policies || []).length === 0) ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[180px]">
-                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-                        <FileText size={18} />
+              const isPolicyActive = (p: any) => {
+                const statusUpper = (p.status || 'ACTIVE').toUpperCase();
+                if (['EXPIRED', 'LAPSED', 'CANCELLED', 'INACTIVE'].includes(statusUpper)) {
+                  return false;
+                }
+                if (p.endDate && new Date(p.endDate) < new Date()) {
+                  return false;
+                }
+                return true;
+              };
+
+              const activePolicies = displayedPolicies.filter(isPolicyActive);
+              const historicalPolicies = displayedPolicies.filter(p => !isPolicyActive(p));
+
+              const renderPolicyCard = (policy: any) => {
+                const isExpanded = !!expandedPolicyIds[policy.id];
+                const type = (policy.plan?.category || 'OTHER').toUpperCase();
+                const typeLabel = type === 'HEALTH' ? 'Health' : type === 'LIFE' ? 'Life' : type.charAt(0) + type.slice(1).toLowerCase();
+                const isActive = isPolicyActive(policy);
+                const displayStatus = policy.status || (isActive ? 'ACTIVE' : 'EXPIRED');
+                const borderTone = isActive
+                  ? (type === 'HEALTH' ? 'border-emerald-200' : type === 'LIFE' ? 'border-blue-200' : 'border-slate-200')
+                  : 'border-amber-200 opacity-90';
+                const headerTone = isActive
+                  ? (type === 'HEALTH' ? 'from-emerald-500 to-teal-600' : type === 'LIFE' ? 'from-blue-500 to-indigo-600' : 'from-slate-600 to-slate-700')
+                  : 'from-amber-600 to-orange-700';
+                const statusTone = isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100';
+
+                return (
+                  <div
+                    key={policy.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (policy) {
+                        setPolicyToEdit(policy);
+                        setCreatePolicyModalOpen(true);
+                      }
+                    }}
+                    className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group pointer-events-auto relative z-10`}
+                    title="Click to view full Policy details"
+                  >
+                    {/* Header / Minimized Summary Bar */}
+                    <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
+                          <Shield size={16} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/80">{typeLabel}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusTone}`}>{displayStatus}</span>
+                          </div>
+                          <p className="text-white font-extrabold text-sm truncate mt-0.5">{policy.policyNumber || 'Policy Number'}</p>
+                        </div>
                       </div>
-                      <p className="text-sm font-bold text-slate-700">No policies linked yet</p>
-                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
-                        Add a policy from the main policy form and it will show up here as a summary card.
-                      </p>
+
+                      {/* Expand / Collapse toggle button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedPolicyIds(prev => ({ ...prev, [policy.id]: !prev[policy.id] }));
+                        }}
+                        className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white transition-all cursor-pointer shrink-0 ml-1.5"
+                        title={isExpanded ? 'Collapse policy card' : 'Expand policy card'}
+                      >
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
                     </div>
-                  ) : (
-                    (loadedContact?.policies || []).map((policy: any) => {
-                      const type = (policy.plan?.category || 'OTHER').toUpperCase();
-                      const typeLabel = type === 'HEALTH' ? 'Health' : type === 'LIFE' ? 'Life' : type.charAt(0) + type.slice(1).toLowerCase();
-                      const isActive = !policy.status || policy.status === 'ACTIVE';
-                      const borderTone = type === 'HEALTH' ? 'border-emerald-200' : type === 'LIFE' ? 'border-blue-200' : 'border-slate-200';
-                      const headerTone = type === 'HEALTH' ? 'from-emerald-500 to-teal-600' : type === 'LIFE' ? 'from-blue-500 to-indigo-600' : 'from-slate-600 to-slate-700';
-                      const statusTone = isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100';
-                      return (
-                        <div key={policy.id} className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md transition-all`}>
-                          <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/80">{typeLabel}</span>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${statusTone}`}>{policy.status || 'ACTIVE'}</span>
-                              </div>
-                              <p className="text-white font-extrabold text-sm truncate mt-1">{policy.policyNumber || 'Policy Number'}</p>
-                            </div>
-                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white">
-                              <Shield size={18} />
+
+                    {/* Expanded Details Section */}
+                    {isExpanded && (
+                      <div className="p-4 space-y-4 border-t border-slate-100 bg-slate-50/40">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="rounded-xl bg-white p-3 border border-slate-100 shadow-2xs">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company</p>
+                            <p className="text-xs font-bold text-slate-800 truncate mt-0.5">{policy.plan?.company?.name || policy.plan?.name || 'Insurance Co.'}</p>
+                          </div>
+                          <div className="rounded-xl bg-white p-3 border border-slate-100 shadow-2xs">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan</p>
+                            <p className="text-xs font-bold text-slate-800 truncate mt-0.5">{policy.plan?.name || 'Standard Plan'}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-slate-600">
+                          <div className="rounded-xl border border-slate-100 bg-white p-2.5 shadow-2xs">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sum Assured</p>
+                            <p className="text-xs font-extrabold text-slate-900 mt-0.5">₹{(policy.sumAssured || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-white p-2.5 shadow-2xs">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Premium</p>
+                            <p className="text-xs font-extrabold text-emerald-700 mt-0.5">₹{(policy.premiumAmount || 0).toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="rounded-xl border border-slate-100 bg-white p-2.5 shadow-2xs">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Frequency</p>
+                            <p className="text-xs font-bold text-slate-700 mt-0.5">{policy.paymentFrequency || 'Yearly'}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-600">
+                          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-white p-2.5 shadow-2xs">
+                            <Calendar size={13} className="text-slate-400 shrink-0" />
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start</p>
+                              <p className="text-xs font-semibold text-slate-700">{policy.startDate ? new Date(policy.startDate).toLocaleDateString('en-IN') : '—'}</p>
                             </div>
                           </div>
-
-                          <div className="p-4 space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Company</p>
-                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.company?.name || '—'}</p>
-                              </div>
-                              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan</p>
-                                <p className="text-xs font-bold text-slate-700 mt-1 truncate">{policy.plan?.name || '—'}</p>
-                              </div>
-                              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Premium</p>
-                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.premiumAmount || 0).toLocaleString('en-IN')}</p>
-                              </div>
-                              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sum Assured</p>
-                                <p className="text-xs font-bold text-slate-700 mt-1">₹{Number(policy.sumAssured || 0).toLocaleString('en-IN')}</p>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
-                                <Calendar size={13} className="text-slate-400 shrink-0" />
-                                <div>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start</p>
-                                  <p className="text-xs font-semibold text-slate-700">{policy.startDate ? new Date(policy.startDate).toLocaleDateString('en-IN') : '—'}</p>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
-                                <Calendar size={13} className="text-slate-400 shrink-0" />
-                                <div>
-                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End</p>
-                                  <p className="text-xs font-semibold text-slate-700">{policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}</p>
-                                </div>
-                              </div>
+                          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+                            <Calendar size={13} className="text-slate-400 shrink-0" />
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">End</p>
+                              <p className="text-xs font-semibold text-slate-700">{policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}</p>
                             </div>
                           </div>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              };
 
-                {/* Portfolio cards */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
-                  {policies.length === 0 ? (
-                    <div className="flex items-center justify-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50" style={{ minHeight: '120px' }}>
-                      <p className="text-xs text-gray-400 font-medium">No policies added yet. Select a type above to start.</p>
-                    </div>
-                  ) : (
-                    policies.map((portfolio, pIdx) => {
+              return (
+                <div className="h-full flex flex-col">
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-between gap-3 mb-3 flex-shrink-0">
+                    <p className="text-[11px] text-slate-500 font-semibold">
+                      Policies are created in the main policy form and will appear here after saving.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!editContactId) {
+                          toast.error('Please save the contact details first before adding a policy.');
+                          return;
+                        }
+                        setPolicyToEdit(null);
+                        setCreatePolicyModalOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-blue-400 text-blue-600 text-xs font-semibold rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                    >
+                      + Add New Policy
+                    </button>
+                  </div>
+
+                  <div className="space-y-5 mb-3 overflow-y-auto max-h-[60vh] custom-scrollbar pr-1">
+                    {displayedPolicies.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[180px]">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                          <FileText size={18} />
+                        </div>
+                        <p className="text-sm font-bold text-slate-700">No policies linked yet</p>
+                        <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                          Add a policy from the main policy form and it will show up here as a summary card.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Active Policies Section */}
+                        {activePolicies.length > 0 && (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center gap-2 px-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                Active / Current Policies ({activePolicies.length})
+                              </h4>
+                            </div>
+                            <div className="grid gap-3">
+                              {activePolicies.map(renderPolicyCard)}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Historical / Expired Policies Section */}
+                        {historicalPolicies.length > 0 && (
+                          <div className="space-y-2.5 pt-2">
+                            <div className="flex items-center gap-2 px-1">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                              <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                                Historical / Expired Policies ({historicalPolicies.length})
+                              </h4>
+                            </div>
+                            <div className="grid gap-3">
+                              {historicalPolicies.map(renderPolicyCard)}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Portfolio cards */}
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
+                    {policies.length > 0 &&
+                      policies.map((portfolio, pIdx) => {
                       const isHealth = portfolio.policyType === 'Health';
                       const portfolioTitle = isHealth ? 'Health Insurance Portfolio' : 'Life Insurance Portfolio';
                       const accentBorder = isHealth ? 'border-blue-200' : 'border-pink-200';
@@ -5443,11 +5566,11 @@ export default function Contacts() {
                           </div>
                         </div>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {activeLeadTab === 'WA Campaign' && (
               <div className="space-y-4">
@@ -5740,6 +5863,41 @@ export default function Contacts() {
         onEditClick={(c) => {
           setDetailModalOpen(false);
           openEdit(c);
+        }}
+      />
+
+      <PolicyDetailModal
+        open={!!selectedPolicyModalId}
+        policyId={selectedPolicyModalId}
+        onClose={() => setSelectedPolicyModalId(null)}
+      />
+
+      <CreatePolicyModal
+        open={createPolicyModalOpen}
+        policyToEdit={policyToEdit}
+        onClose={() => {
+          setPolicyToEdit(null);
+          setCreatePolicyModalOpen(false);
+          qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
+          qc.invalidateQueries({ queryKey: ['policies'] });
+          if (editContactId) {
+            qc.invalidateQueries({ queryKey: ['contact', editContactId] });
+            setLeadModalOpen(true);
+            setActiveLeadTab('Policy');
+          }
+        }}
+        contactId={editContactId || loadedContact?.id}
+        contactName={loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.lastName || ''}`.trim() : undefined}
+        onSuccess={() => {
+          setPolicyToEdit(null);
+          refetchContacts();
+          qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
+          qc.invalidateQueries({ queryKey: ['policies'] });
+          if (editContactId) {
+            qc.invalidateQueries({ queryKey: ['contact', editContactId] });
+            setLeadModalOpen(true);
+            setActiveLeadTab('Policy');
+          }
         }}
       />
     </div>

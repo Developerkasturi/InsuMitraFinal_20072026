@@ -52,6 +52,9 @@ const STATUS_BADGE: Record<string, string> = {
   REJECTED: 'badge-red',
 };
 
+import PolicyDetailModal from '../Policies/PolicyDetailModal';
+import CreatePolicyModal from '../Policies/CreatePolicyModal';
+
 export default function ContactDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -63,6 +66,8 @@ export default function ContactDetail() {
   const [relSearch, setRelSearch] = useState('');
   const [selectedRelContact, setSelectedRelContact] = useState<any>(null);
   const [relDropdown, setRelDropdown] = useState(false);
+  const [selectedPolicyModalId, setSelectedPolicyModalId] = useState<string | null>(null);
+  const [createPolicyModalOpen, setCreatePolicyModalOpen] = useState(false);
 
   // Profile Edit states
   const [editMode, setEditMode] = useState(false);
@@ -611,13 +616,19 @@ export default function ContactDetail() {
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><Shield size={14} />Policies</h3>
-              <Link to="/policies" className="text-xs text-primary-600 hover:underline">+ New Policy</Link>
+              <button
+                type="button"
+                onClick={() => setCreatePolicyModalOpen(true)}
+                className="text-xs text-primary-600 font-bold hover:underline cursor-pointer"
+              >
+                + New Policy
+              </button>
             </div>
             {(policies?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No policies for this contact.</p>}
             <div className="space-y-2">
               {(policies?.data ?? []).map((p: any) => (
-                <Link key={p.id} to={`/policies/${p.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition-colors">
+                <button key={p.id} onClick={() => setSelectedPolicyModalId(p.id)}
+                  className="w-full text-left flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition-colors cursor-pointer">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{p.policyNumber}</p>
                     <p className="text-xs text-gray-400">{p.plan?.name} · {p.plan?.company?.name}</p>
@@ -626,7 +637,7 @@ export default function ContactDetail() {
                     <p className="text-sm font-semibold text-gray-900">₹{Number(p.premiumAmount).toLocaleString('en-IN')}</p>
                     <span className={`text-xs ${STATUS_BADGE[p.status] ?? 'badge-gray'}`}>{p.status}</span>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           </div>
@@ -848,6 +859,20 @@ export default function ContactDetail() {
           </div>
         </form>
       </Modal>
+
+      <PolicyDetailModal
+        open={!!selectedPolicyModalId}
+        policyId={selectedPolicyModalId}
+        onClose={() => setSelectedPolicyModalId(null)}
+      />
+
+      <CreatePolicyModal
+        open={createPolicyModalOpen}
+        onClose={() => setCreatePolicyModalOpen(false)}
+        contactId={c?.id}
+        contactName={`${c?.firstName || ''} ${c?.lastName || ''}`.trim()}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ['contact', c?.id] })}
+      />
     </div>
   );
 }

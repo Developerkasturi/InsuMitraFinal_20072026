@@ -20,7 +20,7 @@ export class ContactsRepository {
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
     const {
       page = 1, limit = 20,
-      search, sortBy = 'createdAt', sortOrder = 'desc',
+      search, sortBy = 'createdAt', sortOrder = 'asc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
 
@@ -99,7 +99,13 @@ export class ContactsRepository {
 
   async findOne(tenantId: string, id: string) {
     return this.prisma.contact.findFirst({
-      where:   { id, tenantId },
+      where: {
+        tenantId,
+        OR: [
+          { id },
+          { contactId: id },
+        ],
+      },
       include: {
         addresses:     true,
         occupations:   true,

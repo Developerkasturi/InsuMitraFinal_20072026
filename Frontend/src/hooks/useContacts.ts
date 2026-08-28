@@ -8,7 +8,7 @@ export function useContacts(params?: Record<string, any>) {
   return useQuery({
     queryKey: ['contacts', params],
     queryFn:  () => contactsService.list(params),
-    staleTime: 2 * 60_000,
+    staleTime: 0,
   });
 }
 

@@ -8,56 +8,66 @@ import { PolicyStatus, PaymentMode, PaymentFrequency, RelationshipType, Gender }
 // ── Policy ────────────────────────────────────────────────────────────────────
 
 export class CreatePolicyDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  policyNumber: string;
-
-  @ApiProperty()
-  @IsMongoId()
-  contactId: string;
-
-  @ApiProperty()
-  @IsMongoId()
-  planId: string;
+  policyNumber?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsMongoId()
+  @IsString()
+  contactId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  planId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   assignedEmployeeId?: string;
 
-  @ApiPropertyOptional({ enum: PolicyStatus, default: PolicyStatus.ACTIVE })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsEnum(PolicyStatus)
-  status?: PolicyStatus;
-
-  @ApiProperty()
-  @IsNumber()
-  sumAssured: number;
-
-  @ApiProperty()
-  @IsNumber()
-  premiumAmount: number;
-
-  @ApiProperty({ enum: PaymentFrequency })
-  @IsEnum(PaymentFrequency)
-  paymentFrequency: PaymentFrequency;
-
-  @ApiProperty()
-  @IsDateString()
-  startDate: string;
-
-  @ApiProperty()
-  @IsDateString()
-  endDate: string;
+  @IsString()
+  status?: any;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsDateString()
+  @Type(() => Number)
+  @IsNumber()
+  sumAssured?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  premiumAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  paymentFrequency?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   maturityDate?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsDateString()
+  @IsString()
   nextDueDate?: string;
 
   @ApiPropertyOptional()
