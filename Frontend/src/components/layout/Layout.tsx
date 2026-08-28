@@ -26,6 +26,7 @@ const SCALED_SECTIONS = [
   'contacts',
   'leads',
   'policies',
+  'claims',
   'emi-tracking',
   'calendar',
   'operations',

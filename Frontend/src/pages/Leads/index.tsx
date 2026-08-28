@@ -2473,14 +2473,14 @@ const medicalOptions = [
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
         {/* Left Side: Search Bar & Inline Quick Filters */}
         <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
-          <div className="relative w-full sm:w-60 shrink-0">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="page-search-wrapper">
+            <Search className="page-search-icon" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search leads..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+              className="page-search-input"
             />
           </div>
 
