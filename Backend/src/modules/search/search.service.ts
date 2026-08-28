@@ -43,6 +43,7 @@ interface ClaimRow {
 
 interface LeadRow {
   id: string;
+  lead_id: string | null;
   stage: string;
   interests: string[];
   contact_id: string;
@@ -348,6 +349,7 @@ export class SearchService {
     const tokens = term.split(/\s+/).filter(Boolean);
 
     const OR: any[] = [
+      { leadId: { contains: term, mode: 'insensitive' } },
       { notes: { contains: term, mode: 'insensitive' } },
       { source: { contains: term, mode: 'insensitive' } },
       { interests: { hasSome: [term] } },
@@ -390,6 +392,7 @@ export class SearchService {
       },
     }).then((rows) => rows.map((row) => ({
       id: row.id,
+      lead_id: row.leadId ?? null,
       stage: row.stage,
       interests: row.interests || [],
       contact_id: row.contact.id,

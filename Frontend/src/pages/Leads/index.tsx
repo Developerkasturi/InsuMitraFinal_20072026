@@ -6,7 +6,7 @@ import {
   Plus, Search, Pencil, Trash2, Shield, Upload, Phone, Calendar,
   MessageCircle, LayoutGrid, List, Filter, X, UserPlus, Users,
   UserCircle2, Mail, ChevronDown, Flame, Thermometer, Snowflake,
-  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History, Lock, Download
+  Columns, ArrowUpDown, ChevronUp, ChevronRight, Send, RefreshCw, Save, FileText, History, Lock, Download, Activity
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -196,6 +196,8 @@ const STAGE_MAPPINGS: Record<string, string> = {
   'Process Completed': 'PROCESS_COMPLETED',
 };
 
+const STAGE_ORDER = ['TO_CONTACT', 'CONTACTED', 'PROPOSAL_SENT', 'LOGIN_PROGRESS', 'PAYMENT_DONE', 'PROCESS_COMPLETED'];
+
 const BACKEND_TO_UI: Record<string, string> = {
   TO_CONTACT: 'To Contact',
   CONTACTED: 'Contacted',
@@ -257,6 +259,54 @@ function parseLeadNotes(notes?: string | null): Record<string, any> {
   }
 }
 
+function isMutualFundLead(lead: any): boolean {
+  if (!lead) return false;
+
+  const checkString = (str?: string) => {
+    if (!str || typeof str !== 'string') return false;
+    const lower = str.toLowerCase();
+    return lower.includes('mutual') || lower.includes('fund') || lower === 'mf';
+  };
+
+  if (checkString(lead.plan?.category)) return true;
+  if (checkString(lead.leadType)) return true;
+
+  if (Array.isArray(lead.interests) && lead.interests.some(checkString)) return true;
+
+  if (Array.isArray(lead.contact?.productInterests)) {
+    for (const pi of lead.contact.productInterests) {
+      if (Array.isArray(pi.interestedIn) && pi.interestedIn.some(checkString)) return true;
+      if (checkString(pi.leadType)) return true;
+    }
+  }
+
+  if (lead.notes) {
+    let parsedNotes: any = null;
+    if (typeof lead.notes === 'string' && lead.notes.trim().startsWith('{')) {
+      try {
+        parsedNotes = JSON.parse(lead.notes);
+      } catch (e) {}
+    } else if (typeof lead.notes === 'object' && lead.notes !== null) {
+      parsedNotes = lead.notes;
+    }
+
+    if (parsedNotes) {
+      if (Array.isArray(parsedNotes.productInterests)) {
+        for (const pi of parsedNotes.productInterests) {
+          if (Array.isArray(pi.interestedIn) && pi.interestedIn.some(checkString)) return true;
+          if (checkString(pi.leadType)) return true;
+        }
+      }
+      if (Array.isArray(parsedNotes.interestedIn) && parsedNotes.interestedIn.some(checkString)) return true;
+      if (checkString(parsedNotes.leadType)) return true;
+    } else if (typeof lead.notes === 'string') {
+      if (checkString(lead.notes)) return true;
+    }
+  }
+
+  return false;
+}
+
 // ── Form schema ───────────────────────────────────────────────────────────────
 export const leadFormSchema = z.object({
   // System fields mapping
@@ -288,12 +338,17 @@ type Form = z.infer<typeof schema>;
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const ALL_TABLE_COLUMNS = [
+  { key: 'leadId', label: 'Lead ID', defaultVisible: true },
   { key: 'name', label: 'Client Name', defaultVisible: true },
+  { key: 'phone', label: 'Phone', defaultVisible: false },
+  { key: 'email', label: 'Email', defaultVisible: false },
   { key: 'plan', label: 'Product', defaultVisible: true },
   { key: 'hotness', label: 'Hotness', defaultVisible: true },
   { key: 'employee', label: 'Assigned To', defaultVisible: true },
   { key: 'premiumBudget', label: 'Exp. Premium', defaultVisible: true },
   { key: 'followUpDate', label: 'Next Follow-up', defaultVisible: true },
+  { key: 'source', label: 'Source', defaultVisible: false },
+  { key: 'createdAt', label: 'Created Date', defaultVisible: false },
   { key: 'stage', label: 'Stage', defaultVisible: true },
   { key: 'actions', label: '', defaultVisible: true },
 ];
@@ -474,8 +529,18 @@ export default function Leads() {
   const [filterExpectedPremiumMin, setFilterExpectedPremiumMin] = useState('');
   const [filterExpectedPremiumMax, setFilterExpectedPremiumMax] = useState('');
   const [filterLeadSource, setFilterLeadSource] = useState('');
-  const [selectedQuickFilter, setSelectedQuickFilter] = useState('ALL');
+  const [selectedQuickFilters, setSelectedQuickFilters] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+
+  const toggleQuickFilter = (key: string) => {
+    if (key === 'ALL') {
+      setSelectedQuickFilters([]);
+      return;
+    }
+    setSelectedQuickFilters(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
 
   const [planFilterOpen, setPlanFilterOpen] = useState(false);
   const [statusFilterOpen, setStatusFilterOpen] = useState(false);
@@ -531,12 +596,95 @@ export default function Leads() {
       .catch((err: any) => console.error(err));
   }, []);
 
-  // Policy Modal States for PAYMENT_DONE -> PROCESS_COMPLETED transition
+  // Policy & Mutual Fund Modal States for PAYMENT_DONE -> PROCESS_COMPLETED transition
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
   const [policyLead, setPolicyLead] = useState<any>(null);
   const [policySelectedType, setPolicySelectedType] = useState('');
   const [policySelectedCompany, setPolicySelectedCompany] = useState('');
   const [policySelectedPlanId, setPolicySelectedPlanId] = useState('');
+
+  // Mutual Fund Modal States
+  const [mfModalOpen, setMfModalOpen] = useState(false);
+  const [mfLead, setMfLead] = useState<any>(null);
+  const [mfNumberOfSips, setMfNumberOfSips] = useState('');
+  const [mfSipAmount, setMfSipAmount] = useState('');
+  const [mfOnboardingDone, setMfOnboardingDone] = useState<'YES' | 'NO'>('YES');
+  const [mfLumpsumAmount, setMfLumpsumAmount] = useState('');
+  const [mfSubmitting, setMfSubmitting] = useState(false);
+
+  const triggerMutualFundFormForLead = (leadObj: any) => {
+    setDetailOpen(false);
+    setMfLead(leadObj);
+    const notes: any = parseLeadNotes(leadObj.notes);
+    const mfDetails = notes.mutualFundDetails || {};
+    setMfNumberOfSips(notes.numberOfSips ?? mfDetails.numberOfSips ? String(notes.numberOfSips ?? mfDetails.numberOfSips) : '');
+    setMfSipAmount(notes.sipAmount ?? mfDetails.sipAmount ? String(notes.sipAmount ?? mfDetails.sipAmount) : '');
+    const isNo = notes.onboardingDone === 'NO' || notes.onboardingDone === false || mfDetails.onboardingDone === false;
+    setMfOnboardingDone(isNo ? 'NO' : 'YES');
+    setMfLumpsumAmount(notes.lumpsumAmount ?? mfDetails.lumpsumAmount ? String(notes.lumpsumAmount ?? mfDetails.lumpsumAmount) : '');
+    setMfModalOpen(true);
+  };
+
+  const handleProcessCompleted = (leadObj: any) => {
+    if (isMutualFundLead(leadObj)) {
+      triggerMutualFundFormForLead(leadObj);
+    } else {
+      triggerPolicyCreationForLead(leadObj);
+    }
+  };
+
+  const handleMutualFundFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfLead) return;
+
+    setMfSubmitting(true);
+    const toastId = toast.loading('Saving Mutual Fund details...');
+    try {
+      let existingNotesObj: Record<string, any> = {};
+      if (mfLead.notes) {
+        if (typeof mfLead.notes === 'string' && mfLead.notes.trim().startsWith('{')) {
+          try {
+            existingNotesObj = JSON.parse(mfLead.notes);
+          } catch (err) {
+            existingNotesObj = { cleanNotes: mfLead.notes };
+          }
+        } else if (typeof mfLead.notes === 'object' && mfLead.notes !== null) {
+          existingNotesObj = { ...mfLead.notes };
+        } else {
+          existingNotesObj = { cleanNotes: mfLead.notes };
+        }
+      }
+
+      const updatedNotesObj = {
+        ...existingNotesObj,
+        mutualFundDetails: {
+          numberOfSips: mfNumberOfSips ? Number(mfNumberOfSips) : 0,
+          sipAmount: mfSipAmount ? Number(mfSipAmount) : 0,
+          onboardingDone: mfOnboardingDone === 'YES',
+          lumpsumAmount: mfLumpsumAmount ? Number(mfLumpsumAmount) : 0,
+        },
+        numberOfSips: mfNumberOfSips ? Number(mfNumberOfSips) : 0,
+        sipAmount: mfSipAmount ? Number(mfSipAmount) : 0,
+        onboardingDone: mfOnboardingDone,
+        lumpsumAmount: mfLumpsumAmount ? Number(mfLumpsumAmount) : 0,
+      };
+
+      await leadsService.update(mfLead.id, {
+        notes: JSON.stringify(updatedNotesObj),
+      });
+
+      await moveStage.mutateAsync({ id: mfLead.id, stage: 'PROCESS_COMPLETED' });
+
+      toast.success('Mutual Fund details saved and lead moved to Process Completed!', { id: toastId });
+      setMfModalOpen(false);
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to complete process', { id: toastId });
+    } finally {
+      setMfSubmitting(false);
+    }
+  };
 
   const { register: registerPolicy, handleSubmit: handleSubmitPolicy, reset: resetPolicy, setValue: setPolicyValue, watch: watchPolicy } = useForm<any>({
     defaultValues: {
@@ -1009,15 +1157,20 @@ export default function Leads() {
         }
       }
       const fullName = `${lead.contact?.firstName || ''} ${lead.contact?.lastName || ''}`.toLowerCase();
-      if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm)) return false;
+      if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm) && !(lead.leadId || '').toLowerCase().includes(sTerm)) return false;
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
       if (filterEmployee && lead.assignedEmployeeId !== filterEmployee) return false;
       if (filterStages.length > 0 && !filterStages.includes(lead.stage ?? '')) return false;
       
       const extra = parseLeadNotes(lead.notes);
+      const curStatus = extra.leadStatus || lead.leadStatus || lead.status || 'INTERESTED';
       if (filterStatuses.length > 0) {
-        const status = extra.leadStatus || 'INTERESTED';
-        if (!filterStatuses.includes(status)) return false;
+        if (!filterStatuses.includes(curStatus)) return false;
+      } else {
+        // Exclude Lost and Not Interested leads by default
+        if (curStatus === 'LEAD_LOST' || curStatus === 'NOT_INTERESTED' || lead.stage === 'LOST') {
+          return false;
+        }
       }
       if (filterTypes.length > 0) {
         const lType = extra.leadType || 'FRESH';
@@ -1071,27 +1224,47 @@ export default function Leads() {
         if (!lSource.includes(filterLeadSource.toLowerCase())) return false;
       }
 
-      // Quick Select Filter
-      if (selectedQuickFilter !== 'ALL') {
-        if (selectedQuickFilter === 'HOT') {
-          const isHotStatus = extra.leadStatus === 'HOT';
-          const isHotDerived = deriveHotness(lead) === 'HOT';
-          if (!isHotStatus && !isHotDerived) return false;
-        } else if (selectedQuickFilter === 'VERY_HOT') {
-          if (extra.leadStatus !== 'VERY_HOT') return false;
-        } else if (selectedQuickFilter === 'HEALTH') {
+      // Quick Select Filter (Multi-select)
+      if (selectedQuickFilters.length > 0) {
+        // Hotness group
+        const hasHot = selectedQuickFilters.includes('HOT');
+        const hasVeryHot = selectedQuickFilters.includes('VERY_HOT');
+        if (hasHot || hasVeryHot) {
+          let matchesHotness = false;
+          if (hasHot) {
+            const isHotStatus = extra.leadStatus === 'HOT';
+            const isHotDerived = deriveHotness(lead) === 'HOT';
+            if (isHotStatus || isHotDerived) matchesHotness = true;
+          }
+          if (hasVeryHot) {
+            if (extra.leadStatus === 'VERY_HOT') matchesHotness = true;
+          }
+          if (!matchesHotness) return false;
+        }
+
+        // Product group
+        const hasHealth = selectedQuickFilters.includes('HEALTH');
+        const hasLife = selectedQuickFilters.includes('LIFE');
+        const hasMf = selectedQuickFilters.includes('MF');
+        if (hasHealth || hasLife || hasMf) {
+          let matchesProduct = false;
           const cat = (lead.plan?.category || '').toUpperCase();
-          const hasHealthInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('health'));
-          if (cat !== 'HEALTH' && !hasHealthInterest) return false;
-        } else if (selectedQuickFilter === 'LIFE') {
-          const cat = (lead.plan?.category || '').toUpperCase();
-          const hasLifeInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('life'));
-          if (cat !== 'LIFE' && !hasLifeInterest) return false;
-        } else if (selectedQuickFilter === 'MF') {
-          const cat = (lead.plan?.category || '').toUpperCase();
-          const hasMfInterest = (lead.interests || []).some((i: string) => i.toLowerCase().includes('mutual') || i.toLowerCase().includes('fund') || i.toLowerCase() === 'mf');
-          if (cat !== 'MF' && !hasMfInterest) return false;
-        } else if (selectedQuickFilter === 'THIS_WEEK') {
+          const leadInterests = (lead.interests || []).map((i: string) => i.toLowerCase());
+
+          if (hasHealth) {
+            if (cat === 'HEALTH' || leadInterests.some((i: string) => i.includes('health'))) matchesProduct = true;
+          }
+          if (hasLife) {
+            if (cat === 'LIFE' || leadInterests.some((i: string) => i.includes('life'))) matchesProduct = true;
+          }
+          if (hasMf) {
+            if (cat === 'MF' || cat === 'MUTUAL_FUNDS' || leadInterests.some((i: string) => i.includes('mutual') || i.includes('fund') || i === 'mf')) matchesProduct = true;
+          }
+          if (!matchesProduct) return false;
+        }
+
+        // Date group
+        if (selectedQuickFilters.includes('THIS_WEEK')) {
           if (!lead.followUpDate) return false;
           const fDate = new Date(lead.followUpDate);
           const now = new Date();
@@ -1103,8 +1276,24 @@ export default function Leads() {
       }
 
       return true;
+    }).sort((a: any, b: any) => {
+      const extraA = parseLeadNotes(a.notes);
+      const extraB = parseLeadNotes(b.notes);
+      const statusA = extraA.leadStatus || a.leadStatus || a.status;
+      const statusB = extraB.leadStatus || b.leadStatus || b.status;
+
+      const isClosedA = a.stage === 'PROCESS_COMPLETED' || a.stage === 'PAYMENT_DONE' || statusA === 'LEAD_LOST' || statusA === 'NOT_INTERESTED';
+      const isClosedB = b.stage === 'PROCESS_COMPLETED' || b.stage === 'PAYMENT_DONE' || statusB === 'LEAD_LOST' || statusB === 'NOT_INTERESTED';
+
+      if (isClosedA !== isClosedB) {
+        return isClosedA ? 1 : -1;
+      }
+
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
     });
-  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterStages, filterTypes, filterDateFrom, filterDateTo, filterEnquiryDateFrom, filterEnquiryDateTo, filterFinalSellsFrom, filterFinalSellsTo, filterExpectedPremiumMin, filterExpectedPremiumMax, filterLeadSource, selectedQuickFilter]);
+  }, [leadsFlat, search, filterPlans, filterEmployee, filterStatuses, filterStages, filterTypes, filterDateFrom, filterDateTo, filterEnquiryDateFrom, filterEnquiryDateTo, filterFinalSellsFrom, filterFinalSellsTo, filterExpectedPremiumMin, filterExpectedPremiumMax, filterLeadSource, selectedQuickFilters]);
 
   // Sorted leads for table
   const sortedLeads = useMemo(() => {
@@ -2282,22 +2471,69 @@ const medicalOptions = [
 
       {/* Unified Search & Actions Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
-        {/* Left Side: Search Bar ONLY */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <div className="relative w-full lg:w-64">
+        {/* Left Side: Search Bar & Inline Quick Filters */}
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+          <div className="relative w-full sm:w-60 shrink-0">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search leads by name, phone..."
+              placeholder="Search leads..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
             />
+          </div>
+
+          <div className="h-6 w-px bg-slate-200 hidden md:block shrink-0" />
+
+          {/* Quick Filters Inline Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 min-w-0">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-0.5 flex items-center gap-1 shrink-0">
+              <Flame size={13} className="text-amber-500" /> Quick:
+            </span>
+            {[
+              { key: 'ALL', label: 'All Leads' },
+              { key: 'HOT', label: 'Hot', icon: '🔥' },
+              { key: 'VERY_HOT', label: 'Very Hot', icon: '💥' },
+              { key: 'HEALTH', label: 'Health', icon: '🏥' },
+              { key: 'LIFE', label: 'Life', icon: '🛡️' },
+              { key: 'MF', label: 'Mutual Funds', icon: '📈' },
+              { key: 'THIS_WEEK', label: 'This Week', icon: '📅' },
+            ].map(q => {
+              const isSelected = q.key === 'ALL'
+                ? selectedQuickFilters.length === 0
+                : selectedQuickFilters.includes(q.key);
+              return (
+                <button
+                  key={q.key}
+                  type="button"
+                  onClick={() => toggleQuickFilter(q.key)}
+                  className={clsx(
+                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  )}
+                >
+                  {q.icon && <span>{q.icon}</span>}
+                  <span>{q.label}</span>
+                </button>
+              );
+            })}
+            {selectedQuickFilters.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedQuickFilters([])}
+                className="text-[11px] font-extrabold text-red-500 hover:text-red-700 cursor-pointer px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors whitespace-nowrap shrink-0"
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
         {/* Right: View toggle and controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Kanban / Table Toggle */}
           <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/50">
             <button
@@ -2341,16 +2577,30 @@ const medicalOptions = [
                 <Columns size={13} /> <span>Columns</span>
               </button>
               {colMenuOpen && (
-                <div className="absolute right-0 mt-1.5 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[180px] space-y-1.5">
+                <div className="absolute right-0 mt-1.5 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-3 min-w-[200px] space-y-1.5">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Select Columns</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allKeys: Record<string, boolean> = {};
+                        ALL_TABLE_COLUMNS.forEach(c => { allKeys[c.key] = true; });
+                        setVisibleColumns(allKeys);
+                      }}
+                      className="text-[10px] text-blue-600 font-bold hover:underline cursor-pointer"
+                    >
+                      Select All
+                    </button>
+                  </div>
                   {ALL_TABLE_COLUMNS.filter(c => c.key !== 'actions').map(col => (
-                    <label key={col.key} className="flex flex-wrap items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-gray-900">
+                    <label key={col.key} className="flex flex-wrap items-center gap-2 text-xs text-gray-700 cursor-pointer hover:text-gray-900 py-0.5">
                       <input
                         type="checkbox"
-                        checked={visibleColumns[col.key]}
-                        onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: !prev[col.key] }))}
-                        className="rounded accent-blue-600"
+                        checked={visibleColumns[col.key] !== false}
+                        onChange={() => setVisibleColumns(prev => ({ ...prev, [col.key]: prev[col.key] === false ? true : false }))}
+                        className="rounded accent-blue-600 cursor-pointer"
                       />
-                      {col.label}
+                      <span className="font-medium">{col.label}</span>
                     </label>
                   ))}
                 </div>
@@ -2358,49 +2608,6 @@ const medicalOptions = [
             </div>
           )}
         </div>
-      </div>
-
-      {/* Quick Filters Pill Bar */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-2.5 rounded-2xl border border-slate-100 shadow-2xs animate-fadeIn">
-        <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
-          <Flame size={13} className="text-amber-500" /> Quick Filters:
-        </span>
-        {[
-          { key: 'ALL', label: 'All Leads' },
-          { key: 'HOT', label: 'Hot', icon: '🔥' },
-          { key: 'VERY_HOT', label: 'Very Hot', icon: '💥' },
-          { key: 'HEALTH', label: 'Health', icon: '🏥' },
-          { key: 'LIFE', label: 'Life', icon: '🛡️' },
-          { key: 'MF', label: 'Mutual Funds (MF)', icon: '📈' },
-          { key: 'THIS_WEEK', label: 'Followup: This Week', icon: '📅' },
-        ].map(q => {
-          const isSelected = selectedQuickFilter === q.key;
-          return (
-            <button
-              key={q.key}
-              type="button"
-              onClick={() => setSelectedQuickFilter(q.key)}
-              className={clsx(
-                'inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                isSelected
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-              )}
-            >
-              {q.icon && <span>{q.icon}</span>}
-              <span>{q.label}</span>
-            </button>
-          );
-        })}
-        {selectedQuickFilter !== 'ALL' && (
-          <button
-            type="button"
-            onClick={() => setSelectedQuickFilter('ALL')}
-            className="text-[11px] font-extrabold text-red-500 hover:text-red-700 ml-auto cursor-pointer px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
-          >
-            Reset Quick Filter
-          </button>
-        )}
       </div>
 
 
@@ -2675,6 +2882,7 @@ const medicalOptions = [
                 }}
                 onDragOver={e => {
                   e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
                 }}
                 onDragLeave={() => {
                   if (draggedOverStage === stage) setDraggedOverStage(null);
@@ -2684,16 +2892,39 @@ const medicalOptions = [
                   setDraggedOverStage(null);
                   const cardId = e.dataTransfer.getData('cardId');
                   if (cardId && backendStage) {
-                    const draggedLead = filteredLeads.find(l => l.id === cardId);
-                    if (backendStage === 'PROCESS_COMPLETED') {
-                      if (draggedLead) {
-                        triggerPolicyCreationForLead(draggedLead);
+                    const draggedLead = leadsFlat.find(l => l.id === cardId) || filteredLeads.find(l => l.id === cardId);
+                    if (!draggedLead) return;
+
+                    const currentStageIndex = STAGE_ORDER.indexOf(draggedLead.stage);
+                    const targetStageIndex = STAGE_ORDER.indexOf(backendStage);
+
+                    if (currentStageIndex !== -1 && targetStageIndex !== -1) {
+                      if (targetStageIndex < currentStageIndex) {
+                        toast.error('Moving lead to a previous stage is not allowed.');
+                        return;
+                      }
+                      if (targetStageIndex === currentStageIndex) {
                         return;
                       }
                     }
-                    if (draggedLead && draggedLead.stage !== backendStage) {
+
+                    if (backendStage === 'PROCESS_COMPLETED') {
+                      handleProcessCompleted(draggedLead);
                       return;
                     }
+
+                    moveStage.mutate(
+                      { id: draggedLead.id, stage: backendStage },
+                      {
+                        onSuccess: () => {
+                          toast.success(`Lead moved to ${stage}`);
+                          qc.invalidateQueries({ queryKey: ['leads'] });
+                        },
+                        onError: (err: any) => {
+                          toast.error(err.response?.data?.message || 'Failed to move lead stage');
+                        }
+                      }
+                    );
                   }
                 }}
               >
@@ -2750,10 +2981,11 @@ const medicalOptions = [
         <LeadsTable
           data={sortedLeads}
           loading={isLoading}
-          visibleColumns={visibleColumns}
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
+          visibleColumns={visibleColumns}
+          onToggleColumn={key => setVisibleColumns(prev => ({ ...prev, [key]: prev[key] === false ? true : false }))}
           onRowClick={openDetail}
           onEdit={openEdit}
           onDelete={c => setDeleteTarget(c)}
@@ -4758,11 +4990,119 @@ const medicalOptions = [
             employees={employeesList}
             isOwner={isOwner}
             onEdit={() => { setDetailOpen(false); openEdit(detailTarget); }}
-            onTriggerPolicyCreation={triggerPolicyCreationForLead}
+            onTriggerPolicyCreation={handleProcessCompleted}
             saveHandlerRef={detailSaveHandlerRef}
             isSavingRef={detailIsSavingRef}
           />
         )}
+      </Modal>
+
+      {/* Mutual Fund Process Completed Modal */}
+      <Modal
+        open={mfModalOpen}
+        onClose={() => setMfModalOpen(false)}
+        title="Mutual Fund Investment Details"
+        subtitle="Fill mutual fund investment details to mark process completed."
+        size="md"
+      >
+        <form onSubmit={handleMutualFundFormSubmit} className="space-y-4 mt-2 text-xs">
+          <div className="bg-cyan-50/60 border border-cyan-100 p-3 rounded-xl flex items-center gap-3 text-cyan-800">
+            <span className="text-xl">📈</span>
+            <div>
+              <h5 className="font-bold">Process Completed - Mutual Fund</h5>
+              <p className="text-[11px] text-cyan-600 font-medium">Customer: {mfLead?.contact?.firstName} {mfLead?.contact?.lastName}</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="label text-[11px] font-bold text-slate-700 block mb-1">
+              Number of SIP’s
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={mfNumberOfSips}
+              onChange={e => setMfNumberOfSips(e.target.value)}
+              placeholder="e.g. 2"
+              className="input w-full py-2 px-3 text-xs border border-slate-200 rounded-xl"
+            />
+          </div>
+
+          <div>
+            <label className="label text-[11px] font-bold text-slate-700 block mb-1">
+              SIP Amount (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={mfSipAmount}
+              onChange={e => setMfSipAmount(e.target.value)}
+              placeholder="e.g. 5000"
+              className="input w-full py-2 px-3 text-xs border border-slate-200 rounded-xl"
+            />
+          </div>
+
+          <div>
+            <label className="label text-[11px] font-bold text-slate-700 block mb-1">
+              Onboarding Done
+            </label>
+            <div className="flex items-center gap-6 mt-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 select-none">
+                <input
+                  type="radio"
+                  name="onboardingDone"
+                  value="YES"
+                  checked={mfOnboardingDone === 'YES'}
+                  onChange={() => setMfOnboardingDone('YES')}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                />
+                Yes
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 select-none">
+                <input
+                  type="radio"
+                  name="onboardingDone"
+                  value="NO"
+                  checked={mfOnboardingDone === 'NO'}
+                  onChange={() => setMfOnboardingDone('NO')}
+                  className="w-4 h-4 accent-blue-600 cursor-pointer"
+                />
+                No
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="label text-[11px] font-bold text-slate-700 block mb-1">
+              Lumpsum Invested Amount (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={mfLumpsumAmount}
+              onChange={e => setMfLumpsumAmount(e.target.value)}
+              placeholder="e.g. 50000"
+              className="input w-full py-2 px-3 text-xs border border-slate-200 rounded-xl"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setMfModalOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={mfSubmitting}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {mfSubmitting ? 'Saving...' : 'Complete Process'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Issue Policy on Move to Process Completed Modal */}
@@ -5172,6 +5512,11 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
           <span className={clsx('flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[9px] font-bold', hotnessConf.cls)}>
             <HotnessIcon level={hotness} /> {hotnessConf.label}
           </span>
+          {card.leadId && (
+            <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/70 shrink-0">
+              {card.leadId}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-1.5" onClick={e => e.stopPropagation()}>
           <button onClick={() => onEdit(card)} className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-slate-50 transition-colors">
@@ -5247,13 +5592,28 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
 }
 
 // ── Table Component ───────────────────────────────────────────────────────────
-function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, onRowClick, onEdit, onDelete, onCall, onWhatsApp, onCreate }: {
+function LeadsTable({
+  data,
+  loading,
+  sortKey,
+  sortDir,
+  onSort,
+  visibleColumns,
+  onToggleColumn,
+  onRowClick,
+  onEdit,
+  onDelete,
+  onCall,
+  onWhatsApp,
+  onCreate,
+}: {
   data: any[];
   loading: boolean;
-  visibleColumns: Record<string, boolean>;
   sortKey: string;
   sortDir: 'asc' | 'desc';
   onSort: (key: string) => void;
+  visibleColumns: Record<string, boolean>;
+  onToggleColumn?: (key: string) => void;
   onRowClick: (r: any) => void;
   onEdit: (r: any) => void;
   onDelete: (r: any) => void;
@@ -5261,9 +5621,18 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
   onWhatsApp: (phone?: string) => void;
   onCreate?: () => void;
 }) {
-  const sortableKeys = ['name', 'plan', 'premiumBudget', 'followUpDate', 'stage'];
+  const [tableColMenuOpen, setTableColMenuOpen] = useState(false);
+  const sortableKeys = ['leadId', 'name', 'phone', 'email', 'plan', 'premiumBudget', 'followUpDate', 'source', 'createdAt', 'stage'];
 
   const colDefs = [
+    {
+      key: 'leadId', label: 'Lead ID',
+      render: (r: any) => r.leadId ? (
+        <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100/80">
+          {r.leadId}
+        </span>
+      ) : <span className="text-gray-400">—</span>,
+    },
     {
       key: 'name', label: 'Client Name',
       render: (r: any) => (
@@ -5272,6 +5641,14 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
           <p className="text-[11px] text-gray-400">{r.contact?.phone}</p>
         </div>
       ),
+    },
+    {
+      key: 'phone', label: 'Phone',
+      render: (r: any) => r.contact?.phone ? <span className="font-mono text-xs text-slate-700 font-medium">{r.contact.phone}</span> : <span className="text-gray-400">—</span>,
+    },
+    {
+      key: 'email', label: 'Email',
+      render: (r: any) => r.contact?.email ? <span className="text-xs text-slate-700 font-medium">{r.contact.email}</span> : <span className="text-gray-400">—</span>,
     },
     {
       key: 'plan', label: 'Product',
@@ -5305,8 +5682,8 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
           ? `${r.assignedEmployee.employeeProfile.firstName} ${r.assignedEmployee.employeeProfile.lastName}`
           : r.assignedEmployee?.name || '—';
         return (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
               {name !== '—' ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : '—'}
             </div>
             <span className="text-[12px] text-gray-700">{name}</span>
@@ -5331,6 +5708,18 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
       ) : <span className="text-gray-400">—</span>,
     },
     {
+      key: 'source', label: 'Source',
+      render: (r: any) => r.source ? <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">{r.source}</span> : <span className="text-gray-400">—</span>,
+    },
+    {
+      key: 'createdAt', label: 'Created Date',
+      render: (r: any) => r.createdAt ? (
+        <span className="text-xs text-slate-600 font-medium">
+          {format(new Date(r.createdAt), 'dd/MMM/yyyy')}
+        </span>
+      ) : <span className="text-gray-400">—</span>,
+    },
+    {
       key: 'stage', label: 'Stage',
       render: (r: any) => (
         <span className={clsx('inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold border uppercase tracking-wider', BADGE_STYLES[r.stage])}>
@@ -5341,11 +5730,11 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
     {
       key: 'actions', label: '',
       render: (r: any) => (
-        <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
-          <button title="Call" className="p-1 rounded hover:bg-gray-100 text-gray-500" onClick={() => onCall(r.contact?.phone)}><Phone size={13} /></button>
-          <button title="WhatsApp" className="p-1 rounded hover:bg-green-50 text-green-500" onClick={() => onWhatsApp(r.contact?.phone)}><MessageCircle size={13} /></button>
-          <button title="Edit" className="p-1.5 rounded hover:bg-gray-100 text-gray-500" onClick={() => onEdit(r)}><Pencil size={13} /></button>
-          <button title="Delete" className="p-1.5 rounded hover:bg-red-50 text-red-400" onClick={() => onDelete(r)}><Trash2 size={13} /></button>
+        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+          <button title="Call" className="p-1 rounded hover:bg-gray-100 text-gray-500 cursor-pointer" onClick={() => onCall(r.contact?.phone)}><Phone size={13} /></button>
+          <button title="WhatsApp" className="p-1 rounded hover:bg-green-50 text-green-500 cursor-pointer" onClick={() => onWhatsApp(r.contact?.phone)}><MessageCircle size={13} /></button>
+          <button title="Edit" className="p-1.5 rounded hover:bg-gray-100 text-gray-500 cursor-pointer" onClick={() => onEdit(r)}><Pencil size={13} /></button>
+          <button title="Delete" className="p-1.5 rounded hover:bg-red-50 text-red-400 cursor-pointer" onClick={() => onDelete(r)}><Trash2 size={13} /></button>
         </div>
       ),
     },
@@ -5354,11 +5743,11 @@ function LeadsTable({ data, loading, visibleColumns, sortKey, sortDir, onSort, o
   const activeCols = colDefs.filter(c => visibleColumns[c.key] !== false);
 
   return (
-    <div className="overflow-hidden bg-white rounded-2xl border border-slate-100 shadow-sm flex-1">
-      <div className="overflow-x-auto custom-scrollbar">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex-1 flex flex-col overflow-hidden min-h-[400px]">
+      <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1 max-h-[calc(100vh-220px)]">
         <table className="min-w-full text-sm">
-          <thead>
-            <tr className="bg-slate-100/60 border-b border-slate-200/80">
+          <thead className="sticky top-0 z-10 shadow-2xs">
+            <tr className="bg-slate-100 border-b border-slate-200/80">
               {activeCols.map(col => (
                 <th key={col.key}
                   onClick={() => sortableKeys.includes(col.key) && onSort(col.key)}
@@ -5584,6 +5973,11 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
           <div>
             <h3 className="text-base font-bold text-gray-900">{c?.firstName} {c?.lastName}</h3>
             <div className="flex flex-wrap items-center gap-2 mt-1 flex-wrap">
+              {fullLead.leadId && (
+                <span className="font-mono text-[11px] font-extrabold bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
+                  {fullLead.leadId}
+                </span>
+              )}
               <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[fullLead.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
                 {STAGE_LABELS[fullLead.stage] ?? fullLead.stage}
               </span>
@@ -5962,105 +6356,127 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
       )}
 
       {/* Stage */}
-      {tab === 'history' && (
-        <div className="space-y-3 py-1">
-          {/* Lead Audit Log */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2.5">
-              <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <History size={13} />
-              </div>
-              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Lead Activity Log</h4>
-            </div>
-            <div className="space-y-2 text-[11px]">
-              {fullLead.createdAt && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><Calendar size={11} /> Lead Created</span>
-                  <span className="font-bold text-slate-700">{new Date(fullLead.createdAt).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {fullLead.updatedAt && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><RefreshCw size={11} /> Last Updated</span>
-                  <span className="font-bold text-slate-700">{new Date(fullLead.updatedAt).toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              {fullLead.stage && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold">Current Stage</span>
-                  <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[fullLead.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
-                    {STAGE_LABELS[fullLead.stage] ?? fullLead.stage}
-                  </span>
-                </div>
-              )}
-              {fullLead.source && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold">Lead Source</span>
-                  <span className="font-bold text-slate-700">{fullLead.source}</span>
-                </div>
-              )}
-              {(() => {
-                const parsed = parseLeadNotes(fullLead.notes);
-                return parsed.leadType ? (
-                  <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    <span className="text-slate-500 font-semibold">Lead Type</span>
-                    <span className="font-bold text-slate-700">{parsed.leadType}</span>
-                  </div>
-                ) : null;
-              })()}
-              {fullLead.followUpDate && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold flex items-center gap-1.5"><Calendar size={11} /> Follow-up Date</span>
-                  <span className="font-bold text-blue-700">{new Date(fullLead.followUpDate).toLocaleDateString('en-IN')}</span>
-                </div>
-              )}
-              {assigneeName && assigneeName !== 'Unassigned' && (
-                <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <span className="text-slate-500 font-semibold">Assigned To</span>
-                  <span className="font-bold text-slate-700">{assigneeName}</span>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* History Tab - Audit Trail & Activity History */}
+      {tab === 'history' && (() => {
+        const historyEvents: { title: string; description: string; author: string; date: Date; formattedDate: string }[] = [];
 
-          {/* Consultation History */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <MessageCircle size={13} />
+        // 1. Lead Created & Initialized
+        if (fullLead.createdAt) {
+          const d = new Date(fullLead.createdAt);
+          const clientName = `${fullLead.contact?.firstName || ''} ${fullLead.contact?.lastName || ''}`.trim();
+          historyEvents.push({
+            title: 'Lead Created & Scheduled',
+            description: clientName ? `Lead record initialized for ${clientName}${fullLead.source ? ` via ${fullLead.source}` : ''}` : 'Lead record initialized in system.',
+            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
+            date: d,
+            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+          });
+        }
+
+        // 2. Follow-up Scheduled
+        if (fullLead.followUpDate) {
+          const d = new Date(fullLead.followUpDate);
+          const dateStr = format(d, 'yyyy-MM-dd');
+          historyEvents.push({
+            title: 'Task Created & Scheduled',
+            description: `Follow-up scheduled for ${dateStr} with priority MEDIUM`,
+            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'System',
+            date: d,
+            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+          });
+        }
+
+        // 3. Workflow Status Updated
+        if (fullLead.stage) {
+          const stageName = STAGE_LABELS[fullLead.stage] || fullLead.stage;
+          const d = fullLead.updatedAt ? new Date(fullLead.updatedAt) : (fullLead.createdAt ? new Date(fullLead.createdAt) : new Date());
+          historyEvents.push({
+            title: `Workflow Status Updated to ${stageName}`,
+            description: `Execution updated stage to ${stageName}.${assigneeName && assigneeName !== 'Unassigned' ? ` Assigned to ${assigneeName}.` : ''}`,
+            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
+            date: d,
+            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+          });
+        }
+
+        // 4. Consultation Notes / Activity Entries
+        if (consultations && Array.isArray(consultations)) {
+          consultations.forEach((c: any) => {
+            const d = c.createdAt ? new Date(c.createdAt) : new Date();
+            historyEvents.push({
+              title: 'Activity Log Note Added',
+              description: c.text || 'Activity record updated for lead.',
+              author: c.author || c.createdBy || assigneeName || 'CRM Automated Workflow',
+              date: d,
+              formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+            });
+          });
+        }
+
+        // Sort chronologically (oldest to newest)
+        historyEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+        return (
+          <div className="space-y-4 py-2">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-5">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <History className="text-blue-600 shrink-0" size={18} />
+                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                    AUDIT TRAIL & ACTIVITY HISTORY
+                  </h4>
                 </div>
-                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Consultation History</h4>
+                <span className="text-[11px] font-extrabold text-slate-500">
+                  {historyEvents.length} {historyEvents.length === 1 ? 'Event Recorded' : 'Events Recorded'}
+                </span>
               </div>
-              <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-                {consultations.length} {consultations.length === 1 ? 'Entry' : 'Entries'}
-              </span>
-            </div>
-            {consultations.length === 0 ? (
-              <div className="py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                <MessageCircle size={20} className="mx-auto mb-1.5 text-slate-300" />
-                <p className="text-xs text-slate-400 font-medium italic">No consultation entries yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {consultations.map((c: any, i: number) => (
-                  <div key={c.id || i} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 text-[11px] space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-slate-800 text-xs">{c.author || c.createdBy || 'Agent'}</span>
-                      {c.createdAt && (
-                        <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                          {new Date(c.createdAt).toLocaleString('en-IN')}
-                        </span>
-                      )}
+
+              {/* Timeline Container */}
+              {historyEvents.length === 0 ? (
+                <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <History size={24} className="mx-auto mb-2 text-slate-300" />
+                  <p className="text-xs text-slate-400 font-medium italic">No audit trail logs recorded yet.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-5 py-1">
+                  {historyEvents.map((evt, idx) => (
+                    <div key={idx} className="relative group">
+                      {/* Timeline Pulse Icon */}
+                      <div className="absolute -left-[41px] top-3.5 w-8 h-8 rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center shadow-2xs z-10">
+                        <Activity size={14} className="text-blue-600 stroke-[2.5]" />
+                      </div>
+
+                      {/* Event Card */}
+                      <div className="bg-slate-50/70 hover:bg-slate-50 transition-colors border border-slate-200/80 rounded-2xl p-4 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h5 className="text-xs font-bold text-slate-900 leading-snug">
+                            {evt.title}
+                          </h5>
+                          <span className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+                            {evt.formattedDate}
+                          </span>
+                        </div>
+                        {evt.description && (
+                          <p className="text-[11px] font-medium text-slate-600 leading-relaxed">
+                            {evt.description}
+                          </p>
+                        )}
+                        <div className="pt-0.5">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50/80 text-blue-700 border border-blue-100/80">
+                            <UserCircle2 size={12} className="shrink-0" />
+                            By {evt.author}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    {c.text && <p className="text-slate-600 font-medium leading-relaxed">{c.text}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       </div>
     </div>
   );

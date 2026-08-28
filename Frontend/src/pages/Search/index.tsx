@@ -16,7 +16,7 @@ function getItemLabel(section: string, item: any): string {
   if (section === 'contacts') return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.phone || 'Contact';
   if (section === 'policies') return item.policyNumber || item.contactName || 'Policy';
   if (section === 'claims')   return item.claimNumber || item.contactName || 'Claim';
-  if (section === 'leads')    return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.planName || 'Lead';
+  if (section === 'leads')    return `${(item.lead_id || item.leadId) ? `[${item.lead_id || item.leadId}] ` : ''}${item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.planName || 'Lead'}`;
   return item.id;
 }
 
@@ -28,7 +28,7 @@ function getItemSub(section: string, item: any): string {
   if (section === 'contacts') return [phone, item.email, item.aadhaarNumber].filter(Boolean).join(' · ');
   if (section === 'policies') return [plan, contact, item.status].filter(Boolean).join(' · ');
   if (section === 'claims')   return [item.claimType, contact, item.policyNumber, item.status].filter(Boolean).join(' · ');
-  if (section === 'leads')    return [plan, contact, item.stage].filter(Boolean).join(' · ');
+  if (section === 'leads')    return [item.lead_id || item.leadId, plan, contact, item.stage].filter(Boolean).join(' · ');
   return '';
 }
 

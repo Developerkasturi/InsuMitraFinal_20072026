@@ -83,7 +83,7 @@ export class ContactsRepository {
           addresses:   { where: { isPrimary: true }, take: 1 },
           occupations: { where: { isPrimary: true }, take: 1 },
           assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
-          productInterests: { select: { id: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
+          productInterests: { select: { id: true, leadId: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
           policies: { select: { id: true, status: true } },
           _count:      { select: { policies: true, documents: true } },
         },
