@@ -2586,17 +2586,52 @@ export default function Claims() {
 
       {/* Unified Search & Actions Row (Policy UI Style) */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 border border-slate-100 rounded-2xl shadow-sm">
-        {/* Left Side: Search Bar ONLY */}
-        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <div className="relative w-full lg:w-64">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        {/* Left Side: Search Bar & Inline Quick Filters */}
+        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+          <div className="page-search-wrapper">
+            <Search className="page-search-icon" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search claims by ID or customer..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
+              className="page-search-input"
             />
+          </div>
+
+          <div className="h-6 w-px bg-slate-200 hidden md:block shrink-0" />
+
+          {/* Quick Filters Inline Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 min-w-0">
+            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-0.5 flex items-center gap-1 shrink-0">
+              <Filter size={13} className="text-blue-500" /> Quick:
+            </span>
+            {[
+              { key: 'All', label: 'All Claims' },
+              { key: 'Pending', label: 'Pending', icon: '⏳' },
+              { key: 'In Progress', label: 'In Progress', icon: '⚡' },
+              { key: 'Approved', label: 'Approved', icon: '✅' },
+              { key: 'Settled', label: 'Settled', icon: '💰' },
+              { key: 'Rejected', label: 'Rejected', icon: '❌' },
+            ].map(q => {
+              const isSelected = filterStatus === q.key;
+              return (
+                <button
+                  key={q.key}
+                  type="button"
+                  onClick={() => setFilterStatus(q.key as any)}
+                  className={clsx(
+                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  )}
+                >
+                  {q.icon && <span>{q.icon}</span>}
+                  <span>{q.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

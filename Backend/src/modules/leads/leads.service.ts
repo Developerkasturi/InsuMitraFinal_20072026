@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Leads Service — manages product interests / sales pipeline
 // ─────────────────────────────────────────────────────────────────────────────
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateLeadDto, UpdateLeadDto, MoveLeadStageDto,
@@ -12,12 +12,69 @@ import { LeadStage, UserRole } from '@prisma/client';
 import { NotificationEngineService } from '../notifications/notification-engine.service';
 
 @Injectable()
-export class LeadsService {
+export class LeadsService implements OnModuleInit {
   private readonly logger = new Logger(LeadsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifEngine: NotificationEngineService,
   ) {}
+
+  async onModuleInit() {
+    await this.initializeLeadIds();
+  }
+
+  /** Generate sequential atomic Lead ID using MongoDB atomic counter (L1, L2, L3...) */
+  async getNextLeadId(): Promise<string> {
+    try {
+      const counter = await this.prisma.counter.upsert({
+        where: { id: 'lead_id_seq' },
+        update: { seq: { increment: 1 } },
+        create: { id: 'lead_id_seq', seq: 1 },
+      });
+      return `L${counter.seq}`;
+    } catch (err: any) {
+      this.logger.error(`Error generating atomic Lead ID: ${err.message}`);
+      const res: any = await this.prisma.$runCommandRaw({
+        findAndModify: 'counters',
+        query: { _id: 'lead_id_seq' },
+        update: { $inc: { seq: 1 } },
+        new: true,
+        upsert: true,
+      });
+      const seq = res?.value?.seq ?? res?.seq ?? 1;
+      return `L${seq}`;
+    }
+  }
+
+  /** Assign sequential IDs L1, L2... to pre-existing leads safely without duplicates */
+  async initializeLeadIds(): Promise<void> {
+    try {
+      const unassignedLeads = await this.prisma.productInterest.findMany({
+        where: {
+          OR: [
+            { leadId: null },
+            { leadId: '' },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, leadId: true },
+      });
+
+      if (unassignedLeads.length > 0) {
+        this.logger.log(`Found ${unassignedLeads.length} existing leads without Lead ID. Assigning sequential IDs...`);
+        for (const lead of unassignedLeads) {
+          const nextId = await this.getNextLeadId();
+          await this.prisma.productInterest.update({
+            where: { id: lead.id },
+            data: { leadId: nextId },
+          });
+        }
+        this.logger.log(`Successfully backfilled Lead IDs for ${unassignedLeads.length} existing leads.`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Initialize Lead IDs error: ${err.message}`);
+    }
+  }
 
   /** Auto-create renewal leads for active policies ending within 45 days */
   async autoCreateRenewalLeads(tenantId: string): Promise<void> {
@@ -74,9 +131,11 @@ export class LeadsService {
             cleanNotes: `Auto-generated Renewal Lead for Policy #${pol.policyNumber}`,
           };
 
+          const nextLeadId = await this.getNextLeadId();
           await this.prisma.productInterest.create({
             data: {
               tenantId: pol.tenantId,
+              leadId: nextLeadId,
               contactId: pol.contactId,
               planId: pol.planId,
               assignedEmployeeId: pol.assignedEmployeeId,
@@ -99,6 +158,7 @@ export class LeadsService {
   // ── Kanban board — group leads by stage ──────────────────────────────────
 
   async getKanbanBoard(tenantId: string, userId: string, role: UserRole) {
+    await this.initializeLeadIds();
     await this.autoCreateRenewalLeads(tenantId);
 
     const where: any = { tenantId };
@@ -151,6 +211,7 @@ export class LeadsService {
   }
 
   async findAll(tenantId: string, userId: string, role: UserRole, query: LeadQueryDto) {
+    await this.initializeLeadIds();
     await this.autoCreateRenewalLeads(tenantId);
 
     const page  = Math.max(1, parseInt(String((query as any).page  ?? 1), 10) || 1);
@@ -388,7 +449,8 @@ export class LeadsService {
 
     // When an employee creates a lead without explicitly naming an assignee,
     // auto-assign it to themselves so it immediately appears in their list view.
-    const data: any = { ...dto, tenantId };
+    const leadId = await this.getNextLeadId();
+    const data: any = { ...dto, tenantId, leadId };
     if (role === UserRole.EMPLOYEE && !data.assignedEmployeeId) {
       data.assignedEmployeeId = createdById;
     }
@@ -676,9 +738,11 @@ export class LeadsService {
       }
 
       try {
+        const leadId = await this.getNextLeadId();
         await this.prisma.productInterest.create({
           data: {
             tenantId,
+            leadId,
             contactId: contact.id,
             planId,
             stage: (row.stage || 'TO_CONTACT') as any,

@@ -400,6 +400,139 @@ body, button, input, select, textarea {
   .lg\:text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
 }
 
+/* ── Module Scale 80% (0.80) & Typography Compensation ── */
+.module-scale-80 {
+  zoom: 0.8;
+  --font-scale: 1.2;
+}
+
+@supports not (zoom: 0.8) {
+  .module-scale-80 {
+    transform: scale(0.8);
+    transform-origin: top left;
+    width: 125%;
+    min-height: 125%;
+  }
+}
+
+/* ── Scaled Module Typography Enhancements ── */
+.module-scale-80,
+.module-scale-80 button,
+.module-scale-80 input,
+.module-scale-80 select,
+.module-scale-80 textarea,
+.module-scale-80 table {
+  font-size: calc(var(--app-font-size, 0.84375rem) * 1.2);
+}
+
+.module-scale-80 .text-\[9px\]  { font-size: 11.5px !important; }
+.module-scale-80 .text-\[10px\] { font-size: 12.5px !important; }
+.module-scale-80 .text-\[11px\] { font-size: 13.5px !important; }
+.module-scale-80 .text-\[12px\] { font-size: 14.5px !important; }
+.module-scale-80 .text-\[13px\] { font-size: 15.5px !important; }
+.module-scale-80 .text-\[14px\] { font-size: 16.5px !important; }
+.module-scale-80 .text-\[15px\] { font-size: 17.5px !important; }
+
+.module-scale-80 .text-xs   { font-size: 0.875rem !important; line-height: 1.35 !important; }  /* ~14px */
+.module-scale-80 .text-sm   { font-size: 1rem !important; line-height: 1.45 !important; }      /* ~16px */
+.module-scale-80 .text-base { font-size: 1.125rem !important; line-height: 1.5 !important; }    /* ~18px */
+.module-scale-80 .text-lg   { font-size: 1.25rem !important; line-height: 1.5 !important; }     /* ~20px */
+.module-scale-80 .text-xl   { font-size: 1.375rem !important; line-height: 1.4 !important; }    /* ~22px */
+.module-scale-80 .text-2xl  { font-size: 1.625rem !important; line-height: 1.35 !important; }   /* ~26px */
+.module-scale-80 .text-3xl  { font-size: 2rem !important; line-height: 1.3 !important; }       /* ~32px */
+
+/* Table headers & cells inside scaled modules */
+.module-scale-80 th {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em !important;
+}
+.module-scale-80 td {
+  font-size: 14.5px !important;
+}
+
+/* Inputs, buttons & controls inside scaled modules */
+.module-scale-80 .btn-primary,
+.module-scale-80 .btn-secondary,
+.module-scale-80 .btn-danger,
+.module-scale-80 .btn-ghost,
+.module-scale-80 .input,
+.module-scale-80 select {
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+}
+
+/* Badges & labels */
+.module-scale-80 .label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Standardized Page Search Box Sizing & Typography ── */
+.page-search-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 17.5rem !important;
+  flex-shrink: 0 !important;
+}
+
+@media (min-width: 640px) {
+  .page-search-wrapper {
+    width: 16rem !important;
+  }
+}
+
+.page-search-input {
+  width: 100% !important;
+  height: 2.25rem !important;
+  background-color: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 0.75rem !important;
+  padding-left: 2.25rem !important;
+  padding-right: 0.75rem !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+.page-search-input::placeholder {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+.page-search-input:focus {
+  outline: none !important;
+  background-color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.page-search-icon {
+  position: absolute !important;
+  left: 0.75rem !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #94a3b8 !important;
+  pointer-events: none !important;
+  width: 15px !important;
+  height: 15px !important;
+}
+
+/* Fallback for search inputs across pages */
+div.relative > input[placeholder*="Search"],
+div.relative > input[placeholder*="search"] {
+  height: 2.25rem !important;
+  border-radius: 0.75rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  padding-left: 2.25rem !important;
+}
+
+
 
 
 

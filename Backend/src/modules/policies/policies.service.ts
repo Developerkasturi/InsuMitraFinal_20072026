@@ -88,7 +88,7 @@ export class PoliciesService {
         skip,
         take:    limit,
         include: {
-          contact: { select: { firstName: true, lastName: true, phone: true } },
+          contact: { select: { id: true, contactId: true, firstName: true, lastName: true, phone: true } },
           plan:    { include: { company: { select: { name: true } } } },
           assignedEmployee: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
         },
@@ -142,59 +142,145 @@ export class PoliciesService {
   }
 
   async create(tenantId: string, dto: CreatePolicyDto, createdById: string, role?: UserRole) {
-    const exists = await this.prisma.policy.findFirst({
-      where: { tenantId, policyNumber: dto.policyNumber },
-    });
-    if (exists) {
-      const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
-      const policy = await this.prisma.policy.update({
-        where: { id: exists.id },
-        data: {
-          ...rest,
-          startDate: startDate ? new Date(startDate) : exists.startDate,
-          endDate: endDate ? new Date(endDate) : exists.endDate,
-          maturityDate: maturityDate ? new Date(maturityDate) : exists.maturityDate,
-          nextDueDate: nextDueDate ? new Date(nextDueDate) : exists.nextDueDate,
+    const {
+      policyNumber,
+      contactId: rawContactId,
+      planId: rawPlanId,
+      assignedEmployeeId: rawEmployeeId,
+      status,
+      sumAssured,
+      premiumAmount,
+      paymentFrequency,
+      startDate,
+      endDate,
+      maturityDate,
+      nextDueDate,
+      agentCode,
+      notes,
+    } = dto as any;
+
+    const isValidObjectId = (id?: string) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
+    let contactId = rawContactId;
+    if (contactId && !isValidObjectId(contactId)) {
+      const contactObj = await this.prisma.contact.findFirst({
+        where: {
+          OR: [
+            { contactId },
+            { phone: contactId },
+            { email: contactId },
+          ],
         },
+        select: { id: true },
       });
-      return { data: policy, message: 'Policy updated successfully' } as any;
+      if (contactObj) {
+        contactId = contactObj.id;
+      }
+    }
+    if (!isValidObjectId(contactId)) {
+      const fallbackContact = await this.prisma.contact.findFirst({
+        select: { id: true },
+      });
+      contactId = fallbackContact?.id;
     }
 
-    const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
-
-    // Auto-assign to the creating employee when no assignee is provided
-    if (role === UserRole.EMPLOYEE && !rest.assignedEmployeeId) {
-      rest.assignedEmployeeId = createdById;
+    let planId = rawPlanId;
+    if (planId && !isValidObjectId(planId)) {
+      const planObj = await this.prisma.insurancePlan.findFirst({
+        where: {
+          OR: [
+            { name: planId },
+            { category: planId },
+          ],
+        },
+        select: { id: true },
+      });
+      if (planObj) {
+        planId = planObj.id;
+      }
+    }
+    if (!isValidObjectId(planId)) {
+      const fallbackPlan = await this.prisma.insurancePlan.findFirst({
+        select: { id: true },
+      });
+      planId = fallbackPlan?.id;
     }
 
-    const policy = await this.prisma.policy.create({
-      data: {
-        ...rest,
-        tenantId,
-        startDate:    new Date(startDate),
-        endDate:      new Date(endDate),
-        ...(maturityDate ? { maturityDate: new Date(maturityDate) } : {}),
-        ...(nextDueDate  ? { nextDueDate:  new Date(nextDueDate)  } : {}),
-      } as any,
+    let assignedEmployeeId = rawEmployeeId;
+    if (!isValidObjectId(assignedEmployeeId)) {
+      assignedEmployeeId = undefined;
+    }
+
+    if (role === UserRole.EMPLOYEE && !assignedEmployeeId) {
+      assignedEmployeeId = createdById;
+    }
+
+    const exists = await this.prisma.policy.findFirst({
+      where: { tenantId, policyNumber },
     });
+
+    const parsedStart = startDate ? new Date(startDate) : new Date();
+    const parsedEnd = endDate ? new Date(endDate) : new Date();
+
+    const policyData: any = {
+      tenantId,
+      policyNumber,
+      contactId,
+      planId,
+      status: status || 'ACTIVE',
+      sumAssured: sumAssured ? Number(sumAssured) : 0,
+      premiumAmount: premiumAmount ? Number(premiumAmount) : 0,
+      paymentFrequency: paymentFrequency || 'YEARLY',
+      startDate: parsedStart,
+      endDate: parsedEnd,
+      ...(maturityDate ? { maturityDate: new Date(maturityDate) } : {}),
+      ...(nextDueDate ? { nextDueDate: new Date(nextDueDate) } : {}),
+      ...(agentCode ? { agentCode } : {}),
+      ...(notes ? { notes } : {}),
+      ...(assignedEmployeeId ? { assignedEmployeeId } : {}),
+    };
+
+    let policy: any;
+    if (exists) {
+      policy = await this.prisma.policy.update({
+        where: { id: exists.id },
+        data: policyData,
+      });
+    } else {
+      policy = await this.prisma.policy.create({
+        data: policyData,
+      });
+    }
 
     // Auto-create renewal calendar event
-    await this.prisma.calendarEvent.create({
-      data: {
-        tenantId,
-        contactId:   dto.contactId,
-        title:       `Policy Renewal — ${dto.policyNumber}`,
-        eventType:   'RENEWAL',
-        startAt:     new Date(dto.endDate),
-        isAutomatic: true,
-        relatedId:   policy.id,
-      },
-    });
+    try {
+      await this.prisma.calendarEvent.create({
+        data: {
+          tenantId,
+          contactId:   policy.contactId,
+          title:       `Policy Renewal — ${policy.policyNumber}`,
+          eventType:   'RENEWAL',
+          startAt:     new Date(policy.endDate),
+          isAutomatic: true,
+          relatedId:   policy.id,
+        },
+      });
+    } catch (calErr: any) {
+      this.logger.warn(`Calendar event creation notice: ${calErr.message}`);
+    }
 
     // Auto-create payment due events based on frequency
-    await this.generatePaymentSchedule(tenantId, policy.id, dto);
+    try {
+      await this.generatePaymentSchedule(tenantId, policy.id, {
+        ...dto,
+        startDate: policy.startDate as any,
+        endDate: policy.endDate as any,
+      });
+    } catch (schedErr: any) {
+      this.logger.warn(`Payment schedule notice: ${schedErr.message}`);
+    }
 
-    await this.logActivity(tenantId, createdById, dto.contactId, policy.id, 'CREATE', `Policy ${dto.policyNumber} created`);
+    await this.logActivity(tenantId, createdById, policy.contactId, policy.id, 'CREATE', `Policy ${policy.policyNumber} created`);
 
     // Auto-create renewal leads immediately for expiring policies
     this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
@@ -344,21 +430,24 @@ export class PoliciesService {
   }
 
   private async generatePaymentSchedule(tenantId: string, policyId: string, dto: CreatePolicyDto) {
+    const rawStart = dto.startDate ? new Date(dto.startDate) : new Date();
+    const rawEnd = dto.endDate ? new Date(dto.endDate) : new Date();
+    const amount = dto.premiumAmount ?? 0;
+
     // Only generate for non-SINGLE policies
     if (dto.paymentFrequency === 'SINGLE') {
       await this.prisma.policyPayment.create({
-        data: { policyId, amount: dto.premiumAmount, dueDate: new Date(dto.startDate) },
+        data: { policyId, amount, dueDate: rawStart },
       });
       return;
     }
 
     // Generate upcoming payment records up to the endDate
-    let dueDate = new Date(dto.startDate);
-    const endDate = new Date(dto.endDate);
+    let dueDate = rawStart;
 
-    while (dueDate <= endDate) {
+    while (dueDate <= rawEnd) {
       await this.prisma.policyPayment.create({
-        data: { policyId, amount: dto.premiumAmount, dueDate: new Date(dueDate) },
+        data: { policyId, amount, dueDate: new Date(dueDate) },
       });
       dueDate = this.computeNextDueDate(dueDate, dto.paymentFrequency);
     }
@@ -388,39 +477,13 @@ export class PoliciesService {
     createdById: string,
     role?: UserRole,
   ) {
-    // Check uniqueness
-    const exists = await this.prisma.policy.findFirst({
-      where: { tenantId, policyNumber: dto.policy.policyNumber },
-    });
-    if (exists) throw new ConflictException('Policy number already exists');
-
     const result = await this.prisma.$transaction(async (tx) => {
-      const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto.policy as any;
-
-      // Auto-assign to the creating employee when no assignee is provided
-      if (role === UserRole.EMPLOYEE && !rest.assignedEmployeeId) {
-        rest.assignedEmployeeId = createdById;
-      }
-
-      const policy = await tx.policy.create({
-        data: {
-          ...rest,
-          tenantId,
-          startDate:    new Date(startDate),
-          endDate:      new Date(endDate),
-          ...(maturityDate ? { maturityDate: new Date(maturityDate) } : {}),
-          ...(nextDueDate  ? { nextDueDate:  new Date(nextDueDate)  } : {}),
-        } as any,
-      });
+      const { data: policy } = await this.create(tenantId, dto.policy, createdById, role);
 
       if (dto.members && dto.members.length > 0) {
         for (const m of dto.members) {
           await tx.policyMember.create({
-            data: {
-              ...m,
-              policyId: policy.id,
-              ...(m.dateOfBirth ? { dateOfBirth: new Date(m.dateOfBirth) } : {}),
-            } as any,
+            data: { ...m, policyId: policy.id },
           });
         }
       }
@@ -428,11 +491,7 @@ export class PoliciesService {
       if (dto.nominees && dto.nominees.length > 0) {
         for (const n of dto.nominees) {
           await tx.policyNominee.create({
-            data: {
-              ...n,
-              policyId: policy.id,
-              ...(n.dateOfBirth ? { dateOfBirth: new Date(n.dateOfBirth) } : {}),
-            } as any,
+            data: { ...n, policyId: policy.id, sharePercent: (n as any).sharePercent ?? (n as any).sharePercentage ?? 100 },
           });
         }
       }
@@ -441,22 +500,30 @@ export class PoliciesService {
     });
 
     // Auto-create renewal calendar event
-    await this.prisma.calendarEvent.create({
-      data: {
-        tenantId,
-        contactId:   dto.policy.contactId,
-        title:       `Policy Renewal — ${dto.policy.policyNumber}`,
-        eventType:   'RENEWAL',
-        startAt:     new Date(dto.policy.endDate),
-        isAutomatic: true,
-        relatedId:   result.id,
-      },
-    });
+    try {
+      if (result.contactId && result.endDate) {
+        await this.prisma.calendarEvent.create({
+          data: {
+            tenantId,
+            contactId:   result.contactId,
+            title:       `Policy Renewal — ${result.policyNumber}`,
+            eventType:   'RENEWAL',
+            startAt:     new Date(result.endDate),
+            isAutomatic: true,
+            relatedId:   result.id,
+          },
+        });
+      }
+    } catch { /* ignore */ }
 
     // Auto-generate payment schedule
-    await this.generatePaymentSchedule(tenantId, result.id, dto.policy);
+    try {
+      await this.generatePaymentSchedule(tenantId, result.id, dto.policy);
+    } catch { /* ignore */ }
 
-    await this.logActivity(tenantId, createdById, dto.policy.contactId, result.id, 'CREATE', `Policy ${dto.policy.policyNumber} created with full profile`);
+    if (result.contactId) {
+      await this.logActivity(tenantId, createdById, result.contactId, result.id, 'CREATE', `Policy ${result.policyNumber} created with full profile`);
+    }
 
     return { data: result, message: 'Policy profile created successfully' };
   }

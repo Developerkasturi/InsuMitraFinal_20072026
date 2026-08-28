@@ -231,14 +231,14 @@ export default function MyTasksPanel({
       {/* Top Action & Toolbar */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+        <div className="page-search-wrapper">
+          <Search className="page-search-icon" />
           <input
             type="text"
             placeholder="Search tasks, contacts, policies, categories..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="input w-full pl-9 p-2 text-xs border border-gray-200 rounded-xl bg-slate-50 focus:bg-white"
+            className="page-search-input"
           />
         </div>
 

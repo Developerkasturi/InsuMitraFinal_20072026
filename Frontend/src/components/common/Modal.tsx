@@ -52,13 +52,17 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
             leaveFrom="opacity-100 scale-100 translate-y-0"
             leaveTo="opacity-0 scale-[0.96] translate-y-2"
           >
-            <Dialog.Panel
-              className={[
-                'w-[95vw] sm:w-full bg-white flex flex-col rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden font-sans text-slate-800',
-                sizeClass[size],
-                heightClass || 'max-h-[95vh] sm:max-h-[88vh]',
-              ].join(' ')}
-            >
+          {(() => {
+            const isModuleScaled = typeof document !== 'undefined' && document.querySelector('main.module-scale-80') !== null;
+            return (
+              <Dialog.Panel
+                className={[
+                  'w-[95vw] sm:w-full bg-white flex flex-col rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden font-sans text-slate-800',
+                  sizeClass[size],
+                  heightClass || 'max-h-[95vh] sm:max-h-[88vh]',
+                  isModuleScaled ? 'module-scale-80' : '',
+                ].join(' ')}
+              >
               {/* Top Accent Gradient Bar */}
               <div className="h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 w-full shrink-0" />
 
@@ -97,6 +101,8 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
                 {children}
               </div>
             </Dialog.Panel>
+            );
+          })()}
           </Transition.Child>
         </div>
       </Dialog>

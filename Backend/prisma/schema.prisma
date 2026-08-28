@@ -324,6 +324,7 @@ model Contact {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
   tenantId String    @map("tenant_id") @db.ObjectId
   userId String?   @map("user_id") @db.ObjectId  // linked login if any (uniqueness enforced at app layer)
+  contactId         String?   @map("contact_id")
   firstName         String    @map("first_name")
   middleName        String?   @map("middle_name")
   lastName          String    @map("last_name")
@@ -369,6 +370,7 @@ model Contact {
   calendarEvents    CalendarEvent[]
 
   @@index([tenantId])
+  @@index([tenantId, contactId])
   @@index([tenantId, phone])
   @@index([tenantId, deletedAt])
   @@map("contacts")
@@ -538,15 +540,16 @@ model InsurancePlan {
 
 model ProductInterest {
   id                   String    @id @default(auto()) @map("_id") @db.ObjectId
-  tenantId String    @map("tenant_id") @db.ObjectId
-  contactId String    @map("contact_id") @db.ObjectId
-  planId String?   @map("plan_id") @db.ObjectId
-  assignedEmployeeId String?   @map("assigned_employee_id") @db.ObjectId
-  source String?
-  interests String[] @default([])
+  leadId               String?   @map("lead_id")
+  tenantId             String    @map("tenant_id") @db.ObjectId
+  contactId            String    @map("contact_id") @db.ObjectId
+  planId               String?   @map("plan_id") @db.ObjectId
+  assignedEmployeeId   String?   @map("assigned_employee_id") @db.ObjectId
+  source               String?
+  interests            String[]  @default([])
   stage                LeadStage @default(TO_CONTACT)
-  sumAssuredRequired   Float?  @map("sum_assured_required")
-  premiumBudget        Float?  @map("premium_budget")
+  sumAssuredRequired   Float?    @map("sum_assured_required")
+  premiumBudget        Float?    @map("premium_budget")
   followUpDate         DateTime? @map("follow_up_date")
   notes                String?
   lostReason           String?   @map("lost_reason")
@@ -561,10 +564,18 @@ model ProductInterest {
   consultations        ProductInterestConsultation[]
 
   @@index([tenantId])
+  @@index([tenantId, leadId])
   @@index([tenantId, stage])
   @@index([tenantId, assignedEmployeeId])
   @@index([tenantId, deletedAt])
   @@map("product_interests")
+}
+
+model Counter {
+  id  String @id @map("_id")
+  seq Int    @default(0)
+
+  @@map("counters")
 }
 
 model ProductInterestConsultation {

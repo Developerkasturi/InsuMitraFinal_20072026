@@ -51,8 +51,15 @@ const nomineeSchema = z.object({
 });
 type NomineeForm = z.infer<typeof nomineeSchema>;
 
-export default function PolicyDetail() {
-  const { id } = useParams<{ id: string }>();
+interface PolicyDetailProps {
+  policyId?: string;
+  onClose?: () => void;
+  isModal?: boolean;
+}
+
+export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal }: PolicyDetailProps = {}) {
+  const { id: paramId } = useParams<{ id: string }>();
+  const id = propPolicyId || paramId;
   const navigate  = useNavigate();
   const qc = useQueryClient();
   const { user: authUser } = useAuthStore();
@@ -245,7 +252,7 @@ export default function PolicyDetail() {
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+        <button onClick={() => (onClose ? onClose() : navigate(-1))} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">

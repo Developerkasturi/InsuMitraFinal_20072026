@@ -20,7 +20,7 @@ export class ContactsRepository {
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
     const {
       page = 1, limit = 20,
-      search, sortBy = 'createdAt', sortOrder = 'desc',
+      search, sortBy = 'createdAt', sortOrder = 'asc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
 
@@ -33,6 +33,7 @@ export class ContactsRepository {
 
     if (search) {
       where.OR = [
+        { contactId:      { contains: search, mode: 'insensitive' } },
         { firstName:      { contains: search, mode: 'insensitive' } },
         { lastName:       { contains: search, mode: 'insensitive' } },
         { email:          { contains: search, mode: 'insensitive' } },
@@ -83,7 +84,7 @@ export class ContactsRepository {
           addresses:   { where: { isPrimary: true }, take: 1 },
           occupations: { where: { isPrimary: true }, take: 1 },
           assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
-          productInterests: { select: { id: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
+          productInterests: { select: { id: true, leadId: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
           policies: { select: { id: true, status: true } },
           _count:      { select: { policies: true, documents: true } },
         },
@@ -98,7 +99,13 @@ export class ContactsRepository {
 
   async findOne(tenantId: string, id: string) {
     return this.prisma.contact.findFirst({
-      where:   { id, tenantId },
+      where: {
+        tenantId,
+        OR: [
+          { id },
+          { contactId: id },
+        ],
+      },
       include: {
         addresses:     true,
         occupations:   true,

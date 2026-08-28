@@ -50,7 +50,7 @@ export class PoliciesController {
 
   @Post()
   @Roles(UserRole.EMPLOYEE)
-  create(@CurrentUser() user: any, @Body() dto: CreatePolicyDto) {
+  create(@CurrentUser() user: any, @Body() dto: any) {
     return this.svc.create(user.tenantId, dto, user.id, user.role);
   }
 

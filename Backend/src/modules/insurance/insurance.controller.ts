@@ -38,6 +38,12 @@ export class InsuranceController {
     return this.svc.getCompany(req.tenantId, id);
   }
 
+  @Get('companies/:id/plans')
+  @ApiOperation({ summary: 'Get plans for an insurance company' })
+  getCompanyPlans(@Req() req: any, @Param('id') id: string) {
+    return this.svc.listPlans(req.tenantId, { companyId: id });
+  }
+
   @Patch('companies/:id')
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update an insurance company' })

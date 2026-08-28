@@ -228,6 +228,11 @@ export default function LeadDetail() {
         </button>
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            {l.leadId && (
+              <span className="font-mono text-sm font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
+                {l.leadId}
+              </span>
+            )}
             <h2 className="text-xl font-bold text-gray-900">
               {l.contact?.firstName} {l.contact?.lastName}
             </h2>
