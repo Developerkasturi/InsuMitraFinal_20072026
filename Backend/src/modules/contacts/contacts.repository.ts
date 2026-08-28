@@ -33,6 +33,7 @@ export class ContactsRepository {
 
     if (search) {
       where.OR = [
+        { contactId:      { contains: search, mode: 'insensitive' } },
         { firstName:      { contains: search, mode: 'insensitive' } },
         { lastName:       { contains: search, mode: 'insensitive' } },
         { email:          { contains: search, mode: 'insensitive' } },

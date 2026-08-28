@@ -324,6 +324,7 @@ model Contact {
   id                String    @id @default(auto()) @map("_id") @db.ObjectId
   tenantId String    @map("tenant_id") @db.ObjectId
   userId String?   @map("user_id") @db.ObjectId  // linked login if any (uniqueness enforced at app layer)
+  contactId         String?   @map("contact_id")
   firstName         String    @map("first_name")
   middleName        String?   @map("middle_name")
   lastName          String    @map("last_name")
@@ -369,6 +370,7 @@ model Contact {
   calendarEvents    CalendarEvent[]
 
   @@index([tenantId])
+  @@index([tenantId, contactId])
   @@index([tenantId, phone])
   @@index([tenantId, deletedAt])
   @@map("contacts")

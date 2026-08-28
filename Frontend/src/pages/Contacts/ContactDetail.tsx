@@ -252,7 +252,14 @@ export default function ContactDetail() {
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1">
-          <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">{c.firstName} {c.lastName}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">{c.firstName} {c.lastName}</h2>
+            {(c.contactId || c.id) && (
+              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100/80 shadow-2xs">
+                {c.contactId || `#${c.id.substring(c.id.length - 4).toUpperCase()}`}
+              </span>
+            )}
+          </div>
           <div className="flex gap-3 mt-0.5">
             {c.tags?.filter((t: string) => !t.startsWith('med:')).map((t: string) => (
               <span key={t} className="inline-block text-xs bg-primary-100 text-primary-700 rounded-full px-2 py-0.5">{t}</span>

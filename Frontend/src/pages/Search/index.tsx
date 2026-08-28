@@ -13,7 +13,11 @@ const SECTION_META: Record<string, { label: string; Icon: React.ElementType; rou
 };
 
 function getItemLabel(section: string, item: any): string {
-  if (section === 'contacts') return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.phone || 'Contact';
+  if (section === 'contacts') {
+    const cid = item.contact_id || item.contactId;
+    const name = item.contactName || `${item.firstName ?? item.first_name ?? ''} ${item.lastName ?? item.last_name ?? ''}`.trim() || item.phone || 'Contact';
+    return cid ? `[${cid}] ${name}` : name;
+  }
   if (section === 'policies') return item.policyNumber || item.contactName || 'Policy';
   if (section === 'claims')   return item.claimNumber || item.contactName || 'Claim';
   if (section === 'leads')    return `${(item.lead_id || item.leadId) ? `[${item.lead_id || item.leadId}] ` : ''}${item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.planName || 'Lead'}`;
@@ -25,7 +29,7 @@ function getItemSub(section: string, item: any): string {
   const contact = item.contactName || `${item.contact?.firstName ?? ''} ${item.contact?.lastName ?? ''}`.trim();
   const phone = item.phone || item.contact?.phone || item.email || '';
 
-  if (section === 'contacts') return [phone, item.email, item.aadhaarNumber].filter(Boolean).join(' · ');
+  if (section === 'contacts') return [item.contact_id || item.contactId, phone, item.email, item.aadhaarNumber].filter(Boolean).join(' · ');
   if (section === 'policies') return [plan, contact, item.status].filter(Boolean).join(' · ');
   if (section === 'claims')   return [item.claimType, contact, item.policyNumber, item.status].filter(Boolean).join(' · ');
   if (section === 'leads')    return [item.lead_id || item.leadId, plan, contact, item.stage].filter(Boolean).join(' · ');

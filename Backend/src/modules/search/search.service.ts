@@ -6,6 +6,7 @@ export type SearchType = 'contacts' | 'policies' | 'claims' | 'leads' | 'all';
 
 interface ContactRow {
   id: string;
+  contact_id: string | null;
   first_name: string;
   last_name: string;
   phone: string;
@@ -142,6 +143,7 @@ export class SearchService {
     const tokens = term.split(/\s+/).filter(Boolean);
 
     const OR: any[] = [
+      { contactId: { contains: term, mode: 'insensitive' } },
       { firstName: { contains: term, mode: 'insensitive' } },
       { lastName: { contains: term, mode: 'insensitive' } },
       { phone: { contains: term } },
@@ -196,6 +198,7 @@ export class SearchService {
       take: limit,
       select: {
         id: true,
+        contactId: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -207,6 +210,7 @@ export class SearchService {
       },
     }).then((rows) => rows.map((row) => ({
       id: row.id,
+      contact_id: (row as any).contactId ?? null,
       first_name: row.firstName,
       last_name: row.lastName,
       phone: row.phone,

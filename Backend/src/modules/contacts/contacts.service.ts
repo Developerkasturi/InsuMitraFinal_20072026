@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Contacts Service — business logic layer
 // ─────────────────────────────────────────────────────────────────────────────
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import { ContactsRepository } from './contacts.repository';
 import { PrismaService }      from '../../database/prisma.service';
 import { EmailService }       from '../../common/email/email.service';
@@ -17,7 +17,7 @@ import {
 import { NotificationEngineService } from '../notifications/notification-engine.service';
 
 @Injectable()
-export class ContactsService {
+export class ContactsService implements OnModuleInit {
   private readonly logger = new Logger(ContactsService.name);
 
   constructor(
@@ -27,7 +27,61 @@ export class ContactsService {
     private readonly notifEngine: NotificationEngineService,
   ) {}
 
+  async onModuleInit() {
+    await this.initializeContactIds();
+  }
+
+  /** Generate atomic sequential Contact ID C1, C2... using MongoDB counter */
+  async getNextContactId(): Promise<string> {
+    try {
+      const counter = await this.prisma.counter.upsert({
+        where: { id: 'contact_id_seq' },
+        update: { seq: { increment: 1 } },
+        create: { id: 'contact_id_seq', seq: 1 },
+      });
+      return `C${counter.seq}`;
+    } catch (err: any) {
+      this.logger.error(`Error generating atomic Contact ID: ${err.message}`);
+      const res: any = await this.prisma.$runCommandRaw({
+        findAndModify: 'counters',
+        query: { _id: 'contact_id_seq' },
+        update: { $inc: { seq: 1 } },
+        new: true,
+        upsert: true,
+      });
+      const seq = res?.value?.seq ?? res?.seq ?? 1;
+      return `C${seq}`;
+    }
+  }
+
+  /** Assign sequential IDs C1, C2... to pre-existing contacts safely without duplicates */
+  async initializeContactIds(): Promise<void> {
+    try {
+      const allContacts = await this.prisma.contact.findMany({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, contactId: true },
+      });
+
+      const unassignedContacts = allContacts.filter(c => !(c as any).contactId);
+
+      if (unassignedContacts.length > 0) {
+        this.logger.log(`Found ${unassignedContacts.length} existing contacts without Contact ID. Assigning sequential IDs...`);
+        for (const contact of unassignedContacts) {
+          const nextId = await this.getNextContactId();
+          await this.prisma.contact.update({
+            where: { id: contact.id },
+            data: { contactId: nextId } as any,
+          });
+        }
+        this.logger.log(`Successfully backfilled Contact IDs for ${unassignedContacts.length} existing contacts.`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Initialize Contact IDs error: ${err.message}`);
+    }
+  }
+
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
+    await this.initializeContactIds();
     const result = await this.repo.findAll(tenantId, query, userId, role);
     return {
       data:    result.data,
@@ -76,7 +130,8 @@ export class ContactsService {
       dto.assignedEmployeeId = createdById;
     }
 
-    const contact = await this.repo.create(tenantId, dto);
+    const nextContactId = await this.getNextContactId();
+    const contact = await this.repo.create(tenantId, { ...dto, contactId: nextContactId } as any);
 
     // Create primary Address if city is provided
     if (dto.city) {

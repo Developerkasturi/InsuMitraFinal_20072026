@@ -875,7 +875,7 @@ export default function Contacts() {
 
   const { data: contactsRes, isLoading: contactsLoading, refetch: refetchContacts } = useContacts({
     page,
-    limit: 50,
+    limit: 20,
     search: search || undefined
   });
 
@@ -2195,6 +2195,11 @@ export default function Contacts() {
   // Client-side Sorting Memo
   const sortedAndFilteredData = useMemo(() => {
     return sortData(filteredData, sortKey, sortDir as 'asc' | 'desc', (row: any, key: string) => {
+      if (key === 'contactId' || key === 'id') {
+        const cid = row.contactId || row.id || '';
+        const num = parseInt(cid.replace(/\D/g, ''), 10);
+        return isNaN(num) ? cid : num;
+      }
       if (key === 'name') return `${row.firstName || row.contact?.firstName || ''} ${row.lastName || row.contact?.lastName || ''}`;
       if (key === 'phone') return row.phone || row.contact?.phone || '';
       if (key === 'product') {
@@ -2217,12 +2222,11 @@ export default function Contacts() {
   // Contact Table Columns
   const CONTACT_COLS: Column<any>[] = [
     {
-      key: 'id',
+      key: 'contactId',
       label: 'CONTACT ID',
       sortable: true,
       render: r => {
-        const cid = r.contactId || r.id;
-        const shortId = cid ? `#${cid.substring(cid.length - 4).toUpperCase()}` : '—';
+        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
         return (
           <button
             onClick={(e) => {
@@ -2231,7 +2235,7 @@ export default function Contacts() {
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
-            {shortId}
+            {displayId}
           </button>
         );
       }
@@ -2399,12 +2403,11 @@ export default function Contacts() {
   // Customer Columns
   const CUSTOMER_COLS: Column<any>[] = [
     {
-      key: 'id',
+      key: 'contactId',
       label: 'CONTACT ID',
       sortable: true,
       render: r => {
-        const cid = r.contactId || r.id;
-        const shortId = cid ? `#${cid.substring(cid.length - 4).toUpperCase()}` : '—';
+        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
         return (
           <button
             onClick={(e) => {
@@ -2413,7 +2416,7 @@ export default function Contacts() {
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
-            {shortId}
+            {displayId}
           </button>
         );
       }
@@ -2586,12 +2589,11 @@ export default function Contacts() {
   // Birthday Columns
   const BIRTHDAY_COLS: Column<any>[] = [
     {
-      key: 'id',
+      key: 'contactId',
       label: 'CONTACT ID',
       sortable: true,
       render: r => {
-        const cid = r.contactId || r.id;
-        const shortId = cid ? `#${cid.substring(cid.length - 4).toUpperCase()}` : '—';
+        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
         return (
           <button
             onClick={(e) => {
@@ -2600,7 +2602,7 @@ export default function Contacts() {
             }}
             className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
-            {shortId}
+            {displayId}
           </button>
         );
       }
