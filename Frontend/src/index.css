@@ -400,6 +400,21 @@ body, button, input, select, textarea {
   .lg\:text-2xl { font-size: calc(1.5rem * var(--font-scale, 1)) !important; line-height: 1.33 !important; }
 }
 
+/* ── Module Scale 80% (0.80) ── */
+.module-scale-80 {
+  zoom: 0.8;
+}
+
+@supports not (zoom: 0.8) {
+  .module-scale-80 {
+    transform: scale(0.8);
+    transform-origin: top left;
+    width: 125%;
+    min-height: 125%;
+  }
+}
+
+
 
 
 
