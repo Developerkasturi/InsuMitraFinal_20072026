@@ -18,7 +18,9 @@ interface EmployeeCalendarTaskViewProps {
 
 const SAMPLE_EVENTS_AND_TASKS = [
   {
-    id: 'e-1',
+    id: 'T1',
+    taskId: 'T1',
+    taskNumber: 'T1',
     title: 'Star Health Renewal Follow-up Call (Mehta Family)',
     date: new Date().toISOString(),
     time: '10:00 AM',
@@ -38,7 +40,9 @@ const SAMPLE_EVENTS_AND_TASKS = [
     recurrence: 'WEEKLY'
   },
   {
-    id: 'e-3',
+    id: 'T2',
+    taskId: 'T2',
+    taskNumber: 'T2',
     title: 'Dr. Vikrant Kulkarni Life Policy Proposal Discussion',
     date: new Date(Date.now() + 86400000).toISOString(),
     time: '03:00 PM',
@@ -48,7 +52,9 @@ const SAMPLE_EVENTS_AND_TASKS = [
     isRecurring: false
   },
   {
-    id: 'e-4',
+    id: 'T3',
+    taskId: 'T3',
+    taskNumber: 'T3',
     title: 'Medical Underwriting KYC Verification (Sunita Patil)',
     date: new Date(Date.now() + 86400000 * 2).toISOString(),
     time: '02:00 PM',
@@ -270,7 +276,7 @@ export default function EmployeeCalendarTaskView({
                             ? 'bg-purple-100 text-purple-800' 
                             : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {isEvent ? '⚡ Calendar Event' : '📋 Task'}
+                          {isEvent ? '⚡ Calendar Event' : `📋 ${item.taskId || item.taskNumber || (item.id?.startsWith('T') ? item.id : 'Task')}`}
                         </span>
 
                         <span className="text-[10px] font-semibold text-gray-500 flex items-center gap-1">

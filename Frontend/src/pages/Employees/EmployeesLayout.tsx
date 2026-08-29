@@ -302,8 +302,8 @@ export default function EmployeesLayout() {
         <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Employees</h2>
       </div>
 
-      {/* Sub-page Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto custom-scrollbar">
+      {/* Sub-page Navigation Tabs (Mobile Responsive Horizontal Scroll) */}
+      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto no-scrollbar flex-nowrap scroll-smooth">
         {[
           { label: 'Directory', path: '/employees', icon: Users },
           { label: 'Job Descriptions', path: '/employees/job-descriptions', icon: Briefcase },
@@ -322,7 +322,7 @@ export default function EmployeesLayout() {
               type="button"
               onClick={() => navigate(tab.path)}
               className={clsx(
-                'px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap select-none border',
+                'shrink-0 whitespace-nowrap px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer select-none border',
                 isActive
                   ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'

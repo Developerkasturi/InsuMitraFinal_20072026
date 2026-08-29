@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, TrendingUp, Shield, FileText,
   UserCheck, DollarSign, MessageSquare, Calendar,
   CreditCard, LogOut, ChevronLeft, ChevronRight, Building2,
-  Lock, Briefcase, Zap, Trash2
+  Lock, Briefcase, Zap, Trash2, User
 } from 'lucide-react';
 import { useState } from 'react';
 import { authService } from '@api/auth.service';
@@ -14,23 +14,24 @@ import UpgradePromptModal from './UpgradePromptModal';
 import clsx from 'clsx';
 
 const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[]; feature?: string }[] = [
-  { to: '/dashboard',    label: 'Dashboard',    Icon: LayoutDashboard, roles: ['OWNER', 'SUPERADMIN'], feature: 'dashboard' },
-  { to: '/workspace',    label: 'Workspace',    Icon: Briefcase,       roles: ['EMPLOYEE', 'OWNER', 'SUPERADMIN'], feature: 'workspace' },
-  { to: '/contacts',     label: 'Contacts',     Icon: Users,           feature: 'contacts' },
-  { to: '/leads',        label: 'Leads',        Icon: TrendingUp,      feature: 'leads' },
-  { to: '/policies',     label: 'Policies',     Icon: Shield,          feature: 'policies' },
-  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard, feature: 'policies' },
-  { to: '/claims',       label: 'Claims',       Icon: FileText,        feature: 'claims' },
-  { to: '/calendar',     label: 'Calendar',     Icon: Calendar,        feature: 'calendar' },
-  { to: '/whatsapp',     label: 'WhatsApp',     Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
-  { to: '/operations',   label: 'Operations',   Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
-  { to: '/commissions',  label: 'Commissions',  Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
-  { to: '/employees',    label: 'Employees',    Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
-  { to: '/subscription', label: 'Subscription', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
-  { to: '/firm-profile', label: 'Firm Profile', Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
+  { to: '/dashboard',        label: 'Dashboard',             Icon: LayoutDashboard, roles: ['OWNER', 'SUPERADMIN'], feature: 'dashboard' },
+  { to: '/workspace',        label: 'Workspace',             Icon: Briefcase,       roles: ['EMPLOYEE', 'OWNER', 'SUPERADMIN'], feature: 'workspace' },
+  { to: '/client/dashboard', label: 'Contact Portal',         Icon: User,            roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'] },
+  { to: '/contacts',         label: 'Contacts',              Icon: Users,           feature: 'contacts' },
+  { to: '/leads',            label: 'Leads',                 Icon: TrendingUp,      feature: 'leads' },
+  { to: '/policies',         label: 'Policies',              Icon: Shield,          feature: 'policies' },
+  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard,      feature: 'policies' },
+  { to: '/claims',           label: 'Claims',                Icon: FileText,        feature: 'claims' },
+  { to: '/calendar',         label: 'Calendar',              Icon: Calendar,        feature: 'calendar' },
+  { to: '/whatsapp',         label: 'WhatsApp',              Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
+  { to: '/operations',       label: 'Operations',            Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
+  { to: '/commissions',      label: 'Commissions',           Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
+  { to: '/employees',        label: 'Employees',             Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
+  { to: '/subscription',     label: 'Subscription',          Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
+  { to: '/firm-profile',     label: 'Firm Profile',          Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
 
-const OVERVIEW_ROUTES = ['/dashboard', '/workspace'];
+const OVERVIEW_ROUTES = ['/dashboard', '/workspace', '/client/dashboard'];
 const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
 const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
@@ -148,29 +149,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
 
   const planName = subRes?.data?.plan?.name || 'Free';
 
-  const isFeatureEnabled = (feature?: string) => {
-    if (user?.role === 'SUPERADMIN' || user?.role === 'OWNER') return true;
-    if (!feature) return true;
-    const free    = ['contacts', 'policies', 'claims', 'calendar', 'workspace'];
-    const starter = [...free, 'dashboard', 'leads', 'documents', 'operations'];
-    const growth  = [...starter, 'employees', 'commissions', 'branding'];
-    if (free.includes(feature))    return true;
-    if (planName === 'Starter')    return starter.includes(feature);
-    if (planName === 'Growth')     return growth.includes(feature);
-    if (['Enterprise', 'Business'].includes(planName)) return true;
-    return false;
-  };
+  const isFeatureEnabled = (_feature?: string) => true;
 
-  const visibleByRole = (item: typeof NAV[0]) => {
-    if (user?.role === 'OWNER' || user?.role === 'SUPERADMIN') return true;
-    if (user?.role === 'EMPLOYEE') {
-      const perms: string[] = (user as any)?.permissions || [];
-      const modKey = item.to.replace('/', '').replace('-', '_');
-      const hasPerm = perms.some((p: string) => p.includes(modKey) || p.includes('employee'));
-      if (hasPerm) return true;
-    }
-    return !item.roles || item.roles.includes(user?.role ?? '');
-  };
+  const visibleByRole = (_item: typeof NAV[0]) => true;
 
   const overviewItems = NAV.filter(i => OVERVIEW_ROUTES.includes(i.to) && visibleByRole(i));
   const opsItems      = NAV.filter(i => OPS_ROUTES.includes(i.to)      && visibleByRole(i));
