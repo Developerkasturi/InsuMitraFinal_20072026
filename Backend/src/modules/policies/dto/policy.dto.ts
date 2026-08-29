@@ -201,12 +201,12 @@ export class PolicyQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsMongoId()
+  @IsString()
   contactId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsMongoId()
+  @IsString()
   planId?: string;
 
   @ApiPropertyOptional()

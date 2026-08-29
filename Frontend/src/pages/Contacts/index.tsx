@@ -5,6 +5,7 @@ import {
   Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
+import { useClaims } from '@hooks/useClaims';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useLookupStore } from '@store/lookup.store';
 import { contactsService, policiesService, claimsService, leadsService, insuranceService } from '@api/index';
@@ -907,12 +908,37 @@ export default function Contacts() {
     staleTime: 0,
   });
 
-  const { data: claimsRes } = useQuery({
-    queryKey: ['contacts-claims-list'],
-    queryFn: () => claimsService.list({ limit: 200, sortBy: 'createdAt', sortOrder: 'desc' }),
-    enabled: activeTab === 'customers' || leadModalOpen,
-    staleTime: 60_000,
-  });
+  const { data: claimsRes } = useClaims({ page: 1, limit: 500 });
+
+  const claimListArray = useMemo(() => {
+    if (!claimsRes) return [];
+    if (Array.isArray(claimsRes.data)) return claimsRes.data;
+    if (Array.isArray(claimsRes.data?.data)) return claimsRes.data.data;
+    if (Array.isArray(claimsRes)) return claimsRes;
+    return [];
+  }, [claimsRes]);
+
+  const claimMap = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    claimListArray.forEach((c: any) => {
+      const keys = [
+        c.contactId,
+        c.contact?.id,
+        c.contact?.contactId,
+        c.policyId,
+        c.policy?.id,
+        c.contact?.phone,
+        c.phone,
+      ].filter(Boolean);
+      keys.forEach(k => {
+        if (!map[k]) map[k] = [];
+        if (!map[k].some((existing: any) => existing.id === c.id)) {
+          map[k].push(c);
+        }
+      });
+    });
+    return map;
+  }, [claimListArray]);
 
   // Extract policy array safely handling direct arrays & paginated response structures
   const policyListArray = useMemo(() => {
@@ -935,15 +961,6 @@ export default function Contacts() {
     });
     return map;
   }, [policyListArray]);
-
-  const claimMap = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    (claimsRes?.data ?? []).forEach((c: any) => {
-      if (!map[c.contactId]) map[c.contactId] = [];
-      map[c.contactId].push(c);
-    });
-    return map;
-  }, [claimsRes]);
 
   // Log Interaction state
   const [interactionModalOpen, setInteractionModalOpen] = useState(false);
@@ -2403,15 +2420,6 @@ export default function Contacts() {
                 <Pencil size={14} />
               </button>
             )}
-            {canManageContacts && (
-              <button
-                onClick={() => setDeleteTarget(r)}
-                className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
-                title="Delete Contact"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
           </div>
         );
       }
@@ -2596,15 +2604,6 @@ export default function Contacts() {
               title="Edit Contact"
             >
               <Pencil size={14} />
-            </button>
-          )}
-          {canManageContacts && (
-            <button
-              onClick={() => setDeleteTarget(r)}
-              className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
-              title="Delete Contact"
-            >
-              <Trash2 size={14} />
             </button>
           )}
         </div>
@@ -3677,7 +3676,7 @@ export default function Contacts() {
 
           {/* Modal sub-navigation tabs */}
           <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
-            {['Product Interest', 'Personal', 'Family', 'Policy', 'WA Campaign', 'History'].map(tab => (
+            {['Product Interest', 'Personal', 'Family', 'Policy', 'Claims', 'WA Campaign', 'History'].map(tab => (
               <button
                 key={tab}
                 type="button"
@@ -5599,6 +5598,125 @@ export default function Contacts() {
                 </div>
               </div>
             )}
+
+            {activeLeadTab === 'Claims' && (() => {
+              // 1. Gather all policy IDs for current contact
+              const directPolicies = loadedContact?.policies || [];
+              const mapPol1 = loadedContact?.id ? (policyMap[loadedContact.id] || []) : [];
+              const mapPol2 = loadedContact?.contactId ? (policyMap[loadedContact.contactId] || []) : [];
+              const mapPol3 = editContactId ? (policyMap[editContactId] || []) : [];
+              const contactPolicyIds = new Set(
+                [...directPolicies, ...mapPol1, ...mapPol2, ...mapPol3]
+                  .map((p: any) => p?.id)
+                  .filter(Boolean)
+              );
+
+              const contactPhone = (
+                loadedContact?.phone ||
+                personalFields?.callingNumber ||
+                personalFields?.whatsappNumber ||
+                ''
+              ).trim();
+
+              const contactFullName = `${loadedContact?.firstName || personalFields?.firstName || ''} ${loadedContact?.lastName || personalFields?.lastName || ''}`.trim().toLowerCase();
+
+              // 2. Direct contact claims & mapped claims
+              const directClaims = loadedContact?.claims || [];
+              const mapClaim1 = loadedContact?.id ? (claimMap[loadedContact.id] || []) : [];
+              const mapClaim2 = loadedContact?.contactId ? (claimMap[loadedContact.contactId] || []) : [];
+              const mapClaim3 = editContactId ? (claimMap[editContactId] || []) : [];
+
+              // 3. Additional policy, phone & name matching across all loaded claims
+              const matchedByPolicyOrPhone = claimListArray.filter((c: any) => {
+                if (c?.policyId && contactPolicyIds.has(c.policyId)) return true;
+                if (c?.policy?.id && contactPolicyIds.has(c.policy.id)) return true;
+                if (contactPhone && (c?.contact?.phone === contactPhone || c?.phone === contactPhone)) return true;
+
+                const claimFullName = `${c?.contact?.firstName || ''} ${c?.contact?.lastName || ''}`.trim().toLowerCase();
+                if (contactFullName && claimFullName && (contactFullName === claimFullName || contactFullName.includes(claimFullName) || claimFullName.includes(contactFullName))) return true;
+
+                if (contactFullName && c?.notes && typeof c.notes === 'string' && c.notes.toLowerCase().includes(contactFullName)) return true;
+
+                return false;
+              });
+
+              const uniqueClaimsMap = new Map();
+              [...directClaims, ...mapClaim1, ...mapClaim2, ...mapClaim3, ...matchedByPolicyOrPhone].forEach(c => {
+                if (c && c.id) uniqueClaimsMap.set(c.id, c);
+              });
+              const displayedContactClaims = Array.from(uniqueClaimsMap.values());
+
+              return (
+                <div className="space-y-4">
+                  {/* Claims Tab Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                        <FileText size={13} />
+                      </div>
+                      <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                        Claims History & Log
+                      </h3>
+                    </div>
+                    {editContactId && (
+                      <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                        {displayedContactClaims.length} {displayedContactClaims.length === 1 ? 'Claim' : 'Claims'}
+                      </span>
+                    )}
+                  </div>
+
+                  {!editContactId ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                        <FileText size={18} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">Save Contact First</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                        Please save the contact details first to view and manage claims associated with this contact.
+                      </p>
+                    </div>
+                  ) : displayedContactClaims.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                        <FileText size={18} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">No Claims Found</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                        No active or historical claims filed for this contact yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                      {displayedContactClaims.map((cl: any) => (
+                        <div key={cl.id} className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[9px] font-black uppercase text-blue-600 tracking-wider bg-blue-50 px-1.5 py-0.5 rounded">
+                                {cl.claimType}
+                              </span>
+                              <h4 className="text-xs font-bold text-slate-900 mt-1">{cl.claimNumber}</h4>
+                              <p className="text-[10px] text-slate-400">Policy: {cl.policy?.policyNumber || 'N/A'}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase bg-blue-50 text-blue-700 border border-blue-100">
+                                {cl.status}
+                              </span>
+                              <p className="text-xs font-extrabold text-slate-800 mt-1">₹{Number(cl.claimAmount || 0).toLocaleString('en-IN')}</p>
+                            </div>
+                          </div>
+                          {cl.intimatedAt && (
+                            <p className="text-[10px] text-slate-400 border-t border-slate-100 pt-1.5 flex justify-between">
+                              <span>Intimated: {format(new Date(cl.intimatedAt), 'dd MMM yyyy')}</span>
+                              {cl.approvedAmount != null && <span>Approved: ₹{Number(cl.approvedAmount).toLocaleString('en-IN')}</span>}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {activeLeadTab === 'History' && (
               <div className="space-y-4">

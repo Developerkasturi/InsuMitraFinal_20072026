@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
 import { Phone, Mail, MapPin, Briefcase, Users, Edit2, Plus, Trash2, Shield, FileText, TrendingUp, UserPlus, X } from 'lucide-react';
@@ -94,6 +94,14 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
     queryFn: () => claimsService.list({ contactId: currentContactId, limit: 50 }),
     enabled: !!currentContactId && open,
   });
+
+  const claimsList = useMemo(() => {
+    if (!claims) return [];
+    if (Array.isArray(claims.data)) return claims.data;
+    if (Array.isArray(claims.data?.data)) return claims.data.data;
+    if (Array.isArray(claims)) return claims;
+    return [];
+  }, [claims]);
 
   const { data: leads } = useQuery({
     queryKey: ['contact-leads', currentContactId],
@@ -364,9 +372,9 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                 {/* Claims */}
                 <div className="card p-4 rounded-xl border border-slate-100">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex flex-wrap items-center gap-1.5 mb-2"><FileText size={12} />Claims</h3>
-                  {(claims?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
+                  {claimsList.length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {(claims?.data ?? []).map((cl: any) => (
+                    {claimsList.map((cl: any) => (
                       <div key={cl.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/30 flex justify-between items-center text-xs">
                         <div>
                           <p className="font-bold text-slate-800">{cl.claimNumber}</p>

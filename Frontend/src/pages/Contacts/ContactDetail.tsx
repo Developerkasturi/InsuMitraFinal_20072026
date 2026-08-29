@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, claimsService, leadsService } from '@api/index';
@@ -109,6 +109,14 @@ export default function ContactDetail() {
     queryFn: () => claimsService.list({ contactId: id, limit: 50 }),
     enabled: !!id,
   });
+
+  const claimsList = useMemo(() => {
+    if (!claims) return [];
+    if (Array.isArray(claims.data)) return claims.data;
+    if (Array.isArray(claims.data?.data)) return claims.data.data;
+    if (Array.isArray(claims)) return claims;
+    return [];
+  }, [claims]);
 
   const { data: leads } = useQuery({
     queryKey: ['contact-leads', id],
@@ -688,9 +696,9 @@ export default function ContactDetail() {
           {/* Claims */}
           <div className="card space-y-3">
             <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14} />Claims</h3>
-            {(claims?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
+            {claimsList.length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {(claims?.data ?? []).map((cl: any) => (
+              {claimsList.map((cl: any) => (
                 <div key={cl.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 flex justify-between items-center text-xs">
                   <div>
                     <p className="font-bold text-slate-800">{cl.claimNumber}</p>

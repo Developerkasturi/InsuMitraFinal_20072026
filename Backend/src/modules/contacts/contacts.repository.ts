@@ -98,14 +98,14 @@ export class ContactsRepository {
   // ── Find single contact (with full relations) ───────────────────────────
 
   async findOne(tenantId: string, id: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    const whereCondition: any = {
+      tenantId,
+      ...(isObjectId ? { OR: [{ id }, { contactId: id }] } : { contactId: id }),
+    };
+
     return this.prisma.contact.findFirst({
-      where: {
-        tenantId,
-        OR: [
-          { id },
-          { contactId: id },
-        ],
-      },
+      where: whereCondition,
       include: {
         addresses:     true,
         occupations:   true,

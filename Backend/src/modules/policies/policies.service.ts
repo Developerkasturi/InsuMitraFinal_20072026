@@ -41,8 +41,21 @@ export class PoliciesService {
         { assignedEmployeeId: { in: validIds } },
       ];
     }
-    if (status)    where.status    = status;
-    if (contactId) where.contactId = contactId;
+    if (contactId) {
+      if (/^[0-9a-fA-F]{24}$/.test(contactId)) {
+        where.contactId = contactId;
+      } else {
+        const targetContact = await this.prisma.contact.findFirst({
+          where: { tenantId, contactId },
+          select: { id: true },
+        });
+        if (targetContact) {
+          where.contactId = targetContact.id;
+        } else {
+          where.contactId = contactId;
+        }
+      }
+    }
     if (planId)    where.planId    = planId;
     if (endDateFrom || endDateTo) {
       where.endDate = {};
