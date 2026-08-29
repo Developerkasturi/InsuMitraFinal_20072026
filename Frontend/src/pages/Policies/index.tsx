@@ -1379,85 +1379,99 @@ export default function Policies() {
         key: 'proposerName',
         label: 'Proposer Name',
         sortable: true,
-        render: r => r.contact ? `${r.contact.firstName} ${r.contact.lastName || ''}`.trim() : '—'
+        render: r => {
+          const name = r.contact ? `${r.contact.firstName} ${r.contact.lastName || ''}`.trim() : '—';
+          return (
+            <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+              {name}
+            </span>
+          );
+        }
       },
       {
         key: 'proposerContact',
         label: 'Proposer Contact No.',
         sortable: true,
-        render: r => r.contact?.phone || '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{r.contact?.phone || '—'}</span>
       },
       {
         key: 'city',
         label: 'City',
         sortable: true,
-        render: r => (r.contact as any)?.address?.city || (r.contact as any)?.city || '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{(r.contact as any)?.address?.city || (r.contact as any)?.city || '—'}</span>
       },
       {
         key: 'companyCategory',
         label: 'Insurance Company Category',
         sortable: true,
-        render: r => r.plan?.company?.category || (r as any).insuranceCompanyCategory || '—'
+        render: r => {
+          const val = r.plan?.company?.category || (r as any).insuranceCompanyCategory || '—';
+          return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-800 border border-slate-200">{val}</span>;
+        }
       },
       {
         key: 'plan.company.name',
         label: 'Insurance Company',
         sortable: true,
-        render: r => r.plan?.company ? r.plan.company.name : '—'
+        render: r => <span className="font-extrabold text-slate-900 text-xs">{r.plan?.company ? r.plan.company.name : '—'}</span>
       },
       {
         key: 'plan.category',
         label: 'Insurance Plan Category',
         sortable: true,
-        render: r => r.plan?.category ? r.plan.category : '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{r.plan?.category ? r.plan.category : '—'}</span>
       },
       {
         key: 'plan.name',
         label: 'Plan Name',
         sortable: true,
-        render: r => r.plan?.name ? r.plan.name : '—'
+        render: r => <span className="font-extrabold text-blue-900 text-xs">{r.plan?.name ? r.plan.name : '—'}</span>
       },
       {
         key: 'customerCategory',
         label: 'Customer Category',
-        render: r => (r.contact as any)?.category || (r as any).customerCategory || '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{(r.contact as any)?.category || (r as any).customerCategory || '—'}</span>
       },
       {
         key: 'policyType',
         label: 'Policy Type',
-        render: r => r.plan?.category || '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{r.plan?.category || '—'}</span>
       },
       {
         key: 'policyNumber',
         label: 'Policy Number',
-        sortable: true
+        sortable: true,
+        render: r => <span className="font-black text-slate-900 text-xs tracking-tight bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">{r.policyNumber || '—'}</span>
       },
       {
         key: 'sumAssured',
         label: 'Sum Insured',
         sortable: true,
-        render: r => r.sumAssured ? `₹${Number(r.sumAssured).toLocaleString('en-IN')}` : '—'
+        render: r => <span className="font-extrabold text-slate-900 text-xs">{r.sumAssured ? `₹${Number(r.sumAssured).toLocaleString('en-IN')}` : '—'}</span>
       },
       {
         key: 'policyTenure',
         label: 'Policy Tenure',
-        render: r => (r.startDate && r.endDate) ? `${format(new Date(r.startDate), 'dd/MMM/yyyy')} - ${format(new Date(r.endDate), 'dd/MMM/yyyy')}` : '—'
+        render: r => <span className="font-bold text-slate-800 text-xs">{(r.startDate && r.endDate) ? `${format(new Date(r.startDate), 'dd/MMM/yyyy')} - ${format(new Date(r.endDate), 'dd/MMM/yyyy')}` : '—'}</span>
       },
       {
         key: 'policyTerm',
         label: 'Policy Term (Period of Coverage in Years)',
         render: r => {
-          if (!r.startDate || !r.endDate) return (r as any).policyTerm ? `${(r as any).policyTerm} Years` : '—';
+          if (!r.startDate || !r.endDate) return <span className="font-bold text-slate-800 text-xs">{(r as any).policyTerm ? `${(r as any).policyTerm} Years` : '—'}</span>;
           const years = Math.max(1, Math.round((new Date(r.endDate).getTime() - new Date(r.startDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
-          return `${years} ${years === 1 ? 'Year' : 'Years'}`;
+          return <span className="font-bold text-slate-800 text-xs">{`${years} ${years === 1 ? 'Year' : 'Years'}`}</span>;
         }
       },
       {
         key: 'assignedTo',
         label: 'Assigned To',
-        render: r => r.assignedEmployee?.employeeProfile
-          ? `${r.assignedEmployee.employeeProfile.firstName} ${r.assignedEmployee.employeeProfile.lastName}`
-          : ((r.assignedEmployee as any)?.firstName ? `${(r.assignedEmployee as any).firstName} ${(r.assignedEmployee as any).lastName || ''}` : '—')
+        render: r => {
+          const empName = r.assignedEmployee?.employeeProfile
+            ? `${r.assignedEmployee.employeeProfile.firstName} ${r.assignedEmployee.employeeProfile.lastName}`
+            : ((r.assignedEmployee as any)?.firstName ? `${(r.assignedEmployee as any).firstName} ${(r.assignedEmployee as any).lastName || ''}` : '—');
+          return <span className="font-bold text-slate-800 text-xs">{empName}</span>;
+        }
       },
       {
         key: 'comment',
@@ -1467,23 +1481,36 @@ export default function Policies() {
       {
         key: 'firstYearPremium',
         label: '1st Year Premium Amount',
-        render: r => (r as any).firstYearPremium ? `₹${Number((r as any).firstYearPremium).toLocaleString('en-IN')}` : (r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—')
+        render: r => {
+          const val = (r as any).firstYearPremium ? `₹${Number((r as any).firstYearPremium).toLocaleString('en-IN')}` : (r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—');
+          return <span className="font-extrabold text-slate-900 text-xs">{val}</span>;
+        }
       },
       {
         key: 'secondYearPremium',
         label: '2nd Year Onwards Premium Amount',
-        render: r => (r as any).secondYearPremium ? `₹${Number((r as any).secondYearPremium).toLocaleString('en-IN')}` : (r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—')
+        render: r => {
+          const val = (r as any).secondYearPremium ? `₹${Number((r as any).secondYearPremium).toLocaleString('en-IN')}` : (r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—');
+          return <span className="font-extrabold text-slate-900 text-xs">{val}</span>;
+        }
       },
       {
         key: 'premiumAmount',
         label: 'Premium Amount',
         sortable: true,
-        render: r => r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—'
+        render: r => <span className="font-extrabold text-slate-900 text-xs">{r.premiumAmount ? `₹${Number(r.premiumAmount).toLocaleString('en-IN')}` : '—'}</span>
       },
       {
         key: 'installmentCase',
         label: 'Installment Case?',
-        render: r => parseExtraNotes(r.notes).emiCase ? 'Yes' : 'No'
+        render: r => {
+          const isEmi = parseExtraNotes(r.notes).emiCase;
+          return (
+            <span className={clsx('inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase', isEmi ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-50 text-slate-600 border border-slate-200')}>
+              {isEmi ? 'Yes' : 'No'}
+            </span>
+          );
+        }
       }
     ];
 
@@ -1790,8 +1817,8 @@ export default function Policies() {
           {/* Main Control Hub Card */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm mb-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-              {/* Left Side: Search Bar ONLY */}
-              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              {/* Left Side: Search Bar & Inline Quick Filters (matching Claims & Installments UI) */}
+              <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
                 <div className="page-search-wrapper">
                   <Search className="page-search-icon" />
                   <input
@@ -1802,39 +1829,46 @@ export default function Policies() {
                     className="page-search-input"
                   />
                 </div>
+
+                <div className="h-6 w-px bg-slate-200 hidden md:block shrink-0" />
+
+                {/* Quick Filters Inline Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 min-w-0">
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-0.5 flex items-center gap-1 shrink-0">
+                    <Filter size={13} className="text-blue-500" /> Quick:
+                  </span>
+                  {[
+                    { key: 'ALL', label: 'All Types' },
+                    { key: 'HEALTH', label: 'Health', icon: '🩺' },
+                    { key: 'LIFE', label: 'Life', icon: '🛡️' },
+                    { key: 'GENERAL', label: 'General', icon: '🏢' },
+                    { key: 'ACCIDENT', label: 'Accident', icon: '🚑' },
+                    { key: 'FRESH', label: 'Fresh', icon: '🌟' },
+                    { key: 'PORT', label: 'Port', icon: '🔄' },
+                    { key: 'RENEWAL', label: 'Renewal', icon: '📅' },
+                  ].map(q => {
+                    const isSel = selectedQuickFilter === q.key;
+                    return (
+                      <button
+                        key={q.key}
+                        onClick={() => { setSelectedQuickFilter(q.key); setPage(1); }}
+                        className={clsx(
+                          'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
+                          isSel
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                        )}
+                      >
+                        {q.icon && <span>{q.icon}</span>}
+                        <span>{q.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Right Side: Quick Select Category Filters, Column Picker & Filters Toggle */}
-              <div className="flex flex-wrap items-center gap-2.5 flex-wrap justify-end">
-                {/* Quick Type Filters */}
-                <button
-                  onClick={() => { setSelectedQuickFilter('ALL'); setPage(1); }}
-                  className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                    selectedQuickFilter === 'ALL'
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
-                >
-                  All Types
-                </button>
-                {['HEALTH', 'LIFE', 'GENERAL', 'ACCIDENT', 'FRESH', 'PORT', 'RENEWAL'].map(cat => {
-                  const isSel = selectedQuickFilter === cat;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => { setSelectedQuickFilter(cat); setPage(1); }}
-                      className={clsx(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
-                        isSel
-                          ? 'bg-blue-50 text-blue-600 border-blue-200 shadow-sm'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      )}
-                    >
-                      {cat === 'HEALTH' ? 'Health' : cat === 'LIFE' ? 'Life' : cat === 'ACCIDENT' ? 'Accident' : cat.charAt(0) + cat.slice(1).toLowerCase()}
-                    </button>
-                  );
-                })}
+              {/* Right Side: Column Picker & Filters Toggle */}
+              <div className="flex flex-wrap items-center gap-2.5 justify-end shrink-0">
 
                 {/* Column Visibility Selector */}
                 <div className="relative" ref={colPickerRef}>

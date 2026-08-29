@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter, Download,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
-  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List
+  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List, Eye
 } from 'lucide-react';
 import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from '@hooks/useClaims';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -343,6 +343,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [uploading, setUploading] = useState(false);
 
   const [docUploadOpen, setDocUploadOpen] = useState(false);
+  const [docPreviewModal, setDocPreviewModal] = useState<{ open: boolean; title: string; url: string }>({ open: false, title: '', url: '' });
   const [docUploadFields, setDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
     type: 'CLAIM_FORM', title: '', description: '', file: null,
   });
@@ -1420,27 +1421,100 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                       <p className="text-[11px] text-slate-300 mt-1">Click "Upload Document" to attach files.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {editDocsList.map((doc, idx) => (
-                        <div key={idx} className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 hover:border-blue-300 transition-colors group">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shrink-0">
-                            <FileText size={16} className="text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{doc.title || doc.file.name}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label ?? doc.type}</p>
-                            {doc.description && <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.description}</p>}
-                            <p className="text-[10px] text-slate-300 mt-0.5">{(doc.file.size / 1024).toFixed(1)} KB</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setEditDocsList(prev => prev.filter((_, i) => i !== idx))}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-lg"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            <th className="py-2.5 px-3">File Name</th>
+                            <th className="py-2.5 px-3">Document Title</th>
+                            <th className="py-2.5 px-3">Description</th>
+                            <th className="py-2.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {editDocsList.map((doc, idx) => {
+                            const fileName = doc.file?.name || 'Document';
+                            const docTitle = doc.title || fileName;
+                            const docTypeLabel = CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label || doc.type || 'Claim Doc';
+                            const desc = doc.description || '-';
+                            const phone = (initial as any).proposerPhone || (initial as any).patientPhone || initial.contact?.phone || '';
+                            const waText = `Document Title: ${docTitle}\nType: ${docTypeLabel}`;
+                            const waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(waText)}`;
+
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                  <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
+                                    <FileText size={15} className="text-blue-600 shrink-0" />
+                                    <span className="truncate" title={fileName}>{fileName}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-slate-700">
+                                  <div>
+                                    <div className="font-bold text-slate-900">{docTitle}</div>
+                                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                                      {docTypeLabel}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600 max-w-[220px]">
+                                  <p className="truncate text-xs" title={desc}>{desc}</p>
+                                </td>
+                                <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                      title="Send on WhatsApp"
+                                    >
+                                      <MessageCircle size={14} />
+                                    </a>
+                                    {doc.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const objectUrl = URL.createObjectURL(doc.file);
+                                          setDocPreviewModal({ open: true, title: docTitle, url: objectUrl });
+                                        }}
+                                        className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        title="Preview Document"
+                                      >
+                                        <Eye size={14} />
+                                      </button>
+                                    )}
+                                    {doc.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const objectUrl = URL.createObjectURL(doc.file);
+                                          const a = document.createElement('a');
+                                          a.href = objectUrl;
+                                          a.download = fileName;
+                                          a.click();
+                                        }}
+                                        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                                        title="Download Document"
+                                      >
+                                        <Download size={14} />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditDocsList(prev => prev.filter((_, i) => i !== idx))}
+                                      className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                      title="Remove Document"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
 
@@ -1586,6 +1660,7 @@ export default function Claims() {
   const [deleteTarget, setDeleteTarget] = useState<Claim | null>(null);
   
   // Claim Detail sheet
+  const [docPreviewModal, setDocPreviewModal] = useState<{ open: boolean; title: string; url: string }>({ open: false, title: '', url: '' });
   const [selectedClaim, setSelectedClaim] = useState<any | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ newProposer: true, newClaim: true, newDeath: true, newNominee: true, newHospital: true });
@@ -3650,37 +3725,7 @@ export default function Claims() {
         </div>
       )}
 
-      {/* Status Tabs Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* Right Side: Status Tabs */}
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="bg-slate-100/80 p-1 rounded-xl flex flex-wrap gap-1 border border-slate-200/50">
-            <button
-              type="button"
-              onClick={() => setFilterStatus('All')}
-              className={clsx(
-                'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none',
-                filterStatus === 'All' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-              )}
-            >
-              All
-            </button>
-            {UI_STATUSES.map(st => (
-              <button
-                key={st}
-                type="button"
-                onClick={() => setFilterStatus(st as any)}
-                className={clsx(
-                  'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none',
-                  filterStatus === st ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                )}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+
 
       {viewMode === 'table' ? (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -4908,27 +4953,100 @@ export default function Claims() {
                       <p className="text-[11px] text-slate-300 mt-1">Click "Upload Document" to attach files.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {newDocsList.map((doc, idx) => (
-                        <div key={idx} className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3 hover:border-blue-300 transition-colors group">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shrink-0">
-                            <FileText size={16} className="text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{doc.title || doc.file.name}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label ?? doc.type}</p>
-                            {doc.description && <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.description}</p>}
-                            <p className="text-[10px] text-slate-300 mt-0.5">{(doc.file.size / 1024).toFixed(1)} KB</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setNewDocsList(prev => prev.filter((_, i) => i !== idx))}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-lg"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            <th className="py-2.5 px-3">File Name</th>
+                            <th className="py-2.5 px-3">Document Title</th>
+                            <th className="py-2.5 px-3">Description</th>
+                            <th className="py-2.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {newDocsList.map((doc, idx) => {
+                            const fileName = doc.file?.name || 'Document';
+                            const docTitle = doc.title || fileName;
+                            const docTypeLabel = CLAIM_DOC_TYPES.find(t => t.value === doc.type)?.label || doc.type || 'Claim Doc';
+                            const desc = doc.description || '-';
+                            const phone = (watch() as any).proposerPhone || (watch() as any).patientPhone || '';
+                            const waText = `Document Title: ${docTitle}\nType: ${docTypeLabel}`;
+                            const waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(waText)}`;
+
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-2.5 px-3 font-semibold text-slate-800">
+                                  <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
+                                    <FileText size={15} className="text-blue-600 shrink-0" />
+                                    <span className="truncate" title={fileName}>{fileName}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 font-medium text-slate-700">
+                                  <div>
+                                    <div className="font-bold text-slate-900">{docTitle}</div>
+                                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                                      {docTypeLabel}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600 max-w-[220px]">
+                                  <p className="truncate text-xs" title={desc}>{desc}</p>
+                                </td>
+                                <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                      title="Send on WhatsApp"
+                                    >
+                                      <MessageCircle size={14} />
+                                    </a>
+                                    {doc.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const objectUrl = URL.createObjectURL(doc.file);
+                                          setDocPreviewModal({ open: true, title: docTitle, url: objectUrl });
+                                        }}
+                                        className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        title="Preview Document"
+                                      >
+                                        <Eye size={14} />
+                                      </button>
+                                    )}
+                                    {doc.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const objectUrl = URL.createObjectURL(doc.file);
+                                          const a = document.createElement('a');
+                                          a.href = objectUrl;
+                                          a.download = fileName;
+                                          a.click();
+                                        }}
+                                        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                                        title="Download Document"
+                                      >
+                                        <Download size={14} />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewDocsList(prev => prev.filter((_, i) => i !== idx))}
+                                      className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                      title="Remove Document"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
 
@@ -5084,6 +5202,48 @@ export default function Claims() {
         {selectedClaim ? (
           <ClaimDetailView claim={selectedClaim} onEdit={() => { setDetailOpen(false); setEditTarget(selectedClaim); }} />
         ) : null}
+      </Modal>
+      {/* Document Preview Modal */}
+      <Modal
+        open={docPreviewModal.open}
+        onClose={() => setDocPreviewModal({ open: false, title: '', url: '' })}
+        title={docPreviewModal.title || 'Document Preview'}
+        size="2xl"
+        zIndexClass="z-[70]"
+        icon={<Eye className="text-blue-600" size={20} />}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-xs font-bold text-slate-700 truncate max-w-[400px]">
+              {docPreviewModal.title}
+            </span>
+            <a
+              href={docPreviewModal.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
+            >
+              <Download size={14} /> Download File
+            </a>
+          </div>
+
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-900 min-h-[400px] flex items-center justify-center">
+            {docPreviewModal.url.match(/\.(jpg|jpeg|png|gif|webp)|data:image/i) ? (
+              <img
+                src={docPreviewModal.url}
+                alt={docPreviewModal.title}
+                className="max-h-[600px] w-auto object-contain mx-auto"
+              />
+            ) : (
+              <iframe
+                src={docPreviewModal.url}
+                title={docPreviewModal.title}
+                className="w-full h-[600px] border-0"
+              />
+            )}
+          </div>
+        </div>
       </Modal>
 
     </div>
