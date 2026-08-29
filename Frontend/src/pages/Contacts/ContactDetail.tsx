@@ -150,15 +150,35 @@ export default function ContactDetail() {
     onError: () => toast.error('Failed to remove occupation'),
   });
 
-  const addRelationship = useMutation({
-    mutationFn: (body: RelationForm) => contactsService.addRelationship(id!, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', id] }); setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); toast.success('Relationship added'); },
-    onError: () => toast.error('Failed to add relationship'),
+  const [editingRelId, setEditingRelId] = useState<string | null>(null);
+
+  const saveRelationship = useMutation({
+    mutationFn: (body: RelationForm) => {
+      if (editingRelId) {
+        return contactsService.updateRelationship(id!, editingRelId, body);
+      }
+      return contactsService.addRelationship(id!, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contact', id] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      setRelModal(false);
+      relForm.reset();
+      setSelectedRelContact(null);
+      setRelSearch('');
+      setEditingRelId(null);
+      toast.success(editingRelId ? 'Relationship updated' : 'Relationship added');
+    },
+    onError: () => toast.error('Failed to save relationship'),
   });
 
   const removeRelationship = useMutation({
     mutationFn: (relId: string) => contactsService.removeRelationship(id!, relId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', id] }); toast.success('Relationship removed'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contact', id] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success('Relationship removed');
+    },
     onError: () => toast.error('Failed to remove relationship'),
   });
 
@@ -598,13 +618,33 @@ export default function ContactDetail() {
               <div key={r.id} className="text-sm text-gray-600 bg-gray-50 rounded-lg p-2 relative group flex items-center justify-between">
                 <div>
                   <span className="text-xs font-semibold text-primary-600 uppercase">{r.relationshipType}</span>
-                  <p className="font-medium">{r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : r.name}</p>
-                  {r.phone && <p className="text-xs text-gray-400">{r.phone}</p>}
+                  <p className="font-medium hover:text-primary-600 cursor-pointer transition-colors" onClick={() => {
+                    if (r.relatedContact?.id) navigate(`/contacts/${r.relatedContact.id}`);
+                  }}>
+                    {r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : r.name}
+                  </p>
+                  {(r.relatedContact?.phone || r.phone) && <p className="text-xs text-gray-400">{r.relatedContact?.phone || r.phone}</p>}
                 </div>
-                <button onClick={() => removeRelationship.mutate(r.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400">
-                  <Trash2 size={12} />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <button onClick={() => {
+                    setEditingRelId(r.id);
+                    setSelectedRelContact(r.relatedContact || null);
+                    relForm.reset({
+                      relationshipType: r.relationshipType,
+                      relatedContactId: r.relatedContact?.id || '',
+                      name: r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : (r.name || ''),
+                      phone: r.relatedContact?.phone || r.phone || '',
+                      dateOfBirth: r.relatedContact?.dateOfBirth ? r.relatedContact.dateOfBirth.split('T')[0] : '',
+                    });
+                    setRelModal(true);
+                  }} className="p-1 rounded hover:bg-blue-50 text-blue-500 cursor-pointer">
+                    <Edit2 size={12} />
+                  </button>
+                  <button onClick={() => removeRelationship.mutate(r.id)}
+                    className="p-1 rounded hover:bg-red-50 text-red-400 cursor-pointer">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -619,93 +659,81 @@ export default function ContactDetail() {
               <button
                 type="button"
                 onClick={() => setCreatePolicyModalOpen(true)}
-                className="text-xs text-primary-600 font-bold hover:underline cursor-pointer"
+                className="btn-primary text-xs flex flex-wrap items-center gap-1 py-1 px-2.5"
               >
-                + New Policy
+                <Plus size={12} /> Create Policy
               </button>
             </div>
-            {(policies?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No policies for this contact.</p>}
-            <div className="space-y-2">
+            {(policies?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No active policies found.</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(policies?.data ?? []).map((p: any) => (
-                <button key={p.id} onClick={() => setSelectedPolicyModalId(p.id)}
-                  className="w-full text-left flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition-colors cursor-pointer">
+                <div
+                  key={p.id}
+                  onClick={() => setSelectedPolicyModalId(p.id)}
+                  className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer flex justify-between items-center text-xs"
+                >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{p.policyNumber}</p>
-                    <p className="text-xs text-gray-400">{p.plan?.name} · {p.plan?.company?.name}</p>
+                    <p className="font-bold text-slate-800">{p.policyNumber}</p>
+                    <p className="text-[10px] text-gray-400">{p.plan?.name} · {p.plan?.company?.name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">₹{Number(p.premiumAmount).toLocaleString('en-IN')}</p>
-                    <span className={`text-xs ${STATUS_BADGE[p.status] ?? 'badge-gray'}`}>{p.status}</span>
+                    <p className="font-semibold text-slate-700">₹{Number(p.premiumAmount).toLocaleString('en-IN')}</p>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${STATUS_BADGE[p.status] ?? 'badge-gray'}`}>{p.status}</span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>
 
           {/* Claims */}
           <div className="card space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14} />Claims</h3>
-              <Link to="/claims" className="text-xs text-primary-600 hover:underline">+ New Claim</Link>
-            </div>
-            {(claims?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No claims for this contact.</p>}
-            <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14} />Claims</h3>
+            {(claims?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No claims filed.</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(claims?.data ?? []).map((cl: any) => (
-                <Link key={cl.id} to={`/claims/${cl.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition-colors">
+                <div key={cl.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 flex justify-between items-center text-xs">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{cl.claimNumber}</p>
-                    <p className="text-xs text-gray-400">{cl.claimType} · {cl.policy?.policyNumber}</p>
+                    <p className="font-bold text-slate-800">{cl.claimNumber}</p>
+                    <p className="text-[10px] text-gray-400">{cl.claimType} · Policy: {cl.policy?.policyNumber}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">₹{Number(cl.claimAmount).toLocaleString('en-IN')}</p>
-                    <span className={`text-xs ${STATUS_BADGE[cl.status] ?? 'badge-gray'}`}>{cl.status}</span>
+                    <p className="font-semibold text-slate-700">₹{Number(cl.claimAmount).toLocaleString('en-IN')}</p>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase ${STATUS_BADGE[cl.status] ?? 'badge-gray'}`}>{cl.status}</span>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Leads */}
+          {/* Leads / Interests */}
           <div className="card space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><TrendingUp size={14} />Leads</h3>
-            </div>
-            {(leads?.data ?? []).length === 0 && <p className="text-sm text-gray-400">No leads for this contact.</p>}
-            <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><TrendingUp size={14} />Leads & Interests</h3>
+            {(leads?.data ?? []).length === 0 && <p className="text-xs text-gray-400">No leads associated.</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(leads?.data ?? []).map((l: any) => (
-                <Link key={l.id} to={`/leads/${l.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-primary-200 hover:bg-primary-50 transition-colors">
+                <div key={l.id} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/50 flex justify-between items-center text-xs">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{l.plan?.name ?? 'General Lead'}</p>
-                    <p className="text-xs text-gray-400">{l.stage}</p>
+                    <p className="font-bold text-slate-800">{l.plan?.name ?? 'General Inquiry'}</p>
+                    <span className="px-2 py-0.5 rounded text-[9px] bg-slate-100 text-slate-600 font-extrabold uppercase">{l.stage}</span>
                   </div>
-                  {l.premiumBudget && (
-                    <p className="text-sm text-gray-600">Budget: ₹{Number(l.premiumBudget).toLocaleString('en-IN')}</p>
-                  )}
-                </Link>
+                  {l.premiumBudget && <p className="font-semibold text-gray-600">₹{Number(l.premiumBudget).toLocaleString('en-IN')}</p>}
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Activity & Update History Card */}
+          {/* Activity & Update Timeline */}
           <div className="card space-y-3">
-            <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
-              <FileText size={14} /> Activity & Update History
-            </h3>
-            {(!activityRes?.data || activityRes.data.length === 0) && (
-              <p className="text-sm text-gray-400">No activity logged for this contact.</p>
-            )}
-            <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+            <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14} />Update Log & History</h3>
+            {(!activityRes?.data || activityRes.data.length === 0) && <p className="text-xs text-gray-400">No activities logged.</p>}
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
               {(activityRes?.data ?? []).map((log: any) => (
-                <div key={log.id} className="p-3 bg-gray-50 border border-gray-150 rounded-lg text-xs space-y-1">
-                  <div className="flex justify-between items-center text-[10px] text-gray-400">
-                    <span className="font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                      {log.action}
-                    </span>
+                <div key={log.id} className="p-2 bg-slate-50 border border-slate-150 rounded text-xs space-y-1">
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span className="font-bold uppercase text-primary-600 bg-primary-50 px-1 rounded">{log.action}</span>
                     <span>{format(new Date(log.createdAt), 'dd/MMM/yyyy HH:mm')}</span>
                   </div>
-                  <p className="text-gray-700 font-semibold">{log.description}</p>
+                  <p className="text-gray-700 text-xs">{log.description}</p>
                 </div>
               ))}
             </div>
@@ -713,7 +741,7 @@ export default function ContactDetail() {
         </div>
       </div>
 
-      {/* Add Address Modal */}
+      {/* Address Form Modal */}
       <Modal open={addrModal} onClose={() => { setAddrModal(false); addrForm.reset(); }} title="Add Address">
         <form onSubmit={addrForm.handleSubmit(d => addAddress.mutate(d))} className="space-y-3">
           <div>
@@ -756,7 +784,7 @@ export default function ContactDetail() {
         </form>
       </Modal>
 
-      {/* Add Occupation Modal */}
+      {/* Occupation Form Modal */}
       <Modal open={occModal} onClose={() => { setOccModal(false); occForm.reset(); }} title="Add Occupation">
         <form onSubmit={occForm.handleSubmit(d => addOccupation.mutate(d))} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -788,17 +816,24 @@ export default function ContactDetail() {
         </form>
       </Modal>
 
-      {/* Add Relationship Modal */}
-      <Modal open={relModal} onClose={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }} title="Add Relationship">
-        <form onSubmit={relForm.handleSubmit(d => addRelationship.mutate(d))} className="space-y-3">
+      {/* Add / Edit Relationship Modal */}
+      <Modal open={relModal} onClose={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); setEditingRelId(null); }} title={editingRelId ? 'Edit Relationship' : 'Add Relationship'}>
+        <form onSubmit={relForm.handleSubmit(d => saveRelationship.mutate(d))} className="space-y-3">
           <div>
             <label className="label">Relationship Type *</label>
             <select {...relForm.register('relationshipType')} className="input">
               <option value="">— Select —</option>
               <option value="SPOUSE">Spouse</option>
+              <option value="SON">Son</option>
+              <option value="DAUGHTER">Daughter</option>
               <option value="CHILD">Child</option>
+              <option value="FATHER">Father</option>
+              <option value="MOTHER">Mother</option>
               <option value="PARENT">Parent</option>
+              <option value="BROTHER">Brother</option>
+              <option value="SISTER">Sister</option>
               <option value="SIBLING">Sibling</option>
+              <option value="IN_LAW">In Law</option>
               <option value="NOMINEE">Nominee</option>
               <option value="OTHER">Other</option>
             </select>
@@ -852,9 +887,9 @@ export default function ContactDetail() {
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-2 pt-2">
-            <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={addRelationship.isPending}>
-              {addRelationship.isPending ? 'Adding…' : 'Add Relationship'}
+            <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); setEditingRelId(null); }}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={saveRelationship.isPending}>
+              {saveRelationship.isPending ? 'Saving…' : (editingRelId ? 'Save Changes' : 'Add Relationship')}
             </button>
           </div>
         </form>

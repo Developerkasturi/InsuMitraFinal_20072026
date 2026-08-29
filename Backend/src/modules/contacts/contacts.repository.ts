@@ -250,56 +250,162 @@ export class ContactsRepository {
     return this.prisma.occupation.deleteMany({ where: { id: occupationId, contactId } });
   }
 
-  // ── Relationships ──────────────────────────────────────────────────────────
+  // ── Relationships (Bidirectional) ──────────────────────────────────────────
 
-  async addRelationship(primaryContactId: string, tenantId: string, dto: CreateRelationshipDto) {
-    await Promise.all([
-      this.prisma.contact.findFirstOrThrow({ where: { id: primaryContactId, tenantId } }),
-      this.prisma.contact.findFirstOrThrow({ where: { id: dto.relatedContactId, tenantId } }),
-    ]);
+  getInverseRelationshipType(
+    type: RelationshipType | string,
+    primaryGender?: string | null,
+    relatedGender?: string | null,
+  ): RelationshipType {
+    const upperType = (type || '').toUpperCase();
+    const primaryIsMale = primaryGender?.toUpperCase() === 'MALE';
+    const primaryIsFemale = primaryGender?.toUpperCase() === 'FEMALE';
 
-    const existing = await this.prisma.contactRelationship.findUnique({
-      where: {
-        primaryContactId_relatedContactId: {
-          primaryContactId,
-          relatedContactId: dto.relatedContactId,
+    switch (upperType) {
+      case 'SPOUSE':
+        return RelationshipType.SPOUSE;
+
+      case 'SON':
+      case 'DAUGHTER':
+      case 'CHILD':
+        if (primaryIsMale) return RelationshipType.FATHER;
+        if (primaryIsFemale) return RelationshipType.MOTHER;
+        return RelationshipType.PARENT;
+
+      case 'FATHER':
+      case 'MOTHER':
+      case 'PARENT':
+        const relatedIsMale = relatedGender?.toUpperCase() === 'MALE';
+        const relatedIsFemale = relatedGender?.toUpperCase() === 'FEMALE';
+        if (relatedIsMale) return RelationshipType.SON;
+        if (relatedIsFemale) return RelationshipType.DAUGHTER;
+        return RelationshipType.CHILD;
+
+      case 'BROTHER':
+      case 'SISTER':
+      case 'SIBLING':
+        if (primaryIsMale) return RelationshipType.BROTHER;
+        if (primaryIsFemale) return RelationshipType.SISTER;
+        return RelationshipType.SIBLING;
+
+      case 'IN_LAW':
+        return RelationshipType.IN_LAW;
+
+      default:
+        return RelationshipType.OTHER;
+    }
+  }
+
+  async addBidirectionalRelationship(
+    primaryContact: any,
+    relatedContact: any,
+    relationshipType: RelationshipType,
+  ) {
+    const primaryContactId = primaryContact.id;
+    const relatedContactId = relatedContact.id;
+
+    const inverseType = this.getInverseRelationshipType(
+      relationshipType,
+      primaryContact.gender,
+      relatedContact.gender,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      const existingForward = await tx.contactRelationship.findUnique({
+        where: {
+          primaryContactId_relatedContactId: {
+            primaryContactId,
+            relatedContactId,
+          },
         },
-      },
-      include: {
-        relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-      },
-    });
+      });
 
-    if (existing) {
-      if (existing.relationshipType !== dto.relationshipType) {
-        return this.prisma.contactRelationship.update({
-          where: { id: existing.id },
-          data: { relationshipType: dto.relationshipType },
+      let forward: any;
+      if (existingForward) {
+        forward = await tx.contactRelationship.update({
+          where: { id: existingForward.id },
+          data: { relationshipType },
           include: {
-            relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true } },
+            relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true, dateOfBirth: true } },
+          },
+        });
+      } else {
+        forward = await tx.contactRelationship.create({
+          data: {
+            primaryContactId,
+            relatedContactId,
+            relationshipType,
+          },
+          include: {
+            relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true, dateOfBirth: true } },
           },
         });
       }
-      return existing;
-    }
 
-    return this.prisma.contactRelationship.create({
-      data: {
-        primaryContactId,
-        relatedContactId: dto.relatedContactId,
-        relationshipType: dto.relationshipType,
-      },
-      include: {
-        relatedContact: { select: { id: true, firstName: true, lastName: true, phone: true } },
-      },
+      const existingReverse = await tx.contactRelationship.findUnique({
+        where: {
+          primaryContactId_relatedContactId: {
+            primaryContactId: relatedContactId,
+            relatedContactId: primaryContactId,
+          },
+        },
+      });
+
+      if (existingReverse) {
+        await tx.contactRelationship.update({
+          where: { id: existingReverse.id },
+          data: { relationshipType: inverseType },
+        });
+      } else {
+        await tx.contactRelationship.create({
+          data: {
+            primaryContactId: relatedContactId,
+            relatedContactId: primaryContactId,
+            relationshipType: inverseType,
+          },
+        });
+      }
+
+      return forward;
     });
   }
 
-  async removeRelationship(primaryContactId: string, relationshipId: string, tenantId: string) {
+  async removeBidirectionalRelationship(primaryContactId: string, relationshipId: string, tenantId: string) {
     await this.prisma.contact.findFirstOrThrow({ where: { id: primaryContactId, tenantId } });
-    return this.prisma.contactRelationship.deleteMany({
-      where: { id: relationshipId, primaryContactId },
+
+    const existing = await this.prisma.contactRelationship.findUnique({
+      where: { id: relationshipId },
     });
+
+    if (!existing) return;
+
+    const { primaryContactId: pId, relatedContactId: rId } = existing;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.contactRelationship.deleteMany({
+        where: {
+          primaryContactId: pId,
+          relatedContactId: rId,
+        },
+      });
+
+      await tx.contactRelationship.deleteMany({
+        where: {
+          primaryContactId: rId,
+          relatedContactId: pId,
+        },
+      });
+    });
+  }
+
+  async addRelationship(primaryContactId: string, tenantId: string, dto: CreateRelationshipDto) {
+    const primaryContact = await this.prisma.contact.findFirstOrThrow({ where: { id: primaryContactId, tenantId } });
+    const relatedContact = await this.prisma.contact.findFirstOrThrow({ where: { id: dto.relatedContactId!, tenantId } });
+    return this.addBidirectionalRelationship(primaryContact, relatedContact, dto.relationshipType);
+  }
+
+  async removeRelationship(primaryContactId: string, relationshipId: string, tenantId: string) {
+    return this.removeBidirectionalRelationship(primaryContactId, relationshipId, tenantId);
   }
 
   // ── Bulk operations ────────────────────────────────────────────────────────

@@ -324,13 +324,34 @@ export class CreateOccupationDto {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class CreateRelationshipDto {
-  @ApiProperty({ description: 'ObjectId of the related contact' })
+  @ApiPropertyOptional({ description: 'ObjectId of the related contact' })
+  @IsOptional()
   @IsMongoId()
-  relatedContactId: string;
+  relatedContactId?: string;
 
-  @ApiProperty({ example: 'SPOUSE', enum: RelationshipType })
-  @IsEnum(RelationshipType)
+  @ApiProperty({ example: 'SPOUSE' })
+  @IsString()
   relationshipType: RelationshipType;
+
+  @ApiPropertyOptional({ description: 'Full name for manual entry' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Phone number for manual entry' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Date of birth for manual entry' })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional({ description: 'Gender for manual entry' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

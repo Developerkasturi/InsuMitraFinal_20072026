@@ -1664,27 +1664,19 @@ export default function Contacts() {
                 firstName: famFirst,
                 middleName: famMiddle || undefined,
                 lastName: famLast,
-                phone: cleanFamPhone,
+                phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
                 dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
                 assignedEmployeeId: curEmpId || undefined,
               });
-            } else {
-              const famContactRes = await contactsService.create({
-                firstName: famFirst,
-                middleName: famMiddle || undefined,
-                lastName: famLast,
-                phone: cleanFamPhone,
-                dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
-                assignedEmployeeId: undefined,
-                tags: ['contact', 'customer', 'family'],
-              });
-              const famObj = famContactRes?.data?.data || famContactRes?.data || famContactRes;
-              targetFamContactId = typeof famObj === 'string' ? famObj : (famObj?.id || famObj?._id);
-            }
-
-            if (targetFamContactId && typeof targetFamContactId === 'string') {
               await contactsService.addRelationship(contactId!, {
                 relatedContactId: targetFamContactId,
+                relationshipType: relType,
+              });
+            } else {
+              await contactsService.addRelationship(contactId!, {
+                name: fullFamName,
+                phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
+                dateOfBirth: fam.dob?.trim() ? fam.dob : undefined,
                 relationshipType: relType,
               });
             }

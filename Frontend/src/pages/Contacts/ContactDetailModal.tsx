@@ -60,6 +60,8 @@ interface Props {
 
 export default function ContactDetailModal({ open, onClose, contactId, onEditClick }: Props) {
   const qc = useQueryClient();
+  const [internalContactId, setInternalContactId] = useState<string | null>(null);
+  const currentContactId = internalContactId || contactId;
 
   const [addrModal, setAddrModal] = useState(false);
   const [occModal, setOccModal] = useState(false);
@@ -67,37 +69,36 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
   const [relSearch, setRelSearch] = useState('');
   const [selectedRelContact, setSelectedRelContact] = useState<any>(null);
   const [relDropdown, setRelDropdown] = useState(false);
-
-
+  const [editingRelId, setEditingRelId] = useState<string | null>(null);
 
   const { data: contact, isLoading } = useQuery({
-    queryKey: ['contact', contactId],
-    queryFn: () => contactsService.get(contactId!),
-    enabled: !!contactId && open,
+    queryKey: ['contact', currentContactId],
+    queryFn: () => contactsService.get(currentContactId!),
+    enabled: !!currentContactId && open,
   });
 
   const { data: activityRes } = useQuery({
-    queryKey: ['contact-activity', contactId],
-    queryFn: () => contactsService.activity(contactId!, { page: 1, limit: 100 }),
-    enabled: !!contactId && open,
+    queryKey: ['contact-activity', currentContactId],
+    queryFn: () => contactsService.activity(currentContactId!, { page: 1, limit: 100 }),
+    enabled: !!currentContactId && open,
   });
 
   const { data: policies } = useQuery({
-    queryKey: ['contact-policies', contactId],
-    queryFn: () => policiesService.list({ contactId, limit: 50 }),
-    enabled: !!contactId && open,
+    queryKey: ['contact-policies', currentContactId],
+    queryFn: () => policiesService.list({ contactId: currentContactId, limit: 50 }),
+    enabled: !!currentContactId && open,
   });
 
   const { data: claims } = useQuery({
-    queryKey: ['contact-claims', contactId],
-    queryFn: () => claimsService.list({ contactId, limit: 50 }),
-    enabled: !!contactId && open,
+    queryKey: ['contact-claims', currentContactId],
+    queryFn: () => claimsService.list({ contactId: currentContactId, limit: 50 }),
+    enabled: !!currentContactId && open,
   });
 
   const { data: leads } = useQuery({
-    queryKey: ['contact-leads', contactId],
-    queryFn: () => leadsService.list({ contactId, limit: 50 }),
-    enabled: !!contactId && open,
+    queryKey: ['contact-leads', currentContactId],
+    queryFn: () => leadsService.list({ contactId: currentContactId, limit: 50 }),
+    enabled: !!currentContactId && open,
   });
 
   const { data: relContactResults } = useQuery({
@@ -111,44 +112,62 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
   const relForm = useForm<RelationForm>({ resolver: zodResolver(relationSchema) });
 
   const addAddress = useMutation({
-    mutationFn: (body: AddressForm) => contactsService.addAddress(contactId!, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); setAddrModal(false); addrForm.reset(); toast.success('Address added'); },
+    mutationFn: (body: AddressForm) => contactsService.addAddress(currentContactId!, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', currentContactId] }); setAddrModal(false); addrForm.reset(); toast.success('Address added'); },
     onError: () => toast.error('Failed to add address'),
   });
 
   const removeAddress = useMutation({
-    mutationFn: (addrId: string) => contactsService.removeAddress(contactId!, addrId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); toast.success('Address removed'); },
+    mutationFn: (addrId: string) => contactsService.removeAddress(currentContactId!, addrId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', currentContactId] }); toast.success('Address removed'); },
     onError: () => toast.error('Failed to remove address'),
   });
 
   const addOccupation = useMutation({
-    mutationFn: (body: OccupationForm) => contactsService.addOccupation(contactId!, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); setOccModal(false); occForm.reset(); toast.success('Occupation added'); },
+    mutationFn: (body: OccupationForm) => contactsService.addOccupation(currentContactId!, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', currentContactId] }); setOccModal(false); occForm.reset(); toast.success('Occupation added'); },
     onError: () => toast.error('Failed to add occupation'),
   });
 
   const removeOccupation = useMutation({
-    mutationFn: (occId: string) => contactsService.removeOccupation(contactId!, occId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); toast.success('Occupation removed'); },
+    mutationFn: (occId: string) => contactsService.removeOccupation(currentContactId!, occId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', currentContactId] }); toast.success('Occupation removed'); },
     onError: () => toast.error('Failed to remove occupation'),
   });
 
-  const addRelationship = useMutation({
-    mutationFn: (body: RelationForm) => contactsService.addRelationship(contactId!, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); toast.success('Relationship added'); },
-    onError: () => toast.error('Failed to add relationship'),
+  const saveRelationship = useMutation({
+    mutationFn: (body: RelationForm) => {
+      if (editingRelId) {
+        return contactsService.updateRelationship(currentContactId!, editingRelId, body);
+      }
+      return contactsService.addRelationship(currentContactId!, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contact', currentContactId] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      setRelModal(false);
+      relForm.reset();
+      setSelectedRelContact(null);
+      setRelSearch('');
+      setEditingRelId(null);
+      toast.success(editingRelId ? 'Relationship updated' : 'Relationship added');
+    },
+    onError: () => toast.error('Failed to save relationship'),
   });
 
   const removeRelationship = useMutation({
-    mutationFn: (relId: string) => contactsService.removeRelationship(contactId!, relId),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); toast.success('Relationship removed'); },
+    mutationFn: (relId: string) => contactsService.removeRelationship(currentContactId!, relId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contact', currentContactId] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success('Relationship removed');
+    },
     onError: () => toast.error('Failed to remove relationship'),
   });
 
   const inviteToPortal = useMutation({
-    mutationFn: () => contactsService.inviteToPortal(contactId!),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', contactId] }); toast.success('Portal invitation sent!'); },
+    mutationFn: () => contactsService.inviteToPortal(currentContactId!),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['contact', currentContactId] }); toast.success('Portal invitation sent!'); },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to send invitation'),
   });
 
@@ -288,13 +307,33 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     <div key={r.id} className="text-xs text-gray-600 bg-white rounded-lg p-2 border border-slate-200/60 relative group flex items-center justify-between">
                       <div>
                         <span className="text-[9px] font-extrabold text-blue-600 uppercase tracking-wide">{r.relationshipType}</span>
-                        <p className="font-semibold">{r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : r.name}</p>
-                        {r.phone && <p className="text-[10px] text-gray-400">{r.phone}</p>}
+                        <p className="font-semibold cursor-pointer hover:text-blue-600 transition-colors" onClick={() => {
+                          if (r.relatedContact?.id) setInternalContactId(r.relatedContact.id);
+                        }}>
+                          {r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : r.name}
+                        </p>
+                        {(r.relatedContact?.phone || r.phone) && <p className="text-[10px] text-gray-400">{r.relatedContact?.phone || r.phone}</p>}
                       </div>
-                      <button onClick={() => removeRelationship.mutate(r.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400 cursor-pointer transition-all">
-                        <Trash2 size={11} />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => {
+                          setEditingRelId(r.id);
+                          setSelectedRelContact(r.relatedContact || null);
+                          relForm.reset({
+                            relationshipType: r.relationshipType,
+                            relatedContactId: r.relatedContact?.id || '',
+                            name: r.relatedContact ? `${r.relatedContact.firstName} ${r.relatedContact.lastName}` : (r.name || ''),
+                            phone: r.relatedContact?.phone || r.phone || '',
+                            dateOfBirth: r.relatedContact?.dateOfBirth ? r.relatedContact.dateOfBirth.split('T')[0] : '',
+                          });
+                          setRelModal(true);
+                        }} className="p-1 rounded hover:bg-blue-50 text-blue-500 cursor-pointer">
+                          <Edit2 size={11} />
+                        </button>
+                        <button onClick={() => removeRelationship.mutate(r.id)}
+                          className="p-1 rounded hover:bg-red-50 text-red-400 cursor-pointer transition-all">
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -453,17 +492,24 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
               </form>
             </Modal>
 
-            {/* Add Relationship Modal */}
-            <Modal open={relModal} onClose={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }} title="Add Relationship">
-              <form onSubmit={relForm.handleSubmit(d => addRelationship.mutate(d))} className="space-y-3">
+            {/* Add / Edit Relationship Modal */}
+            <Modal open={relModal} onClose={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); setEditingRelId(null); }} title={editingRelId ? 'Edit Relationship' : 'Add Relationship'}>
+              <form onSubmit={relForm.handleSubmit(d => saveRelationship.mutate(d))} className="space-y-3">
                 <div>
                   <label className="label">Relationship Type *</label>
                   <select {...relForm.register('relationshipType')} className="input">
                     <option value="">— Select —</option>
                     <option value="SPOUSE">Spouse</option>
+                    <option value="SON">Son</option>
+                    <option value="DAUGHTER">Daughter</option>
                     <option value="CHILD">Child</option>
+                    <option value="FATHER">Father</option>
+                    <option value="MOTHER">Mother</option>
                     <option value="PARENT">Parent</option>
+                    <option value="BROTHER">Brother</option>
+                    <option value="SISTER">Sister</option>
                     <option value="SIBLING">Sibling</option>
+                    <option value="IN_LAW">In Law</option>
                     <option value="NOMINEE">Nominee</option>
                     <option value="OTHER">Other</option>
                   </select>
@@ -517,9 +563,9 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-end gap-2 pt-2">
-                  <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); }}>Cancel</button>
-                  <button type="submit" className="btn-primary" disabled={addRelationship.isPending}>
-                    {addRelationship.isPending ? 'Adding…' : 'Add Relationship'}
+                  <button type="button" className="btn-secondary" onClick={() => { setRelModal(false); relForm.reset(); setSelectedRelContact(null); setRelSearch(''); setEditingRelId(null); }}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={saveRelationship.isPending}>
+                    {saveRelationship.isPending ? 'Saving…' : (editingRelId ? 'Save Changes' : 'Add Relationship')}
                   </button>
                 </div>
               </form>

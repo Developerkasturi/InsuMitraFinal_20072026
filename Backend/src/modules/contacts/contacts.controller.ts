@@ -279,6 +279,18 @@ export class ContactsController {
     return this.svc.addRelationship(user.tenantId, contactId, dto);
   }
 
+  @Put(':id/relationships/:relId')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Update an existing relationship link and family member contact details' })
+  updateRelationship(
+    @CurrentUser() user: any,
+    @Param('id') contactId: string,
+    @Param('relId') relationshipId: string,
+    @Body() dto: CreateRelationshipDto,
+  ) {
+    return this.svc.updateRelationship(user.tenantId, contactId, relationshipId, dto);
+  }
+
   @Delete(':id/relationships/:relId')
   @Roles(UserRole.EMPLOYEE)
   @ApiOperation({ summary: 'Remove a relationship link between contacts' })
