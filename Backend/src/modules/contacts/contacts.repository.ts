@@ -165,8 +165,13 @@ export class ContactsRepository {
 
   async update(tenantId: string, id: string, dto: UpdateContactDto) {
     const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    const whereCondition: any = {
+      tenantId,
+      ...(isObjectId ? { OR: [{ id }, { contactId: id }] } : { contactId: id }),
+    };
     return this.prisma.contact.updateMany({
-      where: { id, tenantId },
+      where: whereCondition,
       data: {
         ...rest,
         ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),

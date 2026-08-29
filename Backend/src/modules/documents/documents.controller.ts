@@ -26,9 +26,13 @@ export class DocumentsController {
     @Query('policyId') policyId?: string,
     @Query('claimId') claimId?: string,
     @Query('type') type?: string,
+    @Query('title') title?: string,
+    @Query('description') description?: string,
     @Req() req?: any,
   ) {
-    return this.svc.upload(req.tenantId, file, { contactId, policyId, claimId, type });
+    const docTitle = title || req?.query?.title || req?.body?.title;
+    const docDescription = description || req?.query?.description || req?.body?.description;
+    return this.svc.upload(req.tenantId, file, { contactId, policyId, claimId, type, title: docTitle, description: docDescription });
   }
 
   @Get()

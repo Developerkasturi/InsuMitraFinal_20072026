@@ -13,6 +13,8 @@ interface UploadMeta {
   policyId?: string;
   claimId?: string;
   type?: string;
+  title?: string;
+  description?: string;
 }
 
 @Injectable()
@@ -46,38 +48,76 @@ export class DocumentsService {
     }
   }
 
+  private async resolveContactObjectId(tenantId: string, rawContactId?: string): Promise<string | null> {
+    if (!rawContactId) return null;
+    const isHex = /^[0-9a-fA-F]{24}$/.test(rawContactId);
+    const contact = await this.prisma.contact.findFirst({
+      where: {
+        tenantId,
+        OR: isHex
+          ? [{ id: rawContactId }, { contactId: rawContactId }]
+          : [{ contactId: rawContactId }],
+      },
+    });
+    if (contact) return contact.id;
+    return isHex ? rawContactId : null;
+  }
+
   // ─── Upload ────────────────────────────────────────────────────────────────
   async upload(tenantId: string, file: Express.Multer.File, meta: UploadMeta) {
     const ext = path.extname(file.originalname);
     const key = `${tenantId}/${uuid()}${ext}`;
     let url: string;
 
-    if (this.provider === 's3') {
-      await this.s3!.send(new PutObjectCommand({
-        Bucket:      this.bucket,
-        Key:         key,
-        Body:        file.buffer,
-        ContentType: file.mimetype,
-      }));
-      url = `https://${this.bucket}.s3.amazonaws.com/${key}`;
-    } else {
-      const { error } = await this.supabase!.storage
-        .from(this.bucket)
-        .upload(key, file.buffer, { contentType: file.mimetype });
-      if (error) throw new Error(error.message);
-      url = this.supabase!.storage.from(this.bucket).getPublicUrl(key).data.publicUrl;
+    try {
+      if (this.provider === 's3' && this.s3) {
+        await this.s3.send(new PutObjectCommand({
+          Bucket:      this.bucket,
+          Key:         key,
+          Body:        file.buffer,
+          ContentType: file.mimetype,
+        }));
+        url = `https://${this.bucket}.s3.amazonaws.com/${key}`;
+      } else if (this.provider === 'supabase' && this.supabase) {
+        const { error } = await this.supabase.storage
+          .from(this.bucket)
+          .upload(key, file.buffer, { contentType: file.mimetype });
+        if (error) throw new Error(error.message);
+        url = this.supabase.storage.from(this.bucket).getPublicUrl(key).data.publicUrl;
+      } else {
+        url = `data:${file.mimetype || 'application/octet-stream'};base64,${file.buffer.toString('base64')}`;
+      }
+    } catch (err: any) {
+      console.warn(`Cloud storage upload failed (${err.message}). Falling back to data URL storage.`);
+      url = `data:${file.mimetype || 'application/octet-stream'};base64,${file.buffer.toString('base64')}`;
+    }
+
+    const contactId = await this.resolveContactObjectId(tenantId, meta.contactId);
+
+    const validDocTypes = Object.values(DocumentType);
+    let docType: DocumentType = DocumentType.OTHER;
+    if (meta.type) {
+      if (validDocTypes.includes(meta.type as DocumentType)) {
+        docType = meta.type as DocumentType;
+      } else if (meta.type.includes('IDENTITY') || meta.type.includes('AADHAAR') || meta.type.includes('PAN')) {
+        docType = DocumentType.KYC;
+      } else if (meta.type.includes('POLICY')) {
+        docType = DocumentType.POLICY_DOCUMENT;
+      } else if (meta.type.includes('CLAIM') || meta.type.includes('DISCHARGE') || meta.type.includes('BILL') || meta.type.includes('REPORTS') || meta.type.includes('LETTER')) {
+        docType = DocumentType.CLAIM_DOCUMENT;
+      }
     }
 
     const doc = await this.prisma.document.create({
       data: {
         tenantId,
-        name:        file.originalname,
+        name:        meta.title ? meta.title.trim() : file.originalname,
         mimeType:    file.mimetype,
         sizeBytes:   file.size,
         storageKey:  key,
         url,
-        type:        (meta.type as DocumentType) ?? DocumentType.OTHER,
-        contactId:   meta.contactId ?? null,
+        type:        docType,
+        contactId,
         policyId:    meta.policyId  ?? null,
         claimId:     meta.claimId   ?? null,
       },
@@ -87,8 +127,20 @@ export class DocumentsService {
 
   // ─── List ──────────────────────────────────────────────────────────────────
   async findAll(tenantId: string, filters: { contactId?: string; policyId?: string; claimId?: string }) {
+    const contactId = await this.resolveContactObjectId(tenantId, filters.contactId);
+    const whereFilter: any = { tenantId };
+    if (filters.contactId) {
+      if (contactId) {
+        whereFilter.contactId = contactId;
+      } else {
+        whereFilter.contactId = filters.contactId;
+      }
+    }
+    if (filters.policyId) whereFilter.policyId = filters.policyId;
+    if (filters.claimId) whereFilter.claimId = filters.claimId;
+
     const docs = await this.prisma.document.findMany({
-      where: { tenantId, ...filters },
+      where: whereFilter,
       orderBy: { createdAt: 'desc' },
     });
     return { data: docs };
@@ -99,17 +151,27 @@ export class DocumentsService {
     const doc = await this.prisma.document.findFirst({ where: { id, tenantId } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    if (this.provider === 's3') {
-      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: doc.storageKey! });
-      const signedUrl = await getSignedUrl(this.s3!, cmd, { expiresIn: 900 });
-      return { data: { url: signedUrl } };
+    if (doc.url && doc.url.startsWith('data:')) {
+      return { data: { url: doc.url } };
     }
-    // Supabase: create signed URL
-    const { data, error } = await this.supabase!.storage
-      .from(this.bucket)
-      .createSignedUrl(doc.storageKey!, 900);
-    if (error) throw new Error(error.message);
-    return { data: { url: data.signedUrl } };
+
+    try {
+      if (this.provider === 's3' && this.s3) {
+        const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: doc.storageKey! });
+        const signedUrl = await getSignedUrl(this.s3, cmd, { expiresIn: 900 });
+        return { data: { url: signedUrl } };
+      } else if (this.provider === 'supabase' && this.supabase) {
+        const { data, error } = await this.supabase.storage
+          .from(this.bucket)
+          .createSignedUrl(doc.storageKey!, 900);
+        if (!error && data?.signedUrl) {
+          return { data: { url: data.signedUrl } };
+        }
+      }
+    } catch (err: any) {
+      console.warn(`Presigned URL generation failed: ${err.message}`);
+    }
+    return { data: { url: doc.url } };
   }
 
   // ─── Remove ────────────────────────────────────────────────────────────────
@@ -117,10 +179,14 @@ export class DocumentsService {
     const doc = await this.prisma.document.findFirst({ where: { id, tenantId } });
     if (!doc) throw new NotFoundException('Document not found');
 
-    if (this.provider === 's3') {
-      await this.s3!.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: doc.storageKey! }));
-    } else {
-      await this.supabase!.storage.from(this.bucket).remove([doc.storageKey!]);
+    try {
+      if (this.provider === 's3' && this.s3) {
+        await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: doc.storageKey! }));
+      } else if (this.provider === 'supabase' && this.supabase) {
+        await this.supabase.storage.from(this.bucket).remove([doc.storageKey!]);
+      }
+    } catch (err: any) {
+      console.warn(`Cloud storage deletion failed: ${err.message}`);
     }
     await this.prisma.document.delete({ where: { id } });
     try {

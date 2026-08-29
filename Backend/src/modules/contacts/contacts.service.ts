@@ -194,11 +194,12 @@ export class ContactsService implements OnModuleInit {
     const existing = await this.repo.findOne(tenantId, id);
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
 
-    await this.repo.update(tenantId, id, dto);
+    const targetId = existing.id;
+    await this.repo.update(tenantId, targetId, dto);
 
     // Create/update primary Address if city is provided
     if (dto.city) {
-      await this.repo.addAddress(id, tenantId, {
+      await this.repo.addAddress(targetId, tenantId, {
         type: 'HOME',
         line1: 'N/A',
         city: dto.city,
@@ -215,18 +216,18 @@ export class ContactsService implements OnModuleInit {
         data: {
           tenantId,
           userId:     updatedById,
-          contactId:  id,
+          contactId:  targetId,
           entityType: 'Contact',
-          entityId:   id,
+          entityId:   targetId,
           action:     'UPDATE',
           description: 'Contact profile updated',
         },
       });
     } catch (err: any) {
-      this.logger.warn(`ActivityLog write failed for contact ${id}: ${err.message}`);
+      this.logger.warn(`ActivityLog write failed for contact ${targetId}: ${err.message}`);
     }
 
-    const updated = await this.repo.findOne(tenantId, id);
+    const updated = await this.repo.findOne(tenantId, targetId);
 
     if (dto.assignedEmployeeId && dto.assignedEmployeeId !== existing.assignedEmployeeId) {
       let targetUserId = dto.assignedEmployeeId;

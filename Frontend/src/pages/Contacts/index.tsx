@@ -2,13 +2,13 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { useClaims } from '@hooks/useClaims';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useLookupStore } from '@store/lookup.store';
-import { contactsService, policiesService, claimsService, leadsService, insuranceService } from '@api/index';
+import { contactsService, policiesService, claimsService, leadsService, insuranceService, documentsService } from '@api/index';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import DataTable, { Column } from '@comps/common/DataTable';
 import Modal from '@comps/common/Modal';
@@ -286,6 +286,15 @@ export default function Contacts() {
   const [createPolicyModalOpen, setCreatePolicyModalOpen] = useState(false);
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Record<string, boolean>>({});
   const [policyToEdit, setPolicyToEdit] = useState<any | null>(null);
+  const [contactDocUploadOpen, setContactDocUploadOpen] = useState(false);
+  const [contactDocUploadFields, setContactDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
+    type: 'IDENTITY_PROOF',
+    title: '',
+    description: '',
+    file: null,
+  });
+  const [isUploadingContactDoc, setIsUploadingContactDoc] = useState(false);
+  const [docPreviewModal, setDocPreviewModal] = useState<{ open: boolean; title: string; url: string }>({ open: false, title: '', url: '' });
   const { user: authUser } = useAuthStore();
   const [formMedHistory, setFormMedHistory] = useState<string[]>([]);
   const [formRelationships, setFormRelationships] = useState<any[]>([]);
@@ -910,6 +919,41 @@ export default function Contacts() {
 
   const { data: claimsRes } = useClaims({ page: 1, limit: 500 });
 
+  const CONTACT_DOC_TYPES = useMemo(() => [
+    { value: 'IDENTITY_PROOF',          label: 'Aadhaar / PAN / Identity Proof' },
+    { value: 'POLICY_BOND',             label: 'Policy Bond / Endorsement' },
+    { value: 'CLAIM_FORM',              label: 'Claim Form' },
+    { value: 'DISCHARGE_SUMMARY',       label: 'Discharge Summary' },
+    { value: 'OT_NOTES_IPD_PAPERS',     label: 'OT Notes / IPD Papers' },
+    { value: 'HOSPITAL_BILL',           label: 'Hospital Bill / Breakup Bill' },
+    { value: 'PHARMACY_MEDICINES_BILL', label: 'Pharmacy / Medicines Bill' },
+    { value: 'INVESTIGATION_LAB_BILL',  label: 'Investigation / Lab Bill' },
+    { value: 'BLOOD_ANESTHESIA_BILL',   label: 'Blood / Anesthesia Bill' },
+    { value: 'IMPORTANT_LAB_REPORTS',   label: 'Important Lab Reports' },
+    { value: 'IMP_BILLS',               label: 'Imp Bills' },
+    { value: 'OTHER_IMP_DOCS',          label: 'Other Imp Documents' },
+    { value: 'QUERY_LETTER',            label: 'Claim Query Letter' },
+    { value: 'REPLY_DOCS',              label: 'Reply Documents' },
+    { value: 'SETTLEMENT_LETTER',       label: 'Claim Settlement Letter' },
+    { value: 'REJECTION_LETTER',        label: 'Rejection Letter' },
+    { value: 'OTHER',                   label: 'Other Document' },
+  ], []);
+
+  const { data: contactDocsRes } = useQuery({
+    queryKey: ['contact-documents-list', editContactId || loadedContact?.id || loadedContact?.contactId],
+    queryFn: () => documentsService.list({ contactId: editContactId || loadedContact?.id || loadedContact?.contactId }),
+    enabled: activeLeadTab === 'Documents' && !!(editContactId || loadedContact?.id || loadedContact?.contactId),
+    staleTime: 0,
+  });
+
+  const contactDocsList = useMemo(() => {
+    if (!contactDocsRes) return [];
+    if (Array.isArray(contactDocsRes.data)) return contactDocsRes.data;
+    if (Array.isArray(contactDocsRes.data?.data)) return contactDocsRes.data.data;
+    if (Array.isArray(contactDocsRes)) return contactDocsRes;
+    return [];
+  }, [contactDocsRes]);
+
   const claimListArray = useMemo(() => {
     if (!claimsRes) return [];
     if (Array.isArray(claimsRes.data)) return claimsRes.data;
@@ -1367,6 +1411,9 @@ export default function Contacts() {
   const openEdit = openLeadEdit;
 
   const closeLeadModal = () => {
+    if (docPreviewModal.open || contactDocUploadOpen || createPolicyModalOpen) {
+      return;
+    }
     setLeadModalOpen(false);
     setLoadedContact(null);
     setIsViewMode(false);
@@ -1520,7 +1567,7 @@ export default function Contacts() {
       }
     }
 
-    const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
+    const toastId = toast.loading(editContactId ? 'Updating contact...' : 'Creating contact...');
     try {
       const mergedTags = [...selectedCampaigns];
       const isCustomerTarget = activeTab === 'customers' || leadInfoFields.profileType === 'Client Profile' || leadInfoFields.profileType === 'Customer Profile';
@@ -3676,7 +3723,7 @@ export default function Contacts() {
 
           {/* Modal sub-navigation tabs */}
           <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
-            {['Product Interest', 'Personal', 'Family', 'Policy', 'Claims', 'WA Campaign', 'History'].map(tab => (
+            {['Product Interest', 'Personal', 'Family', 'Policy', 'Claims', 'Documents', 'WA Campaign', 'History'].map(tab => (
               <button
                 key={tab}
                 type="button"
@@ -5147,18 +5194,20 @@ export default function Contacts() {
                 return (
                   <div
                     key={policy.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (policy) {
-                        setPolicyToEdit(policy);
-                        setCreatePolicyModalOpen(true);
-                      }
-                    }}
-                    className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group pointer-events-auto relative z-10`}
-                    title="Click to view full Policy details"
+                    className={`overflow-hidden rounded-2xl border ${borderTone} bg-white shadow-sm hover:shadow-md hover:border-blue-300 transition-all pointer-events-auto relative z-10`}
                   >
-                    {/* Header / Minimized Summary Bar */}
-                    <div className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3`}>
+                    {/* Header / Minimized Summary Bar (Clicking card opens Policy Form in View Mode) */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (policy) {
+                          setPolicyToEdit(policy);
+                          setCreatePolicyModalOpen(true);
+                        }
+                      }}
+                      className={`flex items-center justify-between bg-gradient-to-r ${headerTone} px-4 py-3 cursor-pointer select-none`}
+                      title="Click to open Policy Form in View Mode"
+                    >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white shrink-0">
                           <Shield size={16} />
@@ -5172,7 +5221,7 @@ export default function Contacts() {
                         </div>
                       </div>
 
-                      {/* Expand / Collapse toggle button */}
+                      {/* Expand / Collapse toggle button for inline card summary */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -5180,7 +5229,7 @@ export default function Contacts() {
                           setExpandedPolicyIds(prev => ({ ...prev, [policy.id]: !prev[policy.id] }));
                         }}
                         className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white transition-all cursor-pointer shrink-0 ml-1.5"
-                        title={isExpanded ? 'Collapse policy card' : 'Expand policy card'}
+                        title={isExpanded ? 'Collapse inline summary' : 'Expand inline summary'}
                       >
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
@@ -5230,6 +5279,22 @@ export default function Contacts() {
                               <p className="text-xs font-semibold text-slate-700">{policy.endDate ? new Date(policy.endDate).toLocaleDateString('en-IN') : '—'}</p>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-slate-200/80 mt-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (policy) {
+                                setPolicyToEdit(policy);
+                                setCreatePolicyModalOpen(true);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <FileText size={13} /> Open Policy Form
+                          </button>
                         </div>
                       </div>
                     )}
@@ -5304,260 +5369,6 @@ export default function Contacts() {
                         )}
                       </>
                     )}
-                  </div>
-
-                  {/* Portfolio cards */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
-                    {policies.length > 0 &&
-                      policies.map((portfolio, pIdx) => {
-                      const isHealth = portfolio.policyType === 'Health';
-                      const portfolioTitle = isHealth ? 'Health Insurance Portfolio' : 'Life Insurance Portfolio';
-                      const accentBorder = isHealth ? 'border-blue-200' : 'border-pink-200';
-                      const accentHeader = isHealth ? 'bg-blue-50 border-blue-100' : 'bg-pink-50 border-pink-100';
-                      const accentIcon = isHealth ? 'text-blue-500' : 'text-pink-500';
-                      const accentAddBtn = isHealth
-                        ? 'text-blue-600 border-blue-300 hover:bg-blue-50'
-                        : 'text-pink-600 border-pink-300 hover:bg-pink-50';
-                      return (
-                        <div key={pIdx} className={`border ${accentBorder} rounded-xl bg-white shadow-sm`}>
-                          {/* Portfolio header */}
-                          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${accentHeader} rounded-t-xl`}>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className={`text-sm ${accentIcon}`}>☆</span>
-                              <span className="text-xs font-bold text-gray-700">{portfolioTitle}</span>
-                              <span className="text-gray-300 text-xs">›</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setPolicies(prev => prev.filter((_, i) => i !== pIdx))}
-                              className="w-5 h-5 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors cursor-pointer text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          </div>
-
-                          {/* Add Entry button */}
-                          <div className="px-4 py-2 border-b border-gray-100">
-                            <button
-                              type="button"
-                              onClick={() => addPolicyEntry(pIdx)}
-                              className={`text-xs font-semibold border rounded-lg px-3 py-1.5 cursor-pointer transition-colors ${accentAddBtn}`}
-                            >
-                              + Add New Policy Entry / Renewal
-                            </button>
-                          </div>
-
-                          {/* Policy Entries */}
-                          <div className="space-y-0 divide-y divide-gray-100">
-                            {portfolio.entries.map((entry, eIdx) => (
-                              <div key={eIdx} className="px-4 py-3">
-                                {/* Entry header */}
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Entry #{eIdx + 1}</span>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <select
-                                      className="text-[10px] border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 cursor-pointer bg-white"
-                                      value={entry.entryType}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'entryType', e.target.value)}
-                                    >
-                                      <option value="New">New Client/Opt</option>
-                                      <option value="Renewal">Renewal</option>
-                                    </select>
-                                    <button
-                                      type="button"
-                                      onClick={() => removePolicyEntry(pIdx, eIdx)}
-                                      className="w-4 h-4 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors cursor-pointer text-[10px] font-bold"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Row 1: Insurance Company | Plan Name */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Insurance Company</label>
-                                    <select
-                                      className="input w-full mt-1"
-                                      value={entry.company}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'company', e.target.value)}
-                                    >
-                                      <option value="">Select Company</option>
-                                      {entry.company && ![
-                                        'Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Niva Bupa', 'Care Health',
-                                        'Bajaj Allianz', 'Aditya Birla Health', 'SBI General', 'Tata AIG',
-                                        'New India Assurance', 'LIC', 'HDFC Life', 'ICICI Prudential Life',
-                                        'SBI Life', 'Max Life', 'Bajaj Allianz Life', 'Kotak Life',
-                                        'Tata AIA Life', 'Aditya Birla Sun Life', 'PNB MetLife', 'Other'
-                                      ].includes(entry.company) && (
-                                          <option value={entry.company}>{entry.company}</option>
-                                        )}
-                                      <option>Star Health</option>
-                                      <option>HDFC Ergo</option>
-                                      <option>ICICI Lombard</option>
-                                      <option>Niva Bupa</option>
-                                      <option>Care Health</option>
-                                      <option>Bajaj Allianz</option>
-                                      <option>Aditya Birla Health</option>
-                                      <option>SBI General</option>
-                                      <option>Tata AIG</option>
-                                      <option>New India Assurance</option>
-                                      <option>LIC</option>
-                                      <option>HDFC Life</option>
-                                      <option>ICICI Prudential Life</option>
-                                      <option>SBI Life</option>
-                                      <option>Max Life</option>
-                                      <option>Bajaj Allianz Life</option>
-                                      <option>Kotak Life</option>
-                                      <option>Tata AIA Life</option>
-                                      <option>Aditya Birla Sun Life</option>
-                                      <option>PNB MetLife</option>
-                                      <option>Other</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Plan Name</label>
-                                    <select
-                                      className="input w-full mt-1"
-                                      value={entry.planName}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'planName', e.target.value)}
-                                    >
-                                      <option value="">Select Plan</option>
-                                      {entry.planName && ![
-                                        'Individual', 'Family Floater', 'Senior Citizen', 'Critical Illness', 'Top-Up', 'Super Top-Up',
-                                        'Term Plan', 'Endowment', 'ULIP', 'Money Back', 'Whole Life', 'Child Plan', 'Other'
-                                      ].includes(entry.planName) && (
-                                          <option value={entry.planName}>{entry.planName}</option>
-                                        )}
-                                      {isHealth ? (
-                                        <>
-                                          <option>Individual</option>
-                                          <option>Family Floater</option>
-                                          <option>Senior Citizen</option>
-                                          <option>Critical Illness</option>
-                                          <option>Top-Up</option>
-                                          <option>Super Top-Up</option>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <option>Term Plan</option>
-                                          <option>Endowment</option>
-                                          <option>ULIP</option>
-                                          <option>Money Back</option>
-                                          <option>Whole Life</option>
-                                          <option>Child Plan</option>
-                                        </>
-                                      )}
-                                      <option>Other</option>
-                                    </select>
-                                  </div>
-                                </div>
-
-                                {/* Row 2: Policy No (full width) */}
-                                <div className="mb-2">
-                                  <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Policy No</label>
-                                  <input
-                                    type="text"
-                                    className="input w-full mt-1"
-                                    placeholder="Enter Policy Number"
-                                    value={entry.policyNo}
-                                    onChange={e => updatePolicyItem(pIdx, eIdx, 'policyNo', e.target.value)}
-                                  />
-                                </div>
-
-                                {/* Row 3: Start Date | Duration | End Date */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Start Date</label>
-                                    <DatePicker
-                                      className="input w-full mt-1"
-                                      value={entry.startDate}
-                                      onChange={val => updatePolicyItem(pIdx, eIdx, 'startDate', val)}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Duration</label>
-                                    <select
-                                      className="input w-full mt-1"
-                                      value={entry.duration}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'duration', e.target.value)}
-                                    >
-                                      <option>1 Year</option>
-                                      <option>2 Years</option>
-                                      <option>3 Years</option>
-                                      <option>5 Years</option>
-                                      <option>10 Years</option>
-                                      <option>15 Years</option>
-                                      <option>20 Years</option>
-                                      <option>30 Years</option>
-                                      <option>Lifetime</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">End Date</label>
-                                    <DatePicker
-                                      className="input w-full mt-1"
-                                      value={entry.endDate}
-                                      onChange={val => updatePolicyItem(pIdx, eIdx, 'endDate', val)}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Row 4: Premium | Sum Insured | Deductible */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-2">
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Premium (₹)</label>
-                                    <div className="flex mt-1">
-                                      <span className="inline-flex items-center px-2 text-xs text-gray-400 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg">₹</span>
-                                      <input
-                                        type="number"
-                                        className="input rounded-l-none flex-1 min-w-0"
-                                        placeholder="0"
-                                        value={entry.premium}
-                                        onChange={e => updatePolicyItem(pIdx, eIdx, 'premium', e.target.value)}
-                                      />
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Sum Insured</label>
-                                    <input
-                                      type="number"
-                                      className="input w-full mt-1"
-                                      placeholder="e.g. 5L"
-                                      value={entry.sumInsured}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'sumInsured', e.target.value)}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Deductible</label>
-                                    <input
-                                      type="text"
-                                      className="input w-full mt-1"
-                                      placeholder="Optional"
-                                      value={entry.deductible}
-                                      onChange={e => updatePolicyItem(pIdx, eIdx, 'deductible', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Upload Policy Document */}
-                                <div className="mt-1">
-                                  <label className="flex flex-wrap items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 cursor-pointer font-medium">
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                      <polyline points="17 8 12 3 7 8" />
-                                      <line x1="12" y1="3" x2="12" y2="15" />
-                                    </svg>
-                                    Upload Policy Document
-                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" />
-                                  </label>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 </div>
               );
@@ -5904,9 +5715,359 @@ export default function Contacts() {
                 </div>
               </div>
             )}
+
+            {activeLeadTab === 'Documents' && (() => {
+              const currentContactDocId = editContactId || loadedContact?.id || loadedContact?.contactId;
+              const contactPhoneNo = (
+                loadedContact?.phone ||
+                personalFields?.whatsappNumber ||
+                personalFields?.callingNumber ||
+                ''
+              ).replace(/\D/g, '');
+
+              return (
+                <div className="space-y-4">
+                  {/* Documents Tab Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                        <FileText size={13} />
+                      </div>
+                      <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                        Contact Documents & Files ({contactDocsList.length})
+                      </h3>
+                    </div>
+                    {currentContactDocId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null });
+                          setContactDocUploadOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] cursor-pointer"
+                      >
+                        <Upload size={13} />
+                        <span>Upload Document</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── Contact Doc Upload Sub-Modal (Mirroring Claims/index.tsx) ────── */}
+                  <Modal
+                    open={contactDocUploadOpen}
+                    onClose={() => { setContactDocUploadOpen(false); setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null }); }}
+                    title="Upload Contact Document"
+                    subtitle="Attach identity proof, policy bonds, or medical records for this contact."
+                    size="md"
+                    zIndexClass="z-[70]"
+                    icon={<FileText className="text-indigo-600" size={20} />}
+                  >
+                    <div className="space-y-4 py-1">
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          Document Type <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={contactDocUploadFields.type}
+                          onChange={e => setContactDocUploadFields(p => ({ ...p, type: e.target.value }))}
+                          className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                        >
+                          {CONTACT_DOC_TYPES.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          Document Title <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={contactDocUploadFields.title}
+                          onChange={e => setContactDocUploadFields(p => ({ ...p, title: e.target.value }))}
+                          className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                          placeholder="e.g. Aadhaar Card – Rahul Otari"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          Description / Notes
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={contactDocUploadFields.description}
+                          onChange={e => setContactDocUploadFields(p => ({ ...p, description: e.target.value }))}
+                          className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200"
+                          placeholder="Optional notes about this document"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          Choose File <span className="text-red-500">*</span>
+                        </label>
+                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
+                          <input
+                            type="file"
+                            onChange={e => setContactDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-gradient-to-r file:from-blue-600 file:to-indigo-600 file:text-white hover:file:opacity-90 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                          onClick={() => { setContactDocUploadOpen(false); setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null }); }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isUploadingContactDoc}
+                          onClick={async () => {
+                            if (!contactDocUploadFields.title.trim()) { toast.error('Please enter a document title.'); return; }
+                            if (!contactDocUploadFields.file) { toast.error('Please choose a file.'); return; }
+                            const targetContactId = loadedContact?.id || editContactId || loadedContact?.contactId;
+                            if (!targetContactId) { toast.error('Please save contact first.'); return; }
+
+                            setIsUploadingContactDoc(true);
+                            try {
+                              const meta: Record<string, string> = {
+                                contactId: String(targetContactId),
+                                type: contactDocUploadFields.type,
+                                title: contactDocUploadFields.title.trim(),
+                              };
+                              if (contactDocUploadFields.description.trim()) {
+                                meta.description = contactDocUploadFields.description.trim();
+                              }
+                              await documentsService.upload(contactDocUploadFields.file, meta);
+                              toast.success('Document uploaded successfully!');
+                              qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
+                              setContactDocUploadOpen(false);
+                              setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null });
+                            } catch (err) {
+                              toast.error('Failed to upload document.');
+                            } finally {
+                              setIsUploadingContactDoc(false);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
+                        >
+                          {isUploadingContactDoc ? 'Uploading…' : 'Add Document'}
+                        </button>
+                      </div>
+                    </div>
+                  </Modal>
+
+                  {!currentContactDocId ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+                        <FileText size={18} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-700">Save Contact First</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-[280px]">
+                        Please save the contact details first before uploading and managing documents.
+                      </p>
+                    </div>
+                  ) : contactDocsList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[200px]">
+                      <FileText size={32} className="mx-auto text-slate-300 mb-2" />
+                      <p className="text-sm font-bold text-slate-700">No documents added yet</p>
+                      <p className="text-[11px] text-slate-400 mt-1 max-w-[280px]">
+                        Click "Upload Document" to attach identity proofs, policy documents, medical records, or other files for this contact.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200/90 shadow-2xs max-h-[55vh] custom-scrollbar bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                            <th className="py-2.5 px-3">File Name</th>
+                            <th className="py-2.5 px-3">Document Title</th>
+                            <th className="py-2.5 px-3">Description</th>
+                            <th className="py-2.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {contactDocsList.map((doc: any) => {
+                            const typeObj = CONTACT_DOC_TYPES.find(t => t.value === doc.type);
+                            const typeLabel = typeObj ? typeObj.label : (doc.type || 'DOCUMENT');
+                            const fileName = doc.filename || doc.originalName || doc.title || 'file.pdf';
+                            const docTitle = doc.title || doc.filename || doc.originalName || 'Document File';
+                            const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+
+                            return (
+                              <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors group">
+                                {/* Column 1: File Name */}
+                                <td className="py-2.5 px-3 max-w-[160px]">
+                                  <div className="flex items-center gap-2 truncate">
+                                    <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100 font-mono text-[9px] font-bold">
+                                      {fileExt.slice(0, 3)}
+                                    </div>
+                                    <span className="font-semibold text-slate-700 truncate" title={fileName}>
+                                      {fileName}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Column 2: Document Title */}
+                                <td className="py-2.5 px-3 max-w-[200px]">
+                                  <div className="space-y-0.5">
+                                    <p className="font-extrabold text-slate-800 truncate" title={docTitle}>
+                                      {docTitle}
+                                    </p>
+                                    <span className="inline-block px-1.5 py-0.25 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                      {typeLabel}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Column 3: Description */}
+                                <td className="py-2.5 px-3 max-w-[220px]">
+                                  <p className="text-slate-500 text-[11px] truncate" title={doc.description || '—'}>
+                                    {doc.description || '—'}
+                                  </p>
+                                </td>
+
+                                {/* Column 4: Actions (WhatsApp, Preview, Download, Delete) */}
+                                <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {/* Send on WhatsApp */}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          const res = await documentsService.url(doc.id);
+                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl || '';
+                                          const waMsg = `Hi, here is the document: *${docTitle}*\n${fileUrl}`;
+                                          const waUrl = contactPhoneNo
+                                            ? `https://api.whatsapp.com/send?phone=91${contactPhoneNo.slice(-10)}&text=${encodeURIComponent(waMsg)}`
+                                            : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMsg)}`;
+                                          window.open(waUrl, '_blank');
+                                        } catch {
+                                          toast.error('Failed to prepare WhatsApp share link.');
+                                        }
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold transition-colors cursor-pointer"
+                                      title="Send document details on WhatsApp"
+                                    >
+                                      <MessageCircle size={12} className="text-emerald-600" />
+                                      <span>WhatsApp</span>
+                                    </button>
+
+                                    {/* Preview */}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          const res = await documentsService.url(doc.id);
+                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl;
+                                          if (fileUrl) {
+                                            setDocPreviewModal({ open: true, title: docTitle, url: fileUrl });
+                                          } else {
+                                            toast.error('Unable to fetch preview link.');
+                                          }
+                                        } catch {
+                                          toast.error('Failed to preview document.');
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 transition-colors cursor-pointer"
+                                      title="Preview Document"
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+
+                                    {/* Download */}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          const res = await documentsService.url(doc.id);
+                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl;
+                                          if (fileUrl) {
+                                            window.open(fileUrl, '_blank');
+                                          } else {
+                                            toast.error('Unable to fetch download link.');
+                                          }
+                                        } catch {
+                                          toast.error('Failed to download document.');
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                                      title="Download Document"
+                                    >
+                                      <Download size={13} />
+                                    </button>
+
+                                    {/* Delete */}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (confirm('Are you sure you want to delete this document?')) {
+                                          try {
+                                            await documentsService.remove(doc.id);
+                                            toast.success('Document deleted');
+                                            qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
+                                          } catch {
+                                            toast.error('Failed to delete document');
+                                          }
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition-colors cursor-pointer"
+                                      title="Delete Document"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             </fieldset>
           </div>
         </form>
+      </Modal>
+
+
+
+      {/* Document Preview Modal */}
+      <Modal
+        open={docPreviewModal.open}
+        onClose={() => setDocPreviewModal({ open: false, title: '', url: '' })}
+        title={docPreviewModal.title || 'Document Preview'}
+        size="2xl"
+        zIndexClass="z-[70]"
+        icon={<Eye className="text-blue-600" size={20} />}
+      >
+        <div className="space-y-3 py-1">
+          <div className="w-full h-[65vh] rounded-xl border border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center">
+            {docPreviewModal.url.match(/\.(jpg|jpeg|png|webp|gif)/i) ? (
+              <img src={docPreviewModal.url} alt={docPreviewModal.title} className="max-h-full max-w-full object-contain" />
+            ) : (
+              <iframe src={docPreviewModal.url} className="w-full h-full border-0" title={docPreviewModal.title} />
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => window.open(docPreviewModal.url, '_blank')}
+              className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20"
+            >
+              Open Original File
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Import from Phone Directory Modal */}
