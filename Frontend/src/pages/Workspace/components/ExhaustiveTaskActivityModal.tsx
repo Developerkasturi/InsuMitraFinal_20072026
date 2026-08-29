@@ -133,9 +133,10 @@ export default function ExhaustiveTaskActivityModal({
 
   // Task Number
   const [taskNumber, setTaskNumber] = useState<string>(() => {
+    if (initialTask?.taskId) return initialTask.taskId;
     if (initialTask?.taskNumber) return initialTask.taskNumber;
-    if (initialTask?.id) return `#TSK-${initialTask.id.slice(-5).toUpperCase()}`;
-    return `#TSK-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (initialTask?.id) return initialTask.id.startsWith('T') ? initialTask.id : `T-${initialTask.id}`;
+    return '';
   });
 
   // Created By Info
@@ -272,6 +273,7 @@ export default function ExhaustiveTaskActivityModal({
 
     const payload = {
       id: initialTask?.id || undefined,
+      taskId: taskNumber || undefined,
       taskNumber: taskNumber || undefined,
       createdBy,
       title: title.trim(),
@@ -305,8 +307,8 @@ export default function ExhaustiveTaskActivityModal({
     onSave(payload);
     toast.success(
       initialTask 
-        ? `${taskNumber} updated successfully!` 
-        : mode === 'ACTIVITY' ? `${taskNumber} activity logged!` : `${taskNumber} scheduled successfully!`
+        ? `${taskNumber || 'Task'} updated successfully!` 
+        : mode === 'ACTIVITY' ? `${taskNumber || 'Activity'} logged!` : `${taskNumber || 'Task'} scheduled successfully!`
     );
     onClose();
   };
@@ -338,7 +340,7 @@ export default function ExhaustiveTaskActivityModal({
                     : mode === 'ACTIVITY' ? 'Log Completed Activity' : 'Schedule & Assign New Task'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-mono font-extrabold text-xs">
-                  {taskNumber}
+                  {taskNumber || (initialTask ? 'Task' : 'Auto (T1, T2...)')}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 mt-0.5">
@@ -393,7 +395,7 @@ export default function ExhaustiveTaskActivityModal({
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="font-bold text-slate-700 font-mono">{taskNumber}</span>
+            <span className="font-bold text-slate-700 font-mono">{taskNumber || 'Auto T#'}</span>
           </div>
         </div>
 
@@ -414,7 +416,7 @@ export default function ExhaustiveTaskActivityModal({
                     <span className="text-white font-extrabold text-xs">Task Information &amp; Category</span>
                   </div>
                   <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-white font-mono font-bold text-[10px]">
-                    {taskNumber}
+                    {taskNumber || 'Auto T#'}
                   </span>
                 </div>
 
@@ -473,6 +475,7 @@ export default function ExhaustiveTaskActivityModal({
                         <Hash size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
+                          placeholder="Auto (T1, T2...)"
                           value={taskNumber}
                           onChange={(e) => setTaskNumber(e.target.value)}
                           className="w-full text-xs pl-8 pr-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-900 font-mono font-extrabold outline-none"

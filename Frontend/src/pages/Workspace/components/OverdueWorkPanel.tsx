@@ -17,9 +17,9 @@ export interface OverdueItem {
 
 const DEFAULT_OVERDUE_ITEMS: OverdueItem[] = [
   {
-    id: 'ov-1',
+    id: 'T1',
     type: 'TASK',
-    title: 'Customer Verification & Document Upload for Policy #POL-8902',
+    title: '[T1] Customer Verification & Document Upload for Policy #POL-8902',
     entityName: 'Sunita Patil',
     contactPhone: '+91 98230 11223',
     dueText: 'Overdue by 1 day',
