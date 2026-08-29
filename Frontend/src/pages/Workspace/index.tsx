@@ -344,14 +344,14 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* 2. THREE WORKSPACE NAVIGATION TABS */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-1 overflow-x-auto">
+      {/* 2. THREE WORKSPACE NAVIGATION TABS (Mobile Responsive Horizontal Scroll) */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-2 overflow-x-auto no-scrollbar flex-nowrap scroll-smooth">
         <button
           onClick={() => setActiveTab('today')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
             activeTab === 'today'
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-100 sm:border-transparent'
           }`}
         >
           <Calendar className="w-4 h-4" /> Today
@@ -359,10 +359,10 @@ export default function Workspace() {
 
         <button
           onClick={() => setActiveTab('my_tasks')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
             activeTab === 'my_tasks'
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-100 sm:border-transparent'
           }`}
         >
           <ListTodo className="w-4 h-4" /> My Tasks
@@ -370,21 +370,21 @@ export default function Workspace() {
 
         <button
           onClick={() => setActiveTab('targets')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
             activeTab === 'targets'
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-100 sm:border-transparent'
           }`}
         >
-          <Target className="w-4 h-4" /> Targets & Commissions
+          <Target className="w-4 h-4" /> Targets &amp; Commissions
         </button>
 
         <button
           onClick={() => setActiveTab('leaves')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
             activeTab === 'leaves'
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-100 sm:border-transparent'
           }`}
         >
           <Palmtree className="w-4 h-4" /> Absence &amp; Leaves
@@ -392,30 +392,30 @@ export default function Workspace() {
 
         <button
           onClick={() => setActiveTab('job_description')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl font-extrabold text-xs transition-all cursor-pointer ${
             activeTab === 'job_description'
               ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-100 sm:border-transparent'
           }`}
         >
           <Briefcase className="w-4 h-4" /> Job Description &amp; Expectations
         </button>
 
         {/* "View Employee Workspace" Button Next to Tabs */}
-        <div className="relative ml-auto flex flex-wrap items-center gap-2">
+        <div className="shrink-0 whitespace-nowrap ml-auto flex items-center gap-2">
           {selectedEmployeeUserId ? (
             <button
               onClick={() => setSearchParams({})}
-              className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
             >
-              <X className="w-4 h-4 text-amber-700" /> Clear Employee Filter
+              <X className="w-4 h-4 text-amber-700" /> Clear Filter
             </button>
           ) : (
             <button
               onClick={() => setIsEmployeeModalOpen(!isEmployeeModalOpen)}
-              className="flex flex-wrap items-center gap-1.5 px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shrink-0 whitespace-nowrap"
             >
-              <Users className="w-4 h-4 text-primary-600" /> View Employee Workspace <ChevronDown className="w-3.5 h-3.5" />
+              <Users className="w-4 h-4 text-primary-600" /> View Employee <ChevronDown className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
