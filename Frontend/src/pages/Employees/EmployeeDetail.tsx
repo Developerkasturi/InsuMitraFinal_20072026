@@ -1057,7 +1057,12 @@ export default function EmployeeDetail() {
               <div className="space-y-3">
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold text-gray-900">Follow up on Star Health Comprehensive Family Floater</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
+                        T1
+                      </span>
+                      <p className="text-xs font-bold text-gray-900">Follow up on Star Health Comprehensive Family Floater</p>
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-0.5">Amit Sharma (+91 98765 43210) — confirm Sum Insured ₹10L</p>
                     <span className="text-[10px] font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded mt-1 inline-block">
                       Due Today • 30m
@@ -1068,7 +1073,12 @@ export default function EmployeeDetail() {
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-bold text-gray-900">Upload medical KYC documents for Policy #POL-8902</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
+                        T2
+                      </span>
+                      <p className="text-xs font-bold text-gray-900">Upload medical KYC documents for Policy #POL-8902</p>
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-0.5">Submit 2-D Echo report to HDFC Ergo underwriting</p>
                     <span className="text-[10px] font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded mt-1 inline-block">
                       Due Today • 45m

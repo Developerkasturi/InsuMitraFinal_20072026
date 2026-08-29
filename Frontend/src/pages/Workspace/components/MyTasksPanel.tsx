@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import ExhaustiveTaskActivityModal, { STATUS_CONFIG } from './ExhaustiveTaskActivityModal';
 import TaskActionModal, { TaskActionType } from './TaskActionModal';
 import toast from 'react-hot-toast';
+import clsx from 'clsx';
 
 interface MyTasksPanelProps {
   tasks: any[];
@@ -20,7 +21,9 @@ interface MyTasksPanelProps {
 
 const DEFAULT_MY_TASKS = [
   {
-    id: 't-101',
+    id: 'T1',
+    taskId: 'T1',
+    taskNumber: 'T1',
     title: 'Follow up with Amit Sharma on Star Comprehensive ₹10L floater',
     category: 'Sales & Lead Generation',
     entityType: 'LEAD',
@@ -35,7 +38,9 @@ const DEFAULT_MY_TASKS = [
     ]
   },
   {
-    id: 't-102',
+    id: 'T2',
+    taskId: 'T2',
+    taskNumber: 'T2',
     title: 'Upload medical examination reports for Policy #POL-8902',
     category: 'Document Collection & KYC',
     entityType: 'POLICY',
@@ -48,7 +53,9 @@ const DEFAULT_MY_TASKS = [
     comments: []
   },
   {
-    id: 't-103',
+    id: 'T3',
+    taskId: 'T3',
+    taskNumber: 'T3',
     title: 'Mehta Family Care Supreme Renewal Reminder & Payment Collection',
     category: 'Renewal Preparation & Follow-up',
     entityType: 'POLICY',
@@ -61,7 +68,9 @@ const DEFAULT_MY_TASKS = [
     comments: []
   },
   {
-    id: 't-104',
+    id: 'T4',
+    taskId: 'T4',
+    taskNumber: 'T4',
     title: 'Client proposal meeting with Apex Technologies HR Director',
     category: 'Customer Meeting / Field Visit',
     entityType: 'CONTACT',
@@ -74,7 +83,9 @@ const DEFAULT_MY_TASKS = [
     comments: []
   },
   {
-    id: 't-105',
+    id: 'T5',
+    taskId: 'T5',
+    taskNumber: 'T5',
     title: 'Vehicle damage inspection for Bajaj Allianz Motor Claim #CLM-1029',
     category: 'Claims Assistance & Survey',
     entityType: 'CLAIM',
@@ -88,7 +99,9 @@ const DEFAULT_MY_TASKS = [
     comments: []
   },
   {
-    id: 't-106',
+    id: 'T6',
+    taskId: 'T6',
+    taskNumber: 'T6',
     title: 'Submit monthly agency GST invoice & compliance paperwork',
     category: 'Administrative & Back Office',
     entityType: 'GENERAL',
@@ -101,7 +114,9 @@ const DEFAULT_MY_TASKS = [
     comments: []
   },
   {
-    id: 't-107',
+    id: 'T7',
+    taskId: 'T7',
+    taskNumber: 'T7',
     title: 'Follow up on inactive lead duplicate inquiry',
     category: 'Sales & Lead Generation',
     entityType: 'LEAD',
@@ -288,17 +303,6 @@ export default function MyTasksPanel({
               <Kanban className="w-3.5 h-3.5" /> Kanban
             </button>
           </div>
-
-          {!isViewOnly && (
-            <button
-              type="button"
-              onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-extrabold flex items-center gap-2 transition-all shadow-md shadow-blue-500/25 hover:scale-105 cursor-pointer select-none"
-            >
-              <Plus size={15} strokeWidth={2.5} />
-              <span>Schedule / Log</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -361,29 +365,63 @@ export default function MyTasksPanel({
 
       {/* ── VIEW 1: TABLE VIEW ────────────────────────────────────── */}
       {viewMode === 'TABLE' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 bg-slate-50/80 text-gray-400 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3.5 px-4">Task & Linked CRM Entity</th>
-                  <th className="py-3.5 px-3">Category</th>
-                  <th className="py-3.5 px-3">Priority</th>
-                  <th className="py-3.5 px-3">Status</th>
-                  <th className="py-3.5 px-3">Due Date</th>
-                  <th className="py-3.5 px-3">Assignee</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex-1 flex flex-col overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1 max-h-[calc(100vh-280px)]">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 z-10 shadow-2xs">
+                <tr className="bg-slate-100 border-b border-slate-200/80">
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200 w-24">
+                    Task ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Task Title
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Linked CRM Entity
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Category
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Priority
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Due Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Assignee
+                  </th>
+                  <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-700 whitespace-nowrap select-none border border-slate-200">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 font-medium text-gray-700">
+              <tbody className="divide-y divide-slate-100/60 font-medium text-gray-700">
                 {filteredTasks.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-gray-400">
-                      No matching tasks found. Adjust your search or filters.
+                    <td colSpan={9} className="px-5 py-16 text-center border border-slate-200">
+                      <div className="flex flex-col items-center gap-3 text-gray-400">
+                        <div className="h-12 w-12 rounded-xl bg-gray-50 flex items-center justify-center border border-slate-100">
+                          <ListTodo size={20} className="text-gray-300" />
+                        </div>
+                        <p className="text-sm font-medium">No tasks found</p>
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer mt-1"
+                          >
+                            Create Task
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredTasks.map(task => {
+                  filteredTasks.map((task, idx) => {
                     const statusCfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.IN_PROGRESS;
                     const isDone = task.status === 'DONE';
                     const isCancelled = task.status === 'CANCELLED';
@@ -391,46 +429,60 @@ export default function MyTasksPanel({
                     return (
                       <tr
                         key={task.id}
-                        className={`hover:bg-slate-50/80 transition-colors ${
-                          isDone ? 'bg-slate-50/30 opacity-70' : isCancelled ? 'bg-rose-50/20 opacity-60' : ''
-                        }`}
+                        className={clsx(
+                          "transition-colors duration-150",
+                          idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white',
+                          isDone && 'opacity-75',
+                          isCancelled && 'bg-rose-50/20 opacity-65',
+                          'hover:bg-slate-100/70'
+                        )}
                       >
-                        {/* Title & Entity */}
-                        <td className="py-3 px-4 max-w-xs">
-                          <div className="space-y-0.5">
-                            <p className={`font-bold text-gray-900 flex items-center gap-1.5 flex-wrap ${isDone ? 'line-through text-gray-500' : ''}`}>
-                              <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
-                                {task.taskNumber || (task.id?.length > 6 ? `#TSK-${task.id.slice(-4).toUpperCase()}` : `#TSK-${task.id || '101'}`)}
-                              </span>
-                              <span>{task.title}</span>
+                        {/* 1. Dedicated Task ID Column */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
+                          <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded border border-blue-100/80 inline-block shadow-2xs">
+                            {task.taskId || task.taskNumber || (task.id && task.id.startsWith('T') ? task.id : (task.id ? `T${task.id}` : 'T1'))}
+                          </span>
+                        </td>
+
+                        {/* 2. Task Title */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 max-w-sm">
+                          <div>
+                            <p className={clsx("font-semibold text-gray-900 text-[13px] leading-snug", isDone && "line-through text-gray-500")}>
+                              {task.title}
                             </p>
-                            {task.entityName && (
-                              <p className="text-[11px] text-primary-700 font-semibold flex items-center gap-1">
-                                🔗 {task.entityName}
-                              </p>
-                            )}
                             {task.cancelReason && (
-                              <p className="text-[10px] text-rose-600 font-medium">
+                              <p className="text-[11px] text-rose-600 font-medium mt-0.5">
                                 ❌ Cancelled: {task.cancelReason}
                               </p>
                             )}
                           </div>
                         </td>
 
-                        {/* Category */}
-                        <td className="py-3 px-3">
-                          <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                        {/* 3. Linked CRM Entity */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200">
+                          {task.entityName ? (
+                            <span className="text-[11px] text-primary-700 font-semibold inline-flex items-center gap-1 bg-primary-50/80 border border-primary-100 px-2 py-0.5 rounded-md">
+                              🔗 {task.entityName}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
+                        </td>
+
+                        {/* 4. Category */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
+                          <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/60">
                             {task.category || 'General'}
                           </span>
                         </td>
 
-                        {/* Priority with Quick Change dropdown */}
-                        <td className="py-3 px-3">
+                        {/* 5. Priority with Quick Change dropdown */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
                           <select
                             disabled={isViewOnly}
                             value={task.priority || 'MEDIUM'}
                             onChange={e => handleQuickPriorityChange(task.id, e.target.value)}
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border cursor-pointer ${
+                            className={`text-[10px] font-bold px-2 py-1 rounded-full border cursor-pointer ${
                               task.priority === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                               task.priority === 'HIGH' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                               task.priority === 'MEDIUM' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -444,13 +496,13 @@ export default function MyTasksPanel({
                           </select>
                         </td>
 
-                        {/* Status with Quick Change dropdown */}
-                        <td className="py-3 px-3">
+                        {/* 6. Status with Quick Change dropdown */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
                           <select
                             disabled={isViewOnly}
                             value={task.status}
                             onChange={e => handleQuickStatusChange(task.id, e.target.value)}
-                            className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border cursor-pointer ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full border cursor-pointer ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}
                           >
                             <option value="UPCOMING">Upcoming</option>
                             <option value="IN_PROGRESS">In Progress</option>
@@ -462,11 +514,12 @@ export default function MyTasksPanel({
                           </select>
                         </td>
 
-                        {/* Due Date */}
-                        <td className="py-3 px-3">
+                        {/* 7. Due Date */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
                           <div className="flex flex-col">
-                            <span className="text-[11px] font-semibold text-gray-800">
-                              {task.dueDate ? format(new Date(task.dueDate), 'dd MMM yyyy') : '—'}
+                            <span className="text-[12px] font-semibold text-gray-800 flex items-center gap-1">
+                              <Calendar size={12} className="text-gray-400" />
+                              {task.dueDate ? format(new Date(task.dueDate), 'dd/MMM/yyyy') : '—'}
                             </span>
                             {task.timeRequired && (
                               <span className="text-[10px] text-gray-400">⏱ {task.timeRequired}</span>
@@ -474,25 +527,25 @@ export default function MyTasksPanel({
                           </div>
                         </td>
 
-                        {/* Assignee */}
-                        <td className="py-3 px-3">
+                        {/* 8. Assignee */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-6 h-6 rounded-full bg-primary-100 text-primary-700 font-bold text-[10px] flex items-center justify-center">
-                              {task.assignedToName?.[0] || 'U'}
+                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0">
+                              {task.assignedToName ? task.assignedToName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
                             </div>
-                            <span className="text-xs text-gray-700">{task.assignedToName || 'Self'}</span>
+                            <span className="text-[12px] text-gray-700 font-medium">{task.assignedToName || 'Self'}</span>
                           </div>
                         </td>
 
-                        {/* Actions */}
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        {/* 9. Actions */}
+                        <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                             {!isViewOnly && !isDone && (
                               <button
                                 type="button"
                                 title="Mark as Done"
                                 onClick={() => handleQuickStatusChange(task.id, 'DONE')}
-                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200/60"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
@@ -504,7 +557,7 @@ export default function MyTasksPanel({
                                   type="button"
                                   title="Reschedule Task"
                                   onClick={() => handleOpenActionModal(task, 'RESCHEDULE')}
-                                  className="p-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer border border-purple-200/60"
                                 >
                                   <RefreshCw className="w-3.5 h-3.5" />
                                 </button>
@@ -513,7 +566,7 @@ export default function MyTasksPanel({
                                   type="button"
                                   title="Cancel Task"
                                   onClick={() => handleOpenActionModal(task, 'CANCEL')}
-                                  className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer border border-rose-200/60"
                                 >
                                   <Ban className="w-3.5 h-3.5" />
                                 </button>
@@ -524,7 +577,7 @@ export default function MyTasksPanel({
                               type="button"
                               title="Edit Details / Discussion"
                               onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer border border-slate-200/80"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -579,14 +632,19 @@ export default function MyTasksPanel({
                         className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs hover:shadow-sm transition-all space-y-2 group"
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                            task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' :
-                            task.priority === 'HIGH' ? 'bg-amber-100 text-amber-700' :
-                            task.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {task.priority || 'MEDIUM'}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
+                              {task.taskId || task.taskNumber || (task.id && task.id.startsWith('T') ? task.id : (task.id ? `T${task.id}` : 'T1'))}
+                            </span>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' :
+                              task.priority === 'HIGH' ? 'bg-amber-100 text-amber-700' :
+                              task.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {task.priority || 'MEDIUM'}
+                            </span>
+                          </div>
 
                           <span className="text-[10px] text-gray-400 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
