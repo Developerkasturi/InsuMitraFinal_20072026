@@ -4,7 +4,7 @@ import {
   Users, Shield, FileText, TrendingUp, DollarSign, AlertCircle,
   RefreshCw, Plus, Calendar, ChevronRight, CheckCircle,
   Clock, UserPlus, Briefcase, PhoneCall, Star, Award, Settings,
-  BarChart2, Activity
+  BarChart2, Activity, RotateCcw
 } from 'lucide-react';
 import { format, isToday, isTomorrow, differenceInDays } from 'date-fns';
 import {
@@ -220,12 +220,13 @@ const FALLBACK_TOP_AGENTS = [
 ];
 
 const FALLBACK_CLAIMS_FOR_REPORTS = [
-  { id: 'clm-101', claimNumber: 'CLM-4910', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Star Health' } } }, notes: JSON.stringify({ hospital: 'Apollo Hospitals', diagnosis: 'Dengue Treatment' }), claimAmount: 68000, approvedAmount: 64000, createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), status: 'SETTLED' },
-  { id: 'clm-102', claimNumber: 'CLM-5821', claimType: 'REIMBURSEMENT', policy: { plan: { company: { name: 'HDFC ERGO' } } }, notes: JSON.stringify({ hospital: 'Fortis Healthcare', diagnosis: 'Knee Arthroscopy' }), claimAmount: 145000, approvedAmount: 138000, createdAt: new Date(Date.now() - 12 * 86400000).toISOString(), status: 'SETTLED' },
-  { id: 'clm-103', claimNumber: 'CLM-6194', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Care Insurance' } } }, notes: JSON.stringify({ hospital: 'Manipal Hospital', diagnosis: 'Cardiac Angioplasty' }), claimAmount: 320000, approvedAmount: 0, createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'PENDING' },
-  { id: 'clm-104', claimNumber: 'CLM-7012', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Niva Bupa' } } }, notes: JSON.stringify({ hospital: 'Max Super Speciality', diagnosis: 'Cataract Surgery' }), claimAmount: 52000, approvedAmount: 50000, createdAt: new Date(Date.now() - 18 * 86400000).toISOString(), status: 'SETTLED' },
-  { id: 'clm-105', claimNumber: 'CLM-8145', claimType: 'REIMBURSEMENT', policy: { plan: { company: { name: 'ICICI Lombard' } } }, notes: JSON.stringify({ hospital: 'Narayana Health', diagnosis: 'Accidental Fracture' }), claimAmount: 95000, approvedAmount: 0, createdAt: new Date(Date.now() - 4 * 86400000).toISOString(), status: 'IN_PROGRESS' },
-  { id: 'clm-106', claimNumber: 'CLM-9230', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Tata AIG' } } }, notes: JSON.stringify({ hospital: 'Kokilaben Hospital', diagnosis: 'Gallbladder Removal' }), claimAmount: 110000, approvedAmount: 105000, createdAt: new Date(Date.now() - 25 * 86400000).toISOString(), status: 'SETTLED' },
+  { id: 'clm-101', claimNumber: 'CLM-4910', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Star Health' } } }, notes: JSON.stringify({ hospital: 'Apollo Hospitals', diagnosis: 'Dengue Treatment' }), claimAmount: 68000, approvedAmount: 64000, intimatedAt: new Date(Date.now() - 5 * 86400000).toISOString(), createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), status: 'SETTLED' },
+  { id: 'clm-102', claimNumber: 'CLM-5821', claimType: 'REIMBURSEMENT', policy: { plan: { company: { name: 'HDFC ERGO' } } }, notes: JSON.stringify({ hospital: 'Fortis Healthcare', diagnosis: 'Knee Arthroscopy' }), claimAmount: 145000, approvedAmount: 138000, intimatedAt: new Date(Date.now() - 12 * 86400000).toISOString(), createdAt: new Date(Date.now() - 12 * 86400000).toISOString(), status: 'SETTLED' },
+  { id: 'clm-103', claimNumber: 'CLM-6194', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Care Insurance' } } }, notes: JSON.stringify({ hospital: 'Manipal Hospital', diagnosis: 'Cardiac Angioplasty' }), claimAmount: 320000, approvedAmount: 0, intimatedAt: new Date(Date.now() - 2 * 86400000).toISOString(), createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: 'PENDING' },
+  { id: 'clm-104', claimNumber: 'CLM-7012', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Niva Bupa' } } }, notes: JSON.stringify({ hospital: 'Max Super Speciality', diagnosis: 'Cataract Surgery' }), claimAmount: 52000, approvedAmount: 50000, intimatedAt: new Date(Date.now() - 18 * 86400000).toISOString(), createdAt: new Date(Date.now() - 18 * 86400000).toISOString(), status: 'SETTLED' },
+  { id: 'clm-105', claimNumber: 'CLM-8145', claimType: 'REIMBURSEMENT', policy: { plan: { company: { name: 'ICICI Lombard' } } }, notes: JSON.stringify({ hospital: 'Narayana Health', diagnosis: 'Accidental Fracture' }), claimAmount: 95000, approvedAmount: 0, intimatedAt: new Date(Date.now() - 4 * 86400000).toISOString(), createdAt: new Date(Date.now() - 4 * 86400000).toISOString(), status: 'IN_PROGRESS' },
+  { id: 'clm-106', claimNumber: 'CLM-9230', claimType: 'CASHLESS', policy: { plan: { company: { name: 'Tata AIG' } } }, notes: JSON.stringify({ hospital: 'Kokilaben Hospital', diagnosis: 'Gallbladder Removal' }), claimAmount: 110000, approvedAmount: 105000, intimatedAt: new Date(Date.now() - 25 * 86400000).toISOString(), createdAt: new Date(Date.now() - 25 * 86400000).toISOString(), status: 'SETTLED' },
+  { id: 'clm-107', claimNumber: 'CLM-9411', claimType: 'REIMBURSEMENT', policy: { plan: { company: { name: 'Star Health' } } }, notes: JSON.stringify({ hospital: 'Ruby Hall Clinic', diagnosis: 'Pre-existing Exclusion' }), claimAmount: 42000, approvedAmount: 0, intimatedAt: new Date(Date.now() - 30 * 86400000).toISOString(), createdAt: new Date(Date.now() - 30 * 86400000).toISOString(), status: 'REJECTED' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -809,6 +810,7 @@ function ClaimsReportsTab() {
   const [claimType, setClaimType] = useState('ALL');
   const [graphCompanySelect, setGraphCompanySelect] = useState('ALL');
   const [pieChartMetric, setPieChartMetric] = useState<'count' | 'claimed' | 'settled'>('count');
+  const [timeGraphMonths, setTimeGraphMonths] = useState<string>('12');
 
   // Extract unique companies for filter dropdown
   const companies = useMemo(() => {
@@ -860,12 +862,18 @@ function ClaimsReportsTab() {
     let totalCount = filteredClaims.length;
     let claimedSum = 0;
     let settledSum = 0;
+    let pendingCount = 0;
+    let rejectedCount = 0;
 
     filteredClaims.forEach((c: any) => {
       claimedSum += Number(c.claimAmount || 0);
       // APPROVED & SETTLED count as payouts
       if (c.status === 'SETTLED' || c.status === 'APPROVED') {
         settledSum += Number(c.approvedAmount || c.claimAmount || 0);
+      } else if (c.status === 'PENDING' || c.status === 'IN_PROGRESS') {
+        pendingCount += 1;
+      } else if (c.status === 'REJECTED') {
+        rejectedCount += 1;
       }
     });
 
@@ -875,6 +883,8 @@ function ClaimsReportsTab() {
       totalCount,
       claimedSum,
       settledSum,
+      pendingCount,
+      rejectedCount,
       ratio
     };
   }, [filteredClaims]);
@@ -949,8 +959,11 @@ function ClaimsReportsTab() {
       map.set(key, entry);
     });
 
-    return Array.from(map.values()).slice(-12); // Last 12 months
-  }, [filteredClaims]);
+    const values = Array.from(map.values());
+    if (timeGraphMonths === 'ALL') return values;
+    const num = parseInt(timeGraphMonths, 10) || 12;
+    return values.slice(-num);
+  }, [filteredClaims, timeGraphMonths]);
 
   if (claimsLoading) {
     return (
@@ -960,91 +973,136 @@ function ClaimsReportsTab() {
     );
   }
 
+  const hasActiveFilters = duration !== 'ALL' || selectedCompany !== 'ALL' || claimType !== 'ALL' || hospitalQuery.trim() !== '';
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Filters Bar */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Duration</label>
-          <select
-            value={duration}
-            onChange={e => setDuration(e.target.value)}
-            className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
-          >
-            <option value="ALL">All Time</option>
-            <option value="30">Last 30 Days</option>
-            <option value="90">Last 90 Days</option>
-            <option value="365">This Year</option>
-          </select>
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Filter Claims & Analytics</span>
+            {hasActiveFilters && (
+              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700">Active Filters</span>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setDuration('ALL');
+                setSelectedCompany('ALL');
+                setClaimType('ALL');
+                setHospitalQuery('');
+              }}
+              className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" /> Reset All Filters
+            </button>
+          )}
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Duration</label>
+            <select
+              value={duration}
+              onChange={e => setDuration(e.target.value)}
+              className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
+            >
+              <option value="ALL">All Time</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+              <option value="365">This Year</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Insurance Company</label>
-          <select
-            value={selectedCompany}
-            onChange={e => setSelectedCompany(e.target.value)}
-            className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
-          >
-            <option value="ALL">All Companies</option>
-            {companies.map(comp => (
-              <option key={comp} value={comp}>{comp}</option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Insurance Company</label>
+            <select
+              value={selectedCompany}
+              onChange={e => setSelectedCompany(e.target.value)}
+              className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
+            >
+              <option value="ALL">All Companies</option>
+              {companies.map(comp => (
+                <option key={comp} value={comp}>{comp}</option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Claim Type</label>
-          <select
-            value={claimType}
-            onChange={e => setClaimType(e.target.value)}
-            className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
-          >
-            <option value="ALL">All Types</option>
-            <option value="CASHLESS">Cashless</option>
-            <option value="REIMBURSEMENT">Reimbursement</option>
-            <option value="DEATH">Death</option>
-            <option value="ACCIDENTAL">Accidental</option>
-            <option value="MATURITY">Maturity</option>
-          </select>
-        </div>
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Claim Type</label>
+            <select
+              value={claimType}
+              onChange={e => setClaimType(e.target.value)}
+              className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600"
+            >
+              <option value="ALL">All Types</option>
+              <option value="CASHLESS">Cashless</option>
+              <option value="REIMBURSEMENT">Reimbursement</option>
+              <option value="DEATH">Death</option>
+              <option value="ACCIDENTAL">Accidental</option>
+              <option value="MATURITY">Maturity</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Hospital Name</label>
-          <input
-            type="text"
-            placeholder="Search hospital..."
-            value={hospitalQuery}
-            onChange={e => setHospitalQuery(e.target.value)}
-            className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600 placeholder-gray-400"
-          />
+          <div>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Hospital Name</label>
+            <input
+              type="text"
+              placeholder="Search hospital..."
+              value={hospitalQuery}
+              onChange={e => setHospitalQuery(e.target.value)}
+              className="w-full mt-1.5 py-1.5 px-3 text-xs bg-gray-50 border border-gray-200 rounded-lg outline-none font-bold text-gray-600 placeholder-gray-400"
+            />
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col justify-between h-28">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Total Claims</span>
           <span className="text-2xl font-black text-gray-900 mt-1">{stats.totalCount}</span>
-          <span className="text-[10px] text-gray-400 font-semibold">Matching filtered criteria</span>
+          <span className="text-[10px] text-gray-400 font-semibold truncate">Matching filtered criteria</span>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Claimed Amount</span>
-          <span className="text-2xl font-black text-gray-900 mt-1">₹{stats.claimedSum.toLocaleString('en-IN')}</span>
-          <span className="text-[10px] text-gray-400 font-semibold">Sum of total claims</span>
+          <span className="text-2xl font-black text-blue-600 mt-1">₹{stats.claimedSum.toLocaleString('en-IN')}</span>
+          <span className="text-[10px] text-gray-400 font-semibold truncate">Sum of total claims</span>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Settled Amount</span>
           <span className="text-2xl font-black text-emerald-600 mt-1">₹{stats.settledSum.toLocaleString('en-IN')}</span>
-          <span className="text-[10px] text-gray-400 font-semibold">Total paid out amount</span>
+          <span className="text-[10px] text-gray-400 font-semibold truncate">Total paid out amount</span>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
+          <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wide">Pending Claims</span>
+          <span className="text-2xl font-black text-amber-600 mt-1">{stats.pendingCount}</span>
+          <span className="text-[10px] text-amber-600/70 font-semibold truncate">In progress & pending</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
+          <span className="text-[11px] font-bold text-red-500 uppercase tracking-wide">Rejected Claims</span>
+          <span className="text-2xl font-black text-red-600 mt-1">{stats.rejectedCount}</span>
+          <span className="text-[10px] text-red-600/70 font-semibold truncate">Exclusions & repudiated</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-col justify-between min-h-[112px]">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Settlement Ratio</span>
-            <span className="text-[10px] font-bold text-green-600">▲ +4.6%</span>
+            <span className={`text-[10px] font-bold ${stats.ratio >= 85 ? 'text-emerald-600' : stats.ratio >= 70 ? 'text-amber-600' : 'text-red-600'}`}>
+              {stats.ratio >= 85 ? '▲ High' : stats.ratio >= 70 ? '▲ Moderate' : '▼ Low'}
+            </span>
           </div>
-          <span className="text-2xl font-black text-blue-600 mt-1">{stats.ratio > 0 ? `${stats.ratio.toFixed(1)}%` : '92.4%'}</span>
-          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
-            <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${stats.ratio > 0 ? Math.min(100, stats.ratio) : 92.4}%` }} />
+          <span className={`text-2xl font-black mt-1 ${stats.ratio >= 85 ? 'text-emerald-600' : stats.ratio >= 70 ? 'text-amber-600' : 'text-red-600'}`}>
+            {stats.claimedSum > 0 ? `${stats.ratio.toFixed(1)}%` : '0%'}
+          </span>
+          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                stats.ratio >= 85 ? 'bg-emerald-500' : stats.ratio >= 70 ? 'bg-amber-500' : 'bg-red-500'
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, stats.ratio))}%` }}
+            />
           </div>
         </div>
       </div>
@@ -1076,15 +1134,30 @@ function ClaimsReportsTab() {
           />
         </div>
 
-        <LineChartWidget
-          title="Claimed vs Settled Amount Trend over Time (₹)"
-          data={timeGraphData}
-          xKey="month"
-          lines={[
-            { key: 'claimed', label: 'Claimed (₹)', color: '#2563eb' },
-            { key: 'settled', label: 'Settled (₹)', color: '#10b981' }
-          ]}
-        />
+        <div className="relative">
+          <div className="absolute top-4 right-5 z-10 flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Months:</label>
+            <select
+              value={timeGraphMonths}
+              onChange={e => setTimeGraphMonths(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-lg px-2 py-1 outline-none cursor-pointer"
+            >
+              <option value="3">Last 3 Months</option>
+              <option value="6">Last 6 Months</option>
+              <option value="12">Last 12 Months</option>
+              <option value="ALL">All Months</option>
+            </select>
+          </div>
+          <LineChartWidget
+            title="Claimed vs Settled Amount Trend over Time (₹)"
+            data={timeGraphData}
+            xKey="month"
+            lines={[
+              { key: 'claimed', label: 'Claimed (₹)', color: '#2563eb' },
+              { key: 'settled', label: 'Settled (₹)', color: '#10b981' }
+            ]}
+          />
+        </div>
 
         <BarChartWidget
           title="Top Hospitals by Claim Count"
@@ -1136,7 +1209,7 @@ function ClaimsReportsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-100">
-                {['Claim ID', 'Policy Holder', 'Insurance Company', 'Type', 'Hospital / Diagnosis', 'Claim Amount', 'Settled Amount', 'Status'].map(h => (
+                {['Claim ID', 'Intimation Date', 'Policy Holder', 'Insurance Company', 'Type', 'Hospital / Diagnosis', 'Claim Amount', 'Settled Amount', 'Status'].map(h => (
                   <th key={h} className="px-5 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -1144,7 +1217,7 @@ function ClaimsReportsTab() {
             <tbody className="divide-y divide-gray-50 font-medium">
               {filteredClaims.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-xs text-gray-400">No claims match the filter</td>
+                  <td colSpan={9} className="text-center py-8 text-xs text-gray-400">No claims match the filter</td>
                 </tr>
               ) : (
                 filteredClaims.map((c: any) => {
@@ -1157,6 +1230,13 @@ function ClaimsReportsTab() {
                   return (
                     <tr key={c.id} className="hover:bg-blue-50/30 transition-colors text-xs">
                       <td className="px-5 py-3.5 font-bold text-gray-900">{c.claimNumber ?? `CLM-${c.id.slice(-4).toUpperCase()}`}</td>
+                      <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">
+                        {c.intimatedAt
+                          ? format(new Date(c.intimatedAt), 'dd MMM yyyy')
+                          : c.createdAt
+                          ? format(new Date(c.createdAt), 'dd MMM yyyy')
+                          : '—'}
+                      </td>
                       <td className="px-5 py-3.5 font-semibold text-gray-800">{client}</td>
                       <td className="px-5 py-3.5 text-gray-600">{compName}</td>
                       <td className="px-5 py-3.5">
@@ -1175,7 +1255,8 @@ function ClaimsReportsTab() {
                           c.status === 'SETTLED' || c.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
                             c.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
                               c.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                                'bg-gray-100 text-gray-700'
+                                c.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                  'bg-gray-100 text-gray-700'
                         )}>
                           {c.status || 'PENDING'}
                         </span>

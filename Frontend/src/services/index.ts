@@ -19,6 +19,7 @@ export const contactsService = {
   addOccupation:     (id: string, body: any)        => api.post(`/contacts/${id}/occupations`, body).then(r => r.data),
   removeOccupation:  (id: string, occId: string)    => api.delete(`/contacts/${id}/occupations/${occId}`).then(r => r.data),
   addRelationship:   (id: string, body: any)        => api.post(`/contacts/${id}/relationships`, body).then(r => r.data),
+  updateRelationship:(id: string, relId: string, body: any) => api.put(`/contacts/${id}/relationships/${relId}`, body).then(r => r.data),
   removeRelationship:(id: string, relId: string)    => api.delete(`/contacts/${id}/relationships/${relId}`).then(r => r.data),
   activity:          (id: string, params?: any)     => api.get(`/contacts/${id}/activity`, { params }).then(r => r.data),
   inviteToPortal:    (id: string)                   => api.post(`/contacts/${id}/invite`).then(r => r.data),

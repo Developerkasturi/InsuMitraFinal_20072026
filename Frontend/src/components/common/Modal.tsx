@@ -12,6 +12,7 @@ interface Props {
   actions?: React.ReactNode;
   heightClass?: string;
   icon?: React.ReactNode;
+  zIndexClass?: string;
 }
 
 const sizeClass: Record<NonNullable<Props['size']>, string> = {
@@ -23,10 +24,10 @@ const sizeClass: Record<NonNullable<Props['size']>, string> = {
   '3xl': 'max-w-6xl',
 };
 
-export default function Modal({ open, onClose, title, subtitle, children, size = 'md', actions, heightClass, icon }: Props) {
+export default function Modal({ open, onClose, title, subtitle, children, size = 'md', actions, heightClass, icon, zIndexClass }: Props) {
   return (
     <Transition show={open} as={Fragment}>
-      <Dialog onClose={onClose} className="relative z-50">
+      <Dialog onClose={onClose} className={`relative ${zIndexClass || 'z-50'}`}>
 
         {/* Backdrop */}
         <Transition.Child

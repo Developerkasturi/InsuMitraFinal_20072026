@@ -100,6 +100,11 @@ export class AddExpenseDto {
 export class ClaimQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  contactId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   page?: number = 1;

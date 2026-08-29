@@ -1716,22 +1716,22 @@ export default function Leads() {
 
           const saveFamilyFlow = async () => {
             try {
-              const famContactRes = await contactsService.create({
-                firstName: famFirst,
-                middleName: fam.middleName || undefined,
-                lastName: famLast,
-                phone: fam.whatsapp || '0000000000',
-                dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
-                declaredMedicalHistory: fam.declaredMedicalHistory || [],
-                notDeclaredMedicalHistory: fam.notDeclaredMedicalHistory || [],
-                medicalHistoryDetails: fam.medicalHistoryDetails || undefined,
-              });
-              const famContactId = famContactRes.id || famContactRes.data?.id;
-
-              await contactsService.addRelationship(contactId!, {
-                relatedContactId: famContactId,
-                relationshipType: fam.relation || 'OTHER',
-              });
+              let targetFamContactId = fam.contactId;
+              if (targetFamContactId) {
+                await contactsService.addRelationship(contactId!, {
+                  relatedContactId: targetFamContactId,
+                  relationshipType: fam.relation || 'OTHER',
+                });
+              } else {
+                const fullFamName = `${famFirst} ${famLast === 'N/A' ? '' : famLast}`.trim();
+                const rawFamPhone = (fam.whatsapp || '').replace(/\D/g, '');
+                await contactsService.addRelationship(contactId!, {
+                  name: fullFamName,
+                  phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
+                  dateOfBirth: fam.dob?.trim() ? fam.dob : undefined,
+                  relationshipType: fam.relation || 'OTHER',
+                });
+              }
             } catch (famErr) {
               console.error('Failed to save family member:', famErr);
             }

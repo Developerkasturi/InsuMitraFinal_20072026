@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Eye, X, User, Shield,
   Heart, TrendingUp, Wallet, BarChart2,
   ChevronDown, Users, Layers, ArrowRight,
-  RotateCcw, SlidersHorizontal, History, ChevronUp, Plus
+  RotateCcw, SlidersHorizontal, History, ChevronUp, Plus, Filter
 } from 'lucide-react';
 import clsx from 'clsx';
 import { sortData } from '../../utils/sortUtils';
@@ -576,16 +576,17 @@ export default function PhcTrackingView() {
   const [policyTypeFilter, setPolicyTypeFilter] = useState('All');
   const [phcStatusFilter, setPhcStatusFilter] = useState('All');
   const [phcYearFilter, setPhcYearFilter] = useState('All');
-  const [fromDate, setFromDate] = useState('01/04/2025');
-  const [toDate, setToDate] = useState('30/06/2025');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [dateFilterType, setDateFilterType] = useState('PHC Year End Date');
   const [companyFilter, setCompanyFilter] = useState('All');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [quickFilter, setQuickFilter] = useState<string | null>('this-quarter');
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [drawerRecord, setDrawerRecord] = useState<PhcPolicyRecord | null>(null);
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const activePhcFilterCount = (policyTypeFilter !== 'All' ? 1 : 0) + (phcStatusFilter !== 'All' ? 1 : 0) + (phcYearFilter !== 'All' ? 1 : 0) + (companyFilter !== 'All' ? 1 : 0) + (fromDate || toDate ? 1 : 0);
 
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -891,11 +892,15 @@ export default function PhcTrackingView() {
 
         {/* Filter Row */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/30">
-          <div className="relative flex-1 min-w-0 max-w-sm">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+          <div className="page-search-wrapper">
+            <Search className="page-search-icon" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="Search by policy no., customer, plan name..."
-              className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-4 py-2 text-xs font-semibold text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" />
+              className="page-search-input"
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 flex-wrap">
@@ -916,32 +921,26 @@ export default function PhcTrackingView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 ml-auto">
-            {/* Export Buttons */}
-            <button
-              type="button"
-              onClick={exportPhcToExcel}
-              className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
-              title="Export to Excel"
-            >
-              <Download size={12} className="text-emerald-600" />
-              <span>Excel</span>
-            </button>
-            <button
-              type="button"
-              onClick={exportPhcToPdf}
-              className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
-              title="Export to PDF"
-            >
-              <FileText size={12} className="text-red-500" />
-              <span>PDF</span>
-            </button>
-            <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setActiveTab('all'); setCurrentPage(1); }}
+            <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setFromDate(''); setToDate(''); setActiveTab('all'); setCurrentPage(1); }}
               className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
               <RotateCcw size={12} /> Reset
             </button>
-            <button type="button" onClick={() => setShowDateFilter(!showDateFilter)}
-              className={clsx("flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold cursor-pointer transition-all border", showDateFilter ? "bg-blue-700 text-white border-blue-700" : "bg-blue-600 text-white border-blue-600")}>
-              <SlidersHorizontal size={12} /> Filter {showDateFilter ? '▲' : '▼'}
+            <button
+              type="button"
+              onClick={() => setShowDateFilter(prev => !prev)}
+              className={clsx(
+                "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white",
+                showDateFilter && "bg-blue-50 border-blue-200 text-blue-600"
+              )}
+              title="Advanced Filters"
+            >
+              <Filter size={14} className={showDateFilter || activePhcFilterCount > 0 ? "text-blue-600" : "text-slate-500"} />
+              <span className="hidden sm:inline">Filters</span>
+              {activePhcFilterCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-black leading-none">
+                  {activePhcFilterCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -949,10 +948,34 @@ export default function PhcTrackingView() {
         {/* ── Collapsible Date Wise Filter ──────────────────────────────────────── */}
         {showDateFilter && (
           <div className="bg-slate-50/50 border-b border-slate-200/80 p-4 space-y-3 animate-fadeIn">
-            <p className="text-xs font-extrabold text-blue-700 flex flex-wrap items-center gap-1.5">
-              <Calendar size={13} className="text-blue-500" />
-              Advanced Date Filter
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-extrabold text-blue-700 flex flex-wrap items-center gap-1.5">
+                <Calendar size={13} className="text-blue-500" />
+                Advanced Filters & Export
+              </p>
+              {/* Export Buttons inside Filter Form */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Export PHC:</span>
+                <button
+                  type="button"
+                  onClick={exportPhcToExcel}
+                  className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+                  title="Export to Excel"
+                >
+                  <Download size={13} className="text-emerald-600" />
+                  <span>Export Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportPhcToPdf}
+                  className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+                  title="Export to PDF"
+                >
+                  <FileText size={13} className="text-red-500" />
+                  <span>Export PDF</span>
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filter By</label>
@@ -1047,10 +1070,12 @@ export default function PhcTrackingView() {
                     <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.policyRecord.customerName}</td>
                     <td className="px-3 py-3 border border-slate-200 whitespace-nowrap"><span className="font-bold text-slate-800 text-[11px]">{r.policyRecord.policyNo}</span></td>
                     <td className="px-3 py-3 border border-slate-200"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.policyRecord.planName}</p></td>
-                    <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.name}</td>
-                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.relationship}</td>
-                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-blue-700 text-[11px]">{fmtCurr(r.utilizedAmount)}</td>
-                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-violet-700 text-[11px]">{r.phcCount}</td>
+                    <td className="px-3 py-3 border border-slate-200 font-extrabold text-slate-900 text-xs whitespace-nowrap">
+                      <span className="hover:text-blue-600 transition-colors">{r.name}</span>
+                    </td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-800 text-xs">{r.relationship}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-slate-900 text-xs">{fmtCurr(r.utilizedAmount)}</td>
+                    <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-slate-900 text-xs">{r.phcCount}</td>
                     <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
                       <button onClick={() => setDrawerRecord(r.policyRecord)} className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 cursor-pointer transition-colors" title="View Policy Details">
                         <Eye size={13} />
@@ -1129,16 +1154,26 @@ export default function PhcTrackingView() {
                       }} />
                   </td>
                   <td className="px-3 py-3 border border-slate-200 text-center font-bold text-slate-500">{(currentPage - 1) * rowsPerPage + idx + 1}</td>
-                  <td className="px-3 py-3 border border-slate-200 font-bold text-slate-900 whitespace-nowrap">{r.customerName}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.customerPhone}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold">{r.companyType}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-700 font-semibold">{r.companyName}</td>
-                  <td className="px-3 py-3 border border-slate-200"><p className="font-semibold text-slate-700 text-[11px] max-w-[130px] truncate">{r.planName}</p></td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-700">{fmtCurr(r.sumInsured)}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
-                    <span className="font-bold text-slate-800 text-[11px]">{r.policyNo}</span>
+                  <td className="px-3 py-3 border border-slate-200">
+                    <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors whitespace-nowrap">
+                      {r.customerName}
+                    </span>
                   </td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 font-semibold text-[11px]">{r.policyEndDate}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-800 text-xs">{r.customerPhone}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-800 border border-slate-200">
+                      {r.companyType}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-slate-900 text-xs">{r.companyName}</td>
+                  <td className="px-3 py-3 border border-slate-200">
+                    <p className="font-extrabold text-blue-900 text-xs max-w-[130px] truncate" title={r.planName}>{r.planName}</p>
+                  </td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-slate-900 text-xs">{fmtCurr(r.sumInsured)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
+                    <span className="font-black text-slate-900 text-xs tracking-tight bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">{r.policyNo}</span>
+                  </td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-800 text-xs">{r.policyEndDate}</td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
                     <span className={clsx('inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold border',
                       r.currentPhcYear.includes('1') ? 'bg-amber-50 text-amber-700 border-amber-200' :
@@ -1147,15 +1182,15 @@ export default function PhcTrackingView() {
                       {r.currentPhcYear.replace(' (Current)', '')} <span className="ml-1 text-[9px] opacity-70">(Current)</span>
                     </span>
                   </td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-slate-600 text-[11px]">{r.phcYearStartDate}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-800 text-xs">{r.phcYearStartDate}</td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap">
-                    <p className="text-slate-700 font-semibold text-[11px]">{r.phcYearEndDate}</p>
+                    <p className="text-slate-800 font-bold text-xs">{r.phcYearEndDate}</p>
                     {r.daysRemaining > 0 && <p className={clsx('text-[10px] font-bold', r.daysRemaining <= 30 ? 'text-rose-500' : 'text-slate-400')}>{r.daysRemaining} Days Remaining</p>}
                   </td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap"><StatusBadge status={r.phcStatus} /></td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-slate-700 text-[11px]">{fmtCurr(r.eligibleAmount)}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-bold text-blue-700 text-[11px]">{fmtCurr(r.utilizedAmount)}</td>
-                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-emerald-700 text-[11px]">{fmtCurr(r.balanceAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-black text-slate-900 text-xs">{fmtCurr(r.eligibleAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-extrabold text-slate-900 text-xs">{fmtCurr(r.utilizedAmount)}</td>
+                  <td className="px-3 py-3 border border-slate-200 whitespace-nowrap font-black text-emerald-700 text-xs">{fmtCurr(r.balanceAmount)}</td>
                   <td className="px-3 py-3 border border-slate-200 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
                     <button onClick={() => setDrawerRecord(r)} className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-600 cursor-pointer transition-colors" title="View PHC Details">
                       <Eye size={13} />

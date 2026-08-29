@@ -194,11 +194,12 @@ export class ContactsService implements OnModuleInit {
     const existing = await this.repo.findOne(tenantId, id);
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
 
-    await this.repo.update(tenantId, id, dto);
+    const targetId = existing.id;
+    await this.repo.update(tenantId, targetId, dto);
 
     // Create/update primary Address if city is provided
     if (dto.city) {
-      await this.repo.addAddress(id, tenantId, {
+      await this.repo.addAddress(targetId, tenantId, {
         type: 'HOME',
         line1: 'N/A',
         city: dto.city,
@@ -215,18 +216,18 @@ export class ContactsService implements OnModuleInit {
         data: {
           tenantId,
           userId:     updatedById,
-          contactId:  id,
+          contactId:  targetId,
           entityType: 'Contact',
-          entityId:   id,
+          entityId:   targetId,
           action:     'UPDATE',
           description: 'Contact profile updated',
         },
       });
     } catch (err: any) {
-      this.logger.warn(`ActivityLog write failed for contact ${id}: ${err.message}`);
+      this.logger.warn(`ActivityLog write failed for contact ${targetId}: ${err.message}`);
     }
 
-    const updated = await this.repo.findOne(tenantId, id);
+    const updated = await this.repo.findOne(tenantId, targetId);
 
     if (dto.assignedEmployeeId && dto.assignedEmployeeId !== existing.assignedEmployeeId) {
       let targetUserId = dto.assignedEmployeeId;
@@ -302,13 +303,185 @@ export class ContactsService implements OnModuleInit {
     if (dto.relatedContactId === contactId) {
       throw new BadRequestException('A contact cannot be related to itself');
     }
-    const rel = await this.repo.addRelationship(contactId, tenantId, dto);
-    return { data: rel, message: 'Relationship added' };
+
+    let relType = (dto.relationshipType || 'OTHER').toUpperCase() as any;
+    const validEnums = ['SELF', 'SPOUSE', 'CHILD', 'SON', 'DAUGHTER', 'PARENT', 'FATHER', 'MOTHER', 'SIBLING', 'BROTHER', 'SISTER', 'IN_LAW', 'OTHER'];
+    if (!validEnums.includes(relType)) {
+      relType = 'OTHER';
+    }
+
+    const primaryContact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId },
+    });
+    if (!primaryContact) {
+      throw new NotFoundException(`Contact ${contactId} not found`);
+    }
+
+    let targetRelatedContactId = dto.relatedContactId;
+
+    if (!targetRelatedContactId) {
+      const rawName = (dto.name || '').trim();
+      const phone = (dto.phone || '').trim();
+
+      const nameParts = rawName.split(' ').filter(Boolean);
+      const firstName = nameParts[0] || 'Family Member';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      let existing: any = null;
+      if (phone && phone !== '0000000000' && !phone.startsWith('00')) {
+        existing = await this.repo.findByPhone(tenantId, phone);
+      }
+
+      if (!existing && rawName) {
+        existing = await this.prisma.contact.findFirst({
+          where: {
+            tenantId,
+            id: { not: contactId },
+            isActive: true,
+            OR: [
+              {
+                firstName: { equals: firstName, mode: 'insensitive' },
+                ...(lastName ? { lastName: { equals: lastName, mode: 'insensitive' } } : {}),
+              },
+              {
+                firstName: { equals: rawName, mode: 'insensitive' },
+              },
+            ],
+          },
+        });
+      }
+
+      if (existing) {
+        targetRelatedContactId = existing.id;
+      } else {
+        let inferredGender: any = undefined;
+        if (dto.gender && ['MALE', 'FEMALE', 'OTHER'].includes(dto.gender.toUpperCase())) {
+          inferredGender = dto.gender.toUpperCase();
+        } else if (['SON', 'FATHER', 'BROTHER'].includes(relType)) {
+          inferredGender = 'MALE';
+        } else if (['DAUGHTER', 'MOTHER', 'SISTER'].includes(relType)) {
+          inferredGender = 'FEMALE';
+        }
+
+        const nextContactId = await this.getNextContactId();
+        const newContact = await this.repo.create(tenantId, {
+          firstName,
+          lastName,
+          phone: phone || `00${Date.now().toString().slice(-8)}`,
+          dateOfBirth: dto.dateOfBirth,
+          gender: inferredGender,
+          isDependent: true,
+          assignedEmployeeId: primaryContact.assignedEmployeeId,
+          contactId: nextContactId,
+        } as any);
+
+        const primaryAddr = await this.prisma.address.findFirst({
+          where: { contactId: primaryContact.id, isPrimary: true },
+        });
+        if (primaryAddr) {
+          await this.repo.addAddress(newContact.id, tenantId, {
+            type: 'HOME',
+            line1: primaryAddr.line1,
+            line2: primaryAddr.line2 || undefined,
+            city: primaryAddr.city,
+            state: primaryAddr.state,
+            pincode: primaryAddr.pincode,
+            country: primaryAddr.country,
+            isPrimary: true,
+          }).catch(err => this.logger.warn(`Failed copying address to family member contact: ${err.message}`));
+        }
+
+        targetRelatedContactId = newContact.id;
+      }
+    }
+
+    if (targetRelatedContactId === contactId) {
+      throw new BadRequestException('A contact cannot be related to itself');
+    }
+
+    const relatedContact = await this.prisma.contact.findFirst({
+      where: { id: targetRelatedContactId, tenantId },
+    });
+    if (!relatedContact) {
+      throw new NotFoundException(`Related contact ${targetRelatedContactId} not found`);
+    }
+
+    const rel = await this.repo.addBidirectionalRelationship(
+      primaryContact,
+      relatedContact,
+      relType,
+    );
+
+    return { data: rel, message: 'Relationship added successfully' };
   }
 
   async removeRelationship(tenantId: string, contactId: string, relationshipId: string) {
     await this.repo.removeRelationship(contactId, relationshipId, tenantId);
     return { data: null, message: 'Relationship removed' };
+  }
+
+  async updateRelationship(
+    tenantId: string,
+    contactId: string,
+    relationshipId: string,
+    dto: CreateRelationshipDto,
+  ) {
+    const primaryContact = await this.prisma.contact.findFirst({
+      where: { id: contactId, tenantId },
+    });
+    if (!primaryContact) {
+      throw new NotFoundException(`Contact ${contactId} not found`);
+    }
+
+    const existingRel = await this.prisma.contactRelationship.findFirst({
+      where: { id: relationshipId, primaryContactId: contactId },
+    });
+    if (!existingRel) {
+      throw new NotFoundException(`Relationship record not found`);
+    }
+
+    const relatedContactId = existingRel.relatedContactId;
+
+    const updateData: any = {};
+    if (dto.name && dto.name.trim()) {
+      const nameParts = dto.name.trim().split(' ').filter(Boolean);
+      if (nameParts[0]) updateData.firstName = nameParts[0];
+      updateData.lastName = nameParts.slice(1).join(' ') || '';
+    }
+    if (dto.phone && dto.phone.trim() && !dto.phone.startsWith('00')) {
+      updateData.phone = dto.phone.trim();
+    }
+    if (dto.dateOfBirth) {
+      updateData.dateOfBirth = new Date(dto.dateOfBirth);
+    }
+    if (dto.gender && ['MALE', 'FEMALE', 'OTHER'].includes(dto.gender.toUpperCase())) {
+      updateData.gender = dto.gender.toUpperCase();
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await this.prisma.contact.update({
+        where: { id: relatedContactId },
+        data: updateData,
+      });
+    }
+
+    const updatedRelatedContact = await this.prisma.contact.findUnique({
+      where: { id: relatedContactId },
+    });
+
+    let relType = (dto.relationshipType || existingRel.relationshipType).toUpperCase() as any;
+    const validEnums = ['SELF', 'SPOUSE', 'CHILD', 'SON', 'DAUGHTER', 'PARENT', 'FATHER', 'MOTHER', 'SIBLING', 'BROTHER', 'SISTER', 'IN_LAW', 'OTHER'];
+    if (!validEnums.includes(relType)) {
+      relType = 'OTHER';
+    }
+
+    const rel = await this.repo.addBidirectionalRelationship(
+      primaryContact,
+      updatedRelatedContact,
+      relType,
+    );
+
+    return { data: rel, message: 'Relationship and contact profile updated successfully' };
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────

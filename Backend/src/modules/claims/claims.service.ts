@@ -21,11 +21,26 @@ export class ClaimsService {
 
   async findAll(tenantId: string, userId: string, role: UserRole, query: ClaimQueryDto) {
     const page  = Math.max(1, parseInt(String((query as any).page  ?? 1), 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
-    const { status, search, claimType, assignedEmployeeId, sortBy, sortOrder } = query as any;
+    const limit = Math.min(1000, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
+    const { status, search, claimType, assignedEmployeeId, contactId, sortBy, sortOrder } = query as any;
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
+    if (contactId) {
+      if (/^[0-9a-fA-F]{24}$/.test(contactId)) {
+        where.contactId = contactId;
+      } else {
+        const targetContact = await this.prisma.contact.findFirst({
+          where: { tenantId, contactId },
+          select: { id: true },
+        });
+        if (targetContact) {
+          where.contactId = targetContact.id;
+        } else {
+          where.contactId = contactId;
+        }
+      }
+    }
     if (role === UserRole.EMPLOYEE) {
       const empProfile = await this.prisma.employeeProfile.findFirst({
         where: { userId, tenantId },

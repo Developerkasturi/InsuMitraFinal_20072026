@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { claimsService, documentsService } from '@api/index';
-import { ArrowLeft, Upload, FileText, Trash2, X, Plus, DollarSign } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, X, Plus, DollarSign, MessageCircle, Download, Eye } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -322,24 +322,92 @@ export default function ClaimDetail() {
                 <Upload size={12} /> Upload
               </button>
             </div>
-            {docList.length === 0 && <p className="text-sm text-gray-400">No documents uploaded.</p>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {docList.map((doc: any) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 group">
-                  <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <FileText size={14} className="text-gray-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm text-gray-900 truncate">{doc.fileName ?? doc.originalName ?? 'Document'}</p>
-                      <p className="text-xs text-gray-400">{doc.tag}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
-                    <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {docList.length === 0 ? (
+              <p className="text-sm text-gray-400">No documents uploaded.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                      <th className="py-2.5 px-3">File Name</th>
+                      <th className="py-2.5 px-3">Document Title</th>
+                      <th className="py-2.5 px-3">Description</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {docList.map((doc: any) => {
+                      const fileName = doc.name || doc.fileName || doc.originalName || 'Document';
+                      const docTitle = doc.title || fileName;
+                      const docTypeLabel = doc.type || doc.tag || 'Claim Doc';
+                      const desc = doc.description || doc.comment || '-';
+                      const phone = cl.proposerPhone || cl.patientPhone || cl.contact?.phone || '';
+                      const waText = `Document Title: ${docTitle}\nType: ${docTypeLabel}`;
+                      const waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(waText)}`;
+
+                      return (
+                        <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-2.5 px-3 font-semibold text-slate-800">
+                            <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
+                              <FileText size={15} className="text-blue-600 shrink-0" />
+                              <span className="truncate" title={fileName}>{fileName}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-slate-700">
+                            <div>
+                              <div className="font-bold text-slate-900">{docTitle}</div>
+                              <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                                {docTypeLabel}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 max-w-[220px]">
+                            <p className="truncate text-xs" title={desc}>{desc}</p>
+                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <a
+                                href={waUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                title="Send on WhatsApp"
+                              >
+                                <MessageCircle size={14} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => viewDoc(doc.id)}
+                                className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                title="Preview Document"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => viewDoc(doc.id)}
+                                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                                title="Download Document"
+                              >
+                                <Download size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteDocTarget(doc)}
+                                className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                                title="Remove Document"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>

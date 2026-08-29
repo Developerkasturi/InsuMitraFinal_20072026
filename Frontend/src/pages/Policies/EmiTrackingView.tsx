@@ -665,6 +665,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
   const [productFilter, setProductFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+  const activeFilterCount = (employeeFilter !== 'All' ? 1 : 0) + (insurerFilter !== 'All' ? 1 : 0) + (productFilter !== 'All' ? 1 : 0);
   const [drawerRecord, setDrawerRecord] = useState<EmiRecord | null>(null);
   const [drawerTab, setDrawerTab] = useState<'overview' | 'schedule' | 'communication' | 'notes'>('overview');
   const [newNoteInput, setNewNoteInput] = useState('');
@@ -1031,8 +1032,8 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
       {/* ── Filter Bar ────────────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
-          {/* Left Side: Search Box */}
-          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          {/* Left Side: Search Box & Status Filter Pills */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <div className="relative w-full sm:w-80 lg:w-64">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1043,60 +1044,93 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all shadow-2xs"
               />
             </div>
+
+            {/* Quick Filters Inline Pills (matching Claims page UI) */}
+            <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto custom-scrollbar py-0.5 min-w-0">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mr-0.5 flex items-center gap-1 shrink-0">
+                <Filter size={13} className="text-blue-500" /> Quick:
+              </span>
+              {[
+                { key: 'All', label: 'All Installments' },
+                { key: 'Due', label: 'Due / Overdue', icon: '⏳' },
+                { key: 'Paid', label: 'Paid', icon: '✅' },
+              ].map(q => {
+                const isSelected = statusFilter === q.key;
+                return (
+                  <button
+                    key={q.key}
+                    type="button"
+                    onClick={() => setStatusFilter(q.key)}
+                    className={clsx(
+                      'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm scale-105'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                    )}
+                  >
+                    {q.icon && <span>{q.icon}</span>}
+                    <span>{q.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
   
-          {/* Right Side: Status Filter Pills + Filter Icon */}
+          {/* Right Side: Filters Toggle Button (Matching Policies UI style) */}
           <div className="flex flex-wrap items-center gap-2.5 justify-end">
-            {/* Export Buttons */}
             <button
               type="button"
-              onClick={exportEmiToExcel}
-              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
-              title="Export to Excel"
+              onClick={() => setShowFilters(prev => !prev)}
+              className={clsx(
+                "p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold bg-white",
+                showFilters && "bg-blue-50 border-blue-200 text-blue-600"
+              )}
+              title="Advanced Filters"
             >
-              <Download size={14} className="text-emerald-600" />
-              <span className="hidden sm:inline">Excel</span>
+              <Filter size={14} className={showFilters || activeFilterCount > 0 ? "text-blue-600" : "text-slate-500"} />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded-full font-black leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
-            <button
-              type="button"
-              onClick={exportEmiToPdf}
-              className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
-              title="Export to PDF"
-            >
-              <FileText size={14} className="text-red-500" />
-              <span className="hidden sm:inline">PDF</span>
-            </button>
-            {/* Status Filter Pills */}
-            <div className="bg-slate-100/80 p-1 rounded-xl flex flex-wrap items-center gap-1 border border-slate-200/50">
-              {['All', 'Due', 'Paid'].map(st => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setStatusFilter(st)}
-                  className={clsx(
-                    'px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap select-none',
-                    statusFilter === st
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
-                  )}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
+          </div>
+      </div>
+
+      {/* Active Filter Badges Bar (Matching Policies Page UI) */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 bg-blue-50/60 p-2.5 rounded-2xl border border-blue-100/90 shadow-2xs animate-fadeIn">
+          <span className="text-[11px] font-extrabold text-blue-800 mr-1 flex items-center gap-1">
+            <Filter size={13} className="text-blue-600" /> Active Filters ({activeFilterCount}):
+          </span>
+          {employeeFilter !== 'All' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-white text-blue-700 border border-blue-200 shadow-2xs">
+              Employee: {employeeFilter}
+              <button type="button" onClick={() => setEmployeeFilter('All')} className="hover:text-red-500 font-bold ml-1 cursor-pointer">×</button>
+            </span>
+          )}
+          {insurerFilter !== 'All' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-white text-blue-700 border border-blue-200 shadow-2xs">
+              Insurer: {insurerFilter}
+              <button type="button" onClick={() => setInsurerFilter('All')} className="hover:text-red-500 font-bold ml-1 cursor-pointer">×</button>
+            </span>
+          )}
+          {productFilter !== 'All' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-white text-blue-700 border border-blue-200 shadow-2xs">
+              Product: {productFilter}
+              <button type="button" onClick={() => setProductFilter('All')} className="hover:text-red-500 font-bold ml-1 cursor-pointer">×</button>
+            </span>
+          )}
           <button
             type="button"
-            onClick={() => setShowFilters(prev => !prev)}
-            title="More Filters"
-            className={clsx(
-              "p-2 rounded-xl border transition-all cursor-pointer",
-              showFilters ? "border-blue-500 bg-blue-50 text-blue-600" : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
-            )}
+            onClick={() => { setEmployeeFilter('All'); setInsurerFilter('All'); setProductFilter('All'); }}
+            className="text-[11px] font-bold text-red-600 hover:underline ml-2 cursor-pointer"
           >
-            <Filter size={14} />
+            Clear All
           </button>
         </div>
-      </div>
+      )}
 
       {/* ── Collapsible Advanced Filter Panel ────────────────────────────────────────── */}
       {showFilters && (
@@ -1142,6 +1176,30 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
               <option value="HDFC Life - Term">HDFC Life - Term</option>
               <option value="Star Comprehensive">Star Comprehensive</option>
             </select>
+          </div>
+
+          <div className="flex flex-col gap-1 min-w-[180px]">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Export Installments</label>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={exportEmiToExcel}
+                className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+                title="Export to Excel"
+              >
+                <Download size={14} className="text-emerald-600" />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={exportEmiToPdf}
+                className="px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 cursor-pointer shadow-2xs transition-all flex items-center gap-1.5 text-xs font-bold"
+                title="Export to PDF"
+              >
+                <FileText size={14} className="text-red-500" />
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-end self-end">
@@ -1236,18 +1294,30 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     <td className="px-4 py-3.5 border border-slate-200" onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedRecords.includes(r.id)} onChange={(e) => handleSelectRecord(e, r.id)} className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                     </td>
-                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-900">{r.customerName}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.customerContactNo}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.insuranceCompanyType}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.insurer}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.product}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 font-semibold text-slate-700">{r.policyNo}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.loanProvider}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.premiumAmount ? fmtCurr(r.premiumAmount) : '-'}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 font-extrabold text-slate-900 whitespace-nowrap">{fmtCurr(r.amount)}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium">{r.installmentFrequency}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800">{r.paidEmis + 1}/{r.totalEmis}</td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 whitespace-nowrap">{r.dueDate}</td>
+                    <td className="px-4 py-3.5 border border-slate-200">
+                      <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+                        {r.customerName}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs whitespace-nowrap">{r.customerContactNo}</td>
+                    <td className="px-4 py-3.5 border border-slate-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-800 border border-slate-200">
+                        {r.insuranceCompanyType}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-extrabold text-slate-900 text-xs">{r.insurer}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-extrabold text-blue-900 text-xs">{r.product}</td>
+                    <td className="px-4 py-3.5 border border-slate-200">
+                      <span className="font-black text-slate-900 text-xs tracking-tight bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
+                        {r.policyNo}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs">{r.loanProvider}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-extrabold text-slate-900 text-xs whitespace-nowrap">{r.premiumAmount ? fmtCurr(r.premiumAmount) : '-'}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-black text-slate-900 text-xs whitespace-nowrap">{fmtCurr(r.amount)}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs">{r.installmentFrequency}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs">{r.paidEmis + 1}/{r.totalEmis}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs whitespace-nowrap">{r.dueDate}</td>
                     <td className="px-4 py-3.5 border border-slate-200">
                       <span
                         className={clsx(
@@ -1264,7 +1334,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                         {r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 border border-slate-200 text-slate-600 font-medium whitespace-nowrap">{r.employee}</td>
+                    <td className="px-4 py-3.5 border border-slate-200 font-bold text-slate-800 text-xs whitespace-nowrap">{r.employee}</td>
                     
                     <td className="px-4 py-3.5 border border-slate-200 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <button

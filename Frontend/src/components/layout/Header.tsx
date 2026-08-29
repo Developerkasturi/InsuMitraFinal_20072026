@@ -63,39 +63,44 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
   };
 
   return (
-    <header className="h-16 bg-white/75 backdrop-blur-md flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0 transition-all duration-200"
+    <header className="h-16 bg-white/80 backdrop-blur-md flex items-center px-3 sm:px-6 gap-2 sm:gap-4 sticky top-0 z-20 shrink-0 transition-all duration-200"
       style={{ borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
 
       {/* Hamburger Menu (Mobile) */}
       <button 
-        className="md:hidden p-1.5 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+        className="md:hidden p-1.5 -ml-1 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
         onClick={() => setMobileOpen(true)}
+        aria-label="Open Navigation"
       >
         <Menu size={20} />
       </button>
 
-      {/* Page title / breadcrumb */}
+      {/* Page title / breadcrumb (Mobile Responsive) */}
       {title && (
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0 hidden sm:flex">
-          <span className="text-xs font-semibold tracking-wide uppercase text-slate-400/85">Insumitra</span>
-          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 max-w-[140px] sm:max-w-none">
+          <span className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase text-slate-400 hidden sm:inline">
+            Insumitra
+          </span>
+          <svg width="8" height="8" viewBox="0 0 12 12" fill="none" className="shrink-0 opacity-60 hidden sm:inline">
             <path d="M4.5 3L7.5 6L4.5 9" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <h1 className="text-sm font-bold text-slate-800 tracking-tight">{title}</h1>
+          <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight truncate">
+            {title}
+          </h1>
         </div>
       )}
 
       {/* Divider */}
-      {title && <div className="h-5 w-px bg-slate-100 shrink-0" />}
+      {title && <div className="h-5 w-px bg-slate-200/80 shrink-0 hidden sm:block" />}
 
       {/* Global search */}
       {true && (
-        <div className="relative flex-1 max-w-[420px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors group-focus-within:text-blue-500" />
+        <div className="relative flex-1 max-w-[420px] min-w-0">
+          <Search size={14} className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-colors group-focus-within:text-blue-500" />
           <input
-            className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-100 rounded-xl
+            className="w-full pl-8 sm:pl-9 pr-3 sm:pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200/70 rounded-xl
                        placeholder-slate-400 outline-none transition-all duration-300
-                       hover:bg-slate-100/70 hover:border-slate-200
+                       hover:bg-slate-100/70 hover:border-slate-300
                        focus:bg-white focus:border-blue-500/70 focus:ring-4 focus:ring-blue-500/5 focus:shadow-[0_0_15px_rgba(59,130,246,0.06)]"
             placeholder="Search contacts, policies, claims…"
             value={query}
@@ -106,7 +111,7 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
 
           {/* Search dropdown */}
           {showSearch && query.trim().length >= 2 && (
-            <div className="absolute top-full mt-2.5 w-full min-w-[420px] bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
+            <div className="absolute top-full mt-2 w-[calc(100vw-24px)] sm:w-full min-w-[280px] sm:min-w-[420px] max-w-[440px] -left-8 sm:left-0 bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
               {isSearchLoading ? (
                 <div className="p-5 flex flex-col items-center gap-2">
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
