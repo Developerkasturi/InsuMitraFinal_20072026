@@ -51,7 +51,7 @@ export default function ClientProfile() {
   const agency = profile.tenant;
   const advisor = profile.createdByUser;
 
-  const agencyName = agency?.name || 'InsuMitra Agency';
+  const agencyName = agency?.name || 'Sampada Investment Solutions';
   const agentName = advisor ? `${advisor.firstName} ${advisor.lastName}` : (agency?.name ? `${agency.name} Support` : 'Personal Advisor');
   const agentPhone = advisor?.phone || agency?.phone || '+91 98765 43210';
   const agentEmail = advisor?.email || agency?.email || 'support@agency.com';

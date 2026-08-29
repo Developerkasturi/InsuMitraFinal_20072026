@@ -91,7 +91,7 @@ export default function ClientDashboard() {
             {agencyName}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Welcome, {profile?.firstName || user?.firstName || 'Valued Client'} {profile?.lastName || user?.lastName || ''}
+            Welcome, {profile?.firstName || user?.firstName || 'Valued Member'} {profile?.lastName || user?.lastName || ''}
           </h2>
           <p className="text-white/80 text-xs sm:text-sm mt-1.5 font-medium leading-relaxed">
             {tagline}

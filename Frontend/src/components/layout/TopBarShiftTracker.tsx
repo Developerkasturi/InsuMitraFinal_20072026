@@ -77,11 +77,11 @@ export default function TopBarShiftTracker() {
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 select-none">
-      {/* ── Main Shift Tracking Cluster ── */}
+      {/* ── Main Shift Tracking Cluster (Responsive) ── */}
       <div className="flex items-center bg-slate-50/90 border border-slate-200/90 rounded-2xl p-1 shadow-2xs">
         
         {/* 1. Time since login */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Time elapsed since check-in">
+        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Time elapsed since check-in">
           <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
           <div className="flex flex-col leading-none">
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -93,10 +93,10 @@ export default function TopBarShiftTracker() {
           </div>
         </div>
 
-        <div className="h-6 w-px bg-slate-200 mx-0.5" />
+        <div className="h-6 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
-        {/* 2. Working time */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Active productive working duration">
+        {/* 2. Working time (Always Visible) */}
+        <div className="flex items-center gap-1.5 px-1.5 sm:px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Active productive working duration">
           <Zap className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
           <div className="flex flex-col leading-none">
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 font-bold">
@@ -108,12 +108,12 @@ export default function TopBarShiftTracker() {
           </div>
         </div>
 
-        <div className="h-6 w-px bg-slate-200 mx-0.5" />
+        <div className="h-6 w-px bg-slate-200 mx-0.5 hidden md:block" />
 
         {/* 3. Break time (Interactive Toggle) */}
         <div 
           onClick={handleToggleBreak}
-          className={`flex items-center gap-1.5 px-2 py-1 rounded-xl cursor-pointer transition-all ${
+          className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded-xl cursor-pointer transition-all ${
             isOnBreak 
               ? 'bg-amber-100/90 border border-amber-300 text-amber-900 shadow-2xs' 
               : 'hover:bg-white text-slate-700'
@@ -134,7 +134,7 @@ export default function TopBarShiftTracker() {
         <div className="h-6 w-px bg-slate-200 mx-0.5 hidden md:block" />
 
         {/* 4. Unaccounted time */}
-        <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Buffer & unaccounted idle duration">
+        <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-white transition-colors" title="Buffer & unaccounted idle duration">
           <HelpCircle className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <div className="flex flex-col leading-none">
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -147,13 +147,13 @@ export default function TopBarShiftTracker() {
         </div>
 
         {/* 5. Clock In / Logout Action Button */}
-        <div className="pl-1">
+        <div className="pl-0.5 sm:pl-1">
           {!activeDailyLog?.checkIn ? (
             <button
               type="button"
               onClick={handleClockIn}
               disabled={clockInMutation.isPending}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               title="Start daily shift & clock in"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
