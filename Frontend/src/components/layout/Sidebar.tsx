@@ -14,15 +14,15 @@ import UpgradePromptModal from './UpgradePromptModal';
 import clsx from 'clsx';
 
 const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[]; feature?: string }[] = [
+  { to: '/client/dashboard', label: 'Contact Portal',         Icon: User,            roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'] },
   { to: '/dashboard',        label: 'Dashboard',             Icon: LayoutDashboard, roles: ['OWNER', 'SUPERADMIN'], feature: 'dashboard' },
   { to: '/workspace',        label: 'Workspace',             Icon: Briefcase,       roles: ['EMPLOYEE', 'OWNER', 'SUPERADMIN'], feature: 'workspace' },
-  { to: '/client/dashboard', label: 'Contact Portal',         Icon: User,            roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'] },
-  { to: '/contacts',         label: 'Contacts',              Icon: Users,           feature: 'contacts' },
-  { to: '/leads',            label: 'Leads',                 Icon: TrendingUp,      feature: 'leads' },
-  { to: '/policies',         label: 'Policies',              Icon: Shield,          feature: 'policies' },
-  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard,      feature: 'policies' },
-  { to: '/claims',           label: 'Claims',                Icon: FileText,        feature: 'claims' },
-  { to: '/calendar',         label: 'Calendar',              Icon: Calendar,        feature: 'calendar' },
+  { to: '/contacts',         label: 'Contacts',              Icon: Users,           roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'contacts' },
+  { to: '/leads',            label: 'Leads',                 Icon: TrendingUp,      roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'leads' },
+  { to: '/policies',         label: 'Policies',              Icon: Shield,          roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'policies' },
+  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'policies' },
+  { to: '/claims',           label: 'Claims',                Icon: FileText,        roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'claims' },
+  { to: '/calendar',         label: 'Calendar',              Icon: Calendar,        roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'calendar' },
   { to: '/whatsapp',         label: 'WhatsApp',              Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
   { to: '/operations',       label: 'Operations',            Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
   { to: '/commissions',      label: 'Commissions',           Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
@@ -31,8 +31,8 @@ const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[
   { to: '/firm-profile',     label: 'Firm Profile',          Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
 
-const OVERVIEW_ROUTES = ['/dashboard', '/workspace', '/client/dashboard'];
-const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/claims', '/calendar', '/whatsapp', '/operations'];
+const OVERVIEW_ROUTES = ['/client/dashboard', '/dashboard', '/workspace'];
+const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/policies?tab=emi', '/claims', '/calendar', '/whatsapp', '/operations'];
 const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
@@ -144,14 +144,73 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
     queryKey: ['subscription', 'current'],
     queryFn:  subscriptionsService.current,
     staleTime: 5 * 60_000,
-    enabled:  !!user,
+    enabled:  !!user && user.role !== 'CONTACT',
   });
 
   const planName = subRes?.data?.plan?.name || 'Free';
 
-  const isFeatureEnabled = (_feature?: string) => true;
+  const isFeatureEnabled = (feature?: string) => {
+    if (!feature) return true;
+    if (user?.role === 'SUPERADMIN') return true;
 
-  const visibleByRole = (_item: typeof NAV[0]) => true;
+    const freeFeatures = ['contacts', 'policies', 'claims', 'calendar', 'workspace'];
+    if (freeFeatures.includes(feature)) return true;
+
+    const starterFeatures = [...freeFeatures, 'dashboard', 'leads', 'documents', 'operations'];
+    if (planName === 'Starter') {
+      return starterFeatures.includes(feature);
+    }
+
+    const growthFeatures = [...starterFeatures, 'employees', 'commissions', 'branding'];
+    if (planName === 'Growth') {
+      return growthFeatures.includes(feature);
+    }
+
+    if (planName === 'Enterprise' || planName === 'Business') {
+      return true;
+    }
+
+    return false;
+  };
+
+  const visibleByRole = (item: typeof NAV[0]) => {
+    if (!user) return false;
+    const role = user.role;
+
+    if (role === 'SUPERADMIN' || role === 'OWNER') {
+      return true;
+    }
+
+    if (role === 'EMPLOYEE') {
+      const perms: string[] = (user as any)?.permissions || [];
+
+      // Special permission grants for employees
+      if (item.to.startsWith('/employees')) {
+        return perms.includes('manage_employees') || perms.includes('view_employees');
+      }
+      if (item.to.startsWith('/whatsapp')) {
+        return perms.includes('manage_whatsapp');
+      }
+
+      // Explicitly disallowed for standard employee
+      if (['/dashboard', '/commissions', '/subscription', '/firm-profile', '/operations'].includes(item.to)) {
+        return false;
+      }
+
+      // If item has roles array, ensure EMPLOYEE is included
+      if (item.roles && !item.roles.includes('EMPLOYEE')) {
+        return false;
+      }
+
+      return true;
+    }
+
+    if (role === 'CONTACT') {
+      return item.to.startsWith('/client');
+    }
+
+    return false;
+  };
 
   const overviewItems = NAV.filter(i => OVERVIEW_ROUTES.includes(i.to) && visibleByRole(i));
   const opsItems      = NAV.filter(i => OPS_ROUTES.includes(i.to)      && visibleByRole(i));

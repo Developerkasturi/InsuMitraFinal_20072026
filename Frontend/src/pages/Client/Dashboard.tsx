@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { clientService } from '@api/client.service';
+import { bannersService } from '@api/index';
 import { useClientStore } from '@store/client.store';
+import { useAuthStore } from '@store/auth.store';
 import { 
   Shield, AlertCircle, FileText, Calendar, 
-  Phone, MessageSquare, Mail, User, ArrowRight, CheckCircle2 
+  Phone, MessageSquare, Mail, User, ArrowRight, CheckCircle2,
+  Sparkles, ExternalLink
 } from 'lucide-react';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -22,7 +25,9 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ClientDashboard() {
-  const user = useClientStore(s => s.user);
+  const clientUser = useClientStore(s => s.user);
+  const authUser = useAuthStore(s => s.user);
+  const user = clientUser || authUser;
 
   const { data: policiesData } = useQuery({
     queryKey: ['client-policies'],
@@ -39,6 +44,12 @@ export default function ClientDashboard() {
     queryFn:  clientService.getMe,
   });
 
+  const { data: bannersRes } = useQuery({
+    queryKey: ['banners'],
+    queryFn: () => bannersService.findAll().catch(() => ({ data: [] })),
+    staleTime: 5 * 60_000,
+  });
+
   const rawPolicies = policiesData?.data;
   const rawClaims   = claimsData?.data;
   const rawProfile  = profileData?.data;
@@ -51,8 +62,14 @@ export default function ClientDashboard() {
 
   const agencyName = tenant?.name || 'Sampada Investment Solutions';
   const tagline = tenant?.tagline || 'Your Trusted Insurance & Financial Protection Partner';
-  const primaryColor = tenant?.primaryColor || '#2563eb';
-  const banners = tenant?.banners || [];
+  const primaryColor = tenant?.primaryColor || '#0f766e';
+  
+  const liveBanners = bannersRes?.data;
+  const banners = (liveBanners && liveBanners.length > 0)
+    ? liveBanners
+    : (tenant?.banners && tenant.banners.length > 0)
+      ? tenant.banners
+      : (FALLBACK_CLIENT_PROFILE.tenant.banners || []);
 
   const activePolicies = policies.filter((p: any) => p.status === 'ACTIVE');
   const pendingClaims  = claims.filter((c: any) => ['INTIMATED', 'FILED', 'IN_REVIEW', 'DOC_COLLECTION'].includes(c.status));
@@ -103,7 +120,7 @@ export default function ClientDashboard() {
               to="/client/policies"
               className="px-4 py-2 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
             >
-              <FileText size={14} className="text-blue-600" /> View In-Force Policies
+              <FileText size={14} className="text-teal-600" /> View In-Force Policies
             </Link>
             <Link
               to="/client/claims"
@@ -115,33 +132,60 @@ export default function ClientDashboard() {
         </div>
       </div>
 
-      {/* 2. Marketing Banners from Firm Profile (if available) */}
+      {/* 2. Company Advertisement & Promotional Banners */}
       {banners.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {banners.map((b: any) => (
-            <div 
-              key={b.id}
-              className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
-            >
-              {b.imageUrl && (
-                <img 
-                  src={b.imageUrl} 
-                  alt={b.title} 
-                  className="w-20 h-20 rounded-xl object-cover shrink-0" 
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                  Special Announcement
-                </span>
-                <h4 className="font-bold text-slate-900 text-sm mt-1 truncate">{b.title}</h4>
-                {b.description && (
-                  <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{b.description}</p>
-                )}
-              </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-500" />
+              <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                Featured Insurance Offers &amp; Updates
+              </h3>
             </div>
-          ))}
+            <span className="text-[11px] font-bold text-slate-400">
+              Verified by {agencyName}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {banners.map((b: any) => (
+              <div 
+                key={b.id}
+                className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex items-center gap-4 hover:shadow-md hover:border-teal-300/80 transition-all group relative overflow-hidden"
+              >
+                {b.imageUrl && (
+                  <img 
+                    src={b.imageUrl} 
+                    alt={b.title} 
+                    className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shrink-0 shadow-xs border border-slate-100 group-hover:scale-105 transition-transform duration-300" 
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9.5px] font-extrabold uppercase text-teal-700 bg-teal-50 border border-teal-200/60 px-2 py-0.5 rounded-full inline-block">
+                    {b.tag || 'Special Announcement'}
+                  </span>
+                  <h4 className="font-bold text-slate-900 text-sm mt-1 group-hover:text-teal-700 transition-colors line-clamp-1">
+                    {b.title}
+                  </h4>
+                  {b.description && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                      {b.description}
+                    </p>
+                  )}
+                  {b.actionUrl && (
+                    <Link
+                      to={b.actionUrl}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 hover:text-teal-800 mt-2 hover:underline"
+                    >
+                      <span>{b.actionLabel || 'Learn More'}</span>
+                      <ArrowRight size={12} />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

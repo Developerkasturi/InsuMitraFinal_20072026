@@ -27,91 +27,95 @@ export default function ClientLayout() {
 
   const profile = profileData?.data || FALLBACK_CLIENT_PROFILE;
   const tenant = profile?.tenant;
-  const agencyName = tenant?.name || 'Sampada Investment Solutions';
+  const agencyName = tenant?.name || 'InsuMitra Agency';
   const logoUrl = tenant?.logoUrl;
-  const primaryColor = tenant?.primaryColor || '#2563eb';
+  const primaryColor = tenant?.primaryColor || '#0f766e';
+
+  const crmReturnPath = crmUser?.role === 'EMPLOYEE' ? '/workspace' : '/dashboard';
 
   const handleLogout = () => {
+    if (crmUser) {
+      navigate(crmReturnPath);
+      return;
+    }
     if (clientLogout) clientLogout();
-    navigate(crmUser ? '/dashboard' : '/client/login', { replace: true });
+    useAuthStore.getState().logout();
+    navigate('/login', { replace: true });
   };
+
+  const displayName = crmUser
+    ? `${crmUser.firstName || ''} ${crmUser.lastName || ''}`.trim() || (crmUser.role === 'OWNER' ? 'Agency Owner' : 'Employee')
+    : `${clientUser?.firstName || profile?.firstName || 'Contact'} ${clientUser?.lastName || profile?.lastName || ''}`.trim();
 
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col">
-      {/* Top nav */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 transition-all duration-200">
-        <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
-          <div className="flex flex-wrap items-center gap-2.5">
+      {/* Top nav — Single clean line */}
+      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 transition-all duration-200 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-6 flex-nowrap">
+          
+          {/* Left: Agency Logo & Name */}
+          <div className="flex items-center gap-2.5 shrink-0">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={agencyName}
-                className="w-9 h-9 rounded-xl object-contain bg-white shadow-xs border border-slate-100 p-0.5"
+                className="w-9 h-9 rounded-xl object-contain bg-white shadow-xs border border-slate-100 p-0.5 shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             ) : (
               <div 
-                className="p-1.5 text-white rounded-lg shadow-xs"
+                className="p-1.5 text-white rounded-lg shadow-xs shrink-0"
                 style={{ backgroundColor: primaryColor }}
               >
                 <Shield size={18} strokeWidth={2.5} />
               </div>
             )}
-            <div className="flex flex-col leading-none">
-              <span className="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight truncate max-w-[200px] sm:max-w-xs">
+            <div className="flex flex-col leading-none shrink-0">
+              <span className="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight whitespace-nowrap">
                 {agencyName}
               </span>
-              <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mt-0.5">
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase mt-0.5 whitespace-nowrap">
                 Contact Portal
               </span>
             </div>
           </div>
 
-          <nav className="hidden sm:flex flex-wrap items-center gap-1.5">
-            {NAV.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all duration-250 border ${
-                    isActive
-                      ? 'bg-blue-50/80 text-blue-600 border-blue-100/60 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-50'
-                  }`
-                }
-              >
-                <Icon size={14} strokeWidth={2.25} />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+          {/* Right: Overview, Policies, Claims, Profile & Advisor, Exit Portal in a SINGLE line */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap">
+            <nav className="hidden md:flex items-center gap-1 sm:gap-1.5 flex-nowrap">
+              {NAV.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200 border ${
+                      isActive
+                        ? 'bg-blue-50/90 text-blue-600 border-blue-200/70 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 border-transparent hover:bg-slate-100/70'
+                    }`
+                  }
+                >
+                  <Icon size={14} strokeWidth={2.25} className="shrink-0" />
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </nav>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {crmUser && (
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 py-1.5 px-3 rounded-xl border border-blue-200 transition-colors cursor-pointer"
-                title="Return to CRM Admin / Workspace"
-              >
-                <ArrowLeft size={13} /> Return to CRM
-              </button>
-            )}
+            <div className="h-5 w-px bg-slate-200/80 mx-1 hidden md:block shrink-0" />
 
-            <span className="text-xs font-bold text-slate-700 hidden sm:block bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-              {clientUser?.firstName || crmUser?.firstName || profile?.firstName || 'Contact'} {clientUser?.lastName || crmUser?.lastName || profile?.lastName || ''}
-            </span>
             <button
               onClick={handleLogout}
-              className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors py-1.5 px-2.5 rounded-lg hover:bg-red-50/50 cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-slate-200/80 hover:border-rose-200 transition-all duration-200 shrink-0 whitespace-nowrap cursor-pointer"
+              title={crmUser ? 'Exit Portal back to CRM' : 'Logout from Contact Portal'}
             >
-              <LogOut size={14} strokeWidth={2} />
-              <span className="hidden sm:block">{crmUser ? 'Exit Portal' : 'Logout'}</span>
+              <LogOut size={14} strokeWidth={2.25} />
+              <span>Exit Portal</span>
             </button>
           </div>
         </div>
 
         {/* Mobile Sub-Nav */}
-        <nav className="sm:hidden flex border-t border-slate-100 bg-white/95 backdrop-blur-md">
+        <nav className="md:hidden flex border-t border-slate-100 bg-white/95 backdrop-blur-md">
           {NAV.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -134,7 +138,7 @@ export default function ClientLayout() {
       </header>
 
       {/* Page content */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
         <Outlet />
       </main>
 
