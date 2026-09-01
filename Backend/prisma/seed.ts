@@ -248,6 +248,44 @@ await prisma.employeeProfile.upsert({
     },
   }).catch(() => { /* already exists */ });
 
+  // ── Demo Contact (CONTACT role — for client portal login) ─────────────────
+  const contactHash = await bcrypt.hash('Client@1234!', SALT);
+
+  // First create/upsert the contact record
+  const demoContact = await prisma.contact.upsert({
+    where: { tenantId_email: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' } },
+    update: {},
+    create: {
+      tenantId:    demoTenant.id,
+      firstName:   'Rajesh',
+      lastName:    'Verma',
+      email:       'contact@demo-agency.com',
+      phone:       '+919823044556',
+      gender:      'MALE',
+      createdById: owner.id,
+    },
+  });
+
+  // Then create/upsert the User with CONTACT role linked to the contact
+  const contactUser = await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' } },
+    update: { passwordHash: contactHash },
+    create: {
+      tenantId:     demoTenant.id,
+      email:        'contact@demo-agency.com',
+      passwordHash: contactHash,
+      role:         UserRole.CONTACT,
+      isActive:     true,
+    },
+  });
+
+  // Link the contact record to the user account
+  await prisma.contact.update({
+    where: { id: demoContact.id },
+    data:  { userId: contactUser.id },
+  });
+
+
   // ── 5. Insurance Companies ────────────────────────────────────────────────
   const lifeInsurer = await prisma.insuranceCompany.upsert({
     where:  { tenantId_shortCode: { shortCode: 'LIC', tenantId: demoTenant.id } },
@@ -342,6 +380,8 @@ await prisma.employeeProfile.upsert({
   console.log('  Super Admin : insumitra@gmail.com       / insumitra@123');
   console.log('  Owner       : owner@demo-agency.com    / Owner@1234!');
   console.log('  Employee    : employee@demo-agency.com / Employee@1234!');
+  console.log('  Contact     : contact@demo-agency.com  / Client@1234!');
+
 }
 
 main()
