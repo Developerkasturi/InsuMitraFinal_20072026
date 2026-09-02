@@ -31,6 +31,7 @@ const formatPreview = (dateStr?: string) => {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import clsx from 'clsx';
+import { getPolicyStatusDisplay } from '../../utils/policyStatusUtils';
 
 
 interface Policy {
@@ -55,10 +56,14 @@ interface Policy {
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: 'badge-green',
-  EXPIRED: 'badge-gray',
+  INFORCE: 'badge-green',
+  RENEWAL_DUE: 'badge-yellow',
+  GRACE_PERIOD: 'badge-orange',
   LAPSED: 'badge-red',
+  EXPIRED: 'badge-gray',
   CANCELLED: 'badge-red',
   PENDING: 'badge-yellow',
+  INACTIVE_OLD: 'badge-gray',
 };
 
 export const policyFormSchema = z.object({
@@ -488,6 +493,7 @@ export default function Policies() {
     customerCategory: true,
     policyType: true,
     policyNumber: true,
+    status: true,
     sumAssured: true,
     policyTenure: true,
     policyTerm: true,
@@ -530,7 +536,7 @@ export default function Policies() {
       p.sumAssured ?? '',
       p.startDate ? new Date(p.startDate).toLocaleDateString() : '',
       p.endDate ? new Date(p.endDate).toLocaleDateString() : '',
-      p.isActive ? 'Active' : 'Inactive'
+      `"${getPolicyStatusDisplay(p).label.replace(/"/g, '""')}"`
     ].join(',')).join('\n');
     
     const content = headers.join(',') + '\n' + rows;
@@ -551,7 +557,9 @@ export default function Policies() {
       return;
     }
     
-    const rowsHtml = sortedPolicies.map((p: any) => `
+    const rowsHtml = sortedPolicies.map((p: any) => {
+      const stDisplay = getPolicyStatusDisplay(p);
+      return `
       <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
         <td style="padding: 8px;">${((p.contact?.firstName || '') + ' ' + (p.contact?.lastName || '')).trim() || 'N/A'}</td>
         <td style="padding: 8px; font-weight: 600;">${p.policyNumber || 'N/A'}</td>
@@ -561,9 +569,10 @@ export default function Policies() {
         <td style="padding: 8px; text-align: right;">₹${p.premiumAmount?.toLocaleString() || 0}</td>
         <td style="padding: 8px; text-align: right;">₹${p.sumAssured?.toLocaleString() || 0}</td>
         <td style="padding: 8px; text-align: center;">${p.startDate ? new Date(p.startDate).toLocaleDateString() : 'N/A'}</td>
-        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; background: ${p.isActive ? '#def7ec; color: #03543f;' : '#fde8e8; color: #9b1c1c;'} font-size: 10px; font-weight: bold;">${p.isActive ? 'Active' : 'Inactive'}</span></td>
+        <td style="padding: 8px; text-align: center;"><span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;" class="${stDisplay.badgeClass}">${stDisplay.label}</span></td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     printWindow.document.write(`
       <html>
@@ -1442,6 +1451,19 @@ export default function Policies() {
         label: 'Policy Number',
         sortable: true,
         render: r => <span className="font-black text-slate-900 text-xs tracking-tight bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">{r.policyNumber || '—'}</span>
+      },
+      {
+        key: 'status',
+        label: 'Policy Status',
+        sortable: true,
+        render: r => {
+          const { label, badgeClass } = getPolicyStatusDisplay(r);
+          return (
+            <span className={clsx('inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wide border', badgeClass)}>
+              {label}
+            </span>
+          );
+        }
       },
       {
         key: 'sumAssured',

@@ -5,10 +5,11 @@ import { insuranceService, contactsService, leadsService, policiesService, claim
 import {
   Plus, Pencil, Trash2, Building2, Shield, ChevronDown, ChevronRight,
   Download, Filter, FileText, Users, TrendingUp, Briefcase, Type, X, ShieldCheck,
-  ArrowLeft, Search, Check, Lock, Calendar, Star
+  ArrowLeft, Search, Check, Lock, Calendar, Star, Layers
 } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import SettingsPanel from './SettingsPanel';
+import PolicyScenariosTab from './PolicyScenariosTab';
 import DeletionRequests from '../DeletionRequests';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -564,15 +565,15 @@ export default function Insurance() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
 
-  const [activeTab, setActiveTab]         = useState<'companies' | 'export' | 'display' | 'settings' | 'delete_requests'>(
-    (tabParam === 'settings' || tabParam === 'export' || tabParam === 'display' || tabParam === 'delete_requests') ? tabParam : 'companies'
+  const [activeTab, setActiveTab]         = useState<'companies' | 'scenarios' | 'export' | 'display' | 'settings' | 'delete_requests'>(
+    (tabParam === 'scenarios' || tabParam === 'settings' || tabParam === 'export' || tabParam === 'display' || tabParam === 'delete_requests') ? tabParam : 'companies'
   );
 
   const [settingsSubTab, setSettingsSubTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit'>('dashboard');
   const [currentView, setCurrentView] = useState<'dashboard' | 'companies' | 'plans' | 'riders' | 'agents' | 'resources' | 'filters' | 'add_hospital' | 'add_doctor' | 'search_settings' | 'mapping'>('dashboard');
 
   useEffect(() => {
-    if (tabParam && tabParam !== activeTab && ['companies', 'settings', 'export', 'display', 'delete_requests'].includes(tabParam)) {
+    if (tabParam && tabParam !== activeTab && ['companies', 'scenarios', 'settings', 'export', 'display', 'delete_requests'].includes(tabParam)) {
       setActiveTab(tabParam as any);
     }
   }, [tabParam]);
@@ -1006,6 +1007,7 @@ export default function Insurance() {
 
   const TABS = [
     { id: 'companies', label: 'Insurance Companies & Plans', icon: Building2 },
+    { id: 'scenarios', label: 'Policy Scenarios', icon: Layers },
     { id: 'settings',  label: 'Master Settings & Backups',   icon: ShieldCheck },
     { id: 'export',    label: 'Bulk Data Export',            icon: Download },
     { id: 'display',   label: 'Font Size',                   icon: Type },
@@ -1022,7 +1024,7 @@ export default function Insurance() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all -mb-px
                 ${activeTab === tab.id
                   ? 'border-primary-600 text-primary-700'
@@ -1035,6 +1037,9 @@ export default function Insurance() {
           );
         })}
       </div>
+
+      {/* ── Tab: Policy Scenarios ─────────────────────────────────────────────── */}
+      {activeTab === 'scenarios' && <PolicyScenariosTab />}
 
       {/* ── Tab: Insurance Companies ─────────────────────────────────────────── */}
       {activeTab === 'companies' && (

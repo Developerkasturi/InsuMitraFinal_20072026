@@ -273,8 +273,32 @@ await prisma.employeeProfile.upsert({
     },
   });
 
+  const hdfcErgo = await prisma.insuranceCompany.upsert({
+    where:  { tenantId_shortCode: { shortCode: 'HDFC-ERGO', tenantId: demoTenant.id } },
+    update: {},
+    create: {
+      tenantId:    demoTenant.id,
+      name:        'HDFC ERGO General Insurance',
+      shortCode:   'HDFC-ERGO',
+      website:     'https://hdfcergo.com',
+      isActive:    true,
+    },
+  });
+
+  const hdfcLife = await prisma.insuranceCompany.upsert({
+    where:  { tenantId_shortCode: { shortCode: 'HDFC-LIFE', tenantId: demoTenant.id } },
+    update: {},
+    create: {
+      tenantId:    demoTenant.id,
+      name:        'HDFC Life Insurance',
+      shortCode:   'HDFC-LIFE',
+      website:     'https://hdfclife.com',
+      isActive:    true,
+    },
+  });
+
   // ── 6. Insurance Plans ────────────────────────────────────────────────────
-  await prisma.insurancePlan.upsert({
+  const jeevanAnandPlan = await prisma.insurancePlan.upsert({
     where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'LIC-JEEVAN-ANAND', companyId: lifeInsurer.id } },
     update: {},
     create: {
@@ -287,7 +311,7 @@ await prisma.employeeProfile.upsert({
     },
   });
 
-  await prisma.insurancePlan.upsert({
+  const familyHealthPlan = await prisma.insurancePlan.upsert({
     where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'STARHEALTH-FAMILY', companyId: generalInsurer.id } },
     update: {},
     create: {
@@ -297,6 +321,123 @@ await prisma.employeeProfile.upsert({
       planCode:   'STARHEALTH-FAMILY',
       category:   'HEALTH',
       isActive:   true,
+    },
+  });
+
+  const osPlusPlan = await prisma.insurancePlan.upsert({
+    where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'HDFC-OS-PLUS', companyId: hdfcErgo.id } },
+    update: {},
+    create: {
+      tenantId:   demoTenant.id,
+      companyId:  hdfcErgo.id,
+      name:       'Optima Secure (OS+)',
+      planCode:   'HDFC-OS-PLUS',
+      category:   'HEALTH',
+      isActive:   true,
+    },
+  });
+
+  const click2ProtectPlan = await prisma.insurancePlan.upsert({
+    where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'HDFC-C2P-3D', companyId: hdfcLife.id } },
+    update: {},
+    create: {
+      tenantId:   demoTenant.id,
+      companyId:  hdfcLife.id,
+      name:       'Click 2 Protect Plus',
+      planCode:   'HDFC-C2P-3D',
+      category:   'TERM',
+      isActive:   true,
+    },
+  });
+
+  // ── 6.1 Policy Scenarios ──────────────────────────────────────────────────
+  // Health - Fresh (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'FRESH', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'FRESH',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr', '4 Yr', '5 Yr'],
+      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Health - Port (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'PORT', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'PORT',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Health - Renewal (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'RENEWAL', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'RENEWAL',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Term - Fresh (HDFC Life C2P)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'TERM', businessType: 'FRESH', companyId: hdfcLife.id, planId: click2ProtectPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'TERM',
+      businessType: 'FRESH',
+      companyId: hdfcLife.id,
+      planId: click2ProtectPlan.id,
+      policyPeriods: ['10 Yr', '15 Yr', '20 Yr', '25 Yr', '30 Yr', '40 Yr', '50 Yr', '80 Yr', '99 Yr'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
+      emiMonths: [],
+      paymentTerms: ['1 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', 'Pay till 60', 'Regular Term (1 to 99 Yr)'],
+      isActive: true,
+    },
+  });
+
+  // Star Health Family Health Optima - Fresh
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'FRESH', companyId: generalInsurer.id, planId: familyHealthPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'FRESH',
+      companyId: generalInsurer.id,
+      planId: familyHealthPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
+      paymentTerms: [],
+      isActive: true,
     },
   });
 

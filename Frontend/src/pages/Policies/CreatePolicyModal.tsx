@@ -1,12 +1,13 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '@comps/common/Modal';
 import { DatePicker } from '@comps/common/DatePicker';
-import { insuranceService, policiesService, documentsService } from '@api/index';
+import { insuranceService, policiesService, documentsService, contactsService } from '@api/index';
 import toast from 'react-hot-toast';
-import { Shield, CreditCard, Users, Activity, FileText, Plus, Trash2, ChevronDown, UserCircle2, Pencil } from 'lucide-react';
+import { Shield, CreditCard, Users, Activity, FileText, Plus, Trash2, ChevronDown, UserCircle2, Pencil, RotateCw } from 'lucide-react';
 import clsx from 'clsx';
 import { useLookupStore } from '@store/lookup.store';
+import { getPolicyStatusDisplay } from '../../utils/policyStatusUtils';
 
 interface Props {
   open: boolean;
@@ -18,18 +19,28 @@ interface Props {
 }
 
 const CATEGORIES = ['HEALTH', 'LIFE', 'TERM', 'MOTOR', 'MUTUAL_FUNDS', 'PORTING', 'ACCIDENT', 'OTHER'];
-const STATUSES = ['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED'];
+const STATUSES = ['ACTIVE', 'EXPIRED', 'LAPSED'];
 
 export default function CreatePolicyModal({ open, onClose, contactId, contactName, policyToEdit, onSuccess }: Props) {
   const qc = useQueryClient();
   const { employees, loadEmployees } = useLookupStore();
   const [isViewOnly, setIsViewOnly] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState(contactId || policyToEdit?.contactId || '');
+
+  // Fetch contacts list for Target Contact / Client Name selector
+  const { data: contactsRes } = useQuery({
+    queryKey: ['contacts-list-picker'],
+    queryFn: () => contactsService.list({ limit: 500 }),
+    enabled: open,
+  });
+  const contactsList: any[] = Array.isArray(contactsRes?.data) ? contactsRes.data : Array.isArray(contactsRes) ? contactsRes : [];
 
   useEffect(() => {
     if (open) {
       loadEmployees();
       if (policyToEdit) {
-        setIsViewOnly(true);
+        setIsViewOnly(false);
+        setSelectedContactId(policyToEdit.contactId || policyToEdit.contact?.id || contactId || '');
         setSelectedCategory((policyToEdit.plan?.category || 'HEALTH').toUpperCase());
         setSelectedCompanyId(policyToEdit.plan?.companyId || policyToEdit.plan?.company?.id || policyToEdit.plan?.company?.name || '');
         setSelectedPlanId(policyToEdit.planId || policyToEdit.plan?.id || '');
@@ -52,6 +63,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         }
       } else {
         setIsViewOnly(false);
+        setSelectedContactId(contactId || '');
         setSelectedCategory('HEALTH');
         setSelectedCompanyId('');
         setSelectedPlanId('');
@@ -71,7 +83,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         setPendingDocs([]);
       }
     }
-  }, [open, policyToEdit]);
+  }, [open, policyToEdit, contactId]);
 
   const [activeTab, setActiveTab] = useState<'policyPlan' | 'premium' | 'connectedPersons' | 'phcDetails' | 'policyDocs'>('policyPlan');
 
@@ -84,13 +96,59 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
   // Tab 1: Policy & Plan Details
   const [selectedCategory, setSelectedCategory] = useState('HEALTH');
+  const [businessType, setBusinessType] = useState<'FRESH' | 'PORT' | 'RENEWAL'>('FRESH');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [policyPeriod, setPolicyPeriod] = useState('1 Yr');
   const [policyNumber, setPolicyNumber] = useState('');
   const [agentCode, setAgentCode] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState('');
   const [customerCategory, setCustomerCategory] = useState('INDIVIDUAL');
+  const [previousPolicyId, setPreviousPolicyId] = useState('');
+  const [copyPreviousDetails, setCopyPreviousDetails] = useState(false);
+  const [loadingCopy, setLoadingCopy] = useState(false);
+
+  // Fetch list of existing policies for Renewal Previous Policy dropdown
+  const { data: previousPoliciesRes } = useQuery({
+    queryKey: ['existing-policies-picker', contactId],
+    queryFn: () => policiesService.list({ ...(contactId ? { contactId } : {}), limit: 100 }),
+    enabled: open && businessType === 'RENEWAL',
+  });
+  const previousPolicies: any[] = Array.isArray(previousPoliciesRes?.data)
+    ? previousPoliciesRes.data
+    : Array.isArray(previousPoliciesRes)
+    ? previousPoliciesRes
+    : [];
+
+  const handleCopyFromPreviousPolicy = async (polId: string) => {
+    if (!polId) return;
+    try {
+      setLoadingCopy(true);
+      const res = await policiesService.getCopyDetails(polId);
+      const data = res?.data || res;
+      if (data) {
+        if (data.policyType) setSelectedCategory(data.policyType.toUpperCase());
+        if (data.companyId) setSelectedCompanyId(data.companyId);
+        if (data.planId) setSelectedPlanId(data.planId);
+        if (data.sumAssured != null) setSumAssured(String(data.sumAssured));
+        if (data.premiumAmount != null) setPremiumAmount(String(data.premiumAmount));
+        if (data.paymentFrequency) setPaymentFrequency(data.paymentFrequency);
+        if (data.agentCode) setAgentCode(data.agentCode);
+        if (data.assignedEmployeeId) setAssignedEmployeeId(data.assignedEmployeeId);
+        if (data.customerCategory) setCustomerCategory(data.customerCategory);
+        if (data.notes) setNotes(data.notes);
+        if (Array.isArray(data.members) && data.members.length > 0) {
+          setMembers(data.members);
+        }
+        toast.success('Pre-filled details from previous policy. All fields remain editable.');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to copy previous policy details');
+    } finally {
+      setLoadingCopy(false);
+    }
+  };
 
   // Tab 2: Premium & Payment Details
   const [sumAssured, setSumAssured] = useState('');
@@ -103,6 +161,69 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [firstPremiumDate, setFirstPremiumDate] = useState('');
   const [premiumPaymentPeriod, setPremiumPaymentPeriod] = useState('');
   const [lastPremiumDate, setLastPremiumDate] = useState('');
+
+  // Auto-calculate End Date and Maturity Date based on Start Date & Policy Period
+  const autoCalculateDates = useCallback((startIso: string, periodStr: string) => {
+    if (!startIso) return;
+    const start = new Date(startIso);
+    if (isNaN(start.getTime())) return;
+
+    const match = periodStr.match(/(\d+)/);
+    if (!match) return;
+
+    const years = parseInt(match[1], 10);
+    if (isNaN(years) || years <= 0) return;
+
+    // End Date = startDate + X years - 1 day
+    const end = new Date(start.getFullYear() + years, start.getMonth(), start.getDate() - 1);
+    // Maturity Date = startDate + X years
+    const maturity = new Date(start.getFullYear() + years, start.getMonth(), start.getDate());
+
+    setEndDate(end.toISOString().split('T')[0]);
+    setMaturityDate(maturity.toISOString().split('T')[0]);
+  }, []);
+
+  // ── Backend Policy Scenario Rule Lookup ───────────────────────────────────
+  const { data: activeScenarioRes } = useQuery({
+    queryKey: ['active-policy-scenario', selectedCategory, businessType, selectedCompanyId, selectedPlanId],
+    queryFn: () => policiesService.lookupScenario({
+      policyType: selectedCategory,
+      businessType,
+      companyId: selectedCompanyId,
+      planId: selectedPlanId,
+    }),
+    enabled: open && !!selectedCompanyId && !!selectedPlanId,
+  });
+  const activeScenario = activeScenarioRes?.data || null;
+
+  // Dynamically derived options from backend scenario configuration
+  const dynamicPolicyPeriods = useMemo(() => {
+    if (activeScenario && Array.isArray(activeScenario.policyPeriods) && activeScenario.policyPeriods.length > 0) {
+      return activeScenario.policyPeriods;
+    }
+    return ['1 Yr', '2 Yr', '3 Yr', '4 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', '25 Yr', '30 Yr', '99 Yr'];
+  }, [activeScenario]);
+
+  const dynamicPaymentOptions = useMemo(() => {
+    if (activeScenario && Array.isArray(activeScenario.paymentOptions) && activeScenario.paymentOptions.length > 0) {
+      return activeScenario.paymentOptions;
+    }
+    return ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'];
+  }, [activeScenario]);
+
+  const dynamicEmiMonths = useMemo(() => {
+    if (activeScenario && Array.isArray(activeScenario.emiMonths) && activeScenario.emiMonths.length > 0) {
+      return activeScenario.emiMonths;
+    }
+    return ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'];
+  }, [activeScenario]);
+
+  const dynamicPaymentTerms = useMemo(() => {
+    if (activeScenario && Array.isArray(activeScenario.paymentTerms)) {
+      return activeScenario.paymentTerms;
+    }
+    return [];
+  }, [activeScenario]);
 
   // EMI Case
   const [emiCase, setEmiCase] = useState(false);
@@ -211,8 +332,10 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactId && !policyToEdit?.contactId) {
-      toast.error('Contact is required');
+    const finalContactId = selectedContactId || contactId || policyToEdit?.contactId;
+    if (!finalContactId) {
+      toast.error('Target Contact / Client Name is required');
+      setActiveTab('policyPlan');
       return;
     }
     if (!selectedPlanId) {
@@ -277,7 +400,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
       }
 
       const payload: any = {
-        contactId: contactId || policyToEdit?.contactId,
+        contactId: finalContactId,
         planId: selectedPlanId,
         policyNumber: policyNumber.trim(),
         sumAssured: sumAssured ? Number(sumAssured) : 0,
@@ -287,7 +410,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         endDate: isoEnd,
         nextDueDate: safeIsoDate(nextDueDate),
         maturityDate: safeIsoDate(maturityDate),
-        agentCode: agentCode.trim() || undefined,
+        businessType,
+        renewedFromPolicyId: (businessType === 'RENEWAL' && previousPolicyId) ? previousPolicyId : undefined,
         assignedEmployeeId: assignedEmployeeId || undefined,
         status: status as any,
         notes: cleanNotes || undefined,
@@ -446,16 +570,38 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
           {/* ════════ TAB 1: Policy & Plan Details ════════ */}
           {activeTab === 'policyPlan' && (
             <div className="space-y-4 animate-fadeIn">
-              {/* Target Contact Banner */}
-              <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserCircle2 className="text-blue-600" size={18} />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Target Contact</p>
-                    <p className="text-xs font-extrabold text-blue-950">{contactName || 'Selected Contact'}</p>
+              {/* Target Contact / Client Name Selection & Banner */}
+              <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserCircle2 className="text-blue-600" size={18} />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Target Contact / Client Name <span className="text-red-500">*</span></p>
+                      <p className="text-xs font-extrabold text-blue-950">
+                        {contactName || (contactsList.find(c => c.id === selectedContactId)?.firstName
+                          ? `${contactsList.find(c => c.id === selectedContactId)?.firstName} ${contactsList.find(c => c.id === selectedContactId)?.lastName || ''}`
+                          : 'Select Target Contact')}
+                      </p>
+                    </div>
                   </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold">Attached</span>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-mono text-[10px] font-bold">Attached</span>
+
+                <div>
+                  <select
+                    className="input text-xs w-full bg-white font-semibold text-slate-800 border-blue-200"
+                    value={selectedContactId}
+                    onChange={(e) => setSelectedContactId(e.target.value)}
+                    required
+                  >
+                    <option value="">-- Select Target Contact / Client Name --</option>
+                    {contactsList.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.firstName || c.name || ''} {c.lastName || ''} {c.phone ? `(${c.phone})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Section 1 Card: Policy Details */}
@@ -495,6 +641,79 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </select>
                     </div>
 
+                    {/* Business Type */}
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        Business Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        className="input text-xs w-full bg-white mt-1 font-semibold"
+                        value={businessType}
+                        onChange={(e) => setBusinessType(e.target.value as any)}
+                      >
+                        <option value="FRESH">Fresh</option>
+                        <option value="PORT">Port</option>
+                        <option value="RENEWAL">Renewal</option>
+                      </select>
+                    </div>
+
+                    {/* Renewal Selection & Copy Details */}
+                    {businessType === 'RENEWAL' && (
+                      <div className="col-span-1 md:col-span-2 border border-amber-200 bg-amber-50/70 rounded-xl p-3 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <label className="text-[10px] font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <RotateCw size={13} className="text-amber-600" />
+                            Select Previous Policy to Renew <span className="text-red-500">*</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={copyPreviousDetails}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setCopyPreviousDetails(checked);
+                                if (checked && previousPolicyId) {
+                                  handleCopyFromPreviousPolicy(previousPolicyId);
+                                }
+                              }}
+                              className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                            />
+                            <span className="text-xs font-bold text-amber-950">
+                              ☐ Copy details from previous policy
+                            </span>
+                          </label>
+                        </div>
+
+                        <select
+                          className="input text-xs w-full bg-white font-semibold text-slate-800"
+                          value={previousPolicyId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPreviousPolicyId(val);
+                            if (copyPreviousDetails && val) {
+                              handleCopyFromPreviousPolicy(val);
+                            }
+                          }}
+                        >
+                          <option value="">-- Select Previous Policy ({previousPolicies.length} available) --</option>
+                          {previousPolicies.map((pol: any) => {
+                            const stDisplay = getPolicyStatusDisplay(pol);
+                            return (
+                              <option key={pol.id} value={pol.id}>
+                                Policy #{pol.policyNumber} — {pol.plan?.name || 'Plan'} ({stDisplay.label}) — Ends: {pol.endDate ? String(pol.endDate).split('T')[0] : 'N/A'}
+                              </option>
+                            );
+                          })}
+                        </select>
+
+                        {loadingCopy && (
+                          <p className="text-[10px] text-amber-800 font-medium italic animate-pulse">
+                            Fetching and pre-filling previous policy details...
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Insurance Company */}
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -533,6 +752,29 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </select>
                     </div>
 
+                    {/* Policy Period (Driven dynamically by backend scenario) */}
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        Policy Period <span className="text-red-500">*</span>
+                        {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">✓ Dynamic</span>}
+                      </label>
+                      <select
+                        className="input text-xs w-full bg-white mt-1 font-semibold"
+                        value={policyPeriod}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPolicyPeriod(val);
+                          if (startDate) {
+                            autoCalculateDates(startDate, val);
+                          }
+                        }}
+                      >
+                        {dynamicPolicyPeriods.map((period: string) => (
+                          <option key={period} value={period}>{period}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Customer Category */}
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Customer Category</label>
@@ -547,6 +789,24 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                         <option value="SENIOR_CITIZEN">Senior Citizen</option>
                       </select>
                     </div>
+
+                    {/* Active Scenario Indicator Banner */}
+                    {activeScenario && (
+                      <div className="col-span-1 md:col-span-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Activity size={16} className="text-emerald-600 shrink-0" />
+                          <div>
+                            <p className="font-bold text-[11px]">Backend Scenario Rule Applied</p>
+                            <p className="text-[10px] text-emerald-700 font-medium">
+                              Configured for {activeScenario.company?.name || 'Company'} — {activeScenario.plan?.name || 'Plan'} ({activeScenario.businessType}). Valid periods & payment modes loaded from DB.
+                            </p>
+                          </div>
+                        </div>
+                        <span className="bg-emerald-600 text-white font-mono text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                          Active Rule
+                        </span>
+                      </div>
+                    )}
 
                     {/* Policy Remarks / Comment */}
                     <div className="col-span-1 md:col-span-2">
@@ -695,21 +955,23 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
-                    {/* Frequency */}
+                    {/* Payment Option / Frequency (Driven dynamically by backend scenario) */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Payment Frequency <span className="text-red-500">*</span>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        Premium Payment <span className="text-red-500">*</span>
+                        {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">✓ Dynamic</span>}
                       </label>
                       <select
-                        className="input text-xs w-full bg-white mt-1"
+                        className="input text-xs w-full bg-white mt-1 font-semibold"
                         value={paymentFrequency}
                         onChange={(e) => setPaymentFrequency(e.target.value)}
                       >
-                        <option value="YEARLY">Yearly</option>
-                        <option value="HALF_YEARLY">Half Yearly</option>
-                        <option value="QUARTERLY">Quarterly</option>
-                        <option value="MONTHLY">Monthly</option>
-                        <option value="SINGLE">Single Premium</option>
+                        {dynamicPaymentOptions.map((opt: string) => {
+                          const valKey = opt.toUpperCase().replace(/\s+/g, '_');
+                          return (
+                            <option key={opt} value={valKey}>{opt}</option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -744,7 +1006,13 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </label>
                       <DatePicker
                         value={startDate}
-                        onChange={(val) => setStartDate(val)}
+                        onChange={(val: any) => {
+                          const newStart = typeof val === 'string' ? val : (val?.target?.value || '');
+                          setStartDate(newStart);
+                          if (newStart && policyPeriod) {
+                            autoCalculateDates(newStart, policyPeriod);
+                          }
+                        }}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
@@ -756,7 +1024,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </label>
                       <DatePicker
                         value={endDate}
-                        onChange={(val) => setEndDate(val)}
+                        onChange={(val: any) => setEndDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
@@ -766,7 +1034,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Next Due Date</label>
                       <DatePicker
                         value={nextDueDate}
-                        onChange={(val) => setNextDueDate(val)}
+                        onChange={(val: any) => setNextDueDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
@@ -776,7 +1044,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Maturity Date</label>
                       <DatePicker
                         value={maturityDate}
-                        onChange={(val) => setMaturityDate(val)}
+                        onChange={(val: any) => setMaturityDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
@@ -786,29 +1054,47 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">First Premium Date</label>
                       <DatePicker
                         value={firstPremiumDate}
-                        onChange={(val) => setFirstPremiumDate(val)}
+                        onChange={(val: any) => setFirstPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
 
-                    {/* Premium Payment Period */}
-                    <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Premium Payment Period (Years)</label>
-                      <input
-                        type="number"
-                        className="input text-xs w-full mt-1"
-                        placeholder="e.g. 10"
-                        value={premiumPaymentPeriod}
-                        onChange={(e) => setPremiumPaymentPeriod(e.target.value)}
-                      />
-                    </div>
+                    {/* Premium Payment Term (PPT) - Shown dynamically when applicable */}
+                    {(dynamicPaymentTerms.length > 0 || ['TERM', 'LIFE'].includes(selectedCategory.toUpperCase())) && (
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                          Premium Payment Term (PPT)
+                          {activeScenario && <span className="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded">Applicable</span>}
+                        </label>
+                        {dynamicPaymentTerms.length > 0 ? (
+                          <select
+                            className="input text-xs w-full bg-white mt-1 font-semibold"
+                            value={premiumPaymentPeriod}
+                            onChange={(e) => setPremiumPaymentPeriod(e.target.value)}
+                          >
+                            <option value="">Select Payment Term</option>
+                            {dynamicPaymentTerms.map((term: string) => (
+                              <option key={term} value={term}>{term}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            className="input text-xs w-full mt-1"
+                            placeholder="e.g. 10 Yr or 1 to 99 Yr"
+                            value={premiumPaymentPeriod}
+                            onChange={(e) => setPremiumPaymentPeriod(e.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
 
                     {/* Last Premium Date */}
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Last Premium Date</label>
                       <DatePicker
                         value={lastPremiumDate}
-                        onChange={(val) => setLastPremiumDate(val)}
+                        onChange={(val: any) => setLastPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
                       />
                     </div>

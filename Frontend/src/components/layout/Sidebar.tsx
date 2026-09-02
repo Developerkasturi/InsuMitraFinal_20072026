@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard, Users, TrendingUp, Shield, FileText,
@@ -55,6 +55,21 @@ interface NavItemProps {
 function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setTooltip }: NavItemProps) {
   const { to, label, Icon, feature } = item;
   const enabled = isFeatureEnabled(feature);
+  const location = useLocation();
+
+  // Custom active status calculation for exact route/query matching
+  const currentUrl = location.pathname + location.search;
+  let isItemActive = false;
+
+  if (to.includes('?')) {
+    isItemActive = currentUrl === to;
+  } else if (to === '/policies') {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    isItemActive = location.pathname === '/policies' && tab !== 'emi';
+  } else {
+    isItemActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to + '/'));
+  }
 
   return (
     <NavLink
@@ -68,13 +83,13 @@ function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setToolt
         }
       }}
       onMouseLeave={() => setTooltip(null)}
-      className={({ isActive }) =>
+      className={
         clsx(
           'flex items-center rounded-xl font-medium transition-all duration-200 relative group select-none',
           collapsed
             ? 'justify-center w-10 h-10 mx-auto my-0.5'
             : 'gap-3.5 px-3 py-2 text-[13px] hover:translate-x-0.5 my-0.5',
-          isActive && enabled
+          isItemActive && enabled
             ? collapsed
               ? 'bg-blue-600/20 text-white ring-1 ring-blue-500/40'
               : 'bg-white/10 text-white shadow-md border-l-2 border-blue-400 pl-[12px]'
@@ -83,23 +98,19 @@ function NavItem({ item, collapsed, isFeatureEnabled, setLockedFeature, setToolt
         )
       }
     >
-      {({ isActive }) => (
+      <div className={clsx(
+        "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
+        isItemActive && enabled
+          ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30"
+          : "bg-white/[0.05] text-slate-300 group-hover:bg-white/[0.1] group-hover:text-white"
+      )}>
+        <Icon size={16} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
+      </div>
+      {!collapsed && (
         <>
-          <div className={clsx(
-            "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200",
-            isActive && enabled
-              ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/30"
-              : "bg-white/[0.05] text-slate-300 group-hover:bg-white/[0.1] group-hover:text-white"
-          )}>
-            <Icon size={16} className="transition-transform duration-200 group-hover:scale-110" strokeWidth={2.25} />
-          </div>
-          {!collapsed && (
-            <>
-              <span className="flex-1 truncate leading-none ml-1">{label}</span>
-              {!enabled && (
-                <Lock size={11} className="text-slate-500 shrink-0" />
-              )}
-            </>
+          <span className="flex-1 truncate leading-none ml-1">{label}</span>
+          {!enabled && (
+            <Lock size={11} className="text-slate-500 shrink-0" />
           )}
         </>
       )}

@@ -63,6 +63,7 @@ export const policiesService = {
   list:             (params?: Record<string, any>) => api.get('/policies',       { params }).then(r => r.data),
   plans:            (search?: string)              => api.get('/policies/plans', { params: search ? { search } : {} }).then(r => r.data),
   get:              (id: string)                   => api.get(`/policies/${id}`).then(r => r.data),
+  getCopyDetails:   (id: string)                   => api.get(`/policies/${id}/copy-details`).then(r => r.data),
   create:           (body: any)                    => api.post('/policies', body).then(r => r.data),
   update:           (id: string, body: any)        => api.patch(`/policies/${id}`, body).then(r => r.data),
   remove:           (id: string)                   => api.delete(`/policies/${id}`).then(r => r.data),
@@ -78,6 +79,14 @@ export const policiesService = {
     return api.post('/policies/import', f, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
   },
   bulkAssign:       (ids: string[], assignedEmployeeId: string | null) => api.post('/policies/bulk-assign', { ids, assignedEmployeeId }).then(r => r.data),
+
+  // Scenario configuration methods
+  listScenarios:        (params?: any) => api.get('/policies/scenarios', { params }).then(r => r.data),
+  lookupScenario:      (params: { policyType?: string; businessType?: string; companyId?: string; planId?: string }) => api.get('/policies/scenarios/lookup', { params }).then(r => r.data),
+  createScenario:      (body: any) => api.post('/policies/scenarios', body).then(r => r.data),
+  updateScenario:      (id: string, body: any) => api.put(`/policies/scenarios/${id}`, body).then(r => r.data),
+  toggleScenarioStatus:(id: string, isActive: boolean) => api.patch(`/policies/scenarios/${id}/status`, { isActive }).then(r => r.data),
+  deleteScenario:      (id: string) => api.delete(`/policies/scenarios/${id}`).then(r => r.data),
 };
 
 /* ─── Claims ─────────────────────────────────────────────────────────────── */

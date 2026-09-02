@@ -15,6 +15,9 @@ import {
   CreatePolicyDto, UpdatePolicyDto, RecordPaymentDto,
   CreateMemberDto, CreateNomineeDto, PolicyQueryDto,
 } from './dto/policy.dto';
+import {
+  CreatePolicyScenarioDto, UpdatePolicyScenarioDto, PolicyScenarioQueryDto,
+} from './dto/policy-scenario.dto';
 
 @ApiTags('Policies')
 @ApiBearerAuth()
@@ -22,6 +25,75 @@ import {
 @Controller('policies')
 export class PoliciesController {
   constructor(private readonly svc: PoliciesService) {}
+
+  // ── Policy Scenario Routes ────────────────────────────────────────────────
+
+  @Get('scenarios')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Get all policy scenario configurations' })
+  findAllScenarios(@CurrentUser() user: any, @Query() query: PolicyScenarioQueryDto) {
+    return this.svc.findAllScenarios(user.tenantId, query);
+  }
+
+  @Get('scenarios/lookup')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Lookup applicable scenario configuration by policyType, businessType, companyId, planId' })
+  lookupScenario(
+    @CurrentUser() user: any,
+    @Query('policyType') policyType?: string,
+    @Query('businessType') businessType?: string,
+    @Query('companyId') companyId?: string,
+    @Query('planId') planId?: string,
+  ) {
+    return this.svc.lookupScenario(user.tenantId, policyType, businessType, companyId, planId);
+  }
+
+  @Post('scenarios')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Create a new policy scenario configuration' })
+  createScenario(@CurrentUser() user: any, @Body() dto: CreatePolicyScenarioDto) {
+    return this.svc.createScenario(user.tenantId, dto);
+  }
+
+  @Put('scenarios/:id')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Update a policy scenario configuration' })
+  updateScenario(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdatePolicyScenarioDto,
+  ) {
+    return this.svc.updateScenario(user.tenantId, id, dto);
+  }
+
+  @Patch('scenarios/:id')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Patch update a policy scenario configuration' })
+  patchScenario(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdatePolicyScenarioDto,
+  ) {
+    return this.svc.updateScenario(user.tenantId, id, dto);
+  }
+
+  @Patch('scenarios/:id/status')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Activate or deactivate a policy scenario configuration' })
+  toggleScenarioStatus(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+  ) {
+    return this.svc.toggleScenarioStatus(user.tenantId, id, isActive);
+  }
+
+  @Delete('scenarios/:id')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Delete a policy scenario configuration' })
+  deleteScenario(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.svc.deleteScenario(user.tenantId, id);
+  }
 
   @Get()
   @Roles(UserRole.EMPLOYEE)
@@ -40,6 +112,13 @@ export class PoliciesController {
   @Roles(UserRole.EMPLOYEE)
   listPlans(@CurrentUser() user: any, @Query('search') search?: string) {
     return this.svc.listInsurancePlans(user.tenantId, search);
+  }
+
+  @Get(':id/copy-details')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Get previous policy fields for pre-filling a renewal policy' })
+  getCopyDetails(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.svc.getCopyDetails(user.tenantId, id);
   }
 
   @Get(':id')

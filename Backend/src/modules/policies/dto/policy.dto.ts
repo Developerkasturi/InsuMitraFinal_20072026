@@ -78,6 +78,16 @@ export class CreatePolicyDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  renewedFromPolicyId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  businessType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 

@@ -72,6 +72,41 @@ export class PolicyRenewalWorker extends WorkerHost {
     const { tenantId } = job.data;
     const now = new Date();
 
+    // ── Sync policy status lifecycles: Inforce -> Renewal Due -> Grace Period -> Lapsed
+    try {
+      const activePolicies = await this.prisma.policy.findMany({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          deletedAt: null,
+          status: { notIn: ['INACTIVE_OLD' as any] },
+        },
+        select: { id: true, endDate: true, status: true },
+      });
+
+      for (const p of activePolicies) {
+        if (!p.endDate) continue;
+        const end = new Date(p.endDate);
+        const todayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endMs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+        const diffDays = Math.round((todayMs - endMs) / (1000 * 60 * 60 * 24));
+
+        let newStatus: string = 'INFORCE';
+        if (diffDays < -45) newStatus = 'INFORCE';
+        else if (diffDays >= -45 && diffDays <= 0) newStatus = 'RENEWAL_DUE';
+        else if (diffDays >= 1 && diffDays <= 30) newStatus = 'GRACE_PERIOD';
+        else if (diffDays > 30) newStatus = 'LAPSED';
+
+        if (p.status !== (newStatus as any)) {
+          await this.prisma.policy.update({
+            where: { id: p.id },
+            data: { status: newStatus as any },
+          });
+        }
+      }
+    } catch (syncErr: any) {
+      this.logger.warn(`Lifecycle status sync notice: ${syncErr.message}`);
+    }
+
     // Build expiry windows: policies whose endDate falls within each window
     const windowFilters = RENEWAL_WINDOWS.map((days) => {
       const from = new Date(now);
