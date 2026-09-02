@@ -131,6 +131,21 @@ const DEFAULT_MY_TASKS = [
   }
 ];
 
+function ensureCleanTaskIds(list: any[]): any[] {
+  return list.map((t, idx) => {
+    const raw = t.taskId || t.taskNumber || t.id;
+    let cleanId = `T${idx + 1}`;
+    if (typeof raw === 'string' && /^T\d+$/i.test(raw.trim())) {
+      cleanId = raw.trim().toUpperCase();
+    }
+    return {
+      ...t,
+      taskId: cleanId,
+      taskNumber: cleanId,
+    };
+  });
+}
+
 export default function MyTasksPanel({
   tasks,
   employeesList,
@@ -139,9 +154,17 @@ export default function MyTasksPanel({
   isViewOnly = false
 }: MyTasksPanelProps) {
   const [viewMode, setViewMode] = useState<'TABLE' | 'KANBAN'>('TABLE');
-  const [taskList, setTaskList] = useState<any[]>(
-    tasks && tasks.length > 0 ? tasks : DEFAULT_MY_TASKS
+  const [taskList, setTaskList] = useState<any[]>(() =>
+    ensureCleanTaskIds(tasks && tasks.length > 0 ? tasks : DEFAULT_MY_TASKS)
   );
+
+  React.useEffect(() => {
+    if (tasks && tasks.length > 0) {
+      setTaskList(ensureCleanTaskIds(tasks));
+    } else {
+      setTaskList(ensureCleanTaskIds(DEFAULT_MY_TASKS));
+    }
+  }, [tasks]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,6 +177,7 @@ export default function MyTasksPanel({
   // Modal States
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [actionModalState, setActionModalState] = useState<{
     isOpen: boolean;
     type: TaskActionType;
@@ -429,25 +453,30 @@ export default function MyTasksPanel({
                     return (
                       <tr
                         key={task.id}
+                        onClick={() => {
+                          setEditingTask(task);
+                          setIsViewMode(true);
+                          setIsTaskModalOpen(true);
+                        }}
                         className={clsx(
-                          "transition-colors duration-150",
+                          "transition-colors duration-150 cursor-pointer",
                           idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white',
                           isDone && 'opacity-75',
                           isCancelled && 'bg-rose-50/20 opacity-65',
-                          'hover:bg-slate-100/70'
+                          'hover:bg-blue-50/60'
                         )}
                       >
                         {/* 1. Dedicated Task ID Column */}
                         <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 whitespace-nowrap">
                           <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded border border-blue-100/80 inline-block shadow-2xs">
-                            {task.taskId || task.taskNumber || (task.id && task.id.startsWith('T') ? task.id : (task.id ? `T${task.id}` : 'T1'))}
+                            {task.taskId || `T${idx + 1}`}
                           </span>
                         </td>
 
                         {/* 2. Task Title */}
                         <td className="px-4 py-3 text-gray-700 align-middle text-[13px] font-medium border border-slate-200 max-w-sm">
                           <div>
-                            <p className={clsx("font-semibold text-gray-900 text-[13px] leading-snug", isDone && "line-through text-gray-500")}>
+                            <p className={clsx("font-semibold text-gray-900 text-[13px] leading-snug group-hover:text-blue-600 transition-colors", isDone && "line-through text-gray-500")}>
                               {task.title}
                             </p>
                             {task.cancelReason && (
@@ -481,6 +510,7 @@ export default function MyTasksPanel({
                           <select
                             disabled={isViewOnly}
                             value={task.priority || 'MEDIUM'}
+                            onClick={e => e.stopPropagation()}
                             onChange={e => handleQuickPriorityChange(task.id, e.target.value)}
                             className={`text-[10px] font-bold px-2 py-1 rounded-full border cursor-pointer ${
                               task.priority === 'CRITICAL' ? 'bg-rose-50 text-rose-700 border-rose-200' :
@@ -501,6 +531,7 @@ export default function MyTasksPanel({
                           <select
                             disabled={isViewOnly}
                             value={task.status}
+                            onClick={e => e.stopPropagation()}
                             onChange={e => handleQuickStatusChange(task.id, e.target.value)}
                             className={`text-[10px] font-bold px-2.5 py-1 rounded-full border cursor-pointer ${statusCfg.bg} ${statusCfg.text} ${statusCfg.border}`}
                           >
@@ -575,9 +606,9 @@ export default function MyTasksPanel({
 
                             <button
                               type="button"
-                              title="Edit Details / Discussion"
-                              onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
-                              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer border border-slate-200/80"
+                              title="View & Edit Task Details"
+                              onClick={() => { setEditingTask(task); setIsViewMode(false); setIsTaskModalOpen(true); }}
+                              className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-200/80"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -629,12 +660,17 @@ export default function MyTasksPanel({
                     laneTasks.map(task => (
                       <div
                         key={task.id}
-                        className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs hover:shadow-sm transition-all space-y-2 group"
+                        onClick={() => {
+                          setEditingTask(task);
+                          setIsViewMode(true);
+                          setIsTaskModalOpen(true);
+                        }}
+                        className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-2xs hover:shadow-md hover:border-blue-300 transition-all space-y-2 group cursor-pointer"
                       >
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
-                              {task.taskId || task.taskNumber || (task.id && task.id.startsWith('T') ? task.id : (task.id ? `T${task.id}` : 'T1'))}
+                              {task.taskId || 'T1'}
                             </span>
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
                               task.priority === 'CRITICAL' ? 'bg-rose-100 text-rose-700' :
@@ -652,7 +688,7 @@ export default function MyTasksPanel({
                           </span>
                         </div>
 
-                        <h4 className="text-xs font-bold text-gray-900 leading-snug">
+                        <h4 className="text-xs font-bold text-gray-900 leading-snug group-hover:text-blue-600 transition-colors">
                           {task.title}
                         </h4>
 
@@ -662,7 +698,7 @@ export default function MyTasksPanel({
                           </p>
                         )}
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px] text-gray-400">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-[10px] text-gray-400" onClick={e => e.stopPropagation()}>
                           <span className="flex items-center gap-1 font-medium">
                             <Calendar className="w-3 h-3" />
                             {task.dueDate ? format(new Date(task.dueDate), 'dd MMM') : '—'}
@@ -676,8 +712,8 @@ export default function MyTasksPanel({
                             )}
                             <button
                               type="button"
-                              onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
-                              className="p-1 rounded text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                              onClick={() => { setEditingTask(task); setIsViewMode(false); setIsTaskModalOpen(true); }}
+                              className="p-1 rounded text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors cursor-pointer"
                             >
                               <Pencil className="w-3 h-3" />
                             </button>
@@ -700,6 +736,7 @@ export default function MyTasksPanel({
         onSave={handleSaveTask}
         employeesList={employeesList}
         initialTask={editingTask}
+        initialIsViewMode={isViewMode}
       />
 
       {/* Task Action Modal (Cancel / Reschedule) */}

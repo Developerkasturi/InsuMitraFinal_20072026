@@ -14,26 +14,25 @@ import UpgradePromptModal from './UpgradePromptModal';
 import clsx from 'clsx';
 
 const NAV: { to: string; label: string; Icon: React.ElementType; roles?: string[]; feature?: string }[] = [
-  { to: '/client/dashboard', label: 'Contact Portal',         Icon: User,            roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'] },
-  { to: '/dashboard',        label: 'Dashboard',             Icon: LayoutDashboard, roles: ['OWNER', 'SUPERADMIN'], feature: 'dashboard' },
-  { to: '/workspace',        label: 'Workspace',             Icon: Briefcase,       roles: ['EMPLOYEE', 'OWNER', 'SUPERADMIN'], feature: 'workspace' },
-  { to: '/contacts',         label: 'Contacts',              Icon: Users,           roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'contacts' },
-  { to: '/leads',            label: 'Leads',                 Icon: TrendingUp,      roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'leads' },
-  { to: '/policies',         label: 'Policies',              Icon: Shield,          roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'policies' },
-  { to: '/policies?tab=emi', label: 'Installments Tracking', Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'policies' },
-  { to: '/claims',           label: 'Claims',                Icon: FileText,        roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'claims' },
-  { to: '/calendar',         label: 'Calendar',              Icon: Calendar,        roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'calendar' },
-  { to: '/whatsapp',         label: 'WhatsApp',              Icon: MessageSquare,   roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
-  { to: '/operations',       label: 'Operations',            Icon: Briefcase,       roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
-  { to: '/commissions',      label: 'Commissions',           Icon: DollarSign,      roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
-  { to: '/employees',        label: 'Employees',             Icon: UserCheck,       roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
-  { to: '/subscription',     label: 'Subscription',          Icon: CreditCard,      roles: ['OWNER', 'SUPERADMIN'] },
-  { to: '/firm-profile',     label: 'Firm Profile',          Icon: Building2,       roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
+  { to: '/client/dashboard', label: 'Contact Portal', Icon: User, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'] },
+  { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, roles: ['OWNER', 'SUPERADMIN'], feature: 'dashboard' },
+  { to: '/workspace', label: 'Workspace', Icon: Briefcase, roles: ['EMPLOYEE', 'OWNER', 'SUPERADMIN'], feature: 'workspace' },
+  { to: '/contacts', label: 'Contacts', Icon: Users, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'contacts' },
+  { to: '/leads', label: 'Leads', Icon: TrendingUp, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'leads' },
+  { to: '/policies', label: 'Policies', Icon: Shield, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'policies' },
+  { to: '/claims', label: 'Claims', Icon: FileText, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'claims' },
+  { to: '/calendar', label: 'Calendar', Icon: Calendar, roles: ['OWNER', 'SUPERADMIN', 'EMPLOYEE'], feature: 'calendar' },
+  { to: '/whatsapp', label: 'WhatsApp', Icon: MessageSquare, roles: ['OWNER', 'SUPERADMIN'], feature: 'whatsapp' },
+  { to: '/operations', label: 'Operations', Icon: Briefcase, roles: ['OWNER', 'SUPERADMIN'], feature: 'operations' },
+  { to: '/commissions', label: 'Commissions', Icon: DollarSign, roles: ['OWNER', 'SUPERADMIN'], feature: 'commissions' },
+  { to: '/employees', label: 'Employees', Icon: UserCheck, roles: ['OWNER', 'SUPERADMIN'], feature: 'employees' },
+  { to: '/subscription', label: 'Subscription', Icon: CreditCard, roles: ['OWNER', 'SUPERADMIN'] },
+  { to: '/firm-profile', label: 'Firm Profile', Icon: Building2, roles: ['OWNER', 'SUPERADMIN'], feature: 'branding' },
 ];
 
 const OVERVIEW_ROUTES = ['/client/dashboard', '/dashboard', '/workspace'];
-const OPS_ROUTES      = ['/contacts', '/leads', '/policies', '/policies?tab=emi', '/claims', '/calendar', '/whatsapp', '/operations'];
-const MGMT_ROUTES     = ['/employees', '/commissions', '/subscription', '/firm-profile'];
+const OPS_ROUTES = ['/contacts', '/leads', '/policies', '/policies?tab=emi', '/claims', '/calendar', '/whatsapp', '/operations'];
+const MGMT_ROUTES = ['/employees', '/commissions', '/subscription', '/firm-profile'];
 
 interface NavGroupProps {
   title: string;
@@ -134,17 +133,17 @@ function NavGroup({ title, items, collapsed, isFeatureEnabled, setLockedFeature,
 }
 
 export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobileOpen: (v: boolean) => void }) {
-  const [collapsed, setCollapsed]         = useState(true);
+  const [collapsed, setCollapsed] = useState(true);
   const [lockedFeature, setLockedFeature] = useState<string | null>(null);
-  const [tooltip, setTooltip]             = useState<{ label: string; enabled: boolean; top: number } | null>(null);
-  const user                              = useAuthStore(s => s.user);
-  const navigate                          = useNavigate();
+  const [tooltip, setTooltip] = useState<{ label: string; enabled: boolean; top: number } | null>(null);
+  const user = useAuthStore(s => s.user);
+  const navigate = useNavigate();
 
   const { data: subRes } = useQuery({
     queryKey: ['subscription', 'current'],
-    queryFn:  subscriptionsService.current,
+    queryFn: subscriptionsService.current,
     staleTime: 5 * 60_000,
-    enabled:  !!user && user.role !== 'CONTACT',
+    enabled: !!user && user.role !== 'CONTACT',
   });
 
   const planName = subRes?.data?.plan?.name || 'Free';
@@ -213,8 +212,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
   };
 
   const overviewItems = NAV.filter(i => OVERVIEW_ROUTES.includes(i.to) && visibleByRole(i));
-  const opsItems      = NAV.filter(i => OPS_ROUTES.includes(i.to)      && visibleByRole(i));
-  const mgmtItems     = NAV.filter(i => MGMT_ROUTES.includes(i.to)     && visibleByRole(i));
+  const opsItems = NAV.filter(i => OPS_ROUTES.includes(i.to) && visibleByRole(i));
+  const mgmtItems = NAV.filter(i => MGMT_ROUTES.includes(i.to) && visibleByRole(i));
 
   const handleLogout = async () => {
     await authService.logout();
@@ -227,7 +226,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
     <>
       {/* Mobile backdrop */}
       {mobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
           onClick={() => setMobileOpen(false)}
         />
@@ -245,127 +244,127 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boo
           borderColor: 'rgba(27, 37, 89, 0.6)',
         }}
       >
-      {/* ── Logo ─────────────────────────────────────────────────────────── */}
-      <div
-        className={clsx(
-          'flex items-center shrink-0 px-5 py-2 group relative',
-          collapsed ? 'justify-center px-0' : 'gap-3.5',
-        )}
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-      >
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 ring-1 ring-white/15 cursor-pointer"
-             style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
-          <Shield className="text-white drop-shadow-sm animate-pulse-subtle" size={18} strokeWidth={2.25} />
-        </div>
-        {!collapsed && (
-          <div className="flex flex-col leading-none min-w-0">
-            <span className="font-extrabold text-[14px] text-white tracking-tight bg-gradient-to-r from-white via-white to-blue-100 bg-clip-text text-transparent">
-              Insumitra
-            </span>
-            <span className="text-[8.5px] font-extrabold tracking-[0.2em] uppercase mt-[5.5px] text-blue-400/90">
-              CRM Portal
-            </span>
+        {/* ── Logo ─────────────────────────────────────────────────────────── */}
+        <div
+          className={clsx(
+            'flex items-center shrink-0 px-5 py-2 group relative',
+            collapsed ? 'justify-center px-0' : 'gap-3.5',
+          )}
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 ring-1 ring-white/15 cursor-pointer"
+            style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+            <Shield className="text-white drop-shadow-sm animate-pulse-subtle" size={18} strokeWidth={2.25} />
           </div>
-        )}
-      </div>
+          {!collapsed && (
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="font-extrabold text-[14px] text-white tracking-tight bg-gradient-to-r from-white via-white to-blue-100 bg-clip-text text-transparent">
+                Insumitra
+              </span>
+              <span className="text-[8.5px] font-extrabold tracking-[0.2em] uppercase mt-[5.5px] text-blue-400/90">
+                CRM Portal
+              </span>
+            </div>
+          )}
+        </div>
 
-      {/* ── Navigation ───────────────────────────────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto pt-1 pb-2 space-y-0.5 custom-scrollbar px-3 relative">
-        <NavGroup
-          title="Overview"
-          items={overviewItems}
-          collapsed={collapsed}
-          isFeatureEnabled={isFeatureEnabled}
-          setLockedFeature={setLockedFeature}
-          setTooltip={setTooltip}
-          user={user}
-          isFirst
-        />
-        <NavGroup
-          title="Operations"
-          items={opsItems}
-          collapsed={collapsed}
-          isFeatureEnabled={isFeatureEnabled}
-          setLockedFeature={setLockedFeature}
-          setTooltip={setTooltip}
-          user={user}
-        />
-        {(mgmtItems.length > 0) && (
+        {/* ── Navigation ───────────────────────────────────────────────────── */}
+        <nav className="flex-1 overflow-y-auto pt-1 pb-2 space-y-0.5 custom-scrollbar px-3 relative">
           <NavGroup
-            title="Management"
-            items={mgmtItems}
+            title="Overview"
+            items={overviewItems}
+            collapsed={collapsed}
+            isFeatureEnabled={isFeatureEnabled}
+            setLockedFeature={setLockedFeature}
+            setTooltip={setTooltip}
+            user={user}
+            isFirst
+          />
+          <NavGroup
+            title="Operations"
+            items={opsItems}
             collapsed={collapsed}
             isFeatureEnabled={isFeatureEnabled}
             setLockedFeature={setLockedFeature}
             setTooltip={setTooltip}
             user={user}
           />
-        )}
-      </nav>
+          {(mgmtItems.length > 0) && (
+            <NavGroup
+              title="Management"
+              items={mgmtItems}
+              collapsed={collapsed}
+              isFeatureEnabled={isFeatureEnabled}
+              setLockedFeature={setLockedFeature}
+              setTooltip={setTooltip}
+              user={user}
+            />
+          )}
+        </nav>
 
-      {/* ── Upgrade banner (Free plan only) ──────────────────────────────── */}
-      {!collapsed && planName === 'Free' && (
-        <div className="mx-3.5 mb-3 rounded-2xl p-4 relative overflow-hidden"
-             style={{
-               background: 'linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(124,58,237,0.08) 100%)',
-               border: '1px solid rgba(255,255,255,0.05)',
-             }}>
-          <div className="flex flex-wrap items-center gap-2 mb-2 relative">
-            <div className="w-5 h-5 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Zap size={11} className="text-blue-400 shrink-0" />
+        {/* ── Upgrade banner (Free plan only) ──────────────────────────────── */}
+        {!collapsed && planName === 'Free' && (
+          <div className="mx-3.5 mb-3 rounded-2xl p-4 relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(124,58,237,0.08) 100%)',
+              border: '1px solid rgba(255,255,255,0.05)',
+            }}>
+            <div className="flex flex-wrap items-center gap-2 mb-2 relative">
+              <div className="w-5 h-5 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <Zap size={11} className="text-blue-400 shrink-0" />
+              </div>
+              <p className="text-[12px] font-bold text-slate-200">Upgrade Plan</p>
             </div>
-            <p className="text-[12px] font-bold text-slate-200">Upgrade Plan</p>
-          </div>
-          <p className="text-[11px] leading-relaxed mb-3.5 text-slate-400 relative">
-            Unlock leads, performance analytics &amp; smart features.
-          </p>
-          <button
-            onClick={() => navigate('/subscription')}
-            className="w-full py-2 rounded-xl text-[11px] font-bold text-white transition-all duration-200 relative
+            <p className="text-[11px] leading-relaxed mb-3.5 text-slate-400 relative">
+              Unlock leads, performance analytics &amp; smart features.
+            </p>
+            <button
+              onClick={() => navigate('/subscription')}
+              className="w-full py-2 rounded-xl text-[11px] font-bold text-white transition-all duration-200 relative
                        bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500
                        hover:shadow-lg hover:shadow-blue-500/20 active:scale-[0.97]"
+            >
+              View Premium Plans
+            </button>
+          </div>
+        )}
+
+        {collapsed && planName === 'Free' && (
+          <div className="mb-2 relative group flex justify-center">
+            <button
+              onClick={() => navigate('/subscription')}
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTooltip({ label: 'Upgrade Plan', enabled: true, top: rect.top + rect.height / 2 });
+              }}
+              onMouseLeave={() => setTooltip(null)}
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-600/40 hover:text-white transition-all shadow-sm"
+            >
+              <Zap size={15} />
+            </button>
+          </div>
+        )}
+
+        {/* ── User + Logout ───────────────────────────────────────────────── */}
+
+
+        {/* Floating Tooltip outside overflow container */}
+        {collapsed && tooltip && (
+          <div
+            className="fixed left-[72px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[99999] pointer-events-none whitespace-nowrap flex flex-wrap items-center gap-1.5 animate-fadeIn"
+            style={{ top: `${tooltip.top}px`, transform: 'translateY(-50%)' }}
           >
-            View Premium Plans
-          </button>
-        </div>
-      )}
+            {tooltip.label}
+            {!tooltip.enabled && <Lock size={10} className="text-slate-400" />}
+          </div>
+        )}
 
-      {collapsed && planName === 'Free' && (
-        <div className="mb-2 relative group flex justify-center">
-          <button
-            onClick={() => navigate('/subscription')}
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setTooltip({ label: 'Upgrade Plan', enabled: true, top: rect.top + rect.height / 2 });
-            }}
-            onMouseLeave={() => setTooltip(null)}
-            className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-600/40 hover:text-white transition-all shadow-sm"
-          >
-            <Zap size={15} />
-          </button>
-        </div>
-      )}
-
-      {/* ── User + Logout ───────────────────────────────────────────────── */}
-
-
-      {/* Floating Tooltip outside overflow container */}
-      {collapsed && tooltip && (
-        <div
-          className="fixed left-[72px] px-3 py-1.5 rounded-xl bg-slate-900/95 border border-slate-700/80 text-xs font-bold text-white shadow-2xl z-[99999] pointer-events-none whitespace-nowrap flex flex-wrap items-center gap-1.5 animate-fadeIn"
-          style={{ top: `${tooltip.top}px`, transform: 'translateY(-50%)' }}
-        >
-          {tooltip.label}
-          {!tooltip.enabled && <Lock size={10} className="text-slate-400" />}
-        </div>
-      )}
-
-      <UpgradePromptModal
-        isOpen={!!lockedFeature}
-        onClose={() => setLockedFeature(null)}
-        featureName={lockedFeature || ''}
-      />
-    </aside>
+        <UpgradePromptModal
+          isOpen={!!lockedFeature}
+          onClose={() => setLockedFeature(null)}
+          featureName={lockedFeature || ''}
+        />
+      </aside>
     </>
   );
 }
