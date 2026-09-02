@@ -114,21 +114,7 @@ export default function ClientDashboard() {
             {tagline}
           </p>
 
-          {/* Quick Action Badges */}
-          <div className="flex flex-wrap gap-2.5 mt-5">
-            <Link
-              to="/client/policies"
-              className="px-4 py-2 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
-            >
-              <FileText size={14} className="text-teal-600" /> View In-Force Policies
-            </Link>
-            <Link
-              to="/client/claims"
-              className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1.5 backdrop-blur-md border border-white/20 transition-all"
-            >
-              <AlertCircle size={14} /> Track Active Claims
-            </Link>
-          </div>
+
         </div>
       </div>
 

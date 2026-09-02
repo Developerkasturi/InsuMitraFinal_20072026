@@ -46,8 +46,14 @@ export default function TaskCommentThread({
   isViewOnly = false
 }: TaskCommentThreadProps) {
   const user = useAuthStore(s => s.user);
-  const [commentList, setCommentList] = useState<TaskComment[]>(comments);
+  const [commentList, setCommentList] = useState<TaskComment[]>(comments || []);
   const [inputText, setInputText] = useState('');
+
+  React.useEffect(() => {
+    if (comments) {
+      setCommentList(comments);
+    }
+  }, [comments]);
 
   const handlePost = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +76,22 @@ export default function TaskCommentThread({
     toast.success('Comment posted');
   };
 
+  const formatCommentDate = (dateStr?: string) => {
+    if (!dateStr) return 'Just now';
+    try {
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? 'Recently' : format(d, 'dd MMM, hh:mm a');
+    } catch {
+      return 'Recently';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-bold text-gray-800 flex items-center gap-1.5 uppercase tracking-wider">
           <MessageSquare className="w-3.5 h-3.5 text-primary-600" />
-          Task Discussion & Activity Notes ({commentList.length})
+          Task Discussion &amp; Activity Notes ({commentList.length})
         </h4>
         <span className="text-[11px] text-gray-400 font-medium">Visible to team</span>
       </div>
@@ -88,8 +104,9 @@ export default function TaskCommentThread({
           </div>
         ) : (
           commentList.map(item => {
-            const isMe = item.authorId === user?.id || item.authorName.includes(user?.firstName || '---');
-            const initials = item.authorName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            const authorName = item.authorName || 'User';
+            const isMe = item.authorId === user?.id || Boolean(user?.firstName && authorName.includes(user.firstName));
+            const initials = authorName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
             return (
               <div
@@ -105,9 +122,9 @@ export default function TaskCommentThread({
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
                       isMe ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-700'
                     }`}>
-                      {initials || 'U'}
+                      {initials}
                     </div>
-                    <span className="font-bold text-gray-900">{item.authorName}</span>
+                    <span className="font-bold text-gray-900">{authorName}</span>
                     {item.authorRole && (
                       <span className="text-[9px] font-semibold text-gray-400 uppercase">
                         • {item.authorRole}
@@ -117,7 +134,7 @@ export default function TaskCommentThread({
 
                   <span className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                     <Clock className="w-3 h-3" />
-                    {format(new Date(item.createdAt), 'dd MMM, hh:mm a')}
+                    {formatCommentDate(item.createdAt)}
                   </span>
                 </div>
 
