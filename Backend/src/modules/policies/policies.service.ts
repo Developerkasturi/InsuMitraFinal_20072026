@@ -98,7 +98,7 @@ export class PoliciesService {
       }
     }
 
-    const [data, total] = await Promise.all([
+    console.log("WHERE::", JSON.stringify(where)); const [data, total] = await Promise.all([
       this.prisma.policy.findMany({
         where,
         skip,
@@ -340,7 +340,13 @@ export class PoliciesService {
     };
 
     let policy: any;
-    if (exists) {
+    if (exists && isRenewalCase && exists.id === renewedFromPolicyId) {
+      // Auto-append suffix to allow creating a brand new record and preserving the original
+      policyData.policyNumber = `${policyNumber}-REN${Date.now().toString().slice(-4)}`;
+      policy = await this.prisma.policy.create({
+        data: policyData,
+      });
+    } else if (exists) {
       policy = await this.prisma.policy.update({
         where: { id: exists.id },
         data: policyData,

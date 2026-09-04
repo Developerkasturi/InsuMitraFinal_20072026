@@ -750,9 +750,30 @@ export default function Policies() {
   // Fetch policies: get all in 1 query for client-side filtering (0 ops)
   const { data, isLoading } = usePolicies({ limit: 2000 });
 
+  const getArrayData = (obj: any): any[] => {
+    if (!obj) return [];
+    if (Array.isArray(obj)) return obj;
+    if (obj.data && Array.isArray(obj.data)) return obj.data;
+    if (obj.data?.data && Array.isArray(obj.data.data)) return obj.data.data;
+    if (obj.items && Array.isArray(obj.items)) return obj.items;
+    if (obj.data?.items && Array.isArray(obj.data.items)) return obj.data.items;
+    if (obj.data?.data?.data && Array.isArray(obj.data.data.data)) return obj.data.data.data;
+    
+    // Safely search for the first array in the object properties
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        if (Array.isArray(obj[key])) return obj[key];
+        if (obj[key] && typeof obj[key] === 'object' && Array.isArray(obj[key].data)) return obj[key].data;
+      }
+    }
+    return [];
+  };
+
+  const rawPolicies = useMemo(() => getArrayData(data), [data]);
+
   // Client-side Filter Logic
   const filteredPolicies = useMemo(() => {
-    let list: Policy[] = data?.data ?? [];
+    let list: Policy[] = rawPolicies;
 
     // Quick Select filters
     if (selectedQuickFilter !== 'ALL') {
@@ -1352,10 +1373,10 @@ export default function Policies() {
         label: (
           <input
             type="checkbox"
-            checked={data?.data?.length > 0 && selectedIds.length === data.data.length}
+            checked={rawPolicies.length > 0 && selectedIds.length === rawPolicies.length}
             onChange={e => {
               if (e.target.checked) {
-                setSelectedIds(data?.data?.map((p: any) => p.id) ?? []);
+                setSelectedIds(rawPolicies.map((p: any) => p.id));
               } else {
                 setSelectedIds([]);
               }
