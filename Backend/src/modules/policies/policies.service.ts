@@ -108,6 +108,7 @@ export class PoliciesService {
           plan:    { include: { company: { select: { name: true } } } },
           assignedEmployee: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
           renewedFromPolicy: { select: { id: true, policyNumber: true } },
+          payments: { orderBy: { dueDate: 'asc' } },
         },
         orderBy,
       }),
