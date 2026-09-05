@@ -27,19 +27,26 @@ const MONTHS: Record<string, number> = {
 };
 
 /** ISO yyyy-MM-dd → display DD/MMM/YYYY (e.g. 31/Jul/2026) */
-function toDisplay(iso: string): string {
+function toDisplay(iso: any): string {
   if (!iso) return '';
+  const strVal = typeof iso === 'string' ? iso : (iso?.target?.value || String(iso));
+  if (!strVal || strVal === '[object Object]') return '';
   try {
-    const d = new Date(iso);
+    const d = new Date(strVal);
     if (!isNaN(d.getTime())) return format(d, 'dd/MMM/yyyy');
   } catch { /* ignore */ }
   return '';
 }
 
-/** Parse DD/MMM/YYYY or DD/MM/YYYY string → ISO yyyy-MM-dd string (or '' if invalid) */
+/** Parse DD/MMM/YYYY or DD/MM/YYYY or DD-MM-YYYY string → ISO yyyy-MM-dd string (or '' if invalid) */
 function parseDateString(text: string, allowTwoDigitYear = false): string {
   if (!text) return '';
   const trimmed = text.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const d = new Date(trimmed);
+    if (isValid(d)) return trimmed;
+  }
 
   let day: number | undefined;
   let mon: number | undefined;
@@ -51,24 +58,30 @@ function parseDateString(text: string, allowTwoDigitYear = false): string {
     mon = parseInt(trimmed.slice(2, 4), 10) - 1;
     year = parseInt(trimmed.slice(4, 8), 10);
   }
-  // Separated parts: 31/Jul/2026 or 31/07/2026 or 31-07-2026 or 31/Jul/26
+  // Separated parts: 31/Jul/2026 or 31/07/2026 or 31-07-2026 or 31-jul-2026
   else {
     const parts = trimmed.split(/[\/\-\.\s]+/);
     if (parts.length === 3) {
-      day = parseInt(parts[0], 10);
-      const mStr = parts[1].toLowerCase();
-      if (/^\d+$/.test(mStr)) {
-        mon = parseInt(mStr, 10) - 1;
-      } else if (MONTHS[mStr] !== undefined) {
-        mon = MONTHS[mStr];
-      }
-      const yStr = parts[2];
-      if (/^\d{4}$/.test(yStr)) {
-        year = parseInt(yStr, 10);
-      } else if (allowTwoDigitYear && /^\d{2}$/.test(yStr)) {
-        const yNum = parseInt(yStr, 10);
-        const currTwoDigit = new Date().getFullYear() % 100;
-        year = yNum > currTwoDigit ? 1900 + yNum : 2000 + yNum;
+      if (/^\d{4}$/.test(parts[0])) {
+        year = parseInt(parts[0], 10);
+        mon = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      } else {
+        day = parseInt(parts[0], 10);
+        const mStr = parts[1].toLowerCase();
+        if (/^\d+$/.test(mStr)) {
+          mon = parseInt(mStr, 10) - 1;
+        } else if (MONTHS[mStr] !== undefined) {
+          mon = MONTHS[mStr];
+        }
+        const yStr = parts[2];
+        if (/^\d{4}$/.test(yStr)) {
+          year = parseInt(yStr, 10);
+        } else if (allowTwoDigitYear && /^\d{2}$/.test(yStr)) {
+          const yNum = parseInt(yStr, 10);
+          const currTwoDigit = new Date().getFullYear() % 100;
+          year = yNum > currTwoDigit ? 1900 + yNum : 2000 + yNum;
+        }
       }
     }
   }
@@ -193,7 +206,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
       if (onDateChange) onDateChange(iso);
       if (onChange) {
         const fakeEvent = { target: { value: iso }, toString: () => iso, valueOf: () => iso } as any;
-        onChange(fakeEvent);
+        (onChange as any)(iso, fakeEvent);
       }
     };
 

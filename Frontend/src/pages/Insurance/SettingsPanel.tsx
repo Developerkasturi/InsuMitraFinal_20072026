@@ -38,13 +38,15 @@ interface Role {
   status: 'Active' | 'Inactive';
 }
 
+import TableColumnSettings from './TableColumnSettings';
+
 interface SettingsPanelProps {
-  initialSubTab?: 'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit';
+  initialSubTab?: 'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit' | 'columns';
   onBack?: () => void;
 }
 
 export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit'>(initialSubTab);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'compulsory' | 'master' | 'access' | 'employee_access' | 'backup' | 'audit' | 'columns'>(initialSubTab);
 
   useEffect(() => {
     setActiveTab(initialSubTab);
@@ -492,6 +494,23 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
                   <div>
                     <h4 className="font-bold text-slate-900 text-sm">Audit Logs</h4>
                     <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">View all system & data change logs</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+              </div>
+
+              {/* Card 6: Table Columns Configuration */}
+              <div 
+                onClick={() => setActiveTab('columns')}
+                className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 border border-teal-100 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Database size={22} strokeWidth={2.2} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm">Table Column Selection</h4>
+                    <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">Control which table columns to show or hide globally</p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
@@ -1386,6 +1405,11 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
             </form>
           </div>
         </div>
+      )}
+
+      {/* 5. TABLE COLUMN SETTINGS SUBPAGE */}
+      {activeTab === 'columns' && (
+        <TableColumnSettings onBack={() => setActiveTab('dashboard')} />
       )}
     </div>
   );

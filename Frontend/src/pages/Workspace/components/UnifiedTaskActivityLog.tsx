@@ -120,7 +120,9 @@ export default function UnifiedTaskActivityLog({
       {activeSubTab === 'OVERDUE' && (
         <OverdueWorkPanel 
           tasks={tasks}
+          employeesList={employeesList}
           onToggleTask={onToggleTask}
+          onAddTask={onAddTask}
           isViewOnly={isViewOnly}
         />
       )}

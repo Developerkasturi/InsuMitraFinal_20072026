@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { policiesService } from '../../services';
 import {
   Activity, Calendar, CheckCircle2, Clock, Search, Download, FileText,
   ChevronLeft, ChevronRight, Eye, X, User, Shield,
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { sortData } from '../../utils/sortUtils';
+import Modal from '@comps/common/Modal';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
 type PhcStatus = 'Interested' | 'Partial Utilized' | 'Fully Utilized' | 'Not Interested' | 'Upcoming' | 'Completed';
@@ -32,6 +34,7 @@ interface PhcYearRecord {
   phcCount: number;
   daysRemaining?: number;
   insuredPersons: InsuredPerson[];
+  allCheckups?: any[];
 }
 
 interface PhcPolicyRecord {
@@ -59,102 +62,10 @@ interface PhcPolicyRecord {
   daysRemaining: number;
   totalYears: number;
   years: PhcYearRecord[];
+  allCheckups?: any[];
 }
 
-// ── Mock Data ───────────────────────────────────────────────────────────────────
-const MOCK_PHC_DATA: PhcPolicyRecord[] = [
-  {
-    id: 'phc-1', policyNo: 'LIC/123456/2024', customerName: 'Rahul Mehta', customerPhone: '9765432101',
-    planName: 'LIC Jeevan Anand', companyInitials: 'LIC', companyName: 'Life Insurance Corporation', companyType: 'Health', companyColor: 'bg-blue-600',
-    policyStartDate: '01 Jan 2024', policyEndDate: '31 Dec 2025', sumInsured: 500000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
-    phcYearStartDate: '01 Jan 2025', phcYearEndDate: '31 Dec 2025', phcStatus: 'Interested',
-    phcCount: 2, eligibleAmount: 10000, utilizedAmount: 2100, balanceAmount: 7900, daysRemaining: 52, totalYears: 3,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: false, startDate: '01 Jan 2024', endDate: '31 Dec 2024', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 7300, balanceAmount: 2700, phcCount: 3,
-        insuredPersons: [{ name: 'Rahul Mehta (Self)', relationship: 'Self', utilizedAmount: 4500, phcCount: 2 }, { name: 'Priya Mehta (Spouse)', relationship: 'Spouse', utilizedAmount: 2800, phcCount: 1 }, { name: 'Aarav Mehta (Son)', relationship: 'Son', utilizedAmount: 0, phcCount: 0 }, { name: 'Diya Mehta (Daughter)', relationship: 'Daughter', utilizedAmount: 0, phcCount: 0 }] },
-      { yearNo: 2, label: 'Year 2', isCurrent: true, startDate: '01 Jan 2025', endDate: '31 Dec 2025', status: 'Interested', eligibleAmount: 10000, utilizedAmount: 2100, balanceAmount: 7900, phcCount: 2, daysRemaining: 52,
-        insuredPersons: [{ name: 'Rahul Mehta (Self)', relationship: 'Self', utilizedAmount: 1500, phcCount: 1 }, { name: 'Priya Mehta (Spouse)', relationship: 'Spouse', utilizedAmount: 600, phcCount: 1 }, { name: 'Aarav Mehta (Son)', relationship: 'Son', utilizedAmount: 0, phcCount: 0 }, { name: 'Diya Mehta (Daughter)', relationship: 'Daughter', utilizedAmount: 0, phcCount: 0 }] },
-      { yearNo: 3, label: 'Year 3', isCurrent: false, startDate: '01 Jan 2026', endDate: '31 Dec 2026', status: 'Upcoming', eligibleAmount: 10000, utilizedAmount: 0, balanceAmount: 10000, phcCount: 0,
-        insuredPersons: [{ name: 'Rahul Mehta (Self)', relationship: 'Self', utilizedAmount: 0, phcCount: 0 }, { name: 'Priya Mehta (Spouse)', relationship: 'Spouse', utilizedAmount: 0, phcCount: 0 }] },
-    ]
-  },
-  {
-    id: 'phc-2', policyNo: 'HDFC/788010/2023', customerName: 'Priya Mehta', customerPhone: '9876543210',
-    planName: 'HDFC Life Chick 2 Protect', companyInitials: 'HDFC', companyName: 'HDFC Life Insurance', companyType: 'Health', companyColor: 'bg-red-600',
-    policyStartDate: '15 Mar 2023', policyEndDate: '14 Mar 2026', sumInsured: 1000000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
-    phcYearStartDate: '15 Mar 2025', phcYearEndDate: '14 Mar 2026', phcStatus: 'Partial Utilized',
-    phcCount: 1, eligibleAmount: 10000, utilizedAmount: 4800, balanceAmount: 5200, daysRemaining: 74, totalYears: 2,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: false, startDate: '15 Mar 2023', endDate: '14 Mar 2024', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 9500, balanceAmount: 500, phcCount: 2, insuredPersons: [{ name: 'Priya Mehta (Self)', relationship: 'Self', utilizedAmount: 9500, phcCount: 2 }] },
-      { yearNo: 2, label: 'Year 2', isCurrent: true, startDate: '15 Mar 2025', endDate: '14 Mar 2026', status: 'Partial Utilized', eligibleAmount: 10000, utilizedAmount: 4800, balanceAmount: 5200, phcCount: 1, daysRemaining: 74, insuredPersons: [{ name: 'Priya Mehta (Self)', relationship: 'Self', utilizedAmount: 4800, phcCount: 1 }] },
-    ]
-  },
-  {
-    id: 'phc-3', policyNo: 'SBI/345678/2024', customerName: 'Amit Patil', customerPhone: '9814875432',
-    planName: 'SBI Life Smart Shield', companyInitials: 'SBI', companyName: 'SBI Life Insurance', companyType: 'General', companyColor: 'bg-blue-700',
-    policyStartDate: '10 Jun 2024', policyEndDate: '09 Jun 2025', sumInsured: 750000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
-    phcYearStartDate: '10 Jun 2024', phcYearEndDate: '09 Jun 2025', phcStatus: 'Not Interested',
-    phcCount: 0, eligibleAmount: 10000, utilizedAmount: 0, balanceAmount: 10000, daysRemaining: 17, totalYears: 1,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: true, startDate: '10 Jun 2024', endDate: '09 Jun 2025', status: 'Not Interested', eligibleAmount: 10000, utilizedAmount: 0, balanceAmount: 10000, phcCount: 0, daysRemaining: 17, insuredPersons: [{ name: 'Amit Patil (Self)', relationship: 'Self', utilizedAmount: 0, phcCount: 0 }, { name: 'Sunita Patil (Spouse)', relationship: 'Spouse', utilizedAmount: 0, phcCount: 0 }] },
-    ]
-  },
-  {
-    id: 'phc-4', policyNo: 'MAX/567880/2024', customerName: 'Sneha Joshi', customerPhone: '9820334455',
-    planName: 'Max Life Online Term', companyInitials: 'MAX', companyName: 'Max Life Insurance', companyType: 'Health', companyColor: 'bg-orange-600',
-    policyStartDate: '05 Sep 2022', policyEndDate: '04 Sep 2025', sumInsured: 2000000, phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
-    phcYearStartDate: '05 Sep 2024', phcYearEndDate: '04 Sep 2025', phcStatus: 'Partial Utilized',
-    phcCount: 2, eligibleAmount: 10000, utilizedAmount: 6000, balanceAmount: 4000, daysRemaining: 42, totalYears: 3,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: false, startDate: '05 Sep 2022', endDate: '04 Sep 2023', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 10000, balanceAmount: 0, phcCount: 3, insuredPersons: [{ name: 'Sneha Joshi (Self)', relationship: 'Self', utilizedAmount: 10000, phcCount: 3 }] },
-      { yearNo: 2, label: 'Year 2', isCurrent: false, startDate: '05 Sep 2023', endDate: '04 Sep 2024', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 8200, balanceAmount: 1800, phcCount: 2, insuredPersons: [{ name: 'Sneha Joshi (Self)', relationship: 'Self', utilizedAmount: 8200, phcCount: 2 }] },
-      { yearNo: 3, label: 'Year 3', isCurrent: true, startDate: '05 Sep 2024', endDate: '04 Sep 2025', status: 'Partial Utilized', eligibleAmount: 10000, utilizedAmount: 6000, balanceAmount: 4000, phcCount: 2, daysRemaining: 42, insuredPersons: [{ name: 'Sneha Joshi (Self)', relationship: 'Self', utilizedAmount: 6000, phcCount: 2 }] },
-    ]
-  },
-  {
-    id: 'phc-5', policyNo: 'BAJAJ/990234/2024', customerName: 'Vikram Singh', customerPhone: '9751234566',
-    planName: 'Bajaj Allianz Care', companyInitials: 'BAJ', companyName: 'Bajaj Allianz', companyType: 'General', companyColor: 'bg-purple-600',
-    policyStartDate: '20 Dec 2023', policyEndDate: '19 Dec 2024', sumInsured: 300000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
-    phcYearStartDate: '20 Dec 2023', phcYearEndDate: '19 Dec 2024', phcStatus: 'Fully Utilized',
-    phcCount: 3, eligibleAmount: 10000, utilizedAmount: 10000, balanceAmount: 0, daysRemaining: 0, totalYears: 1,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: true, startDate: '20 Dec 2023', endDate: '19 Dec 2024', status: 'Fully Utilized', eligibleAmount: 10000, utilizedAmount: 10000, balanceAmount: 0, phcCount: 3, insuredPersons: [{ name: 'Vikram Singh (Self)', relationship: 'Self', utilizedAmount: 5500, phcCount: 2 }, { name: 'Kavita Singh (Spouse)', relationship: 'Spouse', utilizedAmount: 4500, phcCount: 1 }] },
-    ]
-  },
-  {
-    id: 'phc-6', policyNo: 'TATA/110222/2024', customerName: 'Kavita Sharma', customerPhone: '9761234432',
-    planName: 'Tata AIA Sampoorna Raksha', companyInitials: 'TATA', companyName: 'Tata AIA Life', companyType: 'Health', companyColor: 'bg-teal-600',
-    policyStartDate: '01 Jan 2024', policyEndDate: '31 Dec 2025', sumInsured: 1500000, phcFrequency: 'Annual', currentPhcYear: 'Year 2 (Current)',
-    phcYearStartDate: '01 Jan 2025', phcYearEndDate: '31 Dec 2025', phcStatus: 'Interested',
-    phcCount: 3, eligibleAmount: 10000, utilizedAmount: 1500, balanceAmount: 8500, daysRemaining: 52, totalYears: 2,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: false, startDate: '01 Jan 2024', endDate: '31 Dec 2024', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 9800, balanceAmount: 200, phcCount: 4, insuredPersons: [{ name: 'Kavita Sharma (Self)', relationship: 'Self', utilizedAmount: 5000, phcCount: 2 }, { name: 'Ramesh Sharma (Spouse)', relationship: 'Spouse', utilizedAmount: 4800, phcCount: 2 }] },
-      { yearNo: 2, label: 'Year 2', isCurrent: true, startDate: '01 Jan 2025', endDate: '31 Dec 2025', status: 'Interested', eligibleAmount: 10000, utilizedAmount: 1500, balanceAmount: 8500, phcCount: 3, daysRemaining: 52, insuredPersons: [{ name: 'Kavita Sharma (Self)', relationship: 'Self', utilizedAmount: 1500, phcCount: 1 }, { name: 'Ramesh Sharma (Spouse)', relationship: 'Spouse', utilizedAmount: 0, phcCount: 0 }] },
-    ]
-  },
-  {
-    id: 'phc-7', policyNo: 'ICICI/333644/2024', customerName: 'Nilesh Pawar', customerPhone: '9887765654',
-    planName: 'ICICI Pru iProtect', companyInitials: 'ICICI', companyName: 'ICICI Prudential', companyType: 'Health', companyColor: 'bg-orange-500',
-    policyStartDate: '12 Apr 2023', policyEndDate: '11 Apr 2026', sumInsured: 800000, phcFrequency: 'Annual', currentPhcYear: 'Year 3 (Current)',
-    phcYearStartDate: '12 Apr 2025', phcYearEndDate: '11 Apr 2026', phcStatus: 'Partial Utilized',
-    phcCount: 2, eligibleAmount: 10000, utilizedAmount: 6600, balanceAmount: 3400, daysRemaining: 102, totalYears: 3,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: false, startDate: '12 Apr 2023', endDate: '11 Apr 2024', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 8800, balanceAmount: 1200, phcCount: 2, insuredPersons: [{ name: 'Nilesh Pawar (Self)', relationship: 'Self', utilizedAmount: 8800, phcCount: 2 }] },
-      { yearNo: 2, label: 'Year 2', isCurrent: false, startDate: '12 Apr 2024', endDate: '11 Apr 2025', status: 'Completed', eligibleAmount: 10000, utilizedAmount: 9200, balanceAmount: 800, phcCount: 3, insuredPersons: [{ name: 'Nilesh Pawar (Self)', relationship: 'Self', utilizedAmount: 9200, phcCount: 3 }] },
-      { yearNo: 3, label: 'Year 3', isCurrent: true, startDate: '12 Apr 2025', endDate: '11 Apr 2026', status: 'Partial Utilized', eligibleAmount: 10000, utilizedAmount: 6600, balanceAmount: 3400, phcCount: 2, daysRemaining: 102, insuredPersons: [{ name: 'Nilesh Pawar (Self)', relationship: 'Self', utilizedAmount: 4200, phcCount: 1 }, { name: 'Sonal Pawar (Spouse)', relationship: 'Spouse', utilizedAmount: 2400, phcCount: 1 }] },
-    ]
-  },
-  {
-    id: 'phc-8', policyNo: 'STAR/555666/2024', customerName: 'Rohit Kulkarni', customerPhone: '9773889001',
-    planName: 'Star Comprehensive', companyInitials: 'STAR', companyName: 'Star Health', companyType: 'Health', companyColor: 'bg-yellow-600',
-    policyStartDate: '28 Aug 2024', policyEndDate: '27 Aug 2025', sumInsured: 600000, phcFrequency: 'Annual', currentPhcYear: 'Year 1 (Current)',
-    phcYearStartDate: '28 Aug 2024', phcYearEndDate: '27 Aug 2025', phcStatus: 'Interested',
-    phcCount: 2, eligibleAmount: 10000, utilizedAmount: 700, balanceAmount: 9300, daysRemaining: 25, totalYears: 1,
-    years: [
-      { yearNo: 1, label: 'Year 1', isCurrent: true, startDate: '28 Aug 2024', endDate: '27 Aug 2025', status: 'Interested', eligibleAmount: 10000, utilizedAmount: 700, balanceAmount: 9300, phcCount: 2, daysRemaining: 25, insuredPersons: [{ name: 'Rohit Kulkarni (Self)', relationship: 'Self', utilizedAmount: 700, phcCount: 1 }, { name: 'Meera Kulkarni (Spouse)', relationship: 'Spouse', utilizedAmount: 0, phcCount: 0 }] },
-    ]
-  },
-];
+
 
 // ── Helpers ──────────────────────────────────────────────────────────────────────
 const fmtCurr = (n: number) => `₹${Number(n).toLocaleString('en-IN')}`;
@@ -273,184 +184,107 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
           </div>
         )}
 
-        {/* Multiple PHC Entries Section */}
-        <div className="mt-4 space-y-4">
+        {/* Transactions Section */}
+        <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wide">PHC Entries by Status</h4>
-            <button
-              type="button"
-              onClick={() => setEntries([...entries, { id: Date.now() + Math.random(), status: 'Unutilised' }])}
-              className="flex flex-wrap items-center gap-1 bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded-md text-[10px] font-bold transition-colors border border-blue-200 cursor-pointer shadow-sm"
-            >
-              <Plus size={11} /> Add Entry
-            </button>
+            <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wide">PHC Transaction History</h4>
           </div>
 
-          {['Under Process', 'Test Booked', 'Reports Pending', 'Settled', 'Unutilised'].map(groupStatus => {
-            const groupEntries = entries.filter(e => e.status === groupStatus);
+          {['PENDING', 'BOOKED', 'COMPLETED', 'CANCELLED'].map(groupStatus => {
+            const groupEntries = (yr.allCheckups || []).filter((e: any) => e.status === groupStatus);
             if (groupEntries.length === 0) return null;
             return (
               <div key={groupStatus} className="bg-white border border-slate-200/60 rounded-xl p-3 shadow-xs">
                 <div className="flex flex-wrap items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                   <span className={clsx('w-2 h-2 rounded-full', 
-                    groupStatus === 'Settled' ? 'bg-emerald-500' :
-                    groupStatus === 'Unutilised' ? 'bg-slate-400' :
-                    groupStatus === 'Under Process' ? 'bg-amber-500' :
-                    groupStatus === 'Test Booked' ? 'bg-blue-500' :
-                    'bg-violet-500'
+                    groupStatus === 'COMPLETED' ? 'bg-emerald-500' :
+                    groupStatus === 'CANCELLED' ? 'bg-slate-400' :
+                    groupStatus === 'PENDING' ? 'bg-amber-500' : 'bg-blue-500'
                   )} />
                   <h5 className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">{groupStatus}</h5>
                   <span className="bg-slate-100 text-slate-500 text-[9px] font-bold px-1.5 py-0.5 rounded-md">{groupEntries.length}</span>
                 </div>
                 
                 <div className="space-y-3">
-                  {groupEntries.map((entry) => {
-                    const globalIdx = entries.findIndex(e => e.id === entry.id) + 1;
+                  {groupEntries.map((entry: any, index: number) => {
+                    const globalIdx = index + 1;
                     return (
                       <div key={entry.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-3 relative group shadow-sm transition-all hover:border-blue-200">
-                        <button
-                          type="button"
-                          onClick={() => setEntries(entries.filter(e => e.id !== entry.id))}
-                          className="absolute top-2 right-2 p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                          title="Remove Entry"
-                        >
-                          <X size={14} />
-                        </button>
                         <div className="flex items-center justify-between mb-1 pr-6">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">
                               Entry #{globalIdx}
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Assignee:</label>
-                            <div className="relative">
-                              <select
-                                className="bg-white border border-slate-200 rounded-md px-2 py-0.5 text-[10px] font-bold text-blue-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-5 cursor-pointer shadow-sm hover:border-blue-300 transition-colors"
-                                defaultValue="Amit Sharma"
-                              >
-                                <option value="Amit Sharma">Amit Sharma</option>
-                                <option value="Neha Joshi">Neha Joshi</option>
-                                <option value="Sagar More">Sagar More</option>
-                                <option value="Unassigned">Unassigned</option>
-                              </select>
-                              <ChevronDown size={10} className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                            </div>
-                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Insured Person</label>
-                            <div className="relative">
-                              <select className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6">
-                                <option value="">Select Person...</option>
-                                {yr.insuredPersons.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
-                              </select>
-                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                            </div>
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.member ? entry.member.name : 'Self'}
+                            </p>
                           </div>
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">PHC Stage</label>
-                            <div className="relative">
-                              <select 
-                                value={entry.status}
-                                onChange={(e) => setEntries(entries.map(ent => ent.id === entry.id ? { ...ent, status: e.target.value } : ent))}
-                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
-                              >
-                                {['Under Process', 'Test Booked', 'Reports Pending', 'Settled', 'Unutilised'].map(stg => (
-                                  <option key={stg} value={stg}>{stg}</option>
-                                ))}
-                              </select>
-                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                            </div>
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.status}
+                            </p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Booking Date</label>
-                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.bookingDate ? new Date(entry.bookingDate).toLocaleDateString('en-GB') : 'N/A'}
+                            </p>
                           </div>
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Appointment Date</label>
-                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.scheduledAt ? new Date(entry.scheduledAt).toLocaleDateString('en-GB') : 'N/A'}
+                            </p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab Name</label>
-                            <input type="text" placeholder="e.g. Apollo Diagnostics" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.centreName || 'N/A'}
+                            </p>
                           </div>
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Centre/Lab City</label>
-                            <input type="text" placeholder="e.g. Mumbai" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.centreCity || 'N/A'}
+                            </p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Utilized Amount</label>
-                            <input type="number" placeholder="₹3,500" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.utilizedAmount ? ('₹' + entry.utilizedAmount.toLocaleString('en-IN')) : '₹0'}
+                            </p>
                           </div>
                           <div>
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Report Received (By Cust)</label>
-                            <input type="date" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500" />
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Report Received</label>
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.completedAt ? new Date(entry.completedAt).toLocaleDateString('en-GB') : 'N/A'}
+                            </p>
                           </div>
                         </div>
-
-                        {/* Reimbursement or Cashless */}
+                        
                         <div className="space-y-2">
                           <div>
                             <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Reimbursement or Cashless</label>
-                            <div className="relative">
-                              <select
-                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500 appearance-none pr-6"
-                                defaultValue="Cashless"
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const div = document.getElementById(`reimb-fields-container-${entry.id}`);
-                                  if (div) {
-                                    if (val === 'Reimbursement') div.classList.remove('hidden');
-                                    else div.classList.add('hidden');
-                                  }
-                                }}
-                              >
-                                <option value="Cashless">Cashless</option>
-                                <option value="Reimbursement">Reimbursement</option>
-                              </select>
-                              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                            </div>
+                            <p className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700">
+                              {entry.reimbursementType || 'N/A'}
+                            </p>
                           </div>
-
-                          {/* Conditional Reimbursement Fields */}
-                          <div id={`reimb-fields-container-${entry.id}`} className="hidden space-y-2 bg-slate-100 p-2.5 rounded-lg border border-slate-200/50">
-                            <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Reimbursement Actions</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-                              <div>
-                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Received (Office)</label>
-                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                              </div>
-                              <div>
-                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Submitted (Comp)</label>
-                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                              </div>
-                              <div>
-                                <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Settled Date</label>
-                                <input type="date" className="w-full bg-white border border-slate-200 rounded-md p-1 text-[10px] font-medium outline-none focus:ring-1 focus:ring-blue-500" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Follow-up per Entry */}
-                        <div className="bg-white p-2.5 rounded-lg border border-slate-100 mt-2">
-                          <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wide mb-1">Follow-up Date</label>
-                          <input
-                            type="date"
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-blue-500"
-                          />
                         </div>
                       </div>
                     );
@@ -475,7 +309,7 @@ function PhcYearCard({ yr }: { yr: PhcYearRecord }) {
   );
 }
 
-import Modal from '@comps/common/Modal';
+
 
 // ── PHC Details Modal UI (matching Installment Details form UI) ──────────────────
 interface PhcModalProps {
@@ -591,8 +425,19 @@ export default function PhcTrackingView() {
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  const [phcData, setPhcData] = useState<PhcPolicyRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    policiesService.getPhcTracking()
+      .then(res => setPhcData(res?.data || []))
+      .catch(err => console.error('Error fetching PHC data:', err))
+      .finally(() => setIsLoading(false));
+  }, []);
+
   const filteredData = useMemo(() => {
-    let list = [...MOCK_PHC_DATA];
+    let list = [...phcData];
 
     const parseDateStr = (d: string) => {
       const m: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
@@ -908,7 +753,7 @@ export default function PhcTrackingView() {
               { val: policyTypeFilter, setter: setPolicyTypeFilter, label: 'Policy Type', opts: [['All', 'Policy Type'], ['HEALTH', 'Health'], ['LIFE', 'Life'], ['TERM', 'Term']] },
               { val: phcStatusFilter, setter: setPhcStatusFilter, label: 'PHC Status', opts: [['All', 'PHC Status'], ['Interested', 'Interested'], ['Partial Utilized', 'Partial Utilized'], ['Fully Utilized', 'Fully Utilized'], ['Not Interested', 'Not Interested'], ['Upcoming', 'Upcoming'], ['Completed', 'Completed']] },
               { val: phcYearFilter, setter: setPhcYearFilter, label: 'PHC Year', opts: [['All', 'PHC Year'], ['Year 1', 'Year 1'], ['Year 2', 'Year 2'], ['Year 3', 'Year 3']] },
-              { val: companyFilter, setter: setCompanyFilter, label: 'Company', opts: [['All', 'Company'], ...Array.from(new Set(MOCK_PHC_DATA.map(p => p.companyName))).map(c => [c, c] as [string, string])] },
+              { val: companyFilter, setter: setCompanyFilter, label: 'Company', opts: [['All', 'Company'], ...Array.from(new Set(phcData.map((p: any) => p.companyName))).map(c => [c as string, c as string] as [string, string])] },
             ].map(({ val, setter, opts }) => (
               <div key={opts[0][1]} className="relative">
                 <select value={val} onChange={e => setter(e.target.value)}

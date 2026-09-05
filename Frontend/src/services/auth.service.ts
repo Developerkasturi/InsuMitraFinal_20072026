@@ -1,5 +1,6 @@
 import api from './api';
 import { useAuthStore } from '@store/auth.store';
+import { useClientStore } from '@store/client.store';
 import { useLookupStore } from '@store/lookup.store';
 
 export interface LoginPayload     { email: string; password: string }
@@ -12,6 +13,9 @@ export const authService = {
     const { accessToken, refreshToken, user } = data.data;
     useAuthStore.getState().setTokens(accessToken, refreshToken);
     useAuthStore.getState().setUser(user);
+    if (user?.role === 'CONTACT') {
+      useClientStore.getState().setAuth(accessToken, refreshToken, user);
+    }
     // Load lookups right after login
     useLookupStore.getState().loadAll();
     return data.data;
@@ -30,6 +34,7 @@ export const authService = {
   async logout() {
     try { await api.post('/auth/logout'); } catch {}
     useAuthStore.getState().logout();
+    useClientStore.getState().logout();
     useLookupStore.getState().clearCache();
   },
 };

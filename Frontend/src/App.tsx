@@ -54,14 +54,17 @@ const GlobalSearch   = lazy(() => import('@pages/Search'));
 const FirmProfile    = lazy(() => import('@pages/FirmProfile'));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-
   const token = useAuthStore(s => s.accessToken);
-  return token ? <>{children}</> : <Navigate to="/login" replace />;
+  const user = useAuthStore(s => s.user);
+  if (!token || !user) return <Navigate to="/login" replace />;
+  if (user.role === 'CONTACT') return <Navigate to="/client/dashboard" replace />;
+  return <>{children}</>;
 }
 
 function OwnerRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(s => s.user);
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'CONTACT') return <Navigate to="/client/dashboard" replace />;
   if (user.role === 'EMPLOYEE') return <Navigate to="/workspace" replace />;
   if (user.role !== 'OWNER' && user.role !== 'SUPERADMIN') return <Navigate to="/login" replace />;
   return <>{children}</>;
@@ -70,6 +73,7 @@ function OwnerRoute({ children }: { children: React.ReactNode }) {
 function AdminOrAuthorizedRoute({ children, permission }: { children: React.ReactNode; permission?: string }) {
   const user = useAuthStore(s => s.user);
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'CONTACT') return <Navigate to="/client/dashboard" replace />;
   if (user.role === 'OWNER' || user.role === 'SUPERADMIN') return <>{children}</>;
   if (user.role === 'EMPLOYEE') {
     const perms: string[] = (user as any)?.permissions || [];
@@ -87,7 +91,7 @@ function PlanProtectedRoute({ children, feature }: { children: React.ReactNode; 
     queryKey: ['subscription', 'current'],
     queryFn: subscriptionsService.current,
     staleTime: 5 * 60_000,
-    enabled: !!user,
+    enabled: !!user && user.role !== 'CONTACT',
   });
 
   if (isLoading) {
@@ -128,8 +132,13 @@ function PlanProtectedRoute({ children, feature }: { children: React.ReactNode; 
 }
 
 function ClientRoute({ children }: { children: React.ReactNode }) {
-  const token = useClientStore(s => s.accessToken);
-  return token ? <>{children}</> : <Navigate to="/client/login" replace />;
+  const clientToken = useClientStore(s => s.accessToken);
+  const authUser = useAuthStore(s => s.user);
+  const authRole = authUser?.role;
+  if (clientToken || authRole === 'CONTACT' || authRole === 'OWNER' || authRole === 'SUPERADMIN' || authRole === 'EMPLOYEE') {
+    return <>{children}</>;
+  }
+  return <Navigate to="/login" replace />;
 }
 
 function Loader() {
@@ -147,10 +156,14 @@ function IndexRedirect() {
     queryKey: ['subscription', 'current'],
     queryFn: subscriptionsService.current,
     staleTime: 5 * 60_000,
-    enabled: !!user,
+    enabled: !!user && user.role !== 'CONTACT',
   });
 
   if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === 'CONTACT') {
+    return <Navigate to="/client/dashboard" replace />;
+  }
 
   if (user.role === 'SUPERADMIN') {
     return <Navigate to="/superadmin" replace />;
@@ -177,9 +190,30 @@ function IndexRedirect() {
   return <Navigate to="/workspace" replace />;
 }
 
+import { tableVisibilityManager } from './utils/TableVisibilityManager';
+import { useEffect } from 'react';
+import { insuranceService } from './services';
+
+function TableVisibilityInitializer() {
+  const token = useAuthStore(s => s.accessToken);
+  
+  useEffect(() => {
+    tableVisibilityManager.init();
+    if (token) {
+      insuranceService.getTableColumnVisibility().then((res: any) => {
+        tableVisibilityManager.setRules(res?.data || []);
+      }).catch((e: any) => console.error('Error fetching table rules', e));
+    }
+  }, [token]);
+  
+  return null;
+}
+
 export default function App() {
   return (
-    <Routes>
+    <>
+      <TableVisibilityInitializer />
+      <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
 
@@ -193,7 +227,7 @@ export default function App() {
       </Route>
 
       {/* Client Portal */}
-      <Route path="/client/login" element={<ClientLogin />} />
+      <Route path="/client/login" element={<Navigate to="/login" replace />} />
       <Route
         path="/client"
         element={<ClientRoute><ClientLayout /></ClientRoute>}
@@ -259,6 +293,7 @@ export default function App() {
 
       <Route path="*" element={<IndexRedirect />} />
     </Routes>
+    </>
   );
 }
 

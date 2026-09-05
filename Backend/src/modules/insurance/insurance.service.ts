@@ -273,4 +273,37 @@ export class InsuranceService {
     }
     return { data: results };
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Table Column Visibility
+  // ─────────────────────────────────────────────────────────────────────────
+
+  async getTableColumnVisibility(tenantId: string) {
+    const rules = await this.prisma.tableColumnVisibility.findMany({
+      where: { tenantId },
+    });
+    return { data: rules };
+  }
+
+  async updateTableColumnVisibility(tenantId: string, pageId: string, colName: string, isHidden: boolean) {
+    const res = await this.prisma.tableColumnVisibility.upsert({
+         where: {
+            tenantId_pageId_colName: {
+               tenantId,
+               pageId,
+               colName
+            }
+         },
+         create: {
+            tenantId,
+            pageId,
+            colName,
+            isHidden
+         },
+         update: {
+            isHidden
+         }
+    });
+    return { data: res };
+  }
 }

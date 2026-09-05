@@ -1,0 +1,433 @@
+[
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Claims\\ClaimDetail.tsx",
+    "columns": [
+      "File Name",
+      "Document Title",
+      "Description",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Claims\\index.tsx",
+    "columns": [
+      "File Name",
+      "Document Title",
+      "Description",
+      "Actions",
+      "Claim No",
+      "Client Name",
+      "Policy No",
+      "Company",
+      "Type",
+      "Hospital",
+      "Amount",
+      "Intimated At",
+      "Status",
+      "Company",
+      "Claims",
+      "Claimed",
+      "Settled",
+      "Hospital",
+      "Claims",
+      "Claimed",
+      "Settled",
+      "Type",
+      "Claims",
+      "Claimed",
+      "Settled",
+      "Time Range",
+      "Claims",
+      "Claimed",
+      "Settled",
+      "File Name",
+      "Document Title",
+      "Description",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Commissions\\index.tsx",
+    "columns": [
+      "Sr",
+      "Policy No",
+      "Beneficiary",
+      "Amount",
+      "Status",
+      "Sr. No.",
+      "Policy No.",
+      "Customer Name",
+      "Company",
+      "Plan Name",
+      "Policy Type",
+      "Sum Insured",
+      "Start Date",
+      "End Date",
+      "Agent",
+      "Employee",
+      "BA",
+      "Manager",
+      "Commission %\r\n                        \r\n                          AgentEmployeeBAManager",
+      "Actions",
+      "Policy No",
+      "Customer Name",
+      "Company / Plan",
+      "Premium"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Contacts\\index.tsx",
+    "columns": [
+      "Name",
+      "Phone",
+      "Email",
+      "City",
+      "Stage",
+      "Status",
+      "Active",
+      "File Name",
+      "Document Title",
+      "Description",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Dashboard.tsx",
+    "columns": [
+      "Category",
+      "Total Count",
+      "Breakdown status"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Employees\\Attendance.tsx",
+    "columns": [
+      "Employee",
+      "Leave Type",
+      "Duration &amp; Dates",
+      "Days",
+      "Reason / Remarks",
+      "Status",
+      "Approval Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Employees\\EmployeeDetail.tsx",
+    "columns": [
+      "Policy / Client",
+      "Insurer",
+      "Sum Insured",
+      "Premium",
+      "Date Issued",
+      "Date",
+      "Shift Clock-In",
+      "Shift Clock-Out",
+      "Total Hours",
+      "Calls",
+      "Meetings",
+      "Status"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Employees\\EodReports.tsx",
+    "columns": [
+      "Date",
+      "Employee",
+      "Status",
+      "Net Work Time",
+      "Tasks",
+      "Leads Moved",
+      "Installments",
+      "PHC",
+      "Claims",
+      "Premium (₹)",
+      "Drill-Down"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Employees\\JobDescriptions.tsx",
+    "columns": [
+      "Employee",
+      "Role &amp; Department",
+      "Key Responsibilities",
+      "KPI Targets",
+      "Workspace Status",
+      "Action"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Insurance\\index.tsx",
+    "columns": [
+      "Module",
+      "Description",
+      "Records",
+      "Last Exported",
+      "Status",
+      "Action",
+      "Export Name",
+      "Module",
+      "Records",
+      "Exported By",
+      "Exported On",
+      "File",
+      "Action",
+      "Plan Name",
+      "Insurance Company",
+      "Category",
+      "Actions",
+      "Rider Name",
+      "Description",
+      "Status",
+      "Agent / Agency",
+      "Contact Person",
+      "Phone",
+      "Email",
+      "Status",
+      "Hospital Info",
+      "Claims Department",
+      "Doctors",
+      "Comment",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Insurance\\PolicyScenariosTab.tsx",
+    "columns": [
+      "Policy & Business Type",
+      "Company & Plan",
+      "Valid Policy Periods",
+      "Payment Options",
+      "Payment Term (PPT)",
+      "Status",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Insurance\\SettingsPanel.tsx",
+    "columns": [
+      "Module",
+      "Field Name",
+      "Field Label",
+      "Status",
+      "Required",
+      "Action",
+      "Dropdown Name",
+      "Module",
+      "Total Options",
+      "Status",
+      "Action",
+      "Role Name",
+      "Description",
+      "Users",
+      "Status",
+      "Action",
+      "User",
+      "Action",
+      "Module",
+      "Details",
+      "Date & Time"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Insurance\\TableColumnSettings.tsx",
+    "columns": [
+      "Column Name",
+      "Status",
+      "Visibility"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Leads\\index.tsx",
+    "columns": [
+      "Client Name",
+      "Phone",
+      "Product",
+      "Exp. Premium",
+      "Hotness",
+      "Assigned To",
+      "Stage",
+      "Follow-up",
+      "className=>\r\n                  \r\n                    \r\n                    \r\n                      \r\n                    )}"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Policies\\EmiTrackingView.tsx",
+    "columns": [
+      "Customer Name",
+      "Policy No",
+      "Product",
+      "Due Date",
+      "Amount",
+      "EMIs",
+      "Status",
+      "Assigned To",
+      ",\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  ,\r\n                  \r\n                ].map(h => (\r\n                   \r\n                    }}\r\n                  >\r\n                     className=\"w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500\" />\r\n                    ) : (\r\n                      \r\n                        \r\n                        \r\n                          \r\n                        )}\r\n                      \r\n                    )}"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Policies\\index.tsx",
+    "columns": [
+      "Client Name",
+      "Policy No",
+      "Type",
+      "Company",
+      "Plan",
+      "Premium",
+      "Sum Insured",
+      "Start Date",
+      "Status"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Policies\\PhcTrackingView.tsx",
+    "columns": [
+      "Insured Person",
+      "Relationship",
+      "Eligible Amount",
+      "Utilized Amount",
+      "Balance Amount",
+      "Policy No",
+      "Customer Name",
+      "Policy No",
+      "Product",
+      "PHC Year",
+      "Balance",
+      "Status",
+      "Days Left",
+      "$\r\n            \r\n            \r\n              $\r\n            \r\n          \r\n          \r\n            window.onload = function() , 500);\r\n            };\r\n          \r\n        \r\n      \r\n    `);\r\n    printWindow.document.close();\r\n  };\r\n\r\n  const paginatedData = useMemo(() => , [sortedFilteredData, currentPage, rowsPerPage]);\r\n\r\n  const dependenciesData = useMemo(() => -$`;\r\n          if (!depsMap.has(key)) );\r\n          }\r\n          const dep = depsMap.get(key)!;\r\n          dep.utilizedAmount += person.utilizedAmount;\r\n          dep.phcCount += person.phcCount;\r\n        });\r\n      });\r\n    });\r\n\r\n    let depsList = Array.from(depsMap.values());\r\n    return sortData(depsList, sortKey, sortDir, (row: any, key: string) => );\r\n  }, [filteredData, sortKey, sortDir]);\r\n\r\n  const paginatedDependencies = useMemo(() => , [dependenciesData, currentPage, rowsPerPage]);\r\n\r\n  const totalPages = Math.max(1, Math.ceil((activeTab === 'dependencies' ? dependenciesData.length : filteredData.length) / rowsPerPage));\r\n\r\n  const handleQuickFilter = (key: string) => \r\n    else if (key === 'last-month') \r\n    else if (key === 'this-quarter') \r\n    else if (key === 'this-year') \r\n  };\r\n\r\n  const TABS = [\r\n    ,\r\n    ,\r\n    ,\r\n    ,\r\n    ,\r\n  ] as const;\r\n\r\n  const SUMMARY_CARDS = [\r\n    ,\r\n    ,\r\n    ,\r\n    ,\r\n  ];\r\n\r\n  return (\r\n    \r\n\r\n      \r\n      \r\n        \r\n              \r\n                \r\n              \r\n              \r\n            \r\n          \r\n        ))}\r\n      \r\n\r\n      \r\n      \r\n        \r\n        \r\n          }\r\n              className=>\r\n              \r\n            \r\n          ))}\r\n        \r\n\r\n        \r\n        \r\n          \r\n            \r\n             }\r\n              placeholder=\"Search by policy no., customer, plan name...\"\r\n              className=\"page-search-input\"\r\n            />\r\n          \r\n\r\n          \r\n            ,\r\n              ,\r\n              ,\r\n              ,\r\n            ].map(() => (\r\n              \r\n                 setter(e.target.value)}\r\n                  className=\"bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none\">\r\n                  )}\r\n                \r\n                \r\n              \r\n            ))}\r\n          \r\n\r\n          \r\n             }\r\n              className=\"flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer\">\r\n               Reset\r\n            \r\n             setShowDateFilter(prev => !prev)}\r\n              className=\r\n              title=\"Advanced Filters\"\r\n            >\r\n               0 ? \"text-blue-600\" : \"text-slate-500\"} />\r\n              Filters\r\n              \r\n                \r\n              )}\r\n            \r\n          \r\n        \r\n\r\n        \r\n        \r\n              \r\n                Export PHC:\r\n                \r\n                  \r\n                  Export Excel\r\n                \r\n                \r\n                  \r\n                  Export PDF\r\n                \r\n              \r\n            \r\n            \r\n              \r\n                Filter By\r\n                \r\n                   setDateFilterType(e.target.value)}\r\n                    className=\"bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none\">\r\n                    )}\r\n                  \r\n                  \r\n                \r\n              \r\n              \r\n                From Date\r\n                \r\n                   }\r\n                    className=\"bg-white border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36\" placeholder=\"DD/MM/YYYY\" />\r\n                  \r\n                \r\n              \r\n              \r\n                To Date\r\n                \r\n                   }\r\n                    className=\"bg-white border border-slate-200 rounded-xl pl-3 pr-9 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 w-36\" placeholder=\"DD/MM/YYYY\" />\r\n                  \r\n                \r\n              \r\n              \r\n                , , , ].map(qf => (\r\n                   handleQuickFilter(qf.key)}\r\n                    className=>\r\n                    \r\n                  \r\n                ))}\r\n                 }\r\n                  className=\"px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border border-slate-200 bg-white text-slate-500 hover:bg-slate-50\">Clear\r\n              \r\n            \r\n             is between  and \r\n              \r\n            )}\r\n          \r\n        )}\r\n\r\n        \r\n        \r\n          {activeTab === 'dependencies' ? (\r\n            \r\n              \r\n                \r\n                  Sr No.",
+      "}}\r\n                    >\r\n                      \r\n                        \r\n                        \r\n                          \r\n                        )}",
+      "0}\r\n                    onChange=} />",
+      "}}\r\n                  >\r\n                    \r\n                      \r\n                      \r\n                        \r\n                      )}"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Subscription\\index.tsx",
+    "columns": [
+      "Module"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Superadmin\\Tenants.tsx",
+    "columns": [
+      "Agency",
+      "Contact",
+      "Users",
+      "Policies",
+      "Plan",
+      "Status"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\AnalyticsTab.tsx",
+    "columns": [
+      "Template Name",
+      "Category",
+      "Dispatched",
+      "Delivered",
+      "Read Rate",
+      "Reply Rate",
+      "Leads Won",
+      "Meta Cost"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\ContactsTab.tsx",
+    "columns": [
+      "Contact",
+      "Phone / WhatsApp",
+      "Opt-In Consent &amp; Source",
+      "Consent Action",
+      "City",
+      "Enrolled Lists",
+      "Lead Action"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\HistoryTab.tsx",
+    "columns": [
+      "Recipient",
+      "Origin / Pipeline",
+      "Template Used",
+      "Scheduled &amp; Sent",
+      "Meta Status",
+      "Delivery Audit &amp; Error Diagnosis",
+      "Retry Action"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\RechargeTab.tsx",
+    "columns": [
+      "Transaction ID",
+      "Date &amp; Time",
+      "Amount Paid",
+      "Bonus Credits",
+      "Payment Mode",
+      "Status",
+      "Invoice"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\TemplatesTab.tsx",
+    "columns": [
+      "Template &amp; Meta Slug",
+      "Header / Media",
+      "Category &amp; Lang",
+      "Meta Status",
+      "CRM Variables",
+      "Broadcast Stats",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\WhatsApp\\tabs\\WhatsAppLeadsTab.tsx",
+    "columns": [
+      "Lead Contact",
+      "Insurance Product Interest",
+      "Source Origin",
+      "Est. Premium",
+      "Pipeline Stage",
+      "Captured At",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Workspace\\components\\MyTasksPanel.tsx",
+    "columns": [
+      "Task ID",
+      "Task Title",
+      "Linked CRM Entity",
+      "Category",
+      "Priority",
+      "Status",
+      "Due Date",
+      "Assignee",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Workspace\\components\\OverdueWorkPanel.tsx",
+    "columns": [
+      "Task ID",
+      "Task Title",
+      "Linked CRM Entity",
+      "Category",
+      "Priority",
+      "Status",
+      "Due Date",
+      "Assignee",
+      "Actions"
+    ]
+  },
+  {
+    "file": "D:\\Insumitra\\InsuMitraFinal_20072026\\Frontend\\src\\pages\\Workspace\\index.tsx",
+    "columns": [
+      "Policy Details",
+      "Policy Number",
+      "Year",
+      "Commission Amount",
+      "Rate",
+      "Status",
+      "Paid Date"
+    ]
+  }
+]

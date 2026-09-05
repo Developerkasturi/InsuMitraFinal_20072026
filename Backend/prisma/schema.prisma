@@ -88,10 +88,14 @@ enum ClaimStatus {
 
 enum PolicyStatus {
   ACTIVE
+  INFORCE
+  RENEWAL_DUE
+  GRACE_PERIOD
   LAPSED
   EXPIRED
   CANCELLED
   SURRENDERED
+  INACTIVE_OLD
 }
 
 enum PaymentMode {
@@ -275,6 +279,8 @@ model Tenant {
   deletionRequests          DeletionRequest[]
   hospitals                 Hospital[]
   compulsoryFieldRules      CompulsoryFieldRule[]
+  tableColumnVisibility     TableColumnVisibility[]
+  policyScenarios           PolicyScenario[]
 
   @@map("tenants")
 }
@@ -501,6 +507,7 @@ model InsuranceCompany {
 
   tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plans       InsurancePlan[]
+  policyScenarios PolicyScenario[]
 
   @@unique([tenantId, shortCode])
   @@index([tenantId])
@@ -520,6 +527,9 @@ model InsurancePlan {
   maxSumAssured     Float? @map("max_sum_assured")
   minAge            Int?     @map("min_age")
   maxAge            Int?     @map("max_age")
+  hasPhcBenefit     Boolean  @default(false) @map("has_phc_benefit")
+  phcAmount         Float?   @map("phc_amount")
+  phcCount          Int?     @map("phc_count")
   isActive          Boolean  @default(true) @map("is_active")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt     @map("updated_at")
@@ -528,6 +538,7 @@ model InsurancePlan {
   company           InsuranceCompany  @relation(fields: [companyId], references: [id])
   productInterests  ProductInterest[]
   policies          Policy[]
+  policyScenarios   PolicyScenario[]
 
   @@unique([tenantId, planCode, companyId])
   @@index([tenantId])
@@ -615,6 +626,8 @@ model Policy {
   nextDueDate          DateTime?        @map("next_due_date")
   maturityDate         DateTime?        @map("maturity_date")
   agentCode            String?          @map("agent_code")
+  renewedFromPolicyId String?          @map("renewed_from_policy_id") @db.ObjectId
+  businessType        String?          @default("FRESH") @map("business_type")
   notes                String?
   deletedAt            DateTime?        @map("deleted_at")
   createdAt            DateTime         @default(now()) @map("created_at")
@@ -624,6 +637,8 @@ model Policy {
   contact              Contact          @relation(fields: [contactId], references: [id])
   plan                 InsurancePlan    @relation(fields: [planId], references: [id])
   assignedEmployee     User?            @relation("AssignedEmployee", fields: [assignedEmployeeId], references: [id])
+  renewedFromPolicy   Policy?          @relation("PolicyRenewals", fields: [renewedFromPolicyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  renewedPolicies     Policy[]         @relation("PolicyRenewals")
 
   members              PolicyMember[]
   payments             PolicyPayment[]
@@ -656,6 +671,7 @@ model PolicyMember {
   updatedAt   DateTime @updatedAt     @map("updated_at")
 
   policy      Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  healthCheckups PreventiveHealthCheckup[]
 
   @@index([policyId])
   @@map("policy_members")
@@ -719,15 +735,23 @@ model PolicyNominee {
 
 model PreventiveHealthCheckup {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  policyId String    @map("policy_id") @db.ObjectId
-  scheduledAt DateTime  @map("scheduled_at")
+  policyId    String    @map("policy_id") @db.ObjectId
+  memberId    String?   @map("member_id") @db.ObjectId
+  status      String    @default("Test Booked")
+  utilizedAmount Float    @default(0) @map("utilized_amount")
+  bookingDate DateTime? @map("booking_date")
+  scheduledAt DateTime? @map("scheduled_at")
   completedAt DateTime? @map("completed_at")
+  centreName  String?   @map("centre_name")
+  centreCity  String?   @map("centre_city")
+  reimbursementType String? @default("Cashless") @map("reimbursement_type")
   notes       String?
   reportUrl   String?   @map("report_url")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt     @map("updated_at")
 
   policy      Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  member      PolicyMember? @relation(fields: [memberId], references: [id])
 
   @@index([policyId])
   @@map("preventive_health_checkups")
@@ -1318,3 +1342,53 @@ model CompulsoryFieldRule {
   @@unique([tenantId, module, fieldKey])
   @@map("compulsory_field_rules")
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// POLICY SCENARIOS CONFIGURATION
+// ═════════════════════════════════════════════════════════════════════════════
+
+model PolicyScenario {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId       String   @map("tenant_id") @db.ObjectId
+  policyType     String   @map("policy_type")   // HEALTH, TERM, LIFE, ACCIDENT, TRAVEL, GENERAL, MOTOR, etc.
+  businessType   String   @map("business_type") // FRESH, PORT, RENEWAL
+  companyId      String   @map("company_id") @db.ObjectId
+  planId         String   @map("plan_id") @db.ObjectId
+  policyPeriods  String[] @map("policy_periods")  // e.g. ["1 Yr", "2 Yr", "3 Yr", "4 Yr", "5 Yr"]
+  paymentOptions String[] @map("payment_options") // e.g. ["Full Payment", "EMI", "Monthly", "Quarterly", "Half-Yearly"]
+  emiMonths      String[] @default([]) @map("emi_months") // e.g. ["3 Months", "6 Months", "12 Months", "24 Months", "36 Months"]
+  paymentTerms   String[] @default([]) @map("payment_terms") // e.g. ["1 to 99 Yr"] where applicable
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company        InsuranceCompany @relation(fields: [companyId], references: [id])
+  plan           InsurancePlan    @relation(fields: [planId], references: [id])
+
+  @@unique([tenantId, policyType, businessType, companyId, planId])
+  @@index([tenantId])
+  @@index([tenantId, policyType, businessType])
+  @@map("policy_scenarios")
+}
+
+
+// 
+// TABLE COLUMN VISIBILITY
+// 
+
+model TableColumnVisibility {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @map("tenant_id") @db.ObjectId
+  pageId    String   // Identifier for the page/table (e.g. "policies")
+  colName   String   // Name of the column exactly as in UI (e.g. "Status")
+  isHidden  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, pageId, colName])
+  @@map("table_column_visibility")
+}
+

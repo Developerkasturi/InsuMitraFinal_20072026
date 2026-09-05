@@ -204,7 +204,7 @@ export class ReminderWorker extends WorkerHost {
       where:   { id: checkupId },
       include: { policy: { include: { contact: true } } },
     });
-    if (!checkup || checkup.completedAt) return; // already completed
+    if (!checkup || checkup.completedAt || !checkup.scheduledAt) return; // already completed or not scheduled
 
     const policy = checkup.policy;
     if (policy.assignedEmployeeId) {

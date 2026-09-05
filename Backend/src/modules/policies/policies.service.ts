@@ -1,12 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Policies Service
 // ─────────────────────────────────────────────────────────────────────────────
-import { Injectable, NotFoundException, ConflictException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreatePolicyDto, UpdatePolicyDto, RecordPaymentDto,
   CreateMemberDto, CreateNomineeDto, PolicyQueryDto,
 } from './dto/policy.dto';
+import {
+  CreatePolicyScenarioDto, UpdatePolicyScenarioDto, PolicyScenarioQueryDto,
+} from './dto/policy-scenario.dto';
 import { UserRole } from '@prisma/client';
 
 import { LeadsService } from '../leads/leads.service';
@@ -27,7 +30,7 @@ export class PoliciesService {
     const limit = Math.min(100, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
+    const where: any = { tenantId, deletedAt: null };
     if (role === UserRole.EMPLOYEE) {
       const empProfile = await this.prisma.employeeProfile.findFirst({
         where: { userId, tenantId },
@@ -95,7 +98,7 @@ export class PoliciesService {
       }
     }
 
-    const [data, total] = await Promise.all([
+    console.log("WHERE::", JSON.stringify(where)); const [data, total] = await Promise.all([
       this.prisma.policy.findMany({
         where,
         skip,
@@ -104,13 +107,55 @@ export class PoliciesService {
           contact: { select: { id: true, contactId: true, firstName: true, lastName: true, phone: true } },
           plan:    { include: { company: { select: { name: true } } } },
           assignedEmployee: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
+          renewedFromPolicy: { select: { id: true, policyNumber: true } },
+          payments: { orderBy: { dueDate: 'asc' } },
         },
         orderBy,
       }),
       this.prisma.policy.count({ where }),
     ]);
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    const formattedData = data.map((p: any) => {
+      const lc = this.computePolicyLifecycleStatus(p);
+      return {
+        ...p,
+        lifecycleStatus: lc.statusKey,
+        displayStatus: lc.displayStatus,
+      };
+    });
+
+    return { data: formattedData, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+  }
+
+  computePolicyLifecycleStatus(policy: any, now: Date = new Date()) {
+    if (!policy) return { statusKey: 'INFORCE', displayStatus: 'Inforce' };
+
+    const rawStatus = String(policy.status || 'ACTIVE').toUpperCase();
+    if (rawStatus === 'INACTIVE_OLD') {
+      return { statusKey: 'INACTIVE_OLD', displayStatus: 'Inactive(Old)' };
+    }
+
+    if (!policy.endDate) {
+      return { statusKey: 'INFORCE', displayStatus: 'Inforce' };
+    }
+
+    const end = new Date(policy.endDate);
+    const n = new Date(now);
+    const todayMs = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+    const endMs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+
+    const diffDays = Math.round((todayMs - endMs) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < -45) {
+      return { statusKey: 'INFORCE', displayStatus: 'Inforce' };
+    }
+    if (diffDays >= -45 && diffDays <= 0) {
+      return { statusKey: 'RENEWAL_DUE', displayStatus: 'Renewal Due' };
+    }
+    if (diffDays >= 1 && diffDays <= 30) {
+      return { statusKey: 'GRACE_PERIOD', displayStatus: `Grace Period - Day ${diffDays} of 30` };
+    }
+    return { statusKey: 'LAPSED', displayStatus: 'Lapsed' };
   }
 
   async listInsurancePlans(tenantId: string, search?: string) {
@@ -131,9 +176,9 @@ export class PoliciesService {
     return { data: plans };
   }
 
-  async findOne(tenantId: string, id: string, userId?: string, role?: UserRole) {
+  async findOne(tenantId: string, id: string, userId: string, role: UserRole) {
     const policy = await this.prisma.policy.findFirst({
-      where:   { id, tenantId },
+      where: { id, tenantId },
       include: {
         contact:   true,
         plan:      { include: { company: true } },
@@ -145,13 +190,23 @@ export class PoliciesService {
         documents: { orderBy: { createdAt: 'desc' } },
         claims:    { select: { id: true, claimNumber: true, status: true, claimAmount: true } },
         commissions: { orderBy: { createdAt: 'desc' } },
+        renewedFromPolicy: { select: { id: true, policyNumber: true, status: true } },
+        renewedPolicies:   { select: { id: true, policyNumber: true, status: true, startDate: true } },
       },
     });
     if (!policy) throw new NotFoundException('Policy not found');
-    if (role === UserRole.EMPLOYEE && policy.assignedEmployeeId !== userId) {
+    if (role === UserRole.EMPLOYEE && policy.assignedEmployeeId && policy.assignedEmployeeId !== userId) {
       throw new ForbiddenException('Access denied');
     }
-    return { data: policy };
+
+    const lc = this.computePolicyLifecycleStatus(policy);
+    return {
+      data: {
+        ...policy,
+        lifecycleStatus: lc.statusKey,
+        displayStatus: lc.displayStatus,
+      },
+    };
   }
 
   async create(tenantId: string, dto: CreatePolicyDto, createdById: string, role?: UserRole) {
@@ -228,12 +283,42 @@ export class PoliciesService {
       assignedEmployeeId = createdById;
     }
 
+    const parsedStart = startDate ? new Date(startDate) : new Date();
+    const parsedEnd = endDate ? new Date(endDate) : new Date();
+
     const exists = await this.prisma.policy.findFirst({
       where: { tenantId, policyNumber },
     });
 
-    const parsedStart = startDate ? new Date(startDate) : new Date();
-    const parsedEnd = endDate ? new Date(endDate) : new Date();
+    // Handle Renewal Policy Behavior & Previous Policy Link
+    const rawRenewedFrom = (dto as any).renewedFromPolicyId || (dto as any).previousPolicyId;
+    let renewedFromPolicyId: string | undefined = undefined;
+    let isRenewalCase = false;
+
+    if (rawRenewedFrom && isValidObjectId(rawRenewedFrom)) {
+      const prevPolicy = await this.prisma.policy.findFirst({
+        where: { id: rawRenewedFrom, tenantId },
+      });
+      if (!prevPolicy) {
+        throw new NotFoundException('Previous policy for renewal not found');
+      }
+
+      // Check for duplicate active renewal for the same previous policy
+      const existingRenewal = await this.prisma.policy.findFirst({
+        where: {
+          tenantId,
+          renewedFromPolicyId: prevPolicy.id,
+          deletedAt: null,
+        },
+      });
+
+      if (existingRenewal && (!exists || exists.id !== existingRenewal.id)) {
+        throw new ConflictException(`An active renewal policy (${existingRenewal.policyNumber}) already exists for previous policy #${prevPolicy.policyNumber}`);
+      }
+
+      renewedFromPolicyId = prevPolicy.id;
+      isRenewalCase = true;
+    }
 
     const policyData: any = {
       tenantId,
@@ -246,6 +331,8 @@ export class PoliciesService {
       paymentFrequency: paymentFrequency || 'YEARLY',
       startDate: parsedStart,
       endDate: parsedEnd,
+      businessType: (dto as any).businessType || (isRenewalCase ? 'RENEWAL' : 'FRESH'),
+      ...(renewedFromPolicyId ? { renewedFromPolicyId } : {}),
       ...(maturityDate ? { maturityDate: new Date(maturityDate) } : {}),
       ...(nextDueDate ? { nextDueDate: new Date(nextDueDate) } : {}),
       ...(agentCode ? { agentCode } : {}),
@@ -254,7 +341,13 @@ export class PoliciesService {
     };
 
     let policy: any;
-    if (exists) {
+    if (exists && isRenewalCase && exists.id === renewedFromPolicyId) {
+      // Auto-append suffix to allow creating a brand new record and preserving the original
+      policyData.policyNumber = `${policyNumber}-REN${Date.now().toString().slice(-4)}`;
+      policy = await this.prisma.policy.create({
+        data: policyData,
+      });
+    } else if (exists) {
       policy = await this.prisma.policy.update({
         where: { id: exists.id },
         data: policyData,
@@ -262,6 +355,14 @@ export class PoliciesService {
     } else {
       policy = await this.prisma.policy.create({
         data: policyData,
+      });
+    }
+
+    // Update previous policy status -> INACTIVE_OLD only after successful creation
+    if (renewedFromPolicyId) {
+      await this.prisma.policy.update({
+        where: { id: renewedFromPolicyId },
+        data: { status: 'INACTIVE_OLD' as any },
       });
     }
 
@@ -332,7 +433,7 @@ export class PoliciesService {
     if (!policy) throw new NotFoundException('Policy not found');
     await this.prisma.policy.update({
       where: { id },
-      data:  { status: 'CANCELLED' }, // or soft delete
+      data:  { deletedAt: new Date() },
     });
     try {
       await this.prisma.activityLog.create({
@@ -413,6 +514,81 @@ export class PoliciesService {
     return { data: null, message: 'Nominee removed' };
   }
 
+  async getCopyDetails(tenantId: string, policyId: string) {
+    const policy = await this.prisma.policy.findFirst({
+      where: { id: policyId, tenantId },
+      include: {
+        contact: true,
+        plan: { include: { company: true } },
+        members: true,
+        nominees: true,
+      },
+    });
+
+    if (!policy) {
+      throw new NotFoundException('Policy to copy from was not found');
+    }
+
+    return {
+      data: {
+        contactId: policy.contactId,
+        contactName: policy.contact ? `${policy.contact.firstName || ''} ${policy.contact.lastName || ''}`.trim() : '',
+        planId: policy.planId,
+        companyId: policy.plan?.companyId || policy.plan?.company?.id,
+        policyType: policy.plan?.category || 'HEALTH',
+        sumAssured: policy.sumAssured,
+        premiumAmount: policy.premiumAmount,
+        paymentFrequency: policy.paymentFrequency,
+        agentCode: policy.agentCode,
+        assignedEmployeeId: policy.assignedEmployeeId,
+        customerCategory: (policy as any).customerCategory || 'INDIVIDUAL',
+        notes: policy.notes,
+        members: (policy.members || []).map((m: any) => ({
+          name: m.name,
+          relationship: m.relationship,
+          dateOfBirth: m.dateOfBirth ? new Date(m.dateOfBirth).toISOString().split('T')[0] : undefined,
+          gender: m.gender,
+          sumInsured: m.sumInsured,
+        })),
+        nominees: (policy.nominees || []).map((n: any) => ({
+          name: n.name,
+          relationship: n.relationship,
+          dateOfBirth: n.dateOfBirth ? new Date(n.dateOfBirth).toISOString().split('T')[0] : undefined,
+          sharePercent: n.sharePercent,
+          phone: n.phone,
+        })),
+        previousPolicyNumber: policy.policyNumber,
+        renewedFromPolicyId: policy.id,
+      },
+    };
+  }
+
+  async syncPolicyStatuses(tenantId?: string) {
+    const now = new Date();
+    const policies = await this.prisma.policy.findMany({
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        deletedAt: null,
+        status: { notIn: ['INACTIVE_OLD' as any] },
+      },
+      select: { id: true, endDate: true, status: true },
+    });
+
+    let updatedCount = 0;
+    for (const p of policies) {
+      const lc = this.computePolicyLifecycleStatus(p, now);
+      if (lc && lc.statusKey && p.status !== (lc.statusKey as any)) {
+        await this.prisma.policy.update({
+          where: { id: p.id },
+          data: { status: lc.statusKey as any },
+        });
+        updatedCount++;
+      }
+    }
+
+    return { scanned: policies.length, updated: updatedCount };
+  }
+
   // ── Expiring policies (for reminders) ────────────────────────────────────
 
   async getExpiringSoon(tenantId: string, days = 30) {
@@ -427,6 +603,152 @@ export class PoliciesService {
       },
       include: { contact: true, plan: { include: { company: true } } },
     });
+  }
+
+  // ── PHC Tracking ─────────────────────────────────────────────────────────
+
+  async getPhcTracking(tenantId: string) {
+    const policies = await this.prisma.policy.findMany({
+      where: {
+        tenantId,
+        status: { notIn: ['INACTIVE_OLD' as any, 'CANCELLED', 'SURRENDERED'] },
+        plan: { hasPhcBenefit: true }
+      },
+      include: {
+        plan: { include: { company: true } },
+        contact: true,
+        members: true,
+        healthCheckups: { include: { member: true } },
+      }
+    } as any);
+
+    const now = new Date();
+
+    const results = policies.map((p: any) => {
+      const companyInfo = p.plan?.company;
+      const tY = (p.endDate.getTime() - p.startDate.getTime()) / (1000 * 3600 * 24 * 365.25);
+      const totalYears = Math.max(1, Math.ceil(tY));
+      const baseEligibleAmount = (p.plan as any)?.phcAmount || 10000;
+      const basePhcCount = (p.plan as any)?.phcCount || 1;
+      
+      const years: any[] = [];
+      let totalUtilized = 0;
+      let totalEligible = 0;
+      
+      let p_phcStatus = 'Upcoming';
+      let currentPhcYearLabel = 'Year 1 (Current)';
+      let p_daysRemaining = 0;
+      let p_phcYearStartDate = p.startDate;
+      let p_phcYearEndDate = p.endDate;
+      let p_eligibleAmount = 0;
+      let p_utilizedAmount = 0;
+      let p_balanceAmount = 0;
+
+      for (let i = 0; i < totalYears; i++) {
+        const yearStart = new Date(p.startDate);
+        yearStart.setFullYear(yearStart.getFullYear() + i);
+        const yearEnd = new Date(yearStart);
+        yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+        yearEnd.setDate(yearEnd.getDate() - 1);
+        
+        const actualEnd = yearEnd > p.endDate ? p.endDate : yearEnd;
+        
+        const yearCheckups = (p as any).healthCheckups.filter((h: any) => h.createdAt >= yearStart && h.createdAt <= actualEnd);
+        const yearUtilized = yearCheckups.reduce((sum: number, h: any) => sum + (h.utilizedAmount || 0), 0);
+        
+        // "applicable only after 1 full year from each policy's own start date." -> year 1 (i=0) has 0 eligible.
+        const isRenewal = p.businessType === 'RENEWAL';
+        const isEligible = isRenewal ? true : i >= 1;
+        const eligibleAmount = isEligible ? baseEligibleAmount : 0;
+        
+        totalUtilized += yearUtilized;
+        totalEligible += eligibleAmount;
+        
+        const isCurrent = now >= yearStart && now <= actualEnd;
+        
+        let statusStr = 'Upcoming';
+        if (!isEligible) {
+          statusStr = 'Not Applicable Yet';
+        } else if (yearUtilized >= eligibleAmount) {
+          statusStr = 'Completed';
+        } else if (now > actualEnd) {
+          statusStr = 'Overdue';
+        } else {
+          const isDueThisMonth = actualEnd.getFullYear() === now.getFullYear() && actualEnd.getMonth() === now.getMonth();
+          statusStr = isDueThisMonth ? 'Due This Month' : (yearUtilized > 0 ? 'Partial Utilized' : 'Upcoming');
+        }
+        
+        const personMap = new Map();
+        for (const c of yearCheckups) {
+           const personName = c.member ? `${c.member.name} (${c.member.relationship})` : (p.contact ? `${p.contact.firstName} (Self)` : 'Primary');
+           if (!personMap.has(personName)) personMap.set(personName, { name: personName, relationship: c.member?.relationship || 'Self', utilizedAmount: 0, phcCount: 0 });
+           const entry = personMap.get(personName);
+           entry.utilizedAmount += (c.utilizedAmount || 0);
+           entry.phcCount += 1;
+        }
+
+        const yrData = {
+          yearNo: i + 1,
+          label: `Year ${i + 1}`,
+          isCurrent,
+          startDate: yearStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          endDate: actualEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          status: statusStr,
+          eligibleAmount,
+          utilizedAmount: yearUtilized,
+          balanceAmount: Math.max(0, eligibleAmount - yearUtilized),
+          phcCount: yearCheckups.length,
+          daysRemaining: isCurrent ? Math.max(0, Math.ceil((actualEnd.getTime() - now.getTime()) / (1000 * 3600 * 24))) : 0,
+          insuredPersons: Array.from(personMap.values()),
+          allCheckups: yearCheckups
+        };
+        
+        if (isCurrent) {
+          currentPhcYearLabel = `Year ${i + 1} (Current)`;
+          p_phcStatus = yrData.status;
+          p_daysRemaining = yrData.daysRemaining;
+          p_phcYearStartDate = yearStart;
+          p_phcYearEndDate = actualEnd;
+          p_eligibleAmount = yrData.eligibleAmount;
+          p_utilizedAmount = yrData.utilizedAmount;
+          p_balanceAmount = yrData.balanceAmount;
+        }
+        
+        years.push(yrData);
+      }
+      
+      const companyColors = ['bg-blue-600', 'bg-red-600', 'bg-teal-600', 'bg-orange-500', 'bg-purple-600'];
+      const cColor = companyColors[companyInfo?.name.length % companyColors.length] || 'bg-blue-600';
+
+      return {
+        id: p.id,
+        policyNo: p.policyNumber,
+        customerName: p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Unknown',
+        customerPhone: p.contact?.phone || '',
+        planName: (p.plan as any)?.name || '',
+        companyInitials: companyInfo?.shortCode || (companyInfo?.name ? companyInfo.name.substring(0,4).toUpperCase() : ''),
+        companyName: companyInfo?.name || '',
+        companyType: (p.plan as any)?.category || 'Health',
+        companyColor: cColor, 
+        policyStartDate: p.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        policyEndDate: p.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        sumInsured: p.sumAssured || 0,
+        phcFrequency: 'Annual',
+        currentPhcYear: currentPhcYearLabel,
+        phcYearStartDate: p_phcYearStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        phcYearEndDate: p_phcYearEndDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        phcStatus: p_phcStatus,
+        phcCount: basePhcCount,
+        eligibleAmount: p_eligibleAmount || totalEligible,
+        utilizedAmount: p_utilizedAmount || totalUtilized,
+        balanceAmount: p_balanceAmount || Math.max(0, totalEligible - totalUtilized),
+        daysRemaining: p_daysRemaining,
+        totalYears,
+        years,
+      };
+    });
+
+    return { data: results };
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
@@ -701,5 +1023,236 @@ export class PoliciesService {
     }
 
     return { count: updated.count, message: `${updated.count} policies successfully reassigned` };
+  }
+
+  // ── Policy Scenario Operations ───────────────────────────────────────────
+
+  async findAllScenarios(tenantId: string, query?: PolicyScenarioQueryDto) {
+    const where: any = { tenantId };
+
+    if (query?.policyType) {
+      where.policyType = { equals: query.policyType, mode: 'insensitive' };
+    }
+    if (query?.businessType) {
+      where.businessType = { equals: query.businessType, mode: 'insensitive' };
+    }
+    if (query?.companyId) {
+      where.companyId = query.companyId;
+    }
+    if (query?.planId) {
+      where.planId = query.planId;
+    }
+    if (query?.isActive !== undefined) {
+      where.isActive = query.isActive === 'true' || query.isActive === true;
+    }
+
+    const scenarios = await (this.prisma as any).policyScenario.findMany({
+      where,
+      include: {
+        company: { select: { id: true, name: true, shortCode: true } },
+        plan: { select: { id: true, name: true, planCode: true, category: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return { data: scenarios };
+  }
+
+  async lookupScenario(tenantId: string, policyType?: string, businessType?: string, companyId?: string, planId?: string) {
+    if (!policyType || !businessType || !companyId || !planId) {
+      return { data: null };
+    }
+
+    // Try exact lookup (case-insensitive on strings)
+    let scenario = await (this.prisma as any).policyScenario.findFirst({
+      where: {
+        tenantId,
+        companyId,
+        planId,
+        policyType: { equals: policyType, mode: 'insensitive' },
+        businessType: { equals: businessType, mode: 'insensitive' },
+        isActive: true,
+      },
+      include: {
+        company: { select: { id: true, name: true, shortCode: true } },
+        plan: { select: { id: true, name: true, planCode: true, category: true } },
+      },
+    });
+
+    // Fallback if specific planId didn't match, check companyId + policyType + businessType
+    if (!scenario) {
+      scenario = await (this.prisma as any).policyScenario.findFirst({
+        where: {
+          tenantId,
+          companyId,
+          policyType: { equals: policyType, mode: 'insensitive' },
+          businessType: { equals: businessType, mode: 'insensitive' },
+          isActive: true,
+        },
+        include: {
+          company: { select: { id: true, name: true, shortCode: true } },
+          plan: { select: { id: true, name: true, planCode: true, category: true } },
+        },
+      });
+    }
+
+    return { data: scenario };
+  }
+
+  async createScenario(tenantId: string, dto: CreatePolicyScenarioDto) {
+    // 1. Verify Company exists in tenant master data
+    const company = await this.prisma.insuranceCompany.findFirst({
+      where: { id: dto.companyId, tenantId },
+    });
+    if (!company) {
+      throw new BadRequestException('Selected Insurance Company does not exist in master data');
+    }
+
+    // 2. Verify Plan exists in tenant master data & belongs to company
+    const plan = await this.prisma.insurancePlan.findFirst({
+      where: { id: dto.planId, tenantId, companyId: dto.companyId },
+    });
+    if (!plan) {
+      throw new BadRequestException('Selected Insurance Plan does not exist or does not belong to the selected company');
+    }
+
+    // 3. Prevent duplicate scenarios
+    const normPolicyType = dto.policyType.toUpperCase().trim();
+    const normBusinessType = dto.businessType.toUpperCase().trim();
+
+    const existing = await (this.prisma as any).policyScenario.findFirst({
+      where: {
+        tenantId,
+        companyId: dto.companyId,
+        planId: dto.planId,
+        policyType: { equals: normPolicyType, mode: 'insensitive' },
+        businessType: { equals: normBusinessType, mode: 'insensitive' },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(`A scenario configuration already exists for Policy Type "${dto.policyType}", Business Type "${dto.businessType}", and Plan "${plan.name}"`);
+    }
+
+    const scenario = await (this.prisma as any).policyScenario.create({
+      data: {
+        tenantId,
+        policyType: normPolicyType,
+        businessType: normBusinessType,
+        companyId: dto.companyId,
+        planId: dto.planId,
+        policyPeriods: dto.policyPeriods || [],
+        paymentOptions: dto.paymentOptions || [],
+        emiMonths: dto.emiMonths || [],
+        paymentTerms: dto.paymentTerms || [],
+        isActive: dto.isActive ?? true,
+      },
+      include: {
+        company: { select: { id: true, name: true, shortCode: true } },
+        plan: { select: { id: true, name: true, planCode: true, category: true } },
+      },
+    });
+
+    return { data: scenario, message: 'Policy scenario created successfully' };
+  }
+
+  async updateScenario(tenantId: string, id: string, dto: UpdatePolicyScenarioDto) {
+    const existing = await (this.prisma as any).policyScenario.findFirst({
+      where: { id, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Policy scenario configuration not found');
+    }
+
+    if (dto.companyId) {
+      const company = await this.prisma.insuranceCompany.findFirst({
+        where: { id: dto.companyId, tenantId },
+      });
+      if (!company) {
+        throw new BadRequestException('Selected Insurance Company does not exist in master data');
+      }
+    }
+
+    if (dto.planId) {
+      const targetCompanyId = dto.companyId || existing.companyId;
+      const plan = await this.prisma.insurancePlan.findFirst({
+        where: { id: dto.planId, tenantId, companyId: targetCompanyId },
+      });
+      if (!plan) {
+        throw new BadRequestException('Selected Insurance Plan does not exist or does not belong to the selected company');
+      }
+    }
+
+    // Check duplicate if policyType/businessType/companyId/planId changed
+    const targetPolicyType = (dto.policyType || existing.policyType).toUpperCase().trim();
+    const targetBusinessType = (dto.businessType || existing.businessType).toUpperCase().trim();
+    const targetCompanyId = dto.companyId || existing.companyId;
+    const targetPlanId = dto.planId || existing.planId;
+
+    const dup = await (this.prisma as any).policyScenario.findFirst({
+      where: {
+        tenantId,
+        id: { not: id },
+        companyId: targetCompanyId,
+        planId: targetPlanId,
+        policyType: { equals: targetPolicyType, mode: 'insensitive' },
+        businessType: { equals: targetBusinessType, mode: 'insensitive' },
+      },
+    });
+    if (dup) {
+      throw new ConflictException(`Another scenario configuration already exists for this combination`);
+    }
+
+    const updated = await (this.prisma as any).policyScenario.update({
+      where: { id },
+      data: {
+        ...(dto.policyType ? { policyType: targetPolicyType } : {}),
+        ...(dto.businessType ? { businessType: targetBusinessType } : {}),
+        ...(dto.companyId ? { companyId: dto.companyId } : {}),
+        ...(dto.planId ? { planId: dto.planId } : {}),
+        ...(dto.policyPeriods ? { policyPeriods: dto.policyPeriods } : {}),
+        ...(dto.paymentOptions ? { paymentOptions: dto.paymentOptions } : {}),
+        ...(dto.emiMonths ? { emiMonths: dto.emiMonths } : {}),
+        ...(dto.paymentTerms ? { paymentTerms: dto.paymentTerms } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+      include: {
+        company: { select: { id: true, name: true, shortCode: true } },
+        plan: { select: { id: true, name: true, planCode: true, category: true } },
+      },
+    });
+
+    return { data: updated, message: 'Policy scenario updated successfully' };
+  }
+
+  async toggleScenarioStatus(tenantId: string, id: string, isActive: boolean) {
+    const existing = await (this.prisma as any).policyScenario.findFirst({
+      where: { id, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Policy scenario configuration not found');
+    }
+
+    const updated = await (this.prisma as any).policyScenario.update({
+      where: { id },
+      data: { isActive },
+    });
+
+    return { data: updated, message: `Scenario ${isActive ? 'activated' : 'deactivated'} successfully` };
+  }
+
+  async deleteScenario(tenantId: string, id: string) {
+    const existing = await (this.prisma as any).policyScenario.findFirst({
+      where: { id, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Policy scenario configuration not found');
+    }
+
+    await (this.prisma as any).policyScenario.delete({
+      where: { id },
+    });
+
+    return { message: 'Policy scenario deleted successfully' };
   }
 }

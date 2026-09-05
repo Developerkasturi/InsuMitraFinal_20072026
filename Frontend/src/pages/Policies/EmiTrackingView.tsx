@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { policiesService } from '@api/index';
 import {
   Download, FileText, Calendar, CheckCircle2, AlertTriangle, TrendingUp,
   Search, Filter, Plus, Phone, MessageSquare, ExternalLink,
@@ -42,378 +44,7 @@ export interface EmiRecord {
 }
 
 // ── Initial Mock Data ──────────────────────────────────────────────────────────
-const INITIAL_EMI_DATA: EmiRecord[] = [
-  {
-    id: 'emi-1',
-    policyNo: 'POL-001',
-    customerName: 'Rahul Patil',
-    customerTag: 'HEALTH - FRESH',
-    product: 'HDFC Ergo - OS+',
-    insurer: 'HDFC Ergo',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 4,
-    currentEmiNo: 5,
-    dueDate: '08 Aug 2026',
-    amount: 8500,
-    paidAmountTotal: 34000,
-    remainingAmountTotal: 59500,
-    status: 'DUE',
-    nextAction: 'Send Reminder',
-    employee: 'Amit Sharma',
-    notes: 'Customer requested reminder on 5th of every month.',
-    history: [
-      { id: 'h-1', date: '05 Aug 2026, 11:30 AM', type: 'whatsapp', note: 'Reminder Sent (WhatsApp)', author: 'by Amit Sharma' },
-      { id: 'h-2', date: '06 Aug 2026, 04:15 PM', type: 'call', note: 'Customer Contacted - Will pay today', author: 'by Amit Sharma' },
-      { id: 'h-3', date: '08 Aug 2026, 10:20 AM', type: 'payment', note: 'Payment Confirmed - Payment receipt received', author: 'by Amit Sharma' },
-    ],
-    schedule: Array.from({ length: 12 }, (_, i) => ({
-      emiNo: i + 1,
-      dueDate: `${String((i % 28) + 1).padStart(2, '0')} ${['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'][i]} 2026`,
-      amount: 8500,
-      status: i < 4 ? 'PAID' : i === 4 ? 'DUE' : 'UPCOMING',
-      paidDate: i < 4 ? `0${i + 4} Month 2026` : undefined,
-    }))
-  },
-  {
-    id: 'emi-2',
-    policyNo: 'POL-002',
-    customerName: 'Amit Shah',
-    customerTag: 'LIFE - TERM',
-    product: 'HDFC Life - Term',
-    insurer: 'HDFC Life',
-    tenure: '1 Year',
-    paymentMode: 'EMI (6 Months)',
-    totalEmis: 6,
-    paidEmis: 3,
-    currentEmiNo: 3,
-    dueDate: '10 Aug 2026',
-    amount: 12000,
-    paidAmountTotal: 36000,
-    remainingAmountTotal: 36000,
-    status: 'PAID',
-    nextAction: 'View Receipt',
-    employee: 'Neha Joshi',
-    notes: 'Auto-debit mandate active.',
-    history: [
-      { id: 'h-4', date: '07 Aug 2026, 09:00 AM', type: 'payment', note: 'Auto-debit successful', author: 'by System' }
-    ],
-    schedule: Array.from({ length: 6 }, (_, i) => ({
-      emiNo: i + 1,
-      dueDate: `10 ${['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'][i]} 2026`,
-      amount: 12000,
-      status: i <= 2 ? 'PAID' : 'UPCOMING',
-      paidDate: i <= 2 ? `10 ${['Jun', 'Jul', 'Aug'][i]} 2026` : undefined,
-    }))
-  },
-  {
-    id: 'emi-3',
-    policyNo: 'POL-003',
-    customerName: 'Priya Joshi',
-    customerTag: 'HEALTH - RENEWAL',
-    product: 'HDFC Ergo - OS+',
-    insurer: 'HDFC Ergo',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 6,
-    currentEmiNo: 7,
-    dueDate: '12 Aug 2026',
-    amount: 6500,
-    paidAmountTotal: 39000,
-    remainingAmountTotal: 32500,
-    status: 'UPCOMING',
-    nextAction: 'Upcoming',
-    employee: 'Sagar More',
-    history: [],
-    schedule: Array.from({ length: 12 }, (_, i) => ({
-      emiNo: i + 1,
-      dueDate: `12 ${['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan'][i]} 2026`,
-      amount: 6500,
-      status: i < 6 ? 'PAID' : i === 6 ? 'UPCOMING' : 'UPCOMING',
-      paidDate: i < 6 ? `12 Month` : undefined,
-    }))
-  },
-  {
-    id: 'emi-4',
-    policyNo: 'POL-004',
-    customerName: 'Sneha Patil',
-    customerTag: 'MOTOR - RENEWAL',
-    product: 'HDFC Ergo - OS+',
-    insurer: 'HDFC Ergo',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 2,
-    currentEmiNo: 3,
-    dueDate: '05 Aug 2026',
-    amount: 9000,
-    paidAmountTotal: 18000,
-    remainingAmountTotal: 90000,
-    status: 'OVERDUE',
-    nextAction: 'Call Customer',
-    employee: 'Amit Sharma',
-    history: [
-      { id: 'h-5', date: '04 Aug 2026, 02:00 PM', type: 'call', note: 'Called customer, line busy', author: 'by Amit Sharma' }
-    ],
-    schedule: Array.from({ length: 12 }, (_, i) => ({
-      emiNo: i + 1,
-      dueDate: `05 Month`,
-      amount: 9000,
-      status: i < 2 ? 'PAID' : i === 2 ? 'DUE' : 'UPCOMING',
-    }))
-  },
-  {
-    id: 'emi-5',
-    policyNo: 'POL-005',
-    customerName: 'Raj Mehta',
-    customerTag: 'TERM - NEW',
-    product: 'HDFC Life - Term',
-    insurer: 'HDFC Life',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 1,
-    currentEmiNo: 2,
-    dueDate: '08 Aug 2026',
-    amount: 10000,
-    paidAmountTotal: 10000,
-    remainingAmountTotal: 110000,
-    status: 'MESSAGE SENT',
-    nextAction: 'Follow Up',
-    employee: 'Neha Joshi',
-    history: [
-      { id: 'h-6', date: '05 Aug 2026, 10:00 AM', type: 'whatsapp', note: 'WhatsApp message sent with payment link', author: 'by Neha Joshi' }
-    ],
-    schedule: Array.from({ length: 12 }, (_, i) => ({
-      emiNo: i + 1,
-      dueDate: `08 Month`,
-      amount: 10000,
-      status: i < 1 ? 'PAID' : 'DUE',
-    }))
-  },
-  {
-    id: 'emi-6',
-    policyNo: 'POL-006',
-    customerName: 'Pooja Singh',
-    customerTag: 'HEALTH - FRESH',
-    product: 'Star Comprehensive',
-    insurer: 'Star Health',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 3,
-    currentEmiNo: 4,
-    dueDate: '08 Aug 2026',
-    amount: 6000,
-    paidAmountTotal: 18000,
-    remainingAmountTotal: 54000,
-    status: 'PAID',
-    nextAction: 'View Receipt',
-    employee: 'Amit Sharma',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-7',
-    policyNo: 'POL-007',
-    customerName: 'Mahesh Jadhav',
-    customerTag: 'MOTOR - COMMERCIAL',
-    product: 'ICICI Lombard - Motor',
-    insurer: 'ICICI Lombard',
-    tenure: '1 Year',
-    paymentMode: 'EMI (6 Months)',
-    totalEmis: 6,
-    paidEmis: 1,
-    currentEmiNo: 2,
-    dueDate: '02 Aug 2026',
-    amount: 12500,
-    paidAmountTotal: 12500,
-    remainingAmountTotal: 62500,
-    status: 'OVERDUE',
-    nextAction: 'Call Customer',
-    employee: 'Sagar More',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-8',
-    policyNo: 'POL-008',
-    customerName: 'Deepak More',
-    customerTag: 'HEALTH - SENIOR',
-    product: 'Care Health',
-    insurer: 'Care Health',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 0,
-    currentEmiNo: 1,
-    dueDate: '03 Aug 2026',
-    amount: 8000,
-    paidAmountTotal: 0,
-    remainingAmountTotal: 96000,
-    status: 'PAYMENT FAILED',
-    nextAction: 'Follow Up',
-    employee: 'Neha Joshi',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-9',
-    policyNo: 'POL-009',
-    customerName: 'Vikas Sharma',
-    customerTag: 'TERM - FRESH',
-    product: 'HDFC Life - Term',
-    insurer: 'HDFC Life',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 1,
-    currentEmiNo: 2,
-    dueDate: '15 Aug 2026',
-    amount: 7500,
-    paidAmountTotal: 7500,
-    remainingAmountTotal: 82500,
-    status: 'UPCOMING',
-    nextAction: 'Upcoming',
-    employee: 'Amit Sharma',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-10',
-    policyNo: 'POL-010',
-    customerName: 'Rohit Kumar',
-    customerTag: 'HEALTH - FAMILY',
-    product: 'Star Comprehensive',
-    insurer: 'Star Health',
-    tenure: '1 Year',
-    paymentMode: 'EMI (6 Months)',
-    totalEmis: 6,
-    paidEmis: 0,
-    currentEmiNo: 1,
-    dueDate: '18 Aug 2026',
-    amount: 12000,
-    paidAmountTotal: 0,
-    remainingAmountTotal: 72000,
-    status: 'UPCOMING',
-    nextAction: 'Upcoming',
-    employee: 'Sagar More',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-11',
-    policyNo: 'POL-011',
-    customerName: 'Anita Deshmukh',
-    customerTag: 'HEALTH - FRESH',
-    product: 'Niva Bupa - Reassure',
-    insurer: 'Niva Bupa',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 3,
-    currentEmiNo: 4,
-    dueDate: '09 Aug 2026',
-    amount: 6800,
-    paidAmountTotal: 20400,
-    remainingAmountTotal: 61200,
-    status: 'DUE',
-    nextAction: 'Send Reminder',
-    employee: 'Amit Sharma',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-12',
-    policyNo: 'POL-012',
-    customerName: 'Kiran Bhosale',
-    customerTag: 'LIFE - SAVINGS',
-    product: 'Tata AIA - Life',
-    insurer: 'Tata AIA',
-    tenure: '1 Year',
-    paymentMode: 'EMI (6 Months)',
-    totalEmis: 6,
-    paidEmis: 2,
-    currentEmiNo: 3,
-    dueDate: '09 Aug 2026',
-    amount: 9000,
-    paidAmountTotal: 18000,
-    remainingAmountTotal: 36000,
-    status: 'MESSAGE SENT',
-    nextAction: 'Follow Up',
-    employee: 'Neha Joshi',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-13',
-    policyNo: 'POL-013',
-    customerName: 'Sunil Verma',
-    customerTag: 'MOTOR - PRIVATE',
-    product: 'Bajaj Allianz - Motor',
-    insurer: 'Bajaj Allianz',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 3,
-    currentEmiNo: 4,
-    dueDate: '07 Aug 2026',
-    amount: 7200,
-    paidAmountTotal: 21600,
-    remainingAmountTotal: 64800,
-    status: 'CUSTOMER CONTACTED',
-    nextAction: 'Follow Up',
-    employee: 'Amit Sharma',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-14',
-    policyNo: 'POL-014',
-    customerName: 'Nisha Kulkarni',
-    customerTag: 'HEALTH - CRITICAL',
-    product: 'HDFC Ergo - OS+',
-    insurer: 'HDFC Ergo',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 4,
-    currentEmiNo: 5,
-    dueDate: '08 Aug 2026',
-    amount: 8900,
-    paidAmountTotal: 35600,
-    remainingAmountTotal: 62300,
-    status: 'CUSTOMER CONTACTED',
-    nextAction: 'Follow Up',
-    employee: 'Neha Joshi',
-    history: [],
-    schedule: []
-  },
-  {
-    id: 'emi-15',
-    policyNo: 'POL-015',
-    customerName: 'Meena Gawade',
-    customerTag: 'HEALTH - SENIOR',
-    product: 'Care Health',
-    insurer: 'Care Health',
-    tenure: '1 Year',
-    paymentMode: 'EMI (12 Months)',
-    totalEmis: 12,
-    paidEmis: 1,
-    currentEmiNo: 2,
-    dueDate: '04 Aug 2026',
-    amount: 7000,
-    paidAmountTotal: 7000,
-    remainingAmountTotal: 77000,
-    status: 'PAYMENT FAILED',
-    nextAction: 'Follow Up',
-    employee: 'Sagar More',
-    history: [],
-    schedule: []
-  }
-];
+const INITIAL_EMI_DATA: EmiRecord[] = [];
 
 // Helper format function
 const fmtCurr = (n: number) => `₹ ${Number(n).toLocaleString('en-IN')}`;
@@ -651,14 +282,84 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
 }
 
 export default function EmiTrackingView({ selectedMonth }: { selectedMonth: string }) {
-  const [data, setData] = useState<EmiRecord[]>(() => INITIAL_EMI_DATA.map(d => ({
-    ...d,
-    customerContactNo: '+91 9876543210',
-    insuranceCompanyType: d.customerTag.split(' - ')[0] || 'Health',
-    loanProvider: 'FIBE',
-    premiumAmount: d.amount * d.totalEmis,
-    installmentFrequency: 'Monthly'
-  })));
+  const [data, setData] = useState<EmiRecord[]>([]);
+  const { data: policiesRes, isLoading } = useQuery({
+    queryKey: ['policies-emi-tracking'],
+    queryFn: () => policiesService.list({ limit: 2000 })
+  });
+
+  useEffect(() => {
+    const rawPolicies = Array.isArray(policiesRes?.data) ? policiesRes.data : Array.isArray(policiesRes) ? policiesRes : [];
+    const derivedData = rawPolicies.filter((p: any) => p.paymentFrequency && p.paymentFrequency !== 'SINGLE' && p.paymentFrequency !== 'Full Payment').map((p: any) => {
+      const payments = p.payments || [];
+      const totalEmis = payments.length;
+      if (totalEmis === 0) return null;
+
+      const paidEmis = payments.filter((pmt: any) => pmt.isPaid).length;
+      let currentEmiNo = payments.findIndex((pmt: any) => !pmt.isPaid) + 1;
+      if (currentEmiNo === 0) currentEmiNo = totalEmis;
+      
+      const currentPmt = payments[currentEmiNo - 1] || payments[totalEmis - 1];
+      const dueDate = new Date(currentPmt.dueDate);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      dueDate.setHours(0,0,0,0);
+      
+      let status: EmiRecord['status'] = 'UPCOMING';
+      if (paidEmis === totalEmis) status = 'PAID';
+      else if (dueDate < today) status = 'OVERDUE';
+      else if (dueDate.getTime() === today.getTime() || dueDate.getTime() - today.getTime() <= 7 * 86400000) status = 'DUE';
+
+      const c = p.contact || {};
+      const plan = p.plan || {};
+      const comp = plan.company || {};
+      const emp = p.assignedEmployee?.employeeProfile || {};
+
+      return {
+        id: p.id,
+        policyNo: p.policyNumber || 'N/A',
+        customerName: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'No Name',
+        customerContactNo: c.phone || 'N/A',
+        insuranceCompanyType: plan.category || 'N/A',
+        customerTag: `${plan.category || 'N/A'} - ${p.businessType || 'N/A'}`,
+        product: plan.name || 'N/A',
+        insurer: comp.name || 'N/A',
+        loanProvider: p.notes?.includes('Loan') ? 'FIBE' : 'N/A',
+        premiumAmount: p.premiumAmount || 0,
+        installmentFrequency: p.paymentFrequency,
+        tenure: '1 Year',
+        paymentMode: p.paymentFrequency,
+        totalEmis,
+        paidEmis,
+        currentEmiNo,
+        dueDate: currentPmt.dueDate ? new Date(currentPmt.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric'}) : 'N/A',
+        amount: currentPmt.amount || 0,
+        paidAmountTotal: payments.filter((pmt: any) => pmt.isPaid).reduce((acc: number, val: any) => acc + (val.amount || 0), 0),
+        remainingAmountTotal: payments.filter((pmt: any) => !pmt.isPaid).reduce((acc: number, val: any) => acc + (val.amount || 0), 0),
+        status,
+        nextAction: status === 'PAID' ? 'View Receipt' : status === 'OVERDUE' ? 'Call Customer' : 'Send Reminder',
+        employee: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unassigned',
+        history: [],
+        schedule: payments.map((pmt: any, index: number) => {
+             const d = new Date(pmt.dueDate);
+             d.setHours(0,0,0,0);
+             let sStatus: 'PAID'|'DUE'|'UPCOMING' = 'UPCOMING';
+             if (pmt.isPaid) sStatus = 'PAID';
+             else if (d <= new Date(Date.now() + 7 * 86400000)) sStatus = 'DUE';
+             return {
+                 emiNo: index + 1,
+                 dueDate: pmt.dueDate ? new Date(pmt.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric'}) : 'N/A',
+                 amount: pmt.amount || 0,
+                 status: sStatus,
+                 paidDate: pmt.updatedAt && pmt.isPaid ? new Date(pmt.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric'}) : undefined,
+             };
+        }),
+        notes: p.notes || '',
+      };
+    }).filter(Boolean) as EmiRecord[];
+
+    setData(derivedData);
+  }, [policiesRes]);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [employeeFilter, setEmployeeFilter] = useState<string>('All');
   const [insurerFilter, setInsurerFilter] = useState<string>('All');
@@ -955,7 +656,24 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
     toast.success('Note added');
   };
 
-  // Kanban Column Definitions (Removed)
+  // Dynamic KPIs Computed from data
+  const kpiTotalDueList = data.filter(r => r.status !== 'PAID');
+  const kpiTotalDueCount = kpiTotalDueList.length;
+  const kpiTotalDueAmount = kpiTotalDueList.reduce((acc, r) => acc + r.amount, 0);
+
+  const kpiDueTodayList = data.filter(r => r.status === 'DUE');
+  const kpiDueTodayCount = kpiDueTodayList.length;
+  const kpiDueTodayAmount = kpiDueTodayList.reduce((acc, r) => acc + r.amount, 0);
+
+  const kpiOverdueList = data.filter(r => r.status === 'OVERDUE');
+  const kpiOverdueCount = kpiOverdueList.length;
+  const kpiOverdueAmount = kpiOverdueList.reduce((acc, r) => acc + r.amount, 0);
+
+  const kpiPaidList = data.filter(r => r.status === 'PAID');
+  const kpiPaidCount = kpiPaidList.length;
+  const kpiPaidAmount = kpiPaidList.reduce((acc, r) => acc + r.amount, 0);
+  
+  const paymentTargetStr = data.length > 0 ? Math.round((kpiPaidCount / data.length) * 100) : 0;
 
   return (
     <div className="space-y-5 animate-fadeIn font-sans pb-10">
@@ -971,9 +689,9 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Installments Due</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-slate-900">84</span>
+              <span className="text-2xl font-black text-slate-900">{kpiTotalDueCount}</span>
             </div>
-            <span className="text-xs font-bold text-slate-500 block">₹ 8,45,000</span>
+            <span className="text-xs font-bold text-slate-500 block">{fmtCurr(kpiTotalDueAmount)}</span>
           </div>
         </div>
 
@@ -983,11 +701,11 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
             <Calendar size={22} />
           </div>
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Due Today</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Due This Week</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-slate-900">12</span>
+              <span className="text-2xl font-black text-slate-900">{kpiDueTodayCount}</span>
             </div>
-            <span className="text-xs font-bold text-slate-500 block">₹ 1,20,000</span>
+            <span className="text-xs font-bold text-slate-500 block">{fmtCurr(kpiDueTodayAmount)}</span>
           </div>
         </div>
 
@@ -999,9 +717,9 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Pending / Overdue</span>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-slate-900">28</span>
+              <span className="text-2xl font-black text-slate-900">{kpiOverdueCount}</span>
             </div>
-            <span className="text-xs font-bold text-slate-500 block">₹ 2,85,000</span>
+            <span className="text-xs font-bold text-slate-500 block">{fmtCurr(kpiOverdueAmount)}</span>
           </div>
         </div>
 
@@ -1015,15 +733,15 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                 </div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Paid / Collection</span>
               </div>
-              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">56 Policies</span>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">{kpiPaidCount} Policies</span>
             </div>
             <div className="mt-2.5 flex items-baseline justify-between">
-              <span className="text-xl font-black text-emerald-950 block">₹ 5,60,000</span>
-              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">65% Target</span>
+              <span className="text-xl font-black text-emerald-950 block">{fmtCurr(kpiPaidAmount)}</span>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-md">{paymentTargetStr}% Target</span>
             </div>
           </div>
           <div className="w-full bg-emerald-200/80 h-2 rounded-full mt-2.5 overflow-hidden">
-            <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: '65%' }} />
+            <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: `${paymentTargetStr}%` }} />
           </div>
         </div>
 

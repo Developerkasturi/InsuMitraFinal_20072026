@@ -285,7 +285,7 @@ function isMutualFundLead(lead: any): boolean {
     if (typeof lead.notes === 'string' && lead.notes.trim().startsWith('{')) {
       try {
         parsedNotes = JSON.parse(lead.notes);
-      } catch (e) {}
+      } catch (e) { }
     } else if (typeof lead.notes === 'object' && lead.notes !== null) {
       parsedNotes = lead.notes;
     }
@@ -443,11 +443,10 @@ function MultiSelectBox({
             {selectedValues.map((val, idx) => (
               <span
                 key={idx}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
-                  badgeColor === 'orange'
-                    ? 'bg-orange-50 text-orange-700 border-orange-200'
-                    : 'bg-blue-50 text-blue-700 border-blue-200'
-                }`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${badgeColor === 'orange'
+                  ? 'bg-orange-50 text-orange-700 border-orange-200'
+                  : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }`}
               >
                 {val}
                 <span
@@ -1161,7 +1160,7 @@ export default function Leads() {
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
       if (filterEmployee && lead.assignedEmployeeId !== filterEmployee) return false;
       if (filterStages.length > 0 && !filterStages.includes(lead.stage ?? '')) return false;
-      
+
       const extra = parseLeadNotes(lead.notes);
       const curStatus = extra.leadStatus || lead.leadStatus || lead.status || 'INTERESTED';
       if (filterStatuses.length > 0) {
@@ -1303,7 +1302,7 @@ export default function Leads() {
       if (key === 'premiumBudget') return row.premiumBudget ?? 0;
       if (key === 'followUpDate') return row.followUpDate ? new Date(row.followUpDate).getTime() : 0;
       if (key === 'stage') return row.stage ?? '';
-      
+
       const parts = key.split('.');
       let val = row;
       for (const part of parts) {
@@ -1337,7 +1336,7 @@ export default function Leads() {
       `"${(l.uiStage || '').replace(/"/g, '""')}"`,
       l.followUpDate ? new Date(l.followUpDate).toLocaleDateString() : ''
     ].join(',')).join('\n');
-    
+
     const content = headers.join(',') + '\n' + rows;
     const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1355,7 +1354,7 @@ export default function Leads() {
       toast.error('Pop-up blocked. Please allow pop-ups to print PDF');
       return;
     }
-    
+
     const rowsHtml = sortedLeads.map((l: any) => `
       <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
         <td style="padding: 8px;">${((l.contact?.firstName || '') + ' ' + (l.contact?.lastName || '')).trim() || 'N/A'}</td>
@@ -1536,7 +1535,7 @@ export default function Leads() {
       return;
     }
     // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
-    const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','86','1','7'];
+    const KNOWN_CODES = ['971', '966', '974', '968', '965', '973', '880', '977', '234', '254', '353', '91', '44', '49', '33', '81', '86', '94', '60', '62', '63', '66', '84', '27', '55', '52', '39', '34', '31', '41', '46', '47', '45', '64', '65', '61', '86', '1', '7'];
     const rawWaDigits = personalFields.whatsappNumber.trim().replace(/\D/g, '');
     const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
     const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
@@ -2004,13 +2003,13 @@ export default function Leads() {
           lifeEntries.push(entry);
         }
       });
-const medicalOptions = [
-  "BP",
-  "Sugar",
-  "Heart",
-  "Thyroid",
-  "Others",
-];
+      const medicalOptions = [
+        "BP",
+        "Sugar",
+        "Heart",
+        "Thyroid",
+        "Others",
+      ];
       const parsedPolicies: any[] = [];
       if (healthEntries.length > 0) parsedPolicies.push({ policyType: 'Health', entries: healthEntries });
       if (lifeEntries.length > 0) parsedPolicies.push({ policyType: 'Life', entries: lifeEntries });
@@ -5461,6 +5460,8 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
   onCall: (phone?: string) => void;
   onWhatsApp: (phone?: string) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const formattedDate = card.createdAt ? format(new Date(card.createdAt), 'dd/MMM/yyyy') : '';
   const followUp = card.followUpDate ? format(new Date(card.followUpDate), 'dd/MMM/yyyy') : null;
   const assigneeName = card.assignedEmployee?.employeeProfile
@@ -5469,6 +5470,7 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
   const initials = `${card.contact?.firstName?.[0] ?? ''}${card.contact?.lastName?.[0] ?? ''}`.toUpperCase() || 'LD';
   const hotness = deriveHotness(card);
   const hotnessConf = HOTNESS_CONFIG[hotness];
+  const productName = card.plan?.name || (card.interests && card.interests.length > 0 ? card.interests.join(', ') : 'No Product');
 
   const AVATAR_BG: Record<string, string> = {
     TO_CONTACT: 'bg-blue-500', CONTACTED: 'bg-indigo-500', PROPOSAL_SENT: 'bg-purple-500',
@@ -5498,95 +5500,121 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
       onDragStart={e => e.dataTransfer.setData('cardId', card.id)}
       onClick={() => onOpen(card)}
       className={clsx(
-        'bg-white rounded-2xl p-4 shadow-sm border border-slate-100 cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-150 flex flex-col gap-3 group relative overflow-hidden',
+        'bg-white rounded-2xl p-3.5 shadow-sm border border-slate-100 cursor-grab active:cursor-grabbing hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-150 flex flex-col gap-2 group relative overflow-hidden',
         BORDER_TOP[card.stage] ?? 'border-t-4 border-t-slate-300',
         SHADOW_HOVER[card.stage] ?? 'hover:shadow-slate-500/10'
       )}
     >
-      <div className="flex items-center justify-between min-w-0">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <div className={clsx('h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm ring-4',
-            AVATAR_BG[card.stage] ?? 'bg-slate-500', RING_COLOR[card.stage] ?? 'ring-slate-500/20')}>
-            {initials}
-          </div>
-          <span className={clsx('flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[9px] font-bold', hotnessConf.cls)}>
-            <HotnessIcon level={hotness} /> {hotnessConf.label}
-          </span>
+      {/* Line 1: Lead ID and Name */}
+      <div className="flex items-center justify-between min-w-0 gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {card.leadId && (
             <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/70 shrink-0">
               {card.leadId}
             </span>
           )}
+          <h4 className="text-[13px] font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors truncate">
+            {card.contact?.firstName} {card.contact?.lastName}
+          </h4>
         </div>
-        <div className="flex flex-wrap items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-1.5" onClick={e => e.stopPropagation()}>
-          <button onClick={() => onEdit(card)} className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-            <Pencil size={11} />
-          </button>
-          <button onClick={() => onDelete(card)} className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-slate-50 transition-colors">
-            <Trash2 size={11} />
+        <div className="flex items-center gap-1 bg-white pl-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => onEdit(card)} className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-slate-50 transition-colors" title="Edit Lead">
+              <Pencil size={11} />
+            </button>
+            <button onClick={() => onDelete(card)} className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-slate-50 transition-colors" title="Delete Lead">
+              <Trash2 size={11} />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(prev => !prev)}
+            className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+            title={isExpanded ? 'Collapse card' : 'Expand card'}
+          >
+            <ChevronDown size={14} className={clsx('transition-transform duration-200 text-slate-500', isExpanded && 'rotate-180')} />
           </button>
         </div>
       </div>
 
-      <div className="min-w-0">
-        <h4 className="text-[13px] font-bold text-slate-900 leading-snug hover:text-blue-600 transition-colors truncate">
-          {card.contact?.firstName} {card.contact?.lastName}
-        </h4>
-        <p className="text-[10px] text-slate-500 font-medium mt-0.5">Created {formattedDate}</p>
+      {/* Line 2: Creation date and Hotness level */}
+      <div className="flex items-center justify-between gap-1.5 text-[10px]">
+        <span className="text-slate-500 font-medium">
+          Created {formattedDate || '—'}
+        </span>
+        <span className={clsx('flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0', hotnessConf.cls)}>
+          <HotnessIcon level={hotness} /> {hotnessConf.label}
+        </span>
       </div>
 
-      <div className="border-t border-slate-100/80 my-0.5" />
-
-      <div className="space-y-1.5 text-xs text-slate-700 font-medium">
-        {card.contact?.phone && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Phone size={12} className="text-slate-500 shrink-0" />
-            <span className="truncate">{card.contact.phone}</span>
-          </div>
-        )}
-        {card.contact?.email && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Mail size={12} className="text-slate-500 shrink-0" />
-            <span className="truncate">{card.contact.email}</span>
-          </div>
-        )}
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
+      {/* Line 3: Product and Expected premium */}
+      <div className="flex items-center justify-between gap-1.5 text-xs">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 text-slate-700 font-semibold truncate">
           <Shield size={12} className="text-slate-500 shrink-0" />
-          <span className="truncate font-semibold text-slate-800">{card.plan?.name || (card.interests && card.interests.length > 0 ? card.interests.join(', ') : 'No Product')}</span>
+          <span className="truncate font-semibold text-slate-800">{productName}</span>
         </div>
-
-        {/* Expected Premium in Card View */}
-        <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-200/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-emerald-900 mt-1">
-          <span className="text-[11px] text-emerald-700 font-medium">Expected Premium</span>
-          <span className="font-bold text-emerald-800 text-xs">
-            ₹{Number(card.premiumBudget || card.expectedPremium || 0).toLocaleString('en-IN')}
+        {(card.premiumBudget || card.expectedPremium) ? (
+          <span className="font-bold text-emerald-700 text-[11px] bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded shrink-0">
+            ₹{Number(card.premiumBudget || card.expectedPremium).toLocaleString('en-IN')}
           </span>
-        </div>
-
-        {followUp && (
-          <div className="flex flex-wrap items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200/60 rounded px-2 py-0.5 w-fit font-bold mt-1">
-            <Calendar size={10} className="shrink-0 text-amber-600" />
-            <span>Follow-up: {followUp}</span>
-          </div>
-        )}
+        ) : null}
       </div>
 
-      <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-0.5 gap-2" onClick={e => e.stopPropagation()}>
-        <div className="flex flex-wrap items-center gap-1 text-slate-500 text-[9px] font-semibold truncate">
-          <UserCircle2 size={10} className="text-slate-400 shrink-0" />
+      {/* Line 4: Assignee and Followup date */}
+      <div className="flex items-center justify-between gap-1.5 text-[10px] pt-0.5">
+        <div className="flex items-center gap-1 text-slate-500 font-semibold truncate max-w-[130px]" title={assigneeName}>
+          <UserCircle2 size={11} className="text-slate-400 shrink-0" />
           <span className="truncate">{assigneeName}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button onClick={() => onCall(card.contact?.phone)}
-            className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer" title="Call">
-            <Phone size={11} />
-          </button>
-          <button onClick={() => onWhatsApp(card.contact?.phone)}
-            className="p-1.5 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 text-green-600 cursor-pointer" title="WhatsApp">
-            <MessageCircle size={11} />
-          </button>
-        </div>
+
+        {followUp ? (
+          <div className="flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200/60 rounded px-1.5 py-0.5 font-bold truncate max-w-[140px]">
+            <Calendar size={10} className="shrink-0 text-amber-600" />
+            <span className="truncate">{followUp}</span>
+          </div>
+        ) : (
+          <span className="text-[10px] text-slate-400 italic">No follow-up</span>
+        )}
       </div>
+
+      {/* Expanded Details Section */}
+      {isExpanded && (
+        <div className="space-y-2 pt-2 border-t border-slate-100/80 animate-fadeIn" onClick={e => e.stopPropagation()}>
+          {card.contact?.phone && (
+            <div className="flex items-center justify-between gap-2 text-xs text-slate-700 font-medium">
+              <div className="flex items-center gap-2 min-w-0 truncate">
+                <Phone size={12} className="text-slate-500 shrink-0" />
+                <span className="truncate">{card.contact.phone}</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onCall(card.contact?.phone)}
+                  className="p-1 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer transition-colors"
+                  title="Call"
+                >
+                  <Phone size={11} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onWhatsApp(card.contact?.phone)}
+                  className="p-1 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 text-green-600 cursor-pointer transition-colors"
+                  title="WhatsApp"
+                >
+                  <MessageCircle size={11} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {card.contact?.email && (
+            <div className="flex items-center gap-2 text-xs text-slate-700 font-medium">
+              <Mail size={12} className="text-slate-500 shrink-0" />
+              <span className="truncate">{card.contact.email}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -6007,169 +6035,169 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
       {/* Fixed height tab content container so popup size remains constant when switching tabs */}
       <div className="h-[400px] min-h-[400px] max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
         {/* Overview */}
-      {tab === 'overview' && (
-        <div className="space-y-4">
-          {/* Non-Editable Product Interest Data Cards */}
-          {(() => {
-            const backendInterests: any[] = contactData?.data?.productInterests || [];
-            
-            // Find specific matching backend product interest for this lead (by ID or plan category/interest match), fallback to fullLead
-            const leadInterests = fullLead.interests && fullLead.interests.length > 0
-              ? fullLead.interests
-              : [fullLead.plan?.name || fullLead.plan?.category].filter(Boolean);
+        {tab === 'overview' && (
+          <div className="space-y-4">
+            {/* Non-Editable Product Interest Data Cards */}
+            {(() => {
+              const backendInterests: any[] = contactData?.data?.productInterests || [];
 
-            const matchedBackendInterest = backendInterests.find((pi: any) => {
-              if (pi.id && fullLead.id && pi.id === fullLead.id) return true;
-              if (pi.productInterestId && fullLead.id && pi.productInterestId === fullLead.id) return true;
-              if (pi.planId && fullLead.planId && pi.planId === fullLead.planId) return true;
-              const piInterests: string[] = pi.interests && pi.interests.length > 0
-                ? pi.interests
-                : [pi.plan?.name || pi.plan?.category].filter(Boolean);
-              return piInterests.some(i => leadInterests.includes(i));
-            });
+              // Find specific matching backend product interest for this lead (by ID or plan category/interest match), fallback to fullLead
+              const leadInterests = fullLead.interests && fullLead.interests.length > 0
+                ? fullLead.interests
+                : [fullLead.plan?.name || fullLead.plan?.category].filter(Boolean);
 
-            const allProductInterestsList = matchedBackendInterest ? [matchedBackendInterest] : [fullLead];
+              const matchedBackendInterest = backendInterests.find((pi: any) => {
+                if (pi.id && fullLead.id && pi.id === fullLead.id) return true;
+                if (pi.productInterestId && fullLead.id && pi.productInterestId === fullLead.id) return true;
+                if (pi.planId && fullLead.planId && pi.planId === fullLead.planId) return true;
+                const piInterests: string[] = pi.interests && pi.interests.length > 0
+                  ? pi.interests
+                  : [pi.plan?.name || pi.plan?.category].filter(Boolean);
+                return piInterests.some(i => leadInterests.includes(i));
+              });
 
-            return (
-              <div className="space-y-3">
-                {allProductInterestsList.map((pi: any, idx: number) => {
-                  const parsedNotes = parseLeadNotes(pi.notes);
-                  const interestsList: string[] = pi.interests && pi.interests.length > 0
-                    ? pi.interests
-                    : [pi.plan?.name || pi.plan?.category || 'Health'];
-                  const premium = pi.premiumBudget || pi.expectedPremium || 0;
-                  const sumAssured = pi.sumAssuredRequired || pi.sumAssured || 0;
-                  const planName = pi.plan?.name;
-                  const companyName = pi.plan?.company?.name;
+              const allProductInterestsList = matchedBackendInterest ? [matchedBackendInterest] : [fullLead];
 
-                  return (
-                    <div key={pi.id || idx} className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
-                      <div className="flex items-center justify-between border-b border-blue-100/80 pb-2.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs text-xs">
-                            <Shield size={15} />
+              return (
+                <div className="space-y-3">
+                  {allProductInterestsList.map((pi: any, idx: number) => {
+                    const parsedNotes = parseLeadNotes(pi.notes);
+                    const interestsList: string[] = pi.interests && pi.interests.length > 0
+                      ? pi.interests
+                      : [pi.plan?.name || pi.plan?.category || 'Health'];
+                    const premium = pi.premiumBudget || pi.expectedPremium || 0;
+                    const sumAssured = pi.sumAssuredRequired || pi.sumAssured || 0;
+                    const planName = pi.plan?.name;
+                    const companyName = pi.plan?.company?.name;
+
+                    return (
+                      <div key={pi.id || idx} className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-indigo-50/50 border border-blue-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between border-b border-blue-100/80 pb-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs text-xs">
+                              <Shield size={15} />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Product Interest {allProductInterestsList.length > 1 ? `#${idx + 1}` : ''}</span>
+                              <h4 className="text-xs font-extrabold text-slate-800">Selected Product Interest Details</h4>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Product Interest {allProductInterestsList.length > 1 ? `#${idx + 1}` : ''}</span>
-                            <h4 className="text-xs font-extrabold text-slate-800">Selected Product Interest Details</h4>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {pi.stage && (
-                            <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[pi.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
-                              {STAGE_LABELS[pi.stage] ?? pi.stage}
-                            </span>
-                          )}
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-200/80 text-slate-600 border border-slate-300/60 flex flex-wrap items-center gap-1">
-                            <Lock size={9} className="text-slate-500" /> Non-Editable
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Selected Product(s)</span>
-                          <div className="flex flex-wrap gap-1.5 mt-0.5">
-                            {interestsList.map((prod: string, i: number) => (
-                              <span key={i} className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-blue-600 text-white shadow-2xs">
-                                ✓ {prod}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {pi.stage && (
+                              <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-bold border uppercase tracking-wider', BADGE_STYLES[pi.stage] ?? 'bg-gray-100 text-gray-700 border-gray-200')}>
+                                {STAGE_LABELS[pi.stage] ?? pi.stage}
                               </span>
-                            ))}
+                            )}
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-200/80 text-slate-600 border border-slate-300/60 flex flex-wrap items-center gap-1">
+                              <Lock size={9} className="text-slate-500" /> Non-Editable
+                            </span>
                           </div>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Selected Product(s)</span>
+                            <div className="flex flex-wrap gap-1.5 mt-0.5">
+                              {interestsList.map((prod: string, i: number) => (
+                                <span key={i} className="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-blue-600 text-white shadow-2xs">
+                                  ✓ {prod}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
 
-                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Source</span>
-                          <p className="font-bold text-slate-700 mt-0.5">
-                            {pi.source || fullLead.source || 'Walk-in'}
-                          </p>
+
+                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Lead Source</span>
+                            <p className="font-bold text-slate-700 mt-0.5">
+                              {pi.source || fullLead.source || 'Walk-in'}
+                            </p>
+                          </div>
                         </div>
+
+                        {parsedNotes.descriptionDetails && (
+                          <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs text-xs space-y-1">
+                            <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">Requirements / Description Notes</span>
+                            <p className="text-slate-700 font-medium text-[11px] leading-relaxed whitespace-pre-wrap">
+                              {parsedNotes.descriptionDetails}
+                            </p>
+                          </div>
+                        )}
                       </div>
-
-                      {parsedNotes.descriptionDetails && (
-                        <div className="bg-white/90 rounded-xl p-3 border border-slate-200/80 shadow-2xs text-xs space-y-1">
-                          <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider block">Requirements / Description Notes</span>
-                          <p className="text-slate-700 font-medium text-[11px] leading-relaxed whitespace-pre-wrap">
-                            {parsedNotes.descriptionDetails}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-          {(() => {
-            const parsedLeadNotes = parseLeadNotes(fullLead.notes);
-            const connectedPolicyData = fullLead.connectedPolicy;
-            const isRenewalLead = parsedLeadNotes.leadType === 'RENEWAL' || fullLead.source === 'Renewal';
-            if (!isRenewalLead) return null;
-
-            const policyType = connectedPolicyData?.plan?.category || fullLead.plan?.category || (fullLead.interests && fullLead.interests.length > 0 ? fullLead.interests.join(', ') : '—');
-
-            return (
-              <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                      <Shield size={16} />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 block">Renewal Created Against</span>
-                      <h4 className="text-sm font-extrabold text-slate-800">
-                        Policy #{connectedPolicyData?.policyNumber || parsedLeadNotes.policyNumber || 'N/A'}
-                      </h4>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-700 border border-purple-200">
-                    Renewal Lead
-                  </span>
+                    );
+                  })}
                 </div>
+              );
+            })()}
+            {(() => {
+              const parsedLeadNotes = parseLeadNotes(fullLead.notes);
+              const connectedPolicyData = fullLead.connectedPolicy;
+              const isRenewalLead = parsedLeadNotes.leadType === 'RENEWAL' || fullLead.source === 'Renewal';
+              if (!isRenewalLead) return null;
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Type</span>
-                    <p className="font-bold text-slate-700 mt-0.5 uppercase tracking-wide">
-                      {policyType}
-                    </p>
+              const policyType = connectedPolicyData?.plan?.category || fullLead.plan?.category || (fullLead.interests && fullLead.interests.length > 0 ? fullLead.interests.join(', ') : '—');
+
+              return (
+                <div className="bg-gradient-to-br from-amber-50/90 to-orange-50/70 border border-amber-200/90 rounded-2xl p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                        <Shield size={16} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 block">Renewal Created Against</span>
+                        <h4 className="text-sm font-extrabold text-slate-800">
+                          Policy #{connectedPolicyData?.policyNumber || parsedLeadNotes.policyNumber || 'N/A'}
+                        </h4>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-purple-100 text-purple-700 border border-purple-200">
+                      Renewal Lead
+                    </span>
                   </div>
 
-                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry / End Date</span>
-                    <p className="font-bold text-rose-600 mt-0.5 flex flex-wrap items-center gap-1">
-                      <Calendar size={12} />
-                      {connectedPolicyData?.endDate ? new Date(connectedPolicyData.endDate).toLocaleDateString('en-IN') : (parsedLeadNotes.endDate ? new Date(parsedLeadNotes.endDate).toLocaleDateString('en-IN') : '—')}
-                    </p>
-                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Policy Type</span>
+                      <p className="font-bold text-slate-700 mt-0.5 uppercase tracking-wide">
+                        {policyType}
+                      </p>
+                    </div>
 
-                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Company & Plan Name</span>
-                    <p className="font-bold text-slate-700 mt-0.5 truncate">
-                      {connectedPolicyData?.plan?.company?.name || parsedLeadNotes.companyName || '—'}
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-500 truncate">
-                      {connectedPolicyData?.plan?.name || parsedLeadNotes.planName || '—'}
-                    </p>
-                  </div>
+                    <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expiry / End Date</span>
+                      <p className="font-bold text-rose-600 mt-0.5 flex flex-wrap items-center gap-1">
+                        <Calendar size={12} />
+                        {connectedPolicyData?.endDate ? new Date(connectedPolicyData.endDate).toLocaleDateString('en-IN') : (parsedLeadNotes.endDate ? new Date(parsedLeadNotes.endDate).toLocaleDateString('en-IN') : '—')}
+                      </p>
+                    </div>
 
-                  <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Premium & Sum Insured</span>
-                    <p className="font-bold text-emerald-700 mt-0.5">
-                      Premium: ₹{Number(connectedPolicyData?.premiumAmount || parsedLeadNotes.premiumAmount || fullLead.premiumBudget || 0).toLocaleString('en-IN')}
-                    </p>
-                    <p className="text-[11px] font-semibold text-slate-600">
-                      Sum Insured: ₹{Number(connectedPolicyData?.sumAssured || parsedLeadNotes.sumAssured || fullLead.sumAssuredRequired || 0).toLocaleString('en-IN')}
-                    </p>
+                    <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Company & Plan Name</span>
+                      <p className="font-bold text-slate-700 mt-0.5 truncate">
+                        {connectedPolicyData?.plan?.company?.name || parsedLeadNotes.companyName || '—'}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-500 truncate">
+                        {connectedPolicyData?.plan?.name || parsedLeadNotes.planName || '—'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Premium & Sum Insured</span>
+                      <p className="font-bold text-emerald-700 mt-0.5">
+                        Premium: ₹{Number(connectedPolicyData?.premiumAmount || parsedLeadNotes.premiumAmount || fullLead.premiumBudget || 0).toLocaleString('en-IN')}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-600">
+                        Sum Insured: ₹{Number(connectedPolicyData?.sumAssured || parsedLeadNotes.sumAssured || fullLead.sumAssuredRequired || 0).toLocaleString('en-IN')}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
-          {/* Directly Editable Lead Management Details */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-2xs">
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
+              );
+            })()}
+            {/* Directly Editable Lead Management Details */}
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-3.5 shadow-2xs">
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
                 <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs shrink-0">
                   <Pencil size={14} />
                 </div>
@@ -6177,306 +6205,306 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Lead Information & Status</h4>
                   <p className="text-[10px] text-slate-400">Directly editable fields for this lead</p>
                 </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              {/* Lead Stage */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Stage <span className="text-red-500">*</span></label>
-                <select
-                  value={editStage}
-                  onChange={e => setEditStage(e.target.value)}
-                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
-                >
-                  {UI_STAGES.map(s => {
-                    const key = STAGE_MAPPINGS[s];
-                    return <option key={key} value={key}>{s}</option>;
-                  })}
-                </select>
               </div>
 
-              {/* Lead Status */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Status <span className="text-red-500">*</span></label>
-                <select
-                  value={editStatus}
-                  onChange={e => setEditStatus(e.target.value)}
-                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
-                >
-                  <option value="Interested">Interested</option>
-                  <option value="Hot">Hot</option>
-                  <option value="Warm">Warm</option>
-                  <option value="Cold">Cold</option>
-                  <option value="Follow Up">Follow Up</option>
-                  <option value="Closed">Closed</option>
-                </select>
-              </div>
-
-              {/* Lead Type */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Type <span className="text-red-500">*</span></label>
-                <select
-                  value={editType}
-                  onChange={e => setEditType(e.target.value)}
-                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
-                >
-                  <option value="Fresh">Fresh</option>
-                  <option value="Renewal">Renewal</option>
-                  <option value="Porting">Porting</option>
-                </select>
-              </div>
-
-              {/* Lead Source */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
-                <select
-                  value={editSource}
-                  onChange={e => setEditSource(e.target.value)}
-                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
-                >
-                  <option value="Walk-in">Walk-in</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Website">Website</option>
-                  <option value="Cold Call">Cold Call</option>
-                  <option value="Campaign">Campaign</option>
-                  <option value="Social Media">Social Media</option>
-                  <option value="Partner">Partner</option>
-                  <option value="Existing Client">Existing Client</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              {/* Assigned Employee */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Assigned Employee</label>
-                <select
-                  value={editAssignee}
-                  onChange={e => setEditAssignee(e.target.value)}
-                  className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
-                >
-                  <option value="">Unassigned</option>
-                  {employees.map((emp: any) => (
-                    <option key={emp.id} value={emp.userId || emp.id}>
-                      {emp.firstName || emp.employeeProfile?.firstName} {emp.lastName || emp.employeeProfile?.lastName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Follow-up Date */}
-              <div>
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Follow-up Date *</label>
-                <DatePicker
-                  value={editFollowUp}
-                  onChange={setEditFollowUp}
-                  className="input text-xs bg-slate-50/50 border-slate-200 focus:bg-white"
-                />
-              </div>
-
-              {/* Expected Premium / Budget */}
-              <div className="sm:col-span-2">
-                <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
-                <input
-                  type="number"
-                  value={editPremium}
-                  onChange={e => setEditPremium(e.target.value)}
-                  placeholder="e.g. 12000"
-                  className="input text-xs font-bold text-emerald-700 bg-slate-50/50 border-slate-200 focus:bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* Consultation Comments */}
-      {tab === 'comments' && (
-        <div className="space-y-3">
-          <div className="bg-white border border-slate-200/80 rounded-xl p-3 space-y-2 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-700 block">Add Call Summary / Comment</label>
-              <span className="text-[10px] text-slate-400 font-medium">Press Ctrl+Enter to save</span>
-            </div>
-            <div className="flex gap-2">
-              <textarea
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                placeholder="Add Call Summary / Comment..."
-                className="input text-xs flex-1 resize-none bg-slate-50/50 border-slate-200 focus:bg-white"
-                rows={2}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && commentText.trim()) {
-                    addConsultationMutation.mutate(commentText.trim());
-                  }
-                }}
-              />
-              <button
-                onClick={() => commentText.trim() && addConsultationMutation.mutate(commentText.trim())}
-                disabled={!commentText.trim() || addConsultationMutation.isPending}
-                className="btn-primary px-3.5 self-end h-8 text-xs flex flex-wrap items-center gap-1 font-bold shadow-2xs"
-              >
-                {addConsultationMutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />} Save
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
-            {consultations.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 bg-slate-50/60 border border-slate-200/60 rounded-xl p-4">
-                <MessageCircle size={24} className="mx-auto mb-2 opacity-40 text-slate-400" />
-                <p className="text-xs font-medium text-slate-500">No comments yet. Add the first summary below.</p>
-              </div>
-            ) : (
-              [...consultations].reverse().map((c: any) => {
-                const authorName = c.authorName || (c.author?.employeeProfile ? `${c.author.employeeProfile.firstName || ''} ${c.author.employeeProfile.lastName || ''}`.trim() : (c.author?.email || 'System'));
-                return (
-                  <div key={c.id} className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                        {authorName}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        {c.createdAt ? format(new Date(c.createdAt), 'dd/MMM/yyyy, hh:mm a') : ''}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-800 leading-relaxed font-medium">{c.notes}</p>
-                    {c.scheduledAt && (
-                      <p className="text-[10px] text-amber-600 mt-1 flex flex-wrap items-center gap-1">
-                        <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
-                      </p>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Stage */}
-      {/* History Tab - Audit Trail & Activity History */}
-      {tab === 'history' && (() => {
-        const historyEvents: { title: string; description: string; author: string; date: Date; formattedDate: string }[] = [];
-
-        // 1. Lead Created & Initialized
-        if (fullLead.createdAt) {
-          const d = new Date(fullLead.createdAt);
-          const clientName = `${fullLead.contact?.firstName || ''} ${fullLead.contact?.lastName || ''}`.trim();
-          historyEvents.push({
-            title: 'Lead Created & Scheduled',
-            description: clientName ? `Lead record initialized for ${clientName}${fullLead.source ? ` via ${fullLead.source}` : ''}` : 'Lead record initialized in system.',
-            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
-            date: d,
-            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
-          });
-        }
-
-        // 2. Follow-up Scheduled
-        if (fullLead.followUpDate) {
-          const d = new Date(fullLead.followUpDate);
-          const dateStr = format(d, 'yyyy-MM-dd');
-          historyEvents.push({
-            title: 'Task Created & Scheduled',
-            description: `Follow-up scheduled for ${dateStr} with priority MEDIUM`,
-            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'System',
-            date: d,
-            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
-          });
-        }
-
-        // 3. Workflow Status Updated
-        if (fullLead.stage) {
-          const stageName = STAGE_LABELS[fullLead.stage] || fullLead.stage;
-          const d = fullLead.updatedAt ? new Date(fullLead.updatedAt) : (fullLead.createdAt ? new Date(fullLead.createdAt) : new Date());
-          historyEvents.push({
-            title: `Workflow Status Updated to ${stageName}`,
-            description: `Execution updated stage to ${stageName}.${assigneeName && assigneeName !== 'Unassigned' ? ` Assigned to ${assigneeName}.` : ''}`,
-            author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
-            date: d,
-            formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
-          });
-        }
-
-        // 4. Consultation Notes / Activity Entries
-        if (consultations && Array.isArray(consultations)) {
-          consultations.forEach((c: any) => {
-            const d = c.createdAt ? new Date(c.createdAt) : new Date();
-            historyEvents.push({
-              title: 'Activity Log Note Added',
-              description: c.text || 'Activity record updated for lead.',
-              author: c.author || c.createdBy || assigneeName || 'CRM Automated Workflow',
-              date: d,
-              formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
-            });
-          });
-        }
-
-        // Sort chronologically (oldest to newest)
-        historyEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-        return (
-          <div className="space-y-4 py-2">
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-5">
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <History className="text-blue-600 shrink-0" size={18} />
-                  <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                    AUDIT TRAIL & ACTIVITY HISTORY
-                  </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {/* Lead Stage */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Stage <span className="text-red-500">*</span></label>
+                  <select
+                    value={editStage}
+                    onChange={e => setEditStage(e.target.value)}
+                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                  >
+                    {UI_STAGES.map(s => {
+                      const key = STAGE_MAPPINGS[s];
+                      return <option key={key} value={key}>{s}</option>;
+                    })}
+                  </select>
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-500">
-                  {historyEvents.length} {historyEvents.length === 1 ? 'Event Recorded' : 'Events Recorded'}
-                </span>
-              </div>
 
-              {/* Timeline Container */}
-              {historyEvents.length === 0 ? (
-                <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                  <History size={24} className="mx-auto mb-2 text-slate-300" />
-                  <p className="text-xs text-slate-400 font-medium italic">No audit trail logs recorded yet.</p>
+                {/* Lead Status */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Status <span className="text-red-500">*</span></label>
+                  <select
+                    value={editStatus}
+                    onChange={e => setEditStatus(e.target.value)}
+                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                  >
+                    <option value="Interested">Interested</option>
+                    <option value="Hot">Hot</option>
+                    <option value="Warm">Warm</option>
+                    <option value="Cold">Cold</option>
+                    <option value="Follow Up">Follow Up</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                </div>
+
+                {/* Lead Type */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={editType}
+                    onChange={e => setEditType(e.target.value)}
+                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                  >
+                    <option value="Fresh">Fresh</option>
+                    <option value="Renewal">Renewal</option>
+                    <option value="Porting">Porting</option>
+                  </select>
+                </div>
+
+                {/* Lead Source */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
+                  <select
+                    value={editSource}
+                    onChange={e => setEditSource(e.target.value)}
+                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                  >
+                    <option value="Walk-in">Walk-in</option>
+                    <option value="Referral">Referral</option>
+                    <option value="Website">Website</option>
+                    <option value="Cold Call">Cold Call</option>
+                    <option value="Campaign">Campaign</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="Partner">Partner</option>
+                    <option value="Existing Client">Existing Client</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Assigned Employee */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                  <select
+                    value={editAssignee}
+                    onChange={e => setEditAssignee(e.target.value)}
+                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                  >
+                    <option value="">Unassigned</option>
+                    {employees.map((emp: any) => (
+                      <option key={emp.id} value={emp.userId || emp.id}>
+                        {emp.firstName || emp.employeeProfile?.firstName} {emp.lastName || emp.employeeProfile?.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Follow-up Date */}
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Follow-up Date *</label>
+                  <DatePicker
+                    value={editFollowUp}
+                    onChange={setEditFollowUp}
+                    className="input text-xs bg-slate-50/50 border-slate-200 focus:bg-white"
+                  />
+                </div>
+
+                {/* Expected Premium / Budget */}
+                <div className="sm:col-span-2">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
+                  <input
+                    type="number"
+                    value={editPremium}
+                    onChange={e => setEditPremium(e.target.value)}
+                    placeholder="e.g. 12000"
+                    className="input text-xs font-bold text-emerald-700 bg-slate-50/50 border-slate-200 focus:bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* Consultation Comments */}
+        {tab === 'comments' && (
+          <div className="space-y-3">
+            <div className="bg-white border border-slate-200/80 rounded-xl p-3 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-slate-700 block">Add Call Summary / Comment</label>
+                <span className="text-[10px] text-slate-400 font-medium">Press Ctrl+Enter to save</span>
+              </div>
+              <div className="flex gap-2">
+                <textarea
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  placeholder="Add Call Summary / Comment..."
+                  className="input text-xs flex-1 resize-none bg-slate-50/50 border-slate-200 focus:bg-white"
+                  rows={2}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && commentText.trim()) {
+                      addConsultationMutation.mutate(commentText.trim());
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => commentText.trim() && addConsultationMutation.mutate(commentText.trim())}
+                  disabled={!commentText.trim() || addConsultationMutation.isPending}
+                  className="btn-primary px-3.5 self-end h-8 text-xs flex flex-wrap items-center gap-1 font-bold shadow-2xs"
+                >
+                  {addConsultationMutation.isPending ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />} Save
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
+              {consultations.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 bg-slate-50/60 border border-slate-200/60 rounded-xl p-4">
+                  <MessageCircle size={24} className="mx-auto mb-2 opacity-40 text-slate-400" />
+                  <p className="text-xs font-medium text-slate-500">No comments yet. Add the first summary below.</p>
                 </div>
               ) : (
-                <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-5 py-1">
-                  {historyEvents.map((evt, idx) => (
-                    <div key={idx} className="relative group">
-                      {/* Timeline Pulse Icon */}
-                      <div className="absolute -left-[41px] top-3.5 w-8 h-8 rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center shadow-2xs z-10">
-                        <Activity size={14} className="text-blue-600 stroke-[2.5]" />
+                [...consultations].reverse().map((c: any) => {
+                  const authorName = c.authorName || (c.author?.employeeProfile ? `${c.author.employeeProfile.firstName || ''} ${c.author.employeeProfile.lastName || ''}`.trim() : (c.author?.email || 'System'));
+                  return (
+                    <div key={c.id} className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex flex-wrap items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-lg shadow-2xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                          {authorName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          {c.createdAt ? format(new Date(c.createdAt), 'dd/MMM/yyyy, hh:mm a') : ''}
+                        </span>
                       </div>
-
-                      {/* Event Card */}
-                      <div className="bg-slate-50/70 hover:bg-slate-50 transition-colors border border-slate-200/80 rounded-2xl p-4 space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h5 className="text-xs font-bold text-slate-900 leading-snug">
-                            {evt.title}
-                          </h5>
-                          <span className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
-                            {evt.formattedDate}
-                          </span>
-                        </div>
-                        {evt.description && (
-                          <p className="text-[11px] font-medium text-slate-600 leading-relaxed">
-                            {evt.description}
-                          </p>
-                        )}
-                        <div className="pt-0.5">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50/80 text-blue-700 border border-blue-100/80">
-                            <UserCircle2 size={12} className="shrink-0" />
-                            By {evt.author}
-                          </span>
-                        </div>
-                      </div>
+                      <p className="text-xs text-slate-800 leading-relaxed font-medium">{c.notes}</p>
+                      {c.scheduledAt && (
+                        <p className="text-[10px] text-amber-600 mt-1 flex flex-wrap items-center gap-1">
+                          <Calendar size={10} /> Scheduled: {format(new Date(c.scheduledAt), 'dd/MMM/yyyy')}
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })
               )}
             </div>
           </div>
-        );
-      })()}
+        )}
+
+        {/* Stage */}
+        {/* History Tab - Audit Trail & Activity History */}
+        {tab === 'history' && (() => {
+          const historyEvents: { title: string; description: string; author: string; date: Date; formattedDate: string }[] = [];
+
+          // 1. Lead Created & Initialized
+          if (fullLead.createdAt) {
+            const d = new Date(fullLead.createdAt);
+            const clientName = `${fullLead.contact?.firstName || ''} ${fullLead.contact?.lastName || ''}`.trim();
+            historyEvents.push({
+              title: 'Lead Created & Scheduled',
+              description: clientName ? `Lead record initialized for ${clientName}${fullLead.source ? ` via ${fullLead.source}` : ''}` : 'Lead record initialized in system.',
+              author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
+              date: d,
+              formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+            });
+          }
+
+          // 2. Follow-up Scheduled
+          if (fullLead.followUpDate) {
+            const d = new Date(fullLead.followUpDate);
+            const dateStr = format(d, 'yyyy-MM-dd');
+            historyEvents.push({
+              title: 'Task Created & Scheduled',
+              description: `Follow-up scheduled for ${dateStr} with priority MEDIUM`,
+              author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'System',
+              date: d,
+              formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+            });
+          }
+
+          // 3. Workflow Status Updated
+          if (fullLead.stage) {
+            const stageName = STAGE_LABELS[fullLead.stage] || fullLead.stage;
+            const d = fullLead.updatedAt ? new Date(fullLead.updatedAt) : (fullLead.createdAt ? new Date(fullLead.createdAt) : new Date());
+            historyEvents.push({
+              title: `Workflow Status Updated to ${stageName}`,
+              description: `Execution updated stage to ${stageName}.${assigneeName && assigneeName !== 'Unassigned' ? ` Assigned to ${assigneeName}.` : ''}`,
+              author: assigneeName && assigneeName !== 'Unassigned' ? assigneeName : 'CRM Automated Workflow',
+              date: d,
+              formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+            });
+          }
+
+          // 4. Consultation Notes / Activity Entries
+          if (consultations && Array.isArray(consultations)) {
+            consultations.forEach((c: any) => {
+              const d = c.createdAt ? new Date(c.createdAt) : new Date();
+              historyEvents.push({
+                title: 'Activity Log Note Added',
+                description: c.text || 'Activity record updated for lead.',
+                author: c.author || c.createdBy || assigneeName || 'CRM Automated Workflow',
+                date: d,
+                formattedDate: format(d, 'dd MMM yyyy, hh:mm a'),
+              });
+            });
+          }
+
+          // Sort chronologically (oldest to newest)
+          historyEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+          return (
+            <div className="space-y-4 py-2">
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-5">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <History className="text-blue-600 shrink-0" size={18} />
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                      AUDIT TRAIL & ACTIVITY HISTORY
+                    </h4>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-slate-500">
+                    {historyEvents.length} {historyEvents.length === 1 ? 'Event Recorded' : 'Events Recorded'}
+                  </span>
+                </div>
+
+                {/* Timeline Container */}
+                {historyEvents.length === 0 ? (
+                  <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <History size={24} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-xs text-slate-400 font-medium italic">No audit trail logs recorded yet.</p>
+                  </div>
+                ) : (
+                  <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-5 py-1">
+                    {historyEvents.map((evt, idx) => (
+                      <div key={idx} className="relative group">
+                        {/* Timeline Pulse Icon */}
+                        <div className="absolute -left-[41px] top-3.5 w-8 h-8 rounded-full bg-white border-2 border-blue-500 text-blue-600 flex items-center justify-center shadow-2xs z-10">
+                          <Activity size={14} className="text-blue-600 stroke-[2.5]" />
+                        </div>
+
+                        {/* Event Card */}
+                        <div className="bg-slate-50/70 hover:bg-slate-50 transition-colors border border-slate-200/80 rounded-2xl p-4 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h5 className="text-xs font-bold text-slate-900 leading-snug">
+                              {evt.title}
+                            </h5>
+                            <span className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+                              {evt.formattedDate}
+                            </span>
+                          </div>
+                          {evt.description && (
+                            <p className="text-[11px] font-medium text-slate-600 leading-relaxed">
+                              {evt.description}
+                            </p>
+                          )}
+                          <div className="pt-0.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-blue-50/80 text-blue-700 border border-blue-100/80">
+                              <UserCircle2 size={12} className="shrink-0" />
+                              By {evt.author}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

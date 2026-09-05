@@ -5,7 +5,7 @@ import {
   DollarSign, Phone, Eye, Repeat, MessageSquare, Tag, 
   Layers, ArrowRight, Bookmark, PlayCircle, StopCircle, Zap, 
   UserCheck, Briefcase, Hash, ChevronDown, Trash2, History, Activity,
-  Paperclip, Upload, Download, File, User, Link as LinkIcon
+  Paperclip, Upload, Download, File, User, Link as LinkIcon, Pencil
 } from 'lucide-react';
 import clsx from 'clsx';
 import { DatePicker } from '@comps/common/DatePicker';
@@ -118,32 +118,76 @@ function computeDuration(startStr: string, endStr: string): string {
   return `${h}h ${m}m`;
 }
 
+interface ExhaustiveTaskActivityModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (task: any) => void;
+  employeesList: any[];
+  initialMode?: 'TASK' | 'ACTIVITY';
+  initialTask?: any;
+  initialIsViewMode?: boolean;
+}
+
+function safeDateSlice(val: any): string {
+  if (!val) return new Date().toISOString().slice(0, 10);
+  try {
+    if (typeof val === 'string') {
+      return val.slice(0, 10);
+    }
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10);
+    }
+  } catch {}
+  return new Date().toISOString().slice(0, 10);
+}
+
+function safeFormatDate(val: any): string {
+  if (!val) return format(new Date(), 'dd MMM yyyy, hh:mm a');
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? 'Today' : format(d, 'dd MMM yyyy, hh:mm a');
+  } catch {
+    return 'Today';
+  }
+}
+
 export default function ExhaustiveTaskActivityModal({
   isOpen,
   onClose,
   onSave,
-  employeesList,
+  employeesList = [],
   initialMode = 'TASK',
-  initialTask = null
+  initialTask = null,
+  initialIsViewMode = false
 }: ExhaustiveTaskActivityModalProps) {
   const user = useAuthStore(s => s.user);
 
   const [mode, setMode] = useState<'TASK' | 'ACTIVITY'>(initialMode);
   const [activeTab, setActiveTab] = useState<'Details' | 'Timeline' | 'CRM' | 'Outcome' | 'Attachments' | 'Comments' | 'Logs'>('Details');
+  const [isViewMode, setIsViewMode] = useState<boolean>(initialIsViewMode);
 
   // Task Number
   const [taskNumber, setTaskNumber] = useState<string>(() => {
-    if (initialTask?.taskId) return initialTask.taskId;
-    if (initialTask?.taskNumber) return initialTask.taskNumber;
-    if (initialTask?.id) return initialTask.id.startsWith('T') ? initialTask.id : `T-${initialTask.id}`;
-    return '';
+    if (initialTask?.taskId && /^T\d+$/i.test(String(initialTask.taskId).trim())) return String(initialTask.taskId).trim().toUpperCase();
+    if (initialTask?.taskNumber && /^T\d+$/i.test(String(initialTask.taskNumber).trim())) return String(initialTask.taskNumber).trim().toUpperCase();
+    if (initialTask?.id && typeof initialTask.id === 'string' && /^T\d+$/i.test(initialTask.id.trim())) return initialTask.id.trim().toUpperCase();
+    return 'T1';
   });
 
   // Created By Info
-  const createdBy = initialTask?.createdBy || {
-    name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Advisory Agent',
-    role: user?.role || 'Insurance Advisor',
-    date: initialTask?.createdAt ? format(new Date(initialTask.createdAt), 'dd MMM yyyy, hh:mm a') : format(new Date(), 'dd MMM yyyy, hh:mm a')
+  const createdByName = (typeof initialTask?.createdBy === 'object' && initialTask?.createdBy?.name)
+    ? initialTask.createdBy.name
+    : (typeof initialTask?.createdBy === 'string'
+      ? initialTask.createdBy
+      : (initialTask?.assignedToName || (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Advisory Agent')));
+
+  const createdBy = {
+    name: createdByName,
+    role: (typeof initialTask?.createdBy === 'object' && initialTask?.createdBy?.role) || user?.role || 'Insurance Advisor',
+    date: (typeof initialTask?.createdBy === 'object' && initialTask?.createdBy?.date)
+      ? initialTask.createdBy.date
+      : safeFormatDate(initialTask?.createdAt)
   };
 
   // Core Form State
@@ -168,19 +212,13 @@ export default function ExhaustiveTaskActivityModal({
   const [recurrence, setRecurrence] = useState(initialTask?.recurrence || 'NONE');
 
   // Planned Timings
-  const [dueDate, setDueDate] = useState(
-    initialTask?.dueDate ? initialTask.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
-  );
+  const [dueDate, setDueDate] = useState(() => safeDateSlice(initialTask?.dueDate));
   const [plannedStartTime, setPlannedStartTime] = useState(initialTask?.plannedStartTime || '10:00 AM');
   const [plannedEndTime, setPlannedEndTime] = useState(initialTask?.plannedEndTime || '10:45 AM');
   const [estimatedDuration, setEstimatedDuration] = useState(initialTask?.timeRequired || '45m');
 
   // Actual Live Execution Timings (for Daily Timeline Tracking)
-  const [actualDate, setActualDate] = useState(
-    initialTask?.actualDate 
-      ? initialTask.actualDate.slice(0, 10) 
-      : (initialTask?.dueDate ? initialTask.dueDate.slice(0, 10) : new Date().toISOString().slice(0, 10))
-  );
+  const [actualDate, setActualDate] = useState(() => safeDateSlice(initialTask?.actualDate || initialTask?.dueDate));
   const [actualStartTime, setActualStartTime] = useState(initialTask?.actualStartTime || (mode === 'ACTIVITY' ? '10:05 AM' : ''));
   const [actualEndTime, setActualEndTime] = useState(initialTask?.actualEndTime || (mode === 'ACTIVITY' ? '10:45 AM' : ''));
   const [actualDuration, setActualDuration] = useState(initialTask?.actualDuration || (mode === 'ACTIVITY' ? '40m' : ''));
@@ -222,7 +260,7 @@ export default function ExhaustiveTaskActivityModal({
       title: 'Workflow Status Updated to In Progress',
       author: 'CRM Automated Workflow',
       timestamp: '24 Aug 2026, 10:05 AM',
-      details: `Execution started. Assigned to ${employeesList.find(e => e.id === assignedToId || e.userId === assignedToId)?.firstName || 'Assigned Agent'}.`
+      details: `Execution started. Assigned to ${(employeesList || []).find(e => e.id === assignedToId || e.userId === assignedToId)?.firstName || 'Assigned Agent'}.`
     }
   ];
 
@@ -241,6 +279,57 @@ export default function ExhaustiveTaskActivityModal({
       if (dur) setEstimatedDuration(dur);
     }
   }, [plannedStartTime, plannedEndTime]);
+
+  // Synchronize state whenever modal opens or initialTask changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsViewMode(initialIsViewMode ?? false);
+      setMode(initialMode);
+      setActiveTab('Details');
+      
+      const cleanNum = (initialTask?.taskId && /^T\d+$/i.test(String(initialTask.taskId).trim())) 
+        ? String(initialTask.taskId).trim().toUpperCase()
+        : (initialTask?.taskNumber && /^T\d+$/i.test(String(initialTask.taskNumber).trim()))
+          ? String(initialTask.taskNumber).trim().toUpperCase()
+          : (initialTask?.id && typeof initialTask.id === 'string' && /^T\d+$/i.test(initialTask.id.trim()))
+            ? initialTask.id.trim().toUpperCase()
+            : 'T1';
+      setTaskNumber(cleanNum);
+
+      setTitle(initialTask?.title || '');
+      setCategory(initialTask?.category || CATEGORIES[0]);
+      setDescription(initialTask?.description || '');
+      setEntityType(initialTask?.entityType || 'LEAD');
+      setEntityName(initialTask?.entityName || '');
+      setAssignedToId(initialTask?.assignedToId || user?.id || '');
+      setPriority(initialTask?.priority || 'MEDIUM');
+      setStatus(initialTask?.status || (initialMode === 'ACTIVITY' ? 'DONE' : 'IN_PROGRESS'));
+      setRecurrence(initialTask?.recurrence || 'NONE');
+      setDueDate(safeDateSlice(initialTask?.dueDate));
+      setPlannedStartTime(initialTask?.plannedStartTime || '10:00 AM');
+      setPlannedEndTime(initialTask?.plannedEndTime || '10:45 AM');
+      setEstimatedDuration(initialTask?.timeRequired || '45m');
+      setActualDate(safeDateSlice(initialTask?.actualDate || initialTask?.dueDate));
+      setActualStartTime(initialTask?.actualStartTime || (initialMode === 'ACTIVITY' ? '10:05 AM' : ''));
+      setActualEndTime(initialTask?.actualEndTime || (initialMode === 'ACTIVITY' ? '10:45 AM' : ''));
+      setActualDuration(initialTask?.actualDuration || (initialMode === 'ACTIVITY' ? '40m' : ''));
+      setOutcome(initialTask?.outcome || OUTCOMES[0]);
+      setCallsMade(initialTask?.metrics?.callsMade || (initialMode === 'ACTIVITY' ? 1 : 0));
+      setVisitsDone(initialTask?.metrics?.visitsDone || 0);
+      setPremiumCollected(initialTask?.metrics?.premiumCollected || 0);
+      setAttachments(initialTask?.attachments || [
+        {
+          id: 'att-1',
+          name: 'Star_Comprehensive_Quotation_v2.pdf',
+          size: '1.4 MB',
+          type: 'PDF Document',
+          uploadedAt: 'Today, 10:15 AM',
+          uploadedBy: createdBy.name
+        }
+      ]);
+      setComments(initialTask?.comments || []);
+    }
+  }, [isOpen, initialTask, initialMode, initialIsViewMode]);
 
   if (!isOpen) return null;
 
@@ -335,13 +424,20 @@ export default function ExhaustiveTaskActivityModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-extrabold text-slate-900">
-                  {initialTask 
-                    ? 'Edit Task & Execution Record' 
-                    : mode === 'ACTIVITY' ? 'Log Completed Activity' : 'Schedule & Assign New Task'}
+                  {isViewMode
+                    ? 'View Task & Execution Record'
+                    : initialTask 
+                      ? 'Edit Task & Execution Record' 
+                      : mode === 'ACTIVITY' ? 'Log Completed Activity' : 'Schedule & Assign New Task'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-mono font-extrabold text-xs">
                   {taskNumber || (initialTask ? 'Task' : 'Auto (T1, T2...)')}
                 </span>
+                {isViewMode && (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-bold text-[10px] uppercase tracking-wider border border-slate-200">
+                    View Mode
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 mt-0.5">
                 <span>👤 Created by: <strong className="text-slate-700">{createdBy.name}</strong></span>
@@ -352,13 +448,23 @@ export default function ExhaustiveTaskActivityModal({
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-            >
-              {initialTask ? '✓ Update' : mode === 'ACTIVITY' ? '✓ Save Log' : '📅 Schedule'}
-            </button>
+            {isViewMode ? (
+              <button
+                type="button"
+                onClick={() => setIsViewMode(false)}
+                className="px-4 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105 flex items-center gap-1.5"
+              >
+                <Pencil size={13} /> Edit Task
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="px-5 py-2 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
+              >
+                {initialTask ? '✓ Update' : mode === 'ACTIVITY' ? '✓ Save Log' : '📅 Schedule'}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -395,12 +501,22 @@ export default function ExhaustiveTaskActivityModal({
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-500">
+            {isViewMode && (
+              <button
+                type="button"
+                onClick={() => setIsViewMode(false)}
+                className="text-[11px] font-extrabold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Pencil size={11} /> Switch to Edit Mode
+              </button>
+            )}
             <span className="font-bold text-slate-700 font-mono">{taskNumber || 'Auto T#'}</span>
           </div>
         </div>
 
         {/* Scrollable Form Body with fixed height container */}
         <div className="p-6 overflow-y-auto space-y-4 custom-scrollbar flex-1 bg-slate-50/50">
+          <fieldset disabled={isViewMode} className="border-0 p-0 m-0 w-full space-y-4">
           
           {/* TAB 1: TASK DETAILS */}
           {activeTab === 'Details' && (
@@ -1002,6 +1118,7 @@ export default function ExhaustiveTaskActivityModal({
               </div>
             </div>
           )}
+          </fieldset>
 
           {/* TAB 6: COMMENTS & DISCUSSION */}
           {activeTab === 'Comments' && (

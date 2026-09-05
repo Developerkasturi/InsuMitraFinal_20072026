@@ -248,6 +248,46 @@ await prisma.employeeProfile.upsert({
     },
   }).catch(() => { /* already exists */ });
 
+  // ── Demo Contact (CONTACT role — for client portal login) ─────────────────
+  const contactHash = await bcrypt.hash('Client@1234!', SALT);
+
+  // First create/upsert the contact record
+  let demoContact = await prisma.contact.findFirst({
+    where: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' }
+  });
+  if (!demoContact) {
+    demoContact = await prisma.contact.create({
+      data: {
+        tenantId:    demoTenant.id,
+        firstName:   'Rajesh',
+        lastName:    'Verma',
+        email:       'contact@demo-agency.com',
+        phone:       '+919823044556',
+        gender:      'MALE',
+      }
+    });
+  }
+
+  // Then create/upsert the User with CONTACT role linked to the contact
+  const contactUser = await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' } },
+    update: { passwordHash: contactHash },
+    create: {
+      tenantId:     demoTenant.id,
+      email:        'contact@demo-agency.com',
+      passwordHash: contactHash,
+      role:         UserRole.CONTACT,
+      isActive:     true,
+    },
+  });
+
+  // Link the contact record to the user account
+  await prisma.contact.update({
+    where: { id: demoContact.id },
+    data:  { userId: contactUser.id },
+  });
+
+
   // ── 5. Insurance Companies ────────────────────────────────────────────────
   const lifeInsurer = await prisma.insuranceCompany.upsert({
     where:  { tenantId_shortCode: { shortCode: 'LIC', tenantId: demoTenant.id } },
@@ -273,8 +313,32 @@ await prisma.employeeProfile.upsert({
     },
   });
 
+  const hdfcErgo = await prisma.insuranceCompany.upsert({
+    where:  { tenantId_shortCode: { shortCode: 'HDFC-ERGO', tenantId: demoTenant.id } },
+    update: {},
+    create: {
+      tenantId:    demoTenant.id,
+      name:        'HDFC ERGO General Insurance',
+      shortCode:   'HDFC-ERGO',
+      website:     'https://hdfcergo.com',
+      isActive:    true,
+    },
+  });
+
+  const hdfcLife = await prisma.insuranceCompany.upsert({
+    where:  { tenantId_shortCode: { shortCode: 'HDFC-LIFE', tenantId: demoTenant.id } },
+    update: {},
+    create: {
+      tenantId:    demoTenant.id,
+      name:        'HDFC Life Insurance',
+      shortCode:   'HDFC-LIFE',
+      website:     'https://hdfclife.com',
+      isActive:    true,
+    },
+  });
+
   // ── 6. Insurance Plans ────────────────────────────────────────────────────
-  await prisma.insurancePlan.upsert({
+  const jeevanAnandPlan = await prisma.insurancePlan.upsert({
     where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'LIC-JEEVAN-ANAND', companyId: lifeInsurer.id } },
     update: {},
     create: {
@@ -287,7 +351,7 @@ await prisma.employeeProfile.upsert({
     },
   });
 
-  await prisma.insurancePlan.upsert({
+  const familyHealthPlan = await prisma.insurancePlan.upsert({
     where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'STARHEALTH-FAMILY', companyId: generalInsurer.id } },
     update: {},
     create: {
@@ -297,6 +361,141 @@ await prisma.employeeProfile.upsert({
       planCode:   'STARHEALTH-FAMILY',
       category:   'HEALTH',
       isActive:   true,
+    },
+  });
+
+  const osPlusPlan = await prisma.insurancePlan.upsert({
+    where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'HDFC-OS-PLUS', companyId: hdfcErgo.id } },
+    update: {},
+    create: {
+      tenantId:   demoTenant.id,
+      companyId:  hdfcErgo.id,
+      name:       'Optima Secure (OS+)',
+      planCode:   'HDFC-OS-PLUS',
+      category:   'HEALTH',
+      isActive:   true,
+    },
+  });
+
+  const click2ProtectPlan = await prisma.insurancePlan.upsert({
+    where:  { tenantId_planCode_companyId: { tenantId: demoTenant.id, planCode: 'HDFC-C2P-3D', companyId: hdfcLife.id } },
+    update: {},
+    create: {
+      tenantId:   demoTenant.id,
+      companyId:  hdfcLife.id,
+      name:       'Click 2 Protect Plus',
+      planCode:   'HDFC-C2P-3D',
+      category:   'TERM',
+      isActive:   true,
+    },
+  });
+
+  // ── 6.1 Policy Scenarios ──────────────────────────────────────────────────
+  // Health - Fresh (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'FRESH', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'FRESH',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr', '4 Yr', '5 Yr'],
+      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Health - Port (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'PORT', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'PORT',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Health - Renewal (HDFC Ergo OS+)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'RENEWAL', companyId: hdfcErgo.id, planId: osPlusPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'RENEWAL',
+      companyId: hdfcErgo.id,
+      planId: osPlusPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentTerms: [],
+      isActive: true,
+    },
+  });
+
+  // Term - Fresh (HDFC Life C2P)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'TERM', businessType: 'FRESH', companyId: hdfcLife.id, planId: click2ProtectPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'TERM',
+      businessType: 'FRESH',
+      companyId: hdfcLife.id,
+      planId: click2ProtectPlan.id,
+      policyPeriods: Array.from({length: 99}, (_, i) => `${i + 1} Yr`),
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
+      emiMonths: [],
+      paymentTerms: ['1 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', 'Pay till 60', 'Regular Term (1 to 99 Yr)'],
+      isActive: true,
+    },
+  });
+
+  // Term - Renewal (HDFC Life C2P)
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'TERM', businessType: 'RENEWAL', companyId: hdfcLife.id, planId: click2ProtectPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'TERM',
+      businessType: 'RENEWAL',
+      companyId: hdfcLife.id,
+      planId: click2ProtectPlan.id,
+      policyPeriods: Array.from({length: 99}, (_, i) => `${i + 1} Yr`),
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
+      paymentTerms: ['1 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', 'Pay till 60', 'Regular Term (1 to 99 Yr)'],
+      isActive: true,
+    },
+  });
+
+  // Star Health Family Health Optima - Fresh
+  await (prisma as any).policyScenario.upsert({
+    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'HEALTH', businessType: 'FRESH', companyId: generalInsurer.id, planId: familyHealthPlan.id } },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      policyType: 'HEALTH',
+      businessType: 'FRESH',
+      companyId: generalInsurer.id,
+      planId: familyHealthPlan.id,
+      policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
+      paymentTerms: [],
+      isActive: true,
     },
   });
 
@@ -342,6 +541,8 @@ await prisma.employeeProfile.upsert({
   console.log('  Super Admin : insumitra@gmail.com       / insumitra@123');
   console.log('  Owner       : owner@demo-agency.com    / Owner@1234!');
   console.log('  Employee    : employee@demo-agency.com / Employee@1234!');
+  console.log('  Contact     : contact@demo-agency.com  / Client@1234!');
+
 }
 
 main()

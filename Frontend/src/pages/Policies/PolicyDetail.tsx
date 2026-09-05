@@ -14,6 +14,8 @@ import { DatePicker } from '@comps/common/DatePicker';
 import { useAuthStore } from '@store/auth.store';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 
+import { getPolicyStatusDisplay } from '../../utils/policyStatusUtils';
+
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:    'badge-green',
   EXPIRED:   'badge-gray',
@@ -258,7 +260,14 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">{p.policyNumber}</h2>
-            <span className={STATUS_BADGE[p.status] ?? 'badge-gray'}>{p.status}</span>
+            {(() => {
+              const st = getPolicyStatusDisplay(p);
+              return (
+                <span className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-extrabold uppercase tracking-wide border', st.badgeClass)}>
+                  {st.label}
+                </span>
+              );
+            })()}
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
             {p.plan?.name} · {p.plan?.company?.name}
