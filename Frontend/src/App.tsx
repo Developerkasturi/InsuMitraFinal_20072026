@@ -190,9 +190,30 @@ function IndexRedirect() {
   return <Navigate to="/workspace" replace />;
 }
 
+import { tableVisibilityManager } from './utils/TableVisibilityManager';
+import { useEffect } from 'react';
+import { insuranceService } from './services';
+
+function TableVisibilityInitializer() {
+  const token = useAuthStore(s => s.accessToken);
+  
+  useEffect(() => {
+    tableVisibilityManager.init();
+    if (token) {
+      insuranceService.getTableColumnVisibility().then((res: any) => {
+        tableVisibilityManager.setRules(res?.data || []);
+      }).catch((e: any) => console.error('Error fetching table rules', e));
+    }
+  }, [token]);
+  
+  return null;
+}
+
 export default function App() {
   return (
-    <Routes>
+    <>
+      <TableVisibilityInitializer />
+      <Routes>
       {/* Public */}
       <Route path="/login" element={<Login />} />
 
@@ -272,6 +293,7 @@ export default function App() {
 
       <Route path="*" element={<IndexRedirect />} />
     </Routes>
+    </>
   );
 }
 

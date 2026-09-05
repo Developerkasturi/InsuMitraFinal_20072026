@@ -234,6 +234,9 @@ export const insuranceService = {
   deleteHospital: (id: string)                 => api.delete(`/insurance/hospitals/${id}`).then(r => r.data),
   getCompulsoryRules:    ()                    => api.get('/insurance/compulsory-rules').then(r => r.data),
   updateCompulsoryRules: (rules: any[])        => api.post('/insurance/compulsory-rules', { rules }).then(r => r.data),
+  getTableColumnVisibility: () => api.get('/insurance/table-columns').then(r => r.data),
+  updateTableColumnVisibility: (pageId: string, colName: string, isHidden: boolean) => 
+    api.put('/insurance/table-columns', { pageId, colName, isHidden }).then(r => r.data),
 };
 
 /* ─── Tenant ─────────────────────────────────────────────────────────────── */

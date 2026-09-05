@@ -279,6 +279,7 @@ model Tenant {
   deletionRequests          DeletionRequest[]
   hospitals                 Hospital[]
   compulsoryFieldRules      CompulsoryFieldRule[]
+  tableColumnVisibility     TableColumnVisibility[]
   policyScenarios           PolicyScenario[]
 
   @@map("tenants")
@@ -1369,5 +1370,25 @@ model PolicyScenario {
   @@index([tenantId])
   @@index([tenantId, policyType, businessType])
   @@map("policy_scenarios")
+}
+
+
+// 
+// TABLE COLUMN VISIBILITY
+// 
+
+model TableColumnVisibility {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId  String   @map("tenant_id") @db.ObjectId
+  pageId    String   // Identifier for the page/table (e.g. "policies")
+  colName   String   // Name of the column exactly as in UI (e.g. "Status")
+  isHidden  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, pageId, colName])
+  @@map("table_column_visibility")
 }
 

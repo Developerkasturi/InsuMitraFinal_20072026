@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards,
+  Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards, Put
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard }  from '../auth/guards/jwt-auth.guard';
@@ -127,5 +127,17 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Create or update compulsory field rules' })
   updateCompulsoryRules(@Req() req: any, @Body() body: { rules: { module: string; fieldKey: string; required: boolean }[] }) {
     return this.svc.updateCompulsoryRules(req.tenantId, body.rules);
+  }
+
+  @Get('table-columns')
+  @ApiOperation({ summary: 'Get global table column visibility settings' })
+  getTableColumnVisibility(@Req() req: any) {
+    return this.svc.getTableColumnVisibility(req.tenantId);
+  }
+
+  @Put('table-columns')
+  @ApiOperation({ summary: 'Update table column visibility settings' })
+  updateTableColumnVisibility(@Req() req: any, @Body() body: { pageId: string; colName: string; isHidden: boolean }) {
+    return this.svc.updateTableColumnVisibility(req.tenantId, body.pageId, body.colName, body.isHidden);
   }
 }
