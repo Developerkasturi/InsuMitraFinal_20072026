@@ -526,6 +526,9 @@ model InsurancePlan {
   maxSumAssured     Float? @map("max_sum_assured")
   minAge            Int?     @map("min_age")
   maxAge            Int?     @map("max_age")
+  hasPhcBenefit     Boolean  @default(false) @map("has_phc_benefit")
+  phcAmount         Float?   @map("phc_amount")
+  phcCount          Int?     @map("phc_count")
   isActive          Boolean  @default(true) @map("is_active")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt     @map("updated_at")
@@ -667,6 +670,7 @@ model PolicyMember {
   updatedAt   DateTime @updatedAt     @map("updated_at")
 
   policy      Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  healthCheckups PreventiveHealthCheckup[]
 
   @@index([policyId])
   @@map("policy_members")
@@ -730,15 +734,23 @@ model PolicyNominee {
 
 model PreventiveHealthCheckup {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  policyId String    @map("policy_id") @db.ObjectId
-  scheduledAt DateTime  @map("scheduled_at")
+  policyId    String    @map("policy_id") @db.ObjectId
+  memberId    String?   @map("member_id") @db.ObjectId
+  status      String    @default("Test Booked")
+  utilizedAmount Float    @default(0) @map("utilized_amount")
+  bookingDate DateTime? @map("booking_date")
+  scheduledAt DateTime? @map("scheduled_at")
   completedAt DateTime? @map("completed_at")
+  centreName  String?   @map("centre_name")
+  centreCity  String?   @map("centre_city")
+  reimbursementType String? @default("Cashless") @map("reimbursement_type")
   notes       String?
   reportUrl   String?   @map("report_url")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt     @map("updated_at")
 
   policy      Policy    @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  member      PolicyMember? @relation(fields: [memberId], references: [id])
 
   @@index([policyId])
   @@map("preventive_health_checkups")

@@ -605,6 +605,152 @@ export class PoliciesService {
     });
   }
 
+  // ── PHC Tracking ─────────────────────────────────────────────────────────
+
+  async getPhcTracking(tenantId: string) {
+    const policies = await this.prisma.policy.findMany({
+      where: {
+        tenantId,
+        status: { notIn: ['INACTIVE_OLD' as any, 'CANCELLED', 'SURRENDERED'] },
+        plan: { hasPhcBenefit: true }
+      },
+      include: {
+        plan: { include: { company: true } },
+        contact: true,
+        members: true,
+        healthCheckups: { include: { member: true } },
+      }
+    } as any);
+
+    const now = new Date();
+
+    const results = policies.map((p: any) => {
+      const companyInfo = p.plan?.company;
+      const tY = (p.endDate.getTime() - p.startDate.getTime()) / (1000 * 3600 * 24 * 365.25);
+      const totalYears = Math.max(1, Math.ceil(tY));
+      const baseEligibleAmount = (p.plan as any)?.phcAmount || 10000;
+      const basePhcCount = (p.plan as any)?.phcCount || 1;
+      
+      const years: any[] = [];
+      let totalUtilized = 0;
+      let totalEligible = 0;
+      
+      let p_phcStatus = 'Upcoming';
+      let currentPhcYearLabel = 'Year 1 (Current)';
+      let p_daysRemaining = 0;
+      let p_phcYearStartDate = p.startDate;
+      let p_phcYearEndDate = p.endDate;
+      let p_eligibleAmount = 0;
+      let p_utilizedAmount = 0;
+      let p_balanceAmount = 0;
+
+      for (let i = 0; i < totalYears; i++) {
+        const yearStart = new Date(p.startDate);
+        yearStart.setFullYear(yearStart.getFullYear() + i);
+        const yearEnd = new Date(yearStart);
+        yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+        yearEnd.setDate(yearEnd.getDate() - 1);
+        
+        const actualEnd = yearEnd > p.endDate ? p.endDate : yearEnd;
+        
+        const yearCheckups = (p as any).healthCheckups.filter((h: any) => h.createdAt >= yearStart && h.createdAt <= actualEnd);
+        const yearUtilized = yearCheckups.reduce((sum: number, h: any) => sum + (h.utilizedAmount || 0), 0);
+        
+        // "applicable only after 1 full year from each policy's own start date." -> year 1 (i=0) has 0 eligible.
+        const isRenewal = p.businessType === 'RENEWAL';
+        const isEligible = isRenewal ? true : i >= 1;
+        const eligibleAmount = isEligible ? baseEligibleAmount : 0;
+        
+        totalUtilized += yearUtilized;
+        totalEligible += eligibleAmount;
+        
+        const isCurrent = now >= yearStart && now <= actualEnd;
+        
+        let statusStr = 'Upcoming';
+        if (!isEligible) {
+          statusStr = 'Not Applicable Yet';
+        } else if (yearUtilized >= eligibleAmount) {
+          statusStr = 'Completed';
+        } else if (now > actualEnd) {
+          statusStr = 'Overdue';
+        } else {
+          const isDueThisMonth = actualEnd.getFullYear() === now.getFullYear() && actualEnd.getMonth() === now.getMonth();
+          statusStr = isDueThisMonth ? 'Due This Month' : (yearUtilized > 0 ? 'Partial Utilized' : 'Upcoming');
+        }
+        
+        const personMap = new Map();
+        for (const c of yearCheckups) {
+           const personName = c.member ? `${c.member.name} (${c.member.relationship})` : (p.contact ? `${p.contact.firstName} (Self)` : 'Primary');
+           if (!personMap.has(personName)) personMap.set(personName, { name: personName, relationship: c.member?.relationship || 'Self', utilizedAmount: 0, phcCount: 0 });
+           const entry = personMap.get(personName);
+           entry.utilizedAmount += (c.utilizedAmount || 0);
+           entry.phcCount += 1;
+        }
+
+        const yrData = {
+          yearNo: i + 1,
+          label: `Year ${i + 1}`,
+          isCurrent,
+          startDate: yearStart.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          endDate: actualEnd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          status: statusStr,
+          eligibleAmount,
+          utilizedAmount: yearUtilized,
+          balanceAmount: Math.max(0, eligibleAmount - yearUtilized),
+          phcCount: yearCheckups.length,
+          daysRemaining: isCurrent ? Math.max(0, Math.ceil((actualEnd.getTime() - now.getTime()) / (1000 * 3600 * 24))) : 0,
+          insuredPersons: Array.from(personMap.values()),
+          allCheckups: yearCheckups
+        };
+        
+        if (isCurrent) {
+          currentPhcYearLabel = `Year ${i + 1} (Current)`;
+          p_phcStatus = yrData.status;
+          p_daysRemaining = yrData.daysRemaining;
+          p_phcYearStartDate = yearStart;
+          p_phcYearEndDate = actualEnd;
+          p_eligibleAmount = yrData.eligibleAmount;
+          p_utilizedAmount = yrData.utilizedAmount;
+          p_balanceAmount = yrData.balanceAmount;
+        }
+        
+        years.push(yrData);
+      }
+      
+      const companyColors = ['bg-blue-600', 'bg-red-600', 'bg-teal-600', 'bg-orange-500', 'bg-purple-600'];
+      const cColor = companyColors[companyInfo?.name.length % companyColors.length] || 'bg-blue-600';
+
+      return {
+        id: p.id,
+        policyNo: p.policyNumber,
+        customerName: p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Unknown',
+        customerPhone: p.contact?.phone || '',
+        planName: (p.plan as any)?.name || '',
+        companyInitials: companyInfo?.shortCode || (companyInfo?.name ? companyInfo.name.substring(0,4).toUpperCase() : ''),
+        companyName: companyInfo?.name || '',
+        companyType: (p.plan as any)?.category || 'Health',
+        companyColor: cColor, 
+        policyStartDate: p.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        policyEndDate: p.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        sumInsured: p.sumAssured || 0,
+        phcFrequency: 'Annual',
+        currentPhcYear: currentPhcYearLabel,
+        phcYearStartDate: p_phcYearStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        phcYearEndDate: p_phcYearEndDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        phcStatus: p_phcStatus,
+        phcCount: basePhcCount,
+        eligibleAmount: p_eligibleAmount || totalEligible,
+        utilizedAmount: p_utilizedAmount || totalUtilized,
+        balanceAmount: p_balanceAmount || Math.max(0, totalEligible - totalUtilized),
+        daysRemaining: p_daysRemaining,
+        totalYears,
+        years,
+      };
+    });
+
+    return { data: results };
+  }
+
   // ── Private helpers ───────────────────────────────────────────────────────
 
   private computeNextDueDate(from: Date, frequency: string): Date {

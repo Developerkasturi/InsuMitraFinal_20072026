@@ -64,6 +64,7 @@ export const policiesService = {
   plans:            (search?: string)              => api.get('/policies/plans', { params: search ? { search } : {} }).then(r => r.data),
   get:              (id: string)                   => api.get(`/policies/${id}`).then(r => r.data),
   getCopyDetails:   (id: string)                   => api.get(`/policies/${id}/copy-details`).then(r => r.data),
+  getPhcTracking:   ()                             => api.get('/policies/phc/tracking').then(r => r.data),
   create:           (body: any)                    => api.post('/policies', body).then(r => r.data),
   update:           (id: string, body: any)        => api.patch(`/policies/${id}`, body).then(r => r.data),
   remove:           (id: string)                   => api.delete(`/policies/${id}`).then(r => r.data),

@@ -114,6 +114,13 @@ export class PoliciesController {
     return this.svc.listInsurancePlans(user.tenantId, search);
   }
 
+  @Get('phc/tracking')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Get PHC tracking records' })
+  getPhcTracking(@CurrentUser() user: any) {
+    return this.svc.getPhcTracking(user.tenantId);
+  }
+
   @Get(':id/copy-details')
   @Roles(UserRole.EMPLOYEE)
   @ApiOperation({ summary: 'Get previous policy fields for pre-filling a renewal policy' })
