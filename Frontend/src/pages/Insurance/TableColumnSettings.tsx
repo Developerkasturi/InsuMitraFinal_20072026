@@ -45,7 +45,8 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   const rules = visibilityRulesRes?.data || [];
   
   const getIsHidden = (pageId: string, colName: string) => {
-    const rule = rules.find((r: any) => r.pageId === pageId && r.colName === colName);
+    const norm = (str: string) => str.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const rule = rules.find((r: any) => r.pageId === pageId && (r.colName === colName || norm(r.colName) === norm(colName)));
     return rule ? rule.isHidden : false;
   };
 
@@ -55,15 +56,19 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   };
 
   const handleReset = () => {
-    // Reset all rules for this page
-    const tasks = TABLE_COLUMNS_CONFIG.find(p => p.pageId === selectedPageId)?.columns.map(col => {
-      if (getIsHidden(selectedPageId, col)) {
-        return updateMutation.mutateAsync({ pageId: selectedPageId, colName: col, isHidden: false });
-      }
-      return null;
-    }).filter(Boolean);
+    // Reset all rules stored for this page (including old names and config names)
+    const currentHiddenRules = rules.filter((r: any) => r.pageId === selectedPageId && r.isHidden);
+    const configCols = TABLE_COLUMNS_CONFIG.find(p => p.pageId === selectedPageId)?.columns || [];
     
-    if (tasks && tasks.length > 0) {
+    const allToReset = new Set<string>([
+      ...currentHiddenRules.map((r: any) => r.colName),
+      ...configCols.filter(col => getIsHidden(selectedPageId, col))
+    ]);
+
+    if (allToReset.size > 0) {
+      const tasks = Array.from(allToReset).map(colName =>
+        updateMutation.mutateAsync({ pageId: selectedPageId, colName, isHidden: false })
+      );
       Promise.all(tasks).then(() => {
         toast.success(`Reset ${selectedPageId} columns to default (Show All).`);
       });

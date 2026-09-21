@@ -197,14 +197,22 @@ import { insuranceService } from './services';
 function TableVisibilityInitializer() {
   const token = useAuthStore(s => s.accessToken);
   
+  const { data } = useQuery({
+    queryKey: ['table-columns'],
+    queryFn: () => insuranceService.getTableColumnVisibility(),
+    enabled: !!token,
+    staleTime: 0,
+  });
+
   useEffect(() => {
     tableVisibilityManager.init();
-    if (token) {
-      insuranceService.getTableColumnVisibility().then((res: any) => {
-        tableVisibilityManager.setRules(res?.data || []);
-      }).catch((e: any) => console.error('Error fetching table rules', e));
+  }, []);
+
+  useEffect(() => {
+    if (data?.data) {
+      tableVisibilityManager.setRules(data.data);
     }
-  }, [token]);
+  }, [data]);
   
   return null;
 }
