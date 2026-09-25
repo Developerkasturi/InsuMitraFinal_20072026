@@ -253,8 +253,9 @@ await prisma.employeeProfile.upsert({
 
   // First create/upsert the contact record
   let demoContact = await prisma.contact.findFirst({
-    where: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' }
+    where: { tenantId: demoTenant.id, email: 'contact@demo-agency.com' },
   });
+
   if (!demoContact) {
     demoContact = await prisma.contact.create({
       data: {
@@ -264,7 +265,7 @@ await prisma.employeeProfile.upsert({
         email:       'contact@demo-agency.com',
         phone:       '+919823044556',
         gender:      'MALE',
-      }
+      },
     });
   }
 
@@ -420,8 +421,8 @@ await prisma.employeeProfile.upsert({
       companyId: hdfcErgo.id,
       planId: osPlusPlan.id,
       policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
-      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
-      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
       paymentTerms: [],
       isActive: true,
     },
@@ -438,8 +439,8 @@ await prisma.employeeProfile.upsert({
       companyId: hdfcErgo.id,
       planId: osPlusPlan.id,
       policyPeriods: ['1 Yr', '2 Yr', '3 Yr'],
-      paymentOptions: ['Full Payment', 'EMI', 'Monthly', 'Quarterly', 'Half-Yearly'],
-      emiMonths: ['3 Months', '6 Months', '9 Months', '12 Months', '18 Months', '24 Months', '36 Months'],
+      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
+      emiMonths: [],
       paymentTerms: [],
       isActive: true,
     },
@@ -455,26 +456,8 @@ await prisma.employeeProfile.upsert({
       businessType: 'FRESH',
       companyId: hdfcLife.id,
       planId: click2ProtectPlan.id,
-      policyPeriods: Array.from({length: 99}, (_, i) => `${i + 1} Yr`),
+      policyPeriods: ['10 Yr', '15 Yr', '20 Yr', '25 Yr', '30 Yr', '40 Yr', '50 Yr', '80 Yr', '99 Yr'],
       paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
-      emiMonths: [],
-      paymentTerms: ['1 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', 'Pay till 60', 'Regular Term (1 to 99 Yr)'],
-      isActive: true,
-    },
-  });
-
-  // Term - Renewal (HDFC Life C2P)
-  await (prisma as any).policyScenario.upsert({
-    where: { tenantId_policyType_businessType_companyId_planId: { tenantId: demoTenant.id, policyType: 'TERM', businessType: 'RENEWAL', companyId: hdfcLife.id, planId: click2ProtectPlan.id } },
-    update: {},
-    create: {
-      tenantId: demoTenant.id,
-      policyType: 'TERM',
-      businessType: 'RENEWAL',
-      companyId: hdfcLife.id,
-      planId: click2ProtectPlan.id,
-      policyPeriods: Array.from({length: 99}, (_, i) => `${i + 1} Yr`),
-      paymentOptions: ['Full Payment', 'Monthly', 'Quarterly', 'Half-Yearly'],
       emiMonths: [],
       paymentTerms: ['1 Yr', '5 Yr', '10 Yr', '15 Yr', '20 Yr', 'Pay till 60', 'Regular Term (1 to 99 Yr)'],
       isActive: true,

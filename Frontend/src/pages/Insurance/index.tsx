@@ -34,7 +34,7 @@ type CompanyForm = z.infer<typeof companySchema>;
 
 const planSchema = z.object({
   name: z.string().optional(),
-  category: z.enum(['LIFE', 'HEALTH', 'MOTOR', 'TRAVEL', 'HOME', 'FIRE', 'MARINE', 'TERM', 'ULIP', 'PENSION', 'OTHER']),
+  category: z.string().min(1, 'Category is required'),
   description: z.string().optional(),
   minSumAssured: z.coerce.number().min(0).optional(),
   maxSumAssured: z.coerce.number().min(0).optional(),
@@ -773,6 +773,9 @@ export default function Insurance() {
     );
   }, [rawCompanyList, companySearch]);
   const planList: any[]    = plans?.data ?? plans ?? [];
+  const totalPlans = useMemo(() => {
+    return companyList.reduce((sum: number, co: any) => sum + (co.plans?.length || 0), 0);
+  }, [companyList]);
 
   useEffect(() => {
     const catLabel = agentForm.category === 'Health - SAHI' ? 'Health' : (agentForm.category === 'General' ? 'General' : (agentForm.category === 'Life' ? 'Life' : 'Other'));
@@ -826,7 +829,16 @@ export default function Insurance() {
   }, [selectedCompanyCategory]);
 
   const companyForm = useForm<CompanyForm>({ resolver: zodResolver(companySchema) });
-  const planForm    = useForm<PlanForm>({ resolver: zodResolver(planSchema), defaultValues: { isActive: true, category: 'LIFE' } });
+  const planForm    = useForm<PlanForm>({ resolver: zodResolver(planSchema), defaultValues: { isActive: true, category: 'Health' } });
+
+  useEffect(() => {
+    if (planModal && PLAN_CATEGORY_OPTIONS.length > 0 && !editPlan) {
+      const current = planForm.getValues('category');
+      if (!current || !PLAN_CATEGORY_OPTIONS.includes(current)) {
+        planForm.setValue('category', PLAN_CATEGORY_OPTIONS[0]);
+      }
+    }
+  }, [planModal, PLAN_CATEGORY_OPTIONS, editPlan]);
 
   const createCompany = useMutation({
     mutationFn: (body: CompanyForm) => insuranceService.createCompany(body),
@@ -1126,7 +1138,7 @@ export default function Insurance() {
                       <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Shield size={13} /></div>
                     </div>
                     <div className="mt-2">
-                      <p className="text-lg font-black text-slate-950">15</p>
+                      <p className="text-lg font-black text-slate-950">{totalPlans}</p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Total Plans</p>
                     </div>
                   </div>
@@ -1787,8 +1799,8 @@ export default function Insurance() {
           className="space-y-4 pr-2 max-h-[70vh] overflow-y-auto custom-scrollbar"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Select Insurance Company Category</label>
+            <div className="col-span-2 sm:col-span-1 flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Select Insurance Company Category</label>
               <select
                 value={extraCompanyFields.category}
                 onChange={e => setExtraCompanyFields(p => ({ ...p, category: e.target.value }))}
@@ -1803,18 +1815,20 @@ export default function Insurance() {
             </div>
             <div className="col-span-2 sm:col-span-1" />
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Name - Official *</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                Company Name - Official <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+              </label>
               <input {...companyForm.register('name')} className="input" placeholder="e.g. LIC of India" required />
               {companyForm.formState.errors.name && <p className="text-xs text-red-500">{companyForm.formState.errors.name.message}</p>}
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Name - Short</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Company Name - Short</label>
               <input {...companyForm.register('code')} className="input" placeholder="e.g. LIC" />
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Head Office Address</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Company Head Office Address</label>
               <textarea
                 value={extraCompanyFields.headOffice}
                 onChange={e => setExtraCompanyFields(p => ({ ...p, headOffice: e.target.value }))}
@@ -1822,8 +1836,8 @@ export default function Insurance() {
                 rows={2}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Company Branch Office Address</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Company Branch Office Address</label>
               <textarea
                 value={extraCompanyFields.branchOffice}
                 onChange={e => setExtraCompanyFields(p => ({ ...p, branchOffice: e.target.value }))}
@@ -1833,16 +1847,16 @@ export default function Insurance() {
             </div>
 
             {/* Important Email ID List */}
-            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+            <div className="col-span-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/60 shadow-2xs">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Important Email IDs</label>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Important Email IDs</label>
                 <button
                   type="button"
                   onClick={() => setExtraCompanyFields(p => ({
                     ...p,
                     emails: [...p.emails, { id: Date.now().toString(), email: '', description: '' }]
                   }))}
-                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <Plus size={12} /> Add Email
                 </button>
@@ -1937,18 +1951,27 @@ export default function Insurance() {
                   await insuranceService.createPlan(planCompanyId, { ...payloadTemplate, name });
                 }
                 qc.invalidateQueries({ queryKey: ['insurance-plans'] });
+                qc.invalidateQueries({ queryKey: ['insurance-companies'] });
                 closePlanModal();
                 toast.success(`Created ${validNames.length} plan(s) successfully`, { id: toastId });
               } catch (err: any) {
                 toast.error(err.response?.data?.message ?? 'Failed to create plans', { id: toastId });
               }
             }
+          }, (errors) => {
+            console.error('Plan validation errors:', errors);
+            const firstError = Object.values(errors)[0] as any;
+            if (firstError?.message) {
+              toast.error(String(firstError.message));
+            }
           })}
           className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Select Insurance Company *</label>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                Select Insurance Company <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+              </label>
               <select
                 className="input"
                 value={planCompanyId}
@@ -1968,16 +1991,18 @@ export default function Insurance() {
               </select>
             </div>
 
-            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+            <div className="col-span-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/70 shadow-2xs">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Plan Names *</label>
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Plan Names <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 {!editPlan && (
                   <button
                     type="button"
                     onClick={() => setPlanNames([...planNames, ''])}
-                    className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus size={12} /> Add Plan Name
+                    <Plus size={14} /> Add Plan Name
                   </button>
                 )}
               </div>
@@ -2016,27 +2041,33 @@ export default function Insurance() {
               </datalist>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Plan Category *</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                Plan Category <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+              </label>
               <select {...planForm.register('category')} className="input">
                 {PLAN_CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
-            <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment (Description)</label>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                Comment (Description)
+              </label>
               <textarea {...planForm.register('description')} className="input" rows={2} />
             </div>
 
-            <div className="col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50 mt-2">
+            <div className="col-span-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/70 shadow-2xs mt-2">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Riders / Add-ons</label>
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  Riders / Add-ons
+                </label>
                 <button
                   type="button"
                   onClick={() => setPlanRiders([...planRiders, { id: Date.now().toString(), name: '', description: '' }])}
-                  className="text-[10px] sm:text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-bold text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                  <Plus size={12} /> Add Rider
+                  <Plus size={14} /> Add Rider
                 </button>
               </div>
               {planRiders.length === 0 ? (
@@ -2248,13 +2279,15 @@ export default function Insurance() {
             <form id="hospital-form" onSubmit={handleFormSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
               {/* Section 1: Hospital Details */}
               <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-4">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide border-b border-slate-200 pb-1.5">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide border-b border-slate-200 pb-1.5">
                   1. Hospital Details
                 </h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Name *</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                      Hospital Name <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                    </label>
                     <input
                       type="text"
                       required
@@ -2266,7 +2299,9 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Type *</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                      Hospital Type <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                    </label>
                     <select
                       value={hospitalForm.type}
                       onChange={(e) => setHospitalForm(prev => ({ ...prev, type: e.target.value }))}
@@ -2281,7 +2316,9 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital City *</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                      Hospital City <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                    </label>
                     <input
                       type="text"
                       required
@@ -2293,7 +2330,9 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Pincode *</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                      Hospital Pincode <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                    </label>
                     <input
                       type="text"
                       pattern="[0-9]{6}"
@@ -2307,7 +2346,9 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Contact No *</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                      Hospital Contact No <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                    </label>
                     <input
                       type="text"
                       maxLength={15}
@@ -2320,7 +2361,7 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Address</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Hospital Address</label>
                     <input
                       type="text"
                       value={hospitalForm.address}
@@ -2331,7 +2372,7 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Department Person 1 Name</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Department Person 1 Name</label>
                     <input
                       type="text"
                       value={hospitalForm.claimsPerson1Name}
@@ -2342,7 +2383,7 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Person 1 Contact No</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 1 Contact No</label>
                     <input
                       type="text"
                       maxLength={15}
@@ -2354,7 +2395,7 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Department Person 2 Name</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Department Person 2 Name</label>
                     <input
                       type="text"
                       value={hospitalForm.claimsPerson2Name}
@@ -2365,7 +2406,7 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Claims Person 2 Contact No</label>
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 2 Contact No</label>
                     <input
                       type="text"
                       maxLength={15}
@@ -2378,7 +2419,7 @@ export default function Insurance() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment</label>
+                  <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Comment</label>
                   <textarea
                     value={hospitalForm.comment}
                     onChange={(e) => setHospitalForm(prev => ({ ...prev, comment: e.target.value }))}
@@ -2391,7 +2432,7 @@ export default function Insurance() {
               {/* Section 2: Doctor Details */}
               <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
                     2. Doctor Details
                   </h4>
                   <button
@@ -2410,7 +2451,7 @@ export default function Insurance() {
                     {hospitalDoctors.map((doc, index) => (
                       <div key={doc.id} className="relative border border-slate-200 rounded-xl p-3 bg-white space-y-2.5 shadow-2xs">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-1">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">
                             Doctor #{index + 1}
                           </span>
                           <button
@@ -2425,7 +2466,9 @@ export default function Insurance() {
 
                         <div className="grid grid-cols-1 gap-2">
                           <div className="flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Doctor Name *</label>
+                            <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                              Doctor Name <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
+                            </label>
                             <input
                               type="text"
                               required
@@ -2437,7 +2480,9 @@ export default function Insurance() {
                           </div>
 
                           <div className="flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Doctor Degree *</label>
+                            <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                              Doctor Degree <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
+                            </label>
                             <select
                               required
                               value={doc.degree}
@@ -2452,7 +2497,9 @@ export default function Insurance() {
                           </div>
 
                           <div className="flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Contact No *</label>
+                            <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                              Contact No <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
+                            </label>
                             <input
                               type="text"
                               maxLength={15}
@@ -2465,7 +2512,9 @@ export default function Insurance() {
                           </div>
 
                           <div className="flex flex-col gap-0.5">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Speciality *</label>
+                            <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                              Speciality <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
+                            </label>
                             <input
                               type="text"
                               required
@@ -2532,8 +2581,10 @@ export default function Insurance() {
           {agentModalTab === 'details' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
               {/* Insurance Company Category */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Insurance Company Category *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Insurance Company Category <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <select
                   value={agentForm.category}
                   onChange={e => {
@@ -2550,8 +2601,10 @@ export default function Insurance() {
               </div>
 
               {/* Insurance Company Name */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Insurance Company Name *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Insurance Company Name <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <select
                   value={agentForm.companyId}
                   onChange={e => {
@@ -2586,8 +2639,10 @@ export default function Insurance() {
               </div>
 
               {/* Agent Name */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agent Name *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Agent Name <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
                   type="text"
                   value={agentForm.agentName}
@@ -2598,8 +2653,10 @@ export default function Insurance() {
               </div>
 
               {/* Agency Name to Display */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Name to Display (Auto-Generated)</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  Agency Name to Display (Auto-Generated)
+                </label>
                 <input
                   type="text"
                   value={agentForm.agencyNameDisplay}
@@ -2610,8 +2667,10 @@ export default function Insurance() {
               </div>
 
               {/* Agency Code */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Code *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Agency Code <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
                   type="text"
                   value={agentForm.agencyCode}
@@ -2622,8 +2681,10 @@ export default function Insurance() {
               </div>
 
               {/* Agency Start Date */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Start Date *</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                  Agency Start Date <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                </label>
                 <input
                   type="date"
                   value={agentForm.startDate}
@@ -2633,8 +2694,10 @@ export default function Insurance() {
               </div>
 
               {/* Agency Home Branch */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Home Branch</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  Agency Home Branch
+                </label>
                 <input
                   type="text"
                   value={agentForm.homeBranch}
@@ -2645,8 +2708,10 @@ export default function Insurance() {
               </div>
 
               {/* Agency Home Branch Code */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Agency Home Branch Code</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  Agency Home Branch Code
+                </label>
                 <input
                   type="text"
                   value={agentForm.homeBranchCode}
@@ -2657,8 +2722,10 @@ export default function Insurance() {
               </div>
 
               {/* RM Name */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RM Name</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  RM Name
+                </label>
                 <input
                   type="text"
                   value={agentForm.rmName}
@@ -2669,8 +2736,10 @@ export default function Insurance() {
               </div>
 
               {/* RM Contact No */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">RM Contact No</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  RM Contact No
+                </label>
                 <input
                   type="tel"
                   value={agentForm.rmContact}
@@ -2681,8 +2750,10 @@ export default function Insurance() {
               </div>
 
               {/* BM Name */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">BM Name</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  BM Name
+                </label>
                 <input
                   type="text"
                   value={agentForm.bmName}
@@ -2693,8 +2764,10 @@ export default function Insurance() {
               </div>
 
               {/* BM Contact No */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">BM Contact No</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                  BM Contact No
+                </label>
                 <input
                   type="tel"
                   value={agentForm.bmContact}
@@ -2710,10 +2783,10 @@ export default function Insurance() {
             <div className="space-y-4 animate-fadeIn">
               {/* Payout Bank Details Section */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-slate-500">Payout Bank Details</h4>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Payout Bank Details</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Name</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Bank Name</label>
                     <input
                       type="text"
                       value={agentForm.bankName}
@@ -2722,8 +2795,8 @@ export default function Insurance() {
                       className="input"
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Branch</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Bank Branch</label>
                     <input
                       type="text"
                       value={agentForm.bankBranch}
@@ -2732,8 +2805,8 @@ export default function Insurance() {
                       className="input"
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank IFSC</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Bank IFSC</label>
                     <input
                       type="text"
                       value={agentForm.bankIfsc}
@@ -2742,8 +2815,8 @@ export default function Insurance() {
                       className="input"
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Bank Account No</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Bank Account No</label>
                     <input
                       type="text"
                       value={agentForm.bankAccount}
@@ -2765,8 +2838,8 @@ export default function Insurance() {
               </div>
 
               {/* Comment */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Comment</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Comment</label>
                 <textarea
                   value={agentForm.comment}
                   onChange={e => setAgentForm(p => ({ ...p, comment: e.target.value }))}

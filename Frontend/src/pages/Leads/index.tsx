@@ -513,6 +513,138 @@ function MultiSelectBox({
   );
 }
 
+// ── Contact Search & Select Dropdown Component ───────────────────────────────
+function ContactSearchSelect({
+  contacts,
+  selectedContactId,
+  onSelect,
+  loading,
+}: {
+  contacts: any[];
+  selectedContactId: string | null;
+  onSelect: (contactId: string | null) => void;
+  loading: boolean;
+}) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedContact = useMemo(() => {
+    return contacts.find(c => (c.id === selectedContactId || c._id === selectedContactId));
+  }, [contacts, selectedContactId]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return contacts.slice(0, 30);
+    const q = query.toLowerCase().trim();
+    return contacts.filter(c => {
+      const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+      const phone = c.phone || '';
+      const email = (c.email || '').toLowerCase();
+      const city = (c.addresses?.[0]?.city || c.city || '').toLowerCase();
+      return name.includes(q) || phone.includes(q) || email.includes(q) || city.includes(q);
+    }).slice(0, 30);
+  }, [contacts, query]);
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+          <Search size={15} />
+        </div>
+        <input
+          type="text"
+          className="w-full text-xs pl-9 pr-9 py-2.5 bg-white border border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-xl font-medium text-slate-800 placeholder-slate-400 outline-none transition-all shadow-xs cursor-text"
+          placeholder={loading ? "Loading contacts list..." : "Search existing contact by Name, Mobile Number, or Email..."}
+          value={isOpen ? query : (selectedContact ? `${selectedContact.firstName || ''} ${selectedContact.lastName || ''} (${selectedContact.phone || 'No Phone'})` : query)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
+        />
+        {query && isOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+            }}
+            className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-[9999] left-0 right-0 mt-1.5 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl divide-y divide-slate-100 custom-scrollbar">
+          {loading ? (
+            <div className="p-4 text-center text-xs text-slate-400 font-medium">
+              Loading contacts list...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-4 text-center text-xs text-slate-400 font-medium">
+              No contacts found matching "{query}".
+            </div>
+          ) : (
+            filtered.map((c) => {
+              const cId = c.id || c._id;
+              const isSel = selectedContactId === cId;
+              const fullName = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Unnamed Contact';
+              const city = c.addresses?.[0]?.city || c.city || '';
+
+              return (
+                <div
+                  key={cId}
+                  className={clsx(
+                    "p-3 text-xs cursor-pointer transition-all flex items-center justify-between gap-2 hover:bg-blue-50/80",
+                    isSel ? "bg-blue-50 font-bold border-l-4 border-blue-600" : ""
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelect(cId);
+                    setIsOpen(false);
+                    setQuery('');
+                  }}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 shadow-2xs">
+                      {c.firstName?.[0]?.toUpperCase() || 'C'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{fullName}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500 font-normal">
+                        {c.phone && <span>📱 {c.phone}</span>}
+                        {c.email && <span className="truncate">✉️ {c.email}</span>}
+                        {city && <span>📍 {city}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {isSel && (
+                    <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full shrink-0">
+                      Selected
+                    </span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Leads() {
   const [searchParams] = useSearchParams();
@@ -591,6 +723,91 @@ export default function Leads() {
   const [loadedContact, setLoadedContact] = useState<any | null>(null);
   const [duplicateContactMatched, setDuplicateContactMatched] = useState<any | null>(null);
   const [maxRenewalWindow, setMaxRenewalWindow] = useState<number>(45);
+
+  // Contacts picker query for Add New Lead dropdown
+  const { data: contactsPickerRes, isLoading: contactsLoading } = useQuery({
+    queryKey: ['contacts-list-picker'],
+    queryFn: () => contactsService.list({ limit: 500 }),
+    enabled: modalOpen && !editTarget,
+  });
+  const contactsPickerList: any[] = useMemo(() => {
+    const raw = contactsPickerRes?.data ?? contactsPickerRes ?? [];
+    return Array.isArray(raw) ? raw : [];
+  }, [contactsPickerRes]);
+
+  const loadContactById = async (contactId: string) => {
+    if (!contactId) return;
+    setEditContactId(contactId);
+    try {
+      const res = await contactsService.get(contactId);
+      const contact = res.data ?? res;
+      setLoadedContact(contact);
+
+      const primaryAddr = contact.addresses?.find((a: any) => a.isPrimary) || contact.addresses?.[0];
+      const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
+
+      setPersonalFields({
+        fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+        firstName: contact.firstName || '',
+        middleName: contact.middleName || '',
+        lastName: contact.lastName || '',
+        gender: contact.gender || '',
+        maritalStatus: contact.maritalStatus || '',
+        dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        email: contact.email || '',
+        aadhaarNumber: contact.aadhaarNumber || '',
+        panNumber: contact.panNumber || contact.pan || '',
+        whatsappNumber: contact.phone || '',
+        sameAsWhatsapp: true,
+        callingNumber: contact.alternatePhone || '',
+        education: contact.education || '',
+        annualIncome: contact.annualIncome ? String(contact.annualIncome) : '',
+        height: contact.height ? String(contact.height) : '',
+        weight: contact.weight ? String(contact.weight) : '',
+        occupationType: primaryOcc?.type || '',
+        companyName: primaryOcc?.companyName || '',
+        state: primaryAddr?.state || '',
+        district: primaryAddr?.district || '',
+        city: primaryAddr?.city || '',
+        pincode: primaryAddr?.pincode || '',
+        streetAddress: primaryAddr?.line1 || '',
+        declaredMedicalHistory: [],
+        notDeclaredMedicalHistory: [],
+        medicalHistoryDetails: ''
+      });
+
+      if (contact.relationships) {
+        setFamilyMembers(contact.relationships.map((r: any) => ({
+          id: r.id,
+          firstName: r.relatedContact?.firstName || r.name || '',
+          lastName: r.relatedContact?.lastName || '',
+          relation: r.relationshipType || 'OTHER',
+          dob: r.relatedContact?.dateOfBirth ? r.relatedContact.dateOfBirth.split('T')[0] : r.dateOfBirth ? r.dateOfBirth.split('T')[0] : '',
+          whatsapp: r.relatedContact?.phone || r.phone || '',
+          contactId: r.relatedContactId || undefined
+        })));
+      }
+
+      if (contact.policies) {
+        setPolicies(contact.policies.map((p: any) => ({
+          id: p.id,
+          policyType: p.plan?.category || 'Health',
+          entries: [{
+            company: p.plan?.company?.name || '',
+            planName: p.plan?.name || '',
+            policyNo: p.policyNumber || '',
+            sumAssured: p.sumAssured ? String(p.sumAssured) : '',
+            premium: p.premiumAmount ? String(p.premiumAmount) : '',
+            startDate: p.startDate ? p.startDate.split('T')[0] : '',
+            endDate: p.endDate ? p.endDate.split('T')[0] : '',
+          }]
+        })));
+      }
+    } catch (err: any) {
+      console.error('Error loading contact:', err);
+      toast.error('Failed to load contact details');
+    }
+  };
 
   useEffect(() => {
     leadsService.getRenewalWindow()
@@ -1065,8 +1282,13 @@ export default function Leads() {
     setProductInterests(prev => prev.filter(c => c.id !== id));
   };
 
-  const updateProductInterest = (id: string, field: keyof ProductInterestCard, value: any) =>
-    setProductInterests(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  const updateProductInterest = (id: string, field: keyof ProductInterestCard, value: any) => {
+    let actualValue = value;
+    if (field === 'followUpDate' && typeof value === 'object' && value !== null) {
+      actualValue = value.target?.value ?? value.value ?? '';
+    }
+    setProductInterests(prev => prev.map(c => c.id === id ? { ...c, [field]: actualValue } : c));
+  };
 
   const toggleProductCollapse = (id: string) =>
     setProductInterests(prev => prev.map(c => c.id === id ? { ...c, collapsed: !c.collapsed } : c));
@@ -1546,92 +1768,100 @@ export default function Leads() {
 
   const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean = false) => {
     if (e) e.preventDefault();
-    if (!personalFields.firstName.trim()) {
-      toast.error('First Name is required');
-      return;
-    }
-    if (isFieldRequired('lastName', true) && !personalFields.lastName.trim()) {
-      toast.error('Last Name is required');
-      return;
-    }
-    if (isFieldRequired('phone', true) && !personalFields.whatsappNumber.trim()) {
-      toast.error('WhatsApp Number is required');
-      return;
-    }
-    // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
-    const KNOWN_CODES = ['971', '966', '974', '968', '965', '973', '880', '977', '234', '254', '353', '91', '44', '49', '33', '81', '86', '94', '60', '62', '63', '66', '84', '27', '55', '52', '39', '34', '31', '41', '46', '47', '45', '64', '65', '61', '86', '1', '7'];
-    const rawWaDigits = personalFields.whatsappNumber.trim().replace(/\D/g, '');
-    const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
-    const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
-    const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
-    if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
-      toast.error('WhatsApp Number must be exactly 10 digits');
+
+    if (!editTarget && !editContactId) {
+      toast.error('Please select an existing Contact for this lead.');
       return;
     }
 
-    if (personalFields.callingNumber?.trim()) {
-      const rawCallDigits = personalFields.callingNumber.trim().replace(/\D/g, '');
-      const matchedCallCode = sortedCodes.find(c => rawCallDigits.startsWith(c));
-      const callLocalDigits = matchedCallCode ? rawCallDigits.slice(matchedCallCode.length) : rawCallDigits;
-      if (!/^\d{10}$/.test(callLocalDigits) && !/^\d{10}$/.test(rawCallDigits)) {
-        toast.error('Calling Number must be exactly 10 digits');
+    if (!editContactId) {
+      if (!personalFields.firstName.trim()) {
+        toast.error('First Name is required');
         return;
       }
-    }
-
-    const hasAadhaar = !!personalFields.aadhaarNumber.trim();
-    if (isFieldRequired('aadhaarNumber', false) && !hasAadhaar) {
-      toast.error('Aadhaar Number is required');
-      return;
-    }
-    if (hasAadhaar && !/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
-      toast.error('Aadhaar Number must be exactly 12 digits');
-      return;
-    }
-
-    if (!personalFields?.occupationType?.trim()) {
-      toast.error('Occupation Type is required');
-      setActiveLeadTab('Personal');
-      return;
-    }
-
-    if (!personalFields?.state?.trim()) {
-      toast.error('State is required');
-      setActiveLeadTab('Personal');
-      return;
-    }
-    if (!personalFields?.district?.trim()) {
-      toast.error('District is required');
-      setActiveLeadTab('Personal');
-      return;
-    }
-    if (!personalFields?.city?.trim()) {
-      toast.error('City is required');
-      setActiveLeadTab('Personal');
-      return;
-    }
-
-    // Programmatic dynamic compulsory checks
-    const fieldsToCheck = [
-      { key: 'alternatePhone', label: 'Alternate Phone', value: personalFields.callingNumber, defaultRequired: false },
-      { key: 'email', label: 'Email Address', value: personalFields.email, defaultRequired: false },
-      { key: 'gender', label: 'Gender', value: personalFields.gender, defaultRequired: false },
-      { key: 'dateOfBirth', label: 'Date of Birth', value: personalFields.dateOfBirth, defaultRequired: false },
-      { key: 'panNumber', label: 'PAN Number', value: personalFields.panNumber || personalFields.pan, defaultRequired: false },
-      { key: 'annualIncome', label: 'Annual Income', value: personalFields.annualIncome, defaultRequired: false },
-      { key: 'city', label: 'City', value: personalFields.city, defaultRequired: false },
-      { key: 'source', label: 'Source', value: personalFields.source, defaultRequired: false },
-      { key: 'assignedEmployeeId', label: 'Assigned Employee', value: leadInfoFields.assignedEmployeeId, defaultRequired: false },
-      { key: 'leadStage', label: 'Lead Stage', value: leadInfoFields.leadStage, defaultRequired: false },
-      { key: 'leadStatus', label: 'Lead Status', value: leadInfoFields.leadStatus, defaultRequired: false },
-      { key: 'leadType', label: 'Lead Type', value: leadInfoFields.leadType, defaultRequired: false },
-      { key: 'followUpDate', label: 'Follow-up Date', value: leadInfoFields.followUpDate, defaultRequired: false }
-    ];
-
-    for (const f of fieldsToCheck) {
-      if (isFieldRequired(f.key, f.defaultRequired) && (!f.value || String(f.value).trim() === '')) {
-        toast.error(f.label + ' is required');
+      if (isFieldRequired('lastName', true) && !personalFields.lastName.trim()) {
+        toast.error('Last Name is required');
         return;
+      }
+      if (isFieldRequired('phone', true) && !personalFields.whatsappNumber.trim()) {
+        toast.error('WhatsApp Number is required');
+        return;
+      }
+      // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
+      const KNOWN_CODES = ['971', '966', '974', '968', '965', '973', '880', '977', '234', '254', '353', '91', '44', '49', '33', '81', '86', '94', '60', '62', '63', '66', '84', '27', '55', '52', '39', '34', '31', '41', '46', '47', '45', '64', '65', '61', '86', '1', '7'];
+      const rawWaDigits = personalFields.whatsappNumber.trim().replace(/\D/g, '');
+      const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
+      const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
+      const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
+      if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
+        toast.error('WhatsApp Number must be exactly 10 digits');
+        return;
+      }
+
+      if (personalFields.callingNumber?.trim()) {
+        const rawCallDigits = personalFields.callingNumber.trim().replace(/\D/g, '');
+        const matchedCallCode = sortedCodes.find(c => rawCallDigits.startsWith(c));
+        const callLocalDigits = matchedCallCode ? rawCallDigits.slice(matchedCallCode.length) : rawCallDigits;
+        if (!/^\d{10}$/.test(callLocalDigits) && !/^\d{10}$/.test(rawCallDigits)) {
+          toast.error('Calling Number must be exactly 10 digits');
+          return;
+        }
+      }
+
+      const hasAadhaar = !!personalFields.aadhaarNumber.trim();
+      if (isFieldRequired('aadhaarNumber', false) && !hasAadhaar) {
+        toast.error('Aadhaar Number is required');
+        return;
+      }
+      if (hasAadhaar && !/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
+        toast.error('Aadhaar Number must be exactly 12 digits');
+        return;
+      }
+
+      if (!personalFields?.occupationType?.trim()) {
+        toast.error('Occupation Type is required');
+        setActiveLeadTab('Personal');
+        return;
+      }
+
+      if (!personalFields?.state?.trim()) {
+        toast.error('State is required');
+        setActiveLeadTab('Personal');
+        return;
+      }
+      if (!personalFields?.district?.trim()) {
+        toast.error('District is required');
+        setActiveLeadTab('Personal');
+        return;
+      }
+      if (!personalFields?.city?.trim()) {
+        toast.error('City is required');
+        setActiveLeadTab('Personal');
+        return;
+      }
+
+      // Programmatic dynamic compulsory checks
+      const fieldsToCheck = [
+        { key: 'alternatePhone', label: 'Alternate Phone', value: personalFields.callingNumber, defaultRequired: false },
+        { key: 'email', label: 'Email Address', value: personalFields.email, defaultRequired: false },
+        { key: 'gender', label: 'Gender', value: personalFields.gender, defaultRequired: false },
+        { key: 'dateOfBirth', label: 'Date of Birth', value: personalFields.dateOfBirth, defaultRequired: false },
+        { key: 'panNumber', label: 'PAN Number', value: personalFields.panNumber || personalFields.pan, defaultRequired: false },
+        { key: 'annualIncome', label: 'Annual Income', value: personalFields.annualIncome, defaultRequired: false },
+        { key: 'city', label: 'City', value: personalFields.city, defaultRequired: false },
+        { key: 'source', label: 'Source', value: personalFields.source, defaultRequired: false },
+        { key: 'assignedEmployeeId', label: 'Assigned Employee', value: leadInfoFields.assignedEmployeeId, defaultRequired: false },
+        { key: 'leadStage', label: 'Lead Stage', value: leadInfoFields.leadStage, defaultRequired: false },
+        { key: 'leadStatus', label: 'Lead Status', value: leadInfoFields.leadStatus, defaultRequired: false },
+        { key: 'leadType', label: 'Lead Type', value: leadInfoFields.leadType, defaultRequired: false },
+        { key: 'followUpDate', label: 'Follow-up Date', value: leadInfoFields.followUpDate, defaultRequired: false }
+      ];
+
+      for (const f of fieldsToCheck) {
+        if (isFieldRequired(f.key, f.defaultRequired) && (!f.value || String(f.value).trim() === '')) {
+          toast.error(f.label + ' is required');
+          return;
+        }
       }
     }
     // Validate renewal policy rule & required fields for new cards
@@ -1655,7 +1885,12 @@ export default function Leads() {
           setActiveLeadTab('Product Interest');
           return;
         }
-        if (!String(card.followUpDate ?? '').trim()) {
+        const rawFollowUp = card.followUpDate;
+        const followUpStr = typeof rawFollowUp === 'string'
+          ? rawFollowUp
+          : (typeof rawFollowUp === 'object' && rawFollowUp !== null ? ((rawFollowUp as any).target?.value || (rawFollowUp as any).value || '') : String(rawFollowUp ?? ''));
+
+        if (!followUpStr.trim() || followUpStr === '[object Object]') {
           toast.error(`Product Interest #${i + 1}: Please select a Follow-up Date`);
           setActiveLeadTab('Product Interest');
           return;
@@ -1700,7 +1935,7 @@ export default function Leads() {
             firstName,
             middleName: personalFields.middleName || undefined,
             lastName,
-            phone: waLocalDigits || rawWaDigits,
+            phone: (personalFields.whatsappNumber || '').trim().replace(/\D/g, ''),
             height: personalFields.height ? Number(personalFields.height) : undefined,
             weight: personalFields.weight ? Number(personalFields.weight) : undefined,
             panNumber: personalFields.panNumber || personalFields.pan || undefined,
@@ -1873,12 +2108,15 @@ export default function Leads() {
     }
   };
 
-  const openCreate = (stage?: string) => {
+  const openCreate = (stage?: string, targetContactId?: string) => {
     setEditTarget(null);
     setEditContactId(null);
     setLoadedContact(null);
     setPersonalFields({
       fullName: '',
+      firstName: '',
+      middleName: '',
+      lastName: '',
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
@@ -1916,12 +2154,38 @@ export default function Leads() {
     });
     setLeadComments([]);
     setNewComment('');
-    setProductInterests([]);
+
+    const defaultCard = {
+      id: `temp-${Date.now()}`,
+      interestedIn: ['Health'],
+      otherProduct: '',
+      descriptionDetails: '',
+      leadStage: stage || 'TO_CONTACT',
+      leadStatus: 'INTERESTED',
+      dependencyType: 'SELF',
+      dependentDetails: '',
+      membersIncluded: [],
+      leadType: 'FRESH',
+      leadSource: 'Social Media',
+      assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
+      followUpDate: '',
+      expectedPremium: '',
+      sumInsuredRequired: '',
+      newComment: '',
+      comments: [],
+      collapsed: false,
+    };
+
+    setProductInterests([defaultCard]);
     setFamilyMembers([]);
     setPolicies([]);
     setSelectedCampaigns([]);
     setActiveLeadTab('Product Interest');
     setModalOpen(true);
+
+    if (targetContactId) {
+      loadContactById(targetContactId);
+    }
   };
 
   const openEdit = async (card: any) => {
@@ -3040,7 +3304,7 @@ export default function Leads() {
         subtitle={
           activeLeadTab === 'Policy'
             ? "Add or update policy details, company, plan name, and coverage."
-            : (editTarget ? "Update lead profile, family details, and policies." : "Manage lead profile, family details, and address.")
+            : (editTarget ? "Update lead profile, family details, and policies." : "Select an existing Contact and add Product Interest details.")
         }
         size="2xl"
         actions={
@@ -3052,12 +3316,140 @@ export default function Leads() {
             >
               {activeLeadTab === 'Policy'
                 ? (editTarget || editContactId ? 'Update Policy' : 'Add Policy')
-                : (editTarget || editContactId ? 'Update Profile' : 'Save')}
+                : (editTarget ? 'Update Profile' : 'Save Lead')}
             </button>
           </div>
         }
       >
-        <form className="space-y-3">
+        <form className="space-y-3" onSubmit={handleLeadSubmit}>
+
+          {/* Searchable Contact Selection (Only for Add New Lead Flow) */}
+          {!editTarget && (
+            <div className="p-3.5 bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-200/90 rounded-2xl mb-3 shadow-2xs">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                  <UserCircle2 size={16} className="text-blue-600" />
+                  <span>Select Existing Contact <span className="text-rose-500">*</span></span>
+                </label>
+                {editContactId && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold border border-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Contact Selected & Data Loaded
+                  </span>
+                )}
+              </div>
+
+              <ContactSearchSelect
+                contacts={contactsPickerList}
+                selectedContactId={editContactId}
+                onSelect={(cId) => {
+                  if (cId) {
+                    loadContactById(cId);
+                  } else {
+                    setEditContactId(null);
+                    setLoadedContact(null);
+                    setPersonalFields({
+                      fullName: '',
+                      firstName: '',
+                      middleName: '',
+                      lastName: '',
+                      gender: '',
+                      maritalStatus: '',
+                      dateOfBirth: '',
+                      email: '',
+                      aadhaarNumber: '',
+                      whatsappNumber: '',
+                      sameAsWhatsapp: false,
+                      callingNumber: '',
+                      education: '',
+                      annualIncome: '',
+                      occupationType: '',
+                      companyName: '',
+                      state: '',
+                      district: '',
+                      city: '',
+                      pincode: '',
+                      streetAddress: '',
+                      declaredMedicalHistory: [],
+                      notDeclaredMedicalHistory: [],
+                      medicalHistoryDetails: ''
+                    });
+                    setFamilyMembers([]);
+                    setPolicies([]);
+                  }
+                }}
+                loading={contactsLoading}
+              />
+
+              {loadedContact && (
+                <div className="mt-3 p-3 bg-white border border-blue-100 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0">
+                      {loadedContact.firstName?.[0]?.toUpperCase() || 'C'}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-black text-slate-900 truncate">
+                        {loadedContact.firstName} {loadedContact.lastName || ''}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 font-medium mt-0.5">
+                        {loadedContact.phone && (
+                          <span className="flex items-center gap-1">
+                            <Phone size={11} className="text-blue-500" /> {loadedContact.phone}
+                          </span>
+                        )}
+                        {loadedContact.email && (
+                          <span className="flex items-center gap-1 truncate">
+                            <Mail size={11} className="text-indigo-500" /> {loadedContact.email}
+                          </span>
+                        )}
+                        {personalFields.city && (
+                          <span className="text-slate-400">📍 {personalFields.city}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditContactId(null);
+                      setLoadedContact(null);
+                      setPersonalFields({
+                        fullName: '',
+                        firstName: '',
+                        middleName: '',
+                        lastName: '',
+                        gender: '',
+                        maritalStatus: '',
+                        dateOfBirth: '',
+                        email: '',
+                        aadhaarNumber: '',
+                        whatsappNumber: '',
+                        sameAsWhatsapp: false,
+                        callingNumber: '',
+                        education: '',
+                        annualIncome: '',
+                        occupationType: '',
+                        companyName: '',
+                        state: '',
+                        district: '',
+                        city: '',
+                        pincode: '',
+                        streetAddress: '',
+                        declaredMedicalHistory: [],
+                        notDeclaredMedicalHistory: [],
+                        medicalHistoryDetails: ''
+                      });
+                      setFamilyMembers([]);
+                      setPolicies([]);
+                    }}
+                    className="text-[10px] text-slate-500 hover:text-rose-600 font-bold uppercase tracking-wider underline cursor-pointer"
+                  >
+                    Change Contact
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Modal sub-navigation tabs */}
           <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
@@ -3077,48 +3469,6 @@ export default function Leads() {
               </button>
             ))}
           </div>
-
-          {editContactId && !editTarget && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-2.5 rounded-xl text-xs font-bold mb-3 flex items-center justify-between shadow-2xs animate-fadeIn">
-              <span className="flex flex-wrap items-center gap-1.5">
-                <span className="h-2 w-2 bg-emerald-500 rounded-full animate-ping shrink-0" />
-                Existing Contact Found – Details Loaded.
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditContactId(null);
-                  setLoadedContact(null);
-                  setDuplicateContactMatched(null);
-                  setPersonalFields({
-                    fullName: '',
-                    gender: '',
-                    maritalStatus: '',
-                    dateOfBirth: '',
-                    email: '',
-                    aadhaarNumber: '',
-                    whatsappNumber: '',
-                    sameAsWhatsapp: false,
-                    callingNumber: '',
-                    education: '',
-                    annualIncome: '',
-                    occupationType: '',
-                    companyName: '',
-                    state: '',
-                    district: '',
-                    city: '',
-                    pincode: '',
-                    streetAddress: ''
-                  });
-                  setFamilyMembers([]);
-                  setPolicies([]);
-                }}
-                className="text-[10px] text-emerald-600 hover:text-emerald-800 underline uppercase tracking-wider font-extrabold cursor-pointer"
-              >
-                Clear / Reset
-              </button>
-            </div>
-          )}
 
           {/* Tab contents */}
           <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar">
@@ -3408,6 +3758,7 @@ export default function Leads() {
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                                 value={card.followUpDate}
                                 onChange={val => updateProductInterest(card.id, 'followUpDate', val)}
+                                onDateChange={val => updateProductInterest(card.id, 'followUpDate', val)}
                               />
                             </div>
                             <div>

@@ -315,6 +315,7 @@ export class PoliciesService {
           tenantId,
           renewedFromPolicyId: prevPolicy.id,
           deletedAt: null,
+          status: { notIn: ['CANCELLED' as any] },
         },
       });
 

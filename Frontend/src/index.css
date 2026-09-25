@@ -70,7 +70,7 @@
   /* Remove number spinners */
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  input[type='number'] { -moz-appearance: textfield; }
+  input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
   /* Global Table Styles */
   table {
     @apply w-full border-collapse border border-slate-200;
@@ -174,7 +174,7 @@
   }
 
   .label {
-    @apply block text-xs sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5;
+    @apply block text-xs sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-900 mb-1.5;
   }
 
   /* ──────────────────────────── Badges ────────────────────────────────────── */
@@ -220,11 +220,11 @@
   }
 
   .page-subtitle {
-    @apply text-[13px] text-gray-400 mt-0.5;
+    @apply text-[13px] text-slate-600 font-medium mt-0.5;
   }
 
   .section-label {
-    @apply text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3;
+    @apply text-[10px] font-extrabold uppercase tracking-widest text-slate-900 mb-3;
   }
 
   /* ──────────────────────────── Misc helpers ──────────────────────────────── */
@@ -241,7 +241,7 @@
   }
 
   .form-section-title {
-    @apply text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-1;
+    @apply text-[11px] font-extrabold uppercase tracking-widest text-slate-900 mb-1;
   }
 
   /* ──────────────────────────── Scrollbar ─────────────────────────────────── */
@@ -327,8 +327,12 @@
 .text-slate-500 { color: #4b5563 !important; }
 .text-gray-600 { color: #374151 !important; }
 .text-slate-600 { color: #374151 !important; }
-.label { color: #4b5563 !important; }
-.page-subtitle { color: #4b5563 !important; }
+.label, label {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+.page-subtitle { color: #334155 !important; }
+.text-red-600, .text-red-500 { color: #dc2626 !important; }
 
 /* ── Sidebar specific overrides (keeps them crisp on dark bg) ────────────── */
 aside .text-slate-400 { color: #cbd5e1 !important; }
@@ -463,9 +467,11 @@ body, button, input, select, textarea {
 }
 
 /* Badges & labels */
-.module-scale-80 .label {
+.module-scale-80 .label,
+.module-scale-80 label {
   font-size: 13.5px !important;
-  font-weight: 600 !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
 }
 
 /* ── Standardized Page Search Box Sizing & Typography ── */

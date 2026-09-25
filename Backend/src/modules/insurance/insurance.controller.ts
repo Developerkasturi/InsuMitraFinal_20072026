@@ -44,6 +44,12 @@ export class InsuranceController {
     return this.svc.listPlans(req.tenantId, { companyId: id });
   }
 
+  @Post('companies/:id/plans')
+  @ApiOperation({ summary: 'Create an insurance plan for an insurance company' })
+  createCompanyPlan(@Req() req: any, @Param('id') companyId: string, @Body() dto: any) {
+    return this.svc.createPlan(req.tenantId, { ...dto, companyId });
+  }
+
   @Patch('companies/:id')
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Update an insurance company' })
@@ -67,7 +73,6 @@ export class InsuranceController {
   }
 
   @Post('plans')
-  @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Create an insurance plan' })
   createPlan(@Req() req: any, @Body() dto: any) {
     return this.svc.createPlan(req.tenantId, dto);

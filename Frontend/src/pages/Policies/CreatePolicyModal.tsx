@@ -19,7 +19,7 @@ interface Props {
 }
 
 const CATEGORIES = ['HEALTH', 'LIFE', 'TERM', 'MOTOR', 'MUTUAL_FUNDS', 'PORTING', 'ACCIDENT', 'OTHER'];
-const STATUSES = ['ACTIVE', 'EXPIRED', 'LAPSED'];
+const STATUSES = ['ACTIVE', 'INFORCE', 'RENEWAL_DUE', 'GRACE_PERIOD', 'LAPSED', 'INACTIVE_OLD'];
 
 export default function CreatePolicyModal({ open, onClose, contactId, contactName, policyToEdit, onSuccess }: Props) {
   const qc = useQueryClient();
@@ -588,7 +588,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="flex items-center gap-2">
                     <UserCircle2 className="text-blue-600" size={18} />
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Target Contact / Client Name <span className="text-red-500">*</span></p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">Target Contact / Client Name <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></p>
                       <p className="text-xs font-extrabold text-blue-950">
                         {contactName || (contactsList.find(c => c.id === selectedContactId)?.firstName
                           ? `${contactsList.find(c => c.id === selectedContactId)?.firstName} ${contactsList.find(c => c.id === selectedContactId)?.lastName || ''}`
@@ -639,8 +639,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {/* Product Category */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Product Category <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Product Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
@@ -655,8 +655,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Business Type */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Business Type <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Business Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <select
                         className="input text-xs w-full bg-white mt-1 font-semibold"
@@ -675,7 +675,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <label className="text-[10px] font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                             <RotateCw size={13} className="text-amber-600" />
-                            Select Previous Policy to Renew <span className="text-red-500">*</span>
+                            Select Previous Policy to Renew <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <label className="flex items-center gap-2 cursor-pointer select-none">
                             <input
@@ -728,8 +728,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Insurance Company */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Insurance Company <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Insurance Company <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
@@ -748,8 +748,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Insurance Plan */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Insurance Plan <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Insurance Plan <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
@@ -766,8 +766,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Policy Period (Driven dynamically by backend scenario) */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        Policy Period <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                        Policy Period <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                         {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">✓ Dynamic</span>}
                       </label>
                       <select
@@ -789,7 +789,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Customer Category */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Customer Category</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Customer Category</label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
                         value={customerCategory}
@@ -822,7 +822,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Policy Remarks / Comment */}
                     <div className="col-span-1 md:col-span-2">
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Comment / Notes</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Comment / Notes</label>
                       <textarea
                         rows={2}
                         className="input text-xs w-full mt-1 min-h-[50px]"
@@ -858,8 +858,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {/* Policy Number */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Policy Number <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Policy Number <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <input
                         type="text"
@@ -873,7 +873,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Agent Code */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Agent Code</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Agent Code</label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1"
@@ -885,7 +885,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Policy Status */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Policy Status</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Policy Status</label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
                         value={status}
@@ -899,7 +899,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Assigned Employee */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Assigned Employee</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Assigned Employee</label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
                         value={assignedEmployeeId}
@@ -943,8 +943,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {/* Sum Assured */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Sum Assured (₹) {isFieldRequired('sumAssured', false) && <span className="text-red-500">*</span>}
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Sum Assured (₹) {isFieldRequired('sumAssured', false) && <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>}
                       </label>
                       <input
                         type="number"
@@ -958,8 +958,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Premium Amount */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Premium Amount (₹) <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Premium Amount (₹) <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <input
                         type="number"
@@ -972,8 +972,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Payment Option / Frequency (Driven dynamically by backend scenario) */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                        Premium Payment <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                        Premium Payment <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                         {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">✓ Dynamic</span>}
                       </label>
                       <select
@@ -1016,8 +1016,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                     {/* Start Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        Start Date <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Start Date <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <DatePicker
                         value={startDate}
@@ -1034,8 +1034,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* End Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                        End Date <span className="text-red-500">*</span>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        End Date <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
                       <DatePicker
                         value={endDate}
@@ -1046,7 +1046,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Next Due Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Next Due Date</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Next Due Date</label>
                       <DatePicker
                         value={nextDueDate}
                         onChange={(val: any) => setNextDueDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -1056,7 +1056,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Maturity Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Maturity Date</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Maturity Date</label>
                       <DatePicker
                         value={maturityDate}
                         onChange={(val: any) => setMaturityDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -1066,7 +1066,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* First Premium Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">First Premium Date</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">First Premium Date</label>
                       <DatePicker
                         value={firstPremiumDate}
                         onChange={(val: any) => setFirstPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -1077,7 +1077,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                     {/* Premium Payment Term (PPT) - Shown dynamically when applicable */}
                     {(dynamicPaymentTerms.length > 0 || ['TERM', 'LIFE'].includes(selectedCategory.toUpperCase())) && (
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1">
                           Premium Payment Term (PPT)
                           {activeScenario && <span className="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded">Applicable</span>}
                         </label>
@@ -1106,7 +1106,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Last Premium Date */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Last Premium Date</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Last Premium Date</label>
                       <DatePicker
                         value={lastPremiumDate}
                         onChange={(val: any) => setLastPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -1207,7 +1207,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Payment Mode</label>
+                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Payment Mode</label>
                         <select
                           className="input text-xs w-full bg-white mt-1"
                           value={paymentMode}
@@ -1223,7 +1223,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </div>
 
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Transaction / Cheque Date</label>
+                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Transaction / Cheque Date</label>
                         <DatePicker
                           value={paymentDate}
                           onChange={(val) => setPaymentDate(val)}
@@ -1232,7 +1232,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       </div>
 
                       <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Transaction Ref / Cheque No.</label>
+                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Transaction Ref / Cheque No.</label>
                         <input
                           type="text"
                           className="input text-xs w-full mt-1"
@@ -1325,7 +1325,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 {!isPaymentAccountCollapsed && (
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Bank Name</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Bank Name</label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1"
@@ -1335,7 +1335,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">IFSC Code</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">IFSC Code</label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1 uppercase"
@@ -1345,7 +1345,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Account Number</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Account Number</label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1"
@@ -1355,7 +1355,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Account Holder Name</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Account Holder Name</label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1"
@@ -1390,7 +1390,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 {!isGstDetailsCollapsed && (
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">GST Applicable?</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">GST Applicable?</label>
                       <select
                         className="input text-xs w-full bg-white mt-1"
                         value={gstApplicable ? 'yes' : 'no'}
@@ -1404,7 +1404,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                     {gstApplicable && (
                       <>
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">GST Percentage (%)</label>
+                          <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">GST Percentage (%)</label>
                           <input
                             type="number"
                             className="input text-xs w-full mt-1"
@@ -1414,7 +1414,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                           />
                         </div>
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">GST Amount (₹)</label>
+                          <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">GST Amount (₹)</label>
                           <input
                             type="number"
                             className="input text-xs w-full mt-1"
@@ -1544,7 +1544,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 )}
 
                 <div>
-                  <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Policy Notes / Remarks</label>
+                  <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Policy Notes / Remarks</label>
                   <textarea
                     className="input text-xs w-full mt-1 min-h-[80px]"
                     placeholder="Enter additional policy details or terms..."
