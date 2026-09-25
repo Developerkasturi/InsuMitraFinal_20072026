@@ -226,7 +226,7 @@ export const insuranceService = {
   updateCompany:  (id: string, body: any)      => api.patch(`/insurance/companies/${id}`, body).then(r => r.data),
   deleteCompany:  (id: string)                 => api.delete(`/insurance/companies/${id}`).then(r => r.data),
   listPlans:      (companyId: string)          => api.get(`/insurance/companies/${companyId}/plans`).then(r => r.data),
-  createPlan:     (companyId: string, body: any) => api.post(`/insurance/companies/${companyId}/plans`, body).then(r => r.data),
+  createPlan:     (companyId: string, body: any) => api.post(`/insurance/companies/${companyId}/plans`, { ...body, companyId }).then(r => r.data),
   updatePlan:     (planId: string, body: any)  => api.patch(`/insurance/plans/${planId}`, body).then(r => r.data),
   deletePlan:     (planId: string)             => api.delete(`/insurance/plans/${planId}`).then(r => r.data),
   listHospitals:  ()                           => api.get('/insurance/hospitals').then(r => r.data),

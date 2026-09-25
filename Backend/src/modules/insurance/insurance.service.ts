@@ -33,8 +33,10 @@ export class InsuranceService {
         where,
         skip,
         take:    limitNum,
-        orderBy: { name: 'asc' },
-        include: { _count: { select: { plans: true } } },
+        include: { 
+          _count: { select: { plans: true } },
+          plans: { where: { isActive: true }, orderBy: { name: 'asc' } },
+        },
       }),
       this.prisma.insuranceCompany.count({ where }),
     ]);
@@ -140,13 +142,34 @@ export class InsuranceService {
     });
     if (!company) throw new NotFoundException('Insurance company not found');
 
+    // Auto-generate planCode if missing
+    const prefix = (company.shortCode || company.name.substring(0, 4)).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanName = (dto.name || 'PLAN').toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 15);
+    const planCode = dto.planCode || `${prefix}-${cleanName}-${Date.now().toString().slice(-4)}`;
+
     const existing = await this.prisma.insurancePlan.findUnique({
-      where: { tenantId_planCode_companyId: { tenantId, planCode: dto.planCode, companyId: dto.companyId } },
+      where: { tenantId_planCode_companyId: { tenantId, planCode, companyId: dto.companyId } },
     });
-    if (existing) throw new BadRequestException('Plan code already exists for this company');
+    const finalPlanCode = existing ? `${planCode}-${Math.floor(1000 + Math.random() * 9000)}` : planCode;
 
     const plan = await this.prisma.insurancePlan.create({
-      data:    { tenantId, ...dto },
+      data: {
+        tenantId,
+        companyId: dto.companyId,
+        name: dto.name,
+        planCode: finalPlanCode,
+        category: dto.category ? String(dto.category).toUpperCase() : 'LIFE',
+        subCategory: dto.subCategory || null,
+        description: dto.description || null,
+        minSumAssured: dto.minSumAssured != null && dto.minSumAssured !== '' ? Number(dto.minSumAssured) : null,
+        maxSumAssured: dto.maxSumAssured != null && dto.maxSumAssured !== '' ? Number(dto.maxSumAssured) : null,
+        minAge: dto.minAge != null && dto.minAge !== '' ? Number(dto.minAge) : null,
+        maxAge: dto.maxAge != null && dto.maxAge !== '' ? Number(dto.maxAge) : null,
+        hasPhcBenefit: Boolean(dto.hasPhcBenefit),
+        phcAmount: dto.phcAmount != null && dto.phcAmount !== '' ? Number(dto.phcAmount) : null,
+        phcCount: dto.phcCount != null && dto.phcCount !== '' ? Number(dto.phcCount) : null,
+        isActive: dto.isActive !== false,
+      },
       include: { company: { select: { name: true, shortCode: true } } },
     });
     return { data: plan };
@@ -163,9 +186,24 @@ export class InsuranceService {
       if (conflict) throw new BadRequestException('Plan code already in use for this company');
     }
 
+    const updateData: any = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.planCode !== undefined) updateData.planCode = dto.planCode;
+    if (dto.category !== undefined) updateData.category = String(dto.category).toUpperCase();
+    if (dto.subCategory !== undefined) updateData.subCategory = dto.subCategory;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.minSumAssured !== undefined) updateData.minSumAssured = dto.minSumAssured != null && dto.minSumAssured !== '' ? Number(dto.minSumAssured) : null;
+    if (dto.maxSumAssured !== undefined) updateData.maxSumAssured = dto.maxSumAssured != null && dto.maxSumAssured !== '' ? Number(dto.maxSumAssured) : null;
+    if (dto.minAge !== undefined) updateData.minAge = dto.minAge != null && dto.minAge !== '' ? Number(dto.minAge) : null;
+    if (dto.maxAge !== undefined) updateData.maxAge = dto.maxAge != null && dto.maxAge !== '' ? Number(dto.maxAge) : null;
+    if (dto.hasPhcBenefit !== undefined) updateData.hasPhcBenefit = Boolean(dto.hasPhcBenefit);
+    if (dto.phcAmount !== undefined) updateData.phcAmount = dto.phcAmount != null && dto.phcAmount !== '' ? Number(dto.phcAmount) : null;
+    if (dto.phcCount !== undefined) updateData.phcCount = dto.phcCount != null && dto.phcCount !== '' ? Number(dto.phcCount) : null;
+    if (dto.isActive !== undefined) updateData.isActive = Boolean(dto.isActive);
+
     const updated = await this.prisma.insurancePlan.update({
       where: { id },
-      data:  dto,
+      data:  updateData,
     });
     return { data: updated };
   }
