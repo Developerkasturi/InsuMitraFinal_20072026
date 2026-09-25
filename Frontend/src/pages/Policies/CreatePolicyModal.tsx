@@ -19,7 +19,7 @@ interface Props {
 }
 
 const CATEGORIES = ['HEALTH', 'LIFE', 'TERM', 'MOTOR', 'MUTUAL_FUNDS', 'PORTING', 'ACCIDENT', 'OTHER'];
-const STATUSES = ['ACTIVE', 'EXPIRED', 'LAPSED'];
+const STATUSES = ['ACTIVE', 'INFORCE', 'RENEWAL_DUE', 'GRACE_PERIOD', 'LAPSED', 'INACTIVE_OLD'];
 
 export default function CreatePolicyModal({ open, onClose, contactId, contactName, policyToEdit, onSuccess }: Props) {
   const qc = useQueryClient();

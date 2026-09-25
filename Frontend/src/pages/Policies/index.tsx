@@ -77,7 +77,7 @@ export const policyFormSchema = z.object({
   paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
   riders: z.array(z.string()).optional(),
   deductible: z.string().optional(),
-  status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']).optional(),
+  status: z.string().optional(),
   assignedEmployeeId: z.string().optional(),
   nextDueDate: z.string().optional(),
   maturityDate: z.string().optional(),
@@ -159,7 +159,7 @@ function parseExtraNotes(notesText?: string | null) {
 }
 
 export const policyEditFormSchema = z.object({
-  status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']),
+  status: z.string().optional(),
   premiumAmount: z.coerce.number().positive('Enter a valid premium'),
   sumAssured: z.coerce.number().positive().optional(),
   endDate: z.string().min(1, 'End date required'),
@@ -1132,7 +1132,7 @@ export default function Policies() {
       paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
       riders: z.array(z.string()).optional(),
       deductible: isFieldRequired('deductible', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']).optional(),
+      status: z.string().optional(),
       assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional(),
       nextDueDate: isFieldRequired('nextDueDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       maturityDate: isFieldRequired('maturityDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
@@ -1156,7 +1156,7 @@ export default function Policies() {
 
   const activeEditSchema = useMemo(() => {
     return z.object({
-      status: z.enum(['ACTIVE', 'EXPIRED', 'LAPSED', 'CANCELLED', 'SURRENDERED']),
+      status: z.string().optional(),
       premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().positive('Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
       sumAssured: isFieldRequired('sumAssured', true) ? z.coerce.number().positive() : z.coerce.number().optional(),
       endDate: isFieldRequired('endDate', true) ? z.string().min(1, 'End date required') : z.string().optional().or(z.literal('')),
@@ -2339,12 +2339,11 @@ export default function Policies() {
                   <label className="label text-[11px] font-bold text-slate-600">Policy Status</label>
                   <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.status} onChange={e => setTempFilters({ ...tempFilters, status: e.target.value })}>
                     <option value="">All Statuses</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="EXPIRED">Expired</option>
+                    <option value="INFORCE">Inforce</option>
+                    <option value="RENEWAL_DUE">Renewal Due</option>
+                    <option value="GRACE_PERIOD">Grace Period</option>
                     <option value="LAPSED">Lapsed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="SURRENDERED">Surrendered</option>
+                    <option value="INACTIVE_OLD">Inactive(Old)</option>
                   </select>
                 </div>
 
@@ -2995,11 +2994,8 @@ export default function Policies() {
                               {...register('status')}
                               className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             >
-                              <option value="ACTIVE">Active (Inforce)</option>
-                              <option value="EXPIRED">Expired</option>
-                              <option value="LAPSED">Lapsed</option>
-                              <option value="CANCELLED">Cancelled</option>
-                              <option value="SURRENDERED">Surrendered</option>
+                              <option value="ACTIVE">Auto Lifecycle (Inforce / Renewal Due / Grace Period / Lapsed)</option>
+                              <option value="INACTIVE_OLD">Inactive(Old)</option>
                             </select>
                           </div>
 
