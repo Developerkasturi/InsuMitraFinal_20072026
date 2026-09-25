@@ -87,21 +87,32 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
 
   const updateCompulsoryMutation = useMutation({
     mutationFn: (rulesList: any[]) => insuranceService.updateCompulsoryRules(rulesList),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['compulsory-rules'] });
-      toast.success('Compulsory rules updated successfully!');
+    onMutate: async (newRulesList) => {
+      await qc.cancelQueries({ queryKey: ['compulsory-rules'] });
+      const previousData = qc.getQueryData(['compulsory-rules']);
+      qc.setQueryData(['compulsory-rules'], (old: any) => ({
+        ...old,
+        data: newRulesList
+      }));
+      return { previousData };
     },
-    onError: (err: any) => {
+    onError: (err: any, _newRules, context: any) => {
+      if (context?.previousData) {
+        qc.setQueryData(['compulsory-rules'], context.previousData);
+      }
       toast.error(err.response?.data?.message || 'Failed to update rules');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['compulsory-rules'] });
     }
   });
 
   const fieldRules = useMemo(() => {
     const modules = [
-      { name: 'Contact', schema: contactFormSchema, critical: ['firstName', 'phone'] },
-      { name: 'Leads', schema: leadFormSchema, critical: ['firstName', 'phone'] },
-      { name: 'Policy', schema: policyFormSchema, critical: ['contactId', 'planId', 'policyNumber', 'startDate', 'endDate'] },
-      { name: 'Claim', schema: claimFormSchema, critical: ['policyId', 'contactId', 'claimNumber', 'claimType', 'intimatedAt'] }
+      { name: 'Contact', schema: contactFormSchema },
+      { name: 'Leads', schema: leadFormSchema },
+      { name: 'Policy', schema: policyFormSchema },
+      { name: 'Claim', schema: claimFormSchema }
     ];
 
     const list: Rule[] = [];
@@ -198,7 +209,6 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
         };
 
         const label = fieldLabelMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-        const isProtected = mod.critical.includes(key);
 
         const defaultRequiredMap: Record<string, string[]> = {
           Contact: ['firstName', 'lastName', 'phone'],
@@ -209,7 +219,7 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
         const defaultRequired = (defaultRequiredMap[mod.name] || []).includes(key);
 
         const savedRule = compulsoryRules.find((r: any) => r.module === mod.name && r.fieldKey === key);
-        const required = isProtected ? true : (savedRule ? savedRule.required : defaultRequired);
+        const required = savedRule ? savedRule.required : (savedRule !== undefined ? savedRule.required : defaultRequired);
 
         list.push({
           id: `${mod.name}-${key}`,
@@ -218,7 +228,7 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
           label,
           status: required ? 'Active' : 'Optional',
           required,
-          isProtected
+          isProtected: false
         });
       });
     });
@@ -264,10 +274,16 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
   };
 
   const handleResetCompulsory = () => {
+    const defaultRequiredMap: Record<string, string[]> = {
+      Contact: ['firstName', 'lastName', 'phone'],
+      Leads: ['firstName', 'lastName', 'phone'],
+      Policy: ['contactId', 'planId', 'policyNumber', 'sumAssured', 'premiumAmount', 'startDate', 'endDate', 'paymentFrequency'],
+      Claim: ['policyId', 'contactId', 'claimNumber', 'claimType', 'claimAmount', 'intimatedAt']
+    };
     const resetList = fieldRules.map((r: Rule) => ({
       module: r.module,
       fieldKey: r.name,
-      required: r.isProtected ? true : (['lastName', 'phone', 'sumAssured', 'premiumAmount', 'paymentFrequency', 'claimAmount', 'claimType'].includes(r.name) ? true : false)
+      required: (defaultRequiredMap[r.module] || []).includes(r.name)
     }));
     updateCompulsoryMutation.mutate(resetList);
     setCompulsorySearch('');
@@ -677,11 +693,8 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <button
-                            disabled={rule.isProtected}
                             onClick={() => handleToggleRequired(rule.id)}
                             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                              rule.isProtected ? 'opacity-50 cursor-not-allowed' : ''
-                            } ${
                               rule.required ? 'bg-primary-600' : 'bg-slate-200'
                             }`}
                           >

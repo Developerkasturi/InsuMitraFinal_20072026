@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download, ExternalLink
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { useClaims } from '@hooks/useClaims';
@@ -64,8 +64,15 @@ export const contactFormSchema = z.object({
   // System fields mapping
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
-  phone: z.string().min(10, 'Min 10 digits'),
-  alternatePhone: z.string().optional(),
+  phone: z.string().refine(v => {
+    const d = (v || '').replace(/\D/g, '');
+    return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+  }, 'Mobile number must be exactly 10 digits'),
+  alternatePhone: z.string().optional().refine(v => {
+    if (!v) return true;
+    const d = v.replace(/\D/g, '');
+    return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+  }, 'Alternate phone must be exactly 10 digits').or(z.literal('')),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
   dateOfBirth: z.string().optional(),
@@ -824,6 +831,40 @@ export default function Contacts() {
       name: [firstName, middleName, lastName].filter(Boolean).join(' '),
     } : m));
 
+  const [familyCollapsed, setFamilyCollapsed] = useState<Record<number, boolean>>({});
+  const toggleFamilyCollapse = (idx: number) => {
+    setFamilyCollapsed(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const updateFamilyMemberDOB = (idx: number, val: string) => {
+    let age = 0;
+    if (val) {
+      try {
+        let birthDate = new Date(val);
+        if (isNaN(birthDate.getTime()) && val.includes('/')) {
+          const parts = val.split('/');
+          if (parts.length === 3) {
+            birthDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+          }
+        }
+        if (!isNaN(birthDate.getTime())) {
+          const today = new Date();
+          let a = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            a--;
+          }
+          if (a >= 0) age = a;
+        }
+      } catch {}
+    }
+    setFamilyMembers(prev => prev.map((m, i) => i === idx ? {
+      ...m,
+      dob: val,
+      age: age > 0 ? String(age) : m.age
+    } : m));
+  };
+
   const toggleMedicalHistory = (idx: number, condition: string) =>
     setFamilyMembers(prev => prev.map((m, i) => {
       if (i !== idx) return m;
@@ -892,7 +933,9 @@ export default function Contacts() {
   const { data: contactsRes, isLoading: contactsLoading, refetch: refetchContacts } = useContacts({
     page,
     limit: 20,
-    search: search || undefined
+    search: search || undefined,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
   });
 
   const contactsListArray = useMemo(() => {
@@ -1440,6 +1483,45 @@ export default function Contacts() {
     setPersonalFields(p => ({ ...p, dateOfBirth: val, age: String(age) }));
   };
 
+  const toSafeIsoString = (val?: string | null): string | undefined => {
+    if (!val || !val.trim()) return undefined;
+    const trimmed = val.trim();
+
+    // Try native Date
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d.toISOString();
+
+    // Handle DD/MMM/YYYY or DD/MM/YYYY or DD-MM-YYYY
+    const MONTHS: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    };
+    const parts = trimmed.split(/[\/\-\.\s]+/);
+    if (parts.length === 3) {
+      let day: number, mon: number, year: number;
+      if (/^\d{4}$/.test(parts[0])) {
+        year = parseInt(parts[0], 10);
+        mon = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      } else {
+        day = parseInt(parts[0], 10);
+        const mStr = parts[1].toLowerCase();
+        if (/^\d+$/.test(mStr)) {
+          mon = parseInt(mStr, 10) - 1;
+        } else if (MONTHS[mStr.slice(0, 3)] !== undefined) {
+          mon = MONTHS[mStr.slice(0, 3)];
+        } else {
+          return undefined;
+        }
+        year = parseInt(parts[2], 10);
+      }
+      const parsed = new Date(year, mon, day);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString();
+    }
+
+    return undefined;
+  };
+
   const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean) => {
     e.preventDefault();
     const firstName = (personalFields?.firstName || '').trim();
@@ -1459,8 +1541,12 @@ export default function Contacts() {
     }
 
     if (isDep) {
-      if (!guardianNo) {
-        toast.error('Guardian WhatsApp Number is required for dependent contacts');
+      const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','1','7'];
+      const rawGDigits = (guardianNo || '').replace(/\D/g, '');
+      const matchedGCode = [...KNOWN_CODES].sort((a, b) => b.length - a.length).find(c => rawGDigits.startsWith(c));
+      const localGDigits = matchedGCode ? rawGDigits.slice(matchedGCode.length) : rawGDigits;
+      if (!guardianNo || (!/^\d{10}$/.test(localGDigits) && !/^\d{10}$/.test(rawGDigits))) {
+        toast.error('Guardian WhatsApp Number must be exactly 10 digits');
         return;
       }
     } else {
@@ -1476,6 +1562,17 @@ export default function Contacts() {
       const localDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
       if (!/^\d{10}$/.test(localDigits) && !/^\d{10}$/.test(rawWaDigits)) {
         toast.error('WhatsApp Number must be exactly 10 digits');
+        return;
+      }
+    }
+
+    if (personalFields?.callingNumber?.trim()) {
+      const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','1','7'];
+      const rawCallDigits = personalFields.callingNumber.trim().replace(/\D/g, '');
+      const matchedCallCode = [...KNOWN_CODES].sort((a, b) => b.length - a.length).find(c => rawCallDigits.startsWith(c));
+      const callLocalDigits = matchedCallCode ? rawCallDigits.slice(matchedCallCode.length) : rawCallDigits;
+      if (!/^\d{10}$/.test(callLocalDigits) && !/^\d{10}$/.test(rawCallDigits)) {
+        toast.error('Calling Number must be exactly 10 digits');
         return;
       }
     }
@@ -1606,7 +1703,7 @@ export default function Contacts() {
         if (personalFields.email?.trim()) updateBody.email = personalFields.email.trim();
         if (personalFields.gender) updateBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) updateBody.maritalStatus = personalFields.maritalStatus;
-        if (personalFields.dateOfBirth?.trim()) updateBody.dateOfBirth = new Date(personalFields.dateOfBirth).toISOString();
+        if (personalFields.dateOfBirth?.trim()) updateBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
         if (personalFields.height) updateBody.height = Number(personalFields.height);
         if (personalFields.weight) updateBody.weight = Number(personalFields.weight);
         if (personalFields.panNumber || personalFields.pan) updateBody.panNumber = personalFields.panNumber || personalFields.pan;
@@ -1664,7 +1761,7 @@ export default function Contacts() {
         if (personalFields.email?.trim()) contactBody.email = personalFields.email.trim();
         if (personalFields.gender) contactBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) contactBody.maritalStatus = personalFields.maritalStatus;
-        if (personalFields.dateOfBirth?.trim()) contactBody.dateOfBirth = new Date(personalFields.dateOfBirth).toISOString();
+        if (personalFields.dateOfBirth?.trim()) contactBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
         if (personalFields.height) contactBody.height = Number(personalFields.height);
         if (personalFields.weight) contactBody.weight = Number(personalFields.weight);
         if (personalFields.panNumber || personalFields.pan) contactBody.panNumber = personalFields.panNumber || personalFields.pan;
@@ -1719,6 +1816,7 @@ export default function Contacts() {
         const rawFamPhone = (fam.whatsapp || '').replace(/\D/g, '');
         const cleanFamPhone = rawFamPhone.length === 10 ? rawFamPhone : `9${String(Date.now() + i).slice(-9)}`;
         const relType = fam.relation ? fam.relation.toUpperCase().replace(/\s+/g, '_') : 'OTHER';
+        const famIsoDob = toSafeIsoString(fam.dob);
 
         const saveFamilyFlow = async () => {
           try {
@@ -1729,7 +1827,7 @@ export default function Contacts() {
                 middleName: famMiddle || undefined,
                 lastName: famLast,
                 phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
-                dateOfBirth: fam.dob?.trim() ? new Date(fam.dob).toISOString() : undefined,
+                dateOfBirth: famIsoDob,
                 assignedEmployeeId: curEmpId || undefined,
               });
               await contactsService.addRelationship(contactId!, {
@@ -1740,7 +1838,7 @@ export default function Contacts() {
               await contactsService.addRelationship(contactId!, {
                 name: fullFamName,
                 phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
-                dateOfBirth: fam.dob?.trim() ? fam.dob : undefined,
+                dateOfBirth: famIsoDob,
                 relationshipType: relType,
               });
             }
@@ -1853,6 +1951,7 @@ export default function Contacts() {
       );
       qc.invalidateQueries({ queryKey: ['contacts'] });
       qc.refetchQueries({ queryKey: ['contacts'] });
+      setPage(1);
       refetchContacts();
       qc.invalidateQueries({ queryKey: ['policies'] });
       qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
@@ -1861,7 +1960,10 @@ export default function Contacts() {
         setLeadModalOpen(false);
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Failed to save customer', { id: toastId });
+      const errMsg = Array.isArray(err.response?.data?.errors)
+        ? err.response.data.errors.join(' | ')
+        : (err.response?.data?.message || err.message || 'Failed to save customer');
+      toast.error(errMsg, { id: toastId });
     }
   };
 
@@ -1872,9 +1974,8 @@ export default function Contacts() {
   const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
 
   const isFieldRequired = (key: string, defaultRequired: boolean) => {
-    if (['firstName', 'phone'].includes(key)) return true; // System protected
-    const rule = compulsoryRules.find((r: any) => r.module === 'Contact' && r.fieldKey === key);
-    if (rule) return rule.required;
+    const rule = compulsoryRules.find((r: any) => (r.module === 'Contact' || r.module === 'Contacts') && r.fieldKey === key);
+    if (rule !== undefined) return rule.required;
     return defaultRequired;
   };
 
@@ -1882,8 +1983,26 @@ export default function Contacts() {
     return z.object({
       firstName: isFieldRequired('firstName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
       lastName: isFieldRequired('lastName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
-      phone: isFieldRequired('phone', true) ? z.string().min(10, 'Min 10 digits') : z.string().optional().or(z.literal('')),
-      alternatePhone: isFieldRequired('alternatePhone', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      phone: isFieldRequired('phone', true)
+        ? z.string().refine(v => {
+            const d = (v || '').replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Mobile number must be exactly 10 digits')
+        : z.string().optional().refine(v => {
+            if (!v) return true;
+            const d = v.replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Mobile number must be exactly 10 digits').or(z.literal('')),
+      alternatePhone: isFieldRequired('alternatePhone', false)
+        ? z.string().refine(v => {
+            const d = (v || '').replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Alternate phone must be exactly 10 digits')
+        : z.string().optional().refine(v => {
+            if (!v) return true;
+            const d = v.replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Alternate phone must be exactly 10 digits').or(z.literal('')),
       email: isFieldRequired('email', false) ? z.string().email('Invalid email') : z.string().email('Invalid email').optional().or(z.literal('')),
       gender: isFieldRequired('gender', false) ? z.enum(['MALE', 'FEMALE', 'OTHER']).refine(val => !!val, { message: 'Required' }) : z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
       dateOfBirth: isFieldRequired('dateOfBirth', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
@@ -2327,18 +2446,19 @@ export default function Contacts() {
       label: 'NAME',
       sortable: true,
       render: r => {
-        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <div className="flex flex-wrap items-center gap-3 py-0.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
-              {initials}
-            </div>
-            <div>
-              <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
-            </div>
-          </div>
+          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+            {fullName}
+          </span>
         );
       }
+    },
+    {
+      key: 'phone',
+      label: 'PHONE',
+      sortable: true,
+      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
     },
     {
       key: 'leadStage',
@@ -2385,7 +2505,7 @@ export default function Contacts() {
       key: 'followUpDate',
       label: 'NEXT FOLLOW-UP',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MMM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'assignedTo',
@@ -2499,18 +2619,19 @@ export default function Contacts() {
       label: 'NAME',
       sortable: true,
       render: r => {
-        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <div className="flex flex-wrap items-center gap-3 py-0.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
-              {initials}
-            </div>
-            <div>
-              <div className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">{r.firstName} {r.lastName}</div>
-            </div>
-          </div>
+          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+            {fullName}
+          </span>
         );
       }
+    },
+    {
+      key: 'phone',
+      label: 'PHONE',
+      sortable: true,
+      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
     },
     {
       key: 'product',
@@ -2684,14 +2805,11 @@ export default function Contacts() {
       label: 'NAME',
       sortable: true,
       render: r => {
-        const initials = `${r.firstName?.[0] || ''}${r.lastName?.[0] || ''}`.toUpperCase() || 'C';
+        const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <div className="flex flex-wrap items-center gap-3 py-0.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-xs shrink-0 border border-white/20">
-              {initials}
-            </div>
-            <div className="font-extrabold text-slate-900 text-xs">{r.firstName} {r.lastName}</div>
-          </div>
+          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+            {fullName}
+          </span>
         );
       }
     },
@@ -2705,7 +2823,7 @@ export default function Contacts() {
       key: 'dateOfBirth',
       label: 'DATE OF BIRTH',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MMM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-xs font-semibold">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'daysUntil',
@@ -2788,7 +2906,11 @@ export default function Contacts() {
       : activeTab === 'customers'
         ? CUSTOMER_COLS
         : CONTACT_COLS;
-    return cols.filter(c => visibleColumns[String(c.key)] !== false);
+    return cols.filter(c => {
+      // Primary identifiers and actions must ALWAYS be visible
+      if (c.key === 'contactId' || c.key === 'name' || c.key === 'phone' || c.key === 'actions') return true;
+      return visibleColumns[String(c.key)] !== false;
+    });
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
   return (
@@ -4805,351 +4927,450 @@ export default function Contacts() {
 
 
             {activeLeadTab === 'Family' && (
-              <div className="h-full flex flex-col gap-0">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                  <h3 className="text-base font-bold text-gray-800">Dependents &amp; Beneficiaries</h3>
-                  <button
-                    type="button"
-                    onClick={addFamilyMember}
-                    className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-semibold rounded-lg cursor-pointer transition-colors"
-                  >
-                    + Add Member
-                  </button>
-                </div>
-
-                {/* Members */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-0.5">
-                  {familyMembers.length === 0 ? (
-                    <div className="flex items-center justify-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50" style={{ minHeight: '120px' }}>
-                      <p className="text-xs text-gray-400 font-medium">No family details added yet.</p>
+              <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
+                {/* Empty State */}
+                {familyMembers.length === 0 && (
+                  <div className="text-center py-10 px-4 bg-slate-50/60 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 flex items-center justify-center mb-1">
+                      <Users size={24} className="text-blue-400" />
                     </div>
-                  ) : (
-                    familyMembers.map((member, idx) => (
-                      <div key={idx} className="border border-gray-200 rounded-xl bg-white shadow-sm">
-                        {/* Card header */}
-                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                          <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Member #{idx + 1}</span>
+                    <p className="font-semibold text-slate-600 text-xs sm:text-sm">No family details added yet.</p>
+                    <p className="text-[11px] text-slate-400">Click "+ Add Member" below to add a family member or dependent.</p>
+                  </div>
+                )}
+
+                {/* Family Member Cards */}
+                {familyMembers.map((member, idx) => {
+                  const fullName = [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' ').trim() || member.name || '';
+                  const displayName = fullName
+                    ? (member.relation ? `${member.relation} — ${fullName}` : fullName)
+                    : (member.relation ? `Family Member (${member.relation})` : 'New Family Member');
+                  const isCollapsed = !!familyCollapsed[idx];
+
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-md transition-all"
+                    >
+                      {/* Card Header — always visible */}
+                      <div
+                        className="bg-gradient-to-r from-slate-700 to-slate-800 px-4 py-3 flex items-center justify-between cursor-pointer select-none"
+                        onClick={() => toggleFamilyCollapse(idx)}
+                      >
+                        <div className="flex flex-wrap items-center gap-3 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                            <span className="text-white font-black text-[11px]">{idx + 1}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-white font-extrabold text-xs truncate">
+                              {displayName}
+                            </p>
+                            {isCollapsed && (
+                              <p className="text-white/70 text-[10px] font-semibold truncate">
+                                {member.relation ? `${member.relation}` : 'Family Member'} {member.dob ? `· DOB: ${member.dob}` : ''} {member.whatsapp ? `· ${member.whatsapp}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {member.contactId ? (
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                openLeadEdit({ id: member.contactId });
+                              }}
+                              className="px-2.5 py-1 rounded-xl bg-blue-600/85 hover:bg-blue-600 text-white font-extrabold text-[10px] flex items-center gap-1.5 border border-white/20 transition-all shadow-xs cursor-pointer hover:scale-105"
+                              title="Open this family member's Contact Form"
+                            >
+                              <ExternalLink size={12} />
+                              <span>Open Contact Form</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-white/50 italic hidden sm:inline">
+                              (Save to generate Contact Form)
+                            </span>
+                          )}
                           <button
                             type="button"
-                            onClick={() => setFamilyMembers(prev => prev.filter((_, i) => i !== idx))}
-                            className="w-5 h-5 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors cursor-pointer text-xs font-bold"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setFamilyMembers(prev => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-all cursor-pointer"
+                            title="Remove Member"
                           >
-                            ✕
+                            <Trash2 size={13} />
                           </button>
+                          <ChevronDown
+                            size={16}
+                            className={`text-white transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`}
+                          />
                         </div>
+                      </div>
 
-                        {/* Row 1: First Name | Middle Name | Last Name | DOB | Relation */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">First Name {isFieldRequired('firstName', true) && <span className="text-red-500">*</span>}</label>
-                            <input
-                              type="text"
-                              className="input w-full mt-1"
-                              placeholder="First name"
-                              value={member.firstName}
-                              onChange={e => updateFamilyMemberName(idx, e.target.value, member.middleName, member.lastName)}
-                            />
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Middle Name</label>
-                            <input
-                              type="text"
-                              className="input w-full mt-1"
-                              placeholder="Middle name"
-                              value={member.middleName}
-                              onChange={e => updateFamilyMemberName(idx, member.firstName, e.target.value, member.lastName)}
-                            />
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Last Name {isFieldRequired('lastName', true) && <span className="text-red-500">*</span>}</label>
-                            <input
-                              type="text"
-                              className="input w-full mt-1"
-                              placeholder="Last name"
-                              value={member.lastName}
-                              onChange={e => updateFamilyMemberName(idx, member.firstName, member.middleName, e.target.value)}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Row 2: DOB | Relation | Occupation */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">DOB</label>
-                            <DatePicker
-                              className="input w-full mt-1"
-                              value={member.dob}
-                              onChange={val => updateFamilyMember(idx, 'dob', val)}
-                            />
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Relation <span className="text-red-500">*</span></label>
-                            <select
-                              className="input w-full mt-1"
-                              value={member.relation}
-                              onChange={e => updateFamilyMember(idx, 'relation', e.target.value)}
-                            >
-                              <option value="">Select</option>
-                              <option>Spouse</option>
-                              <option>Son</option>
-                              <option>Daughter</option>
-                              <option>Father</option>
-                              <option>Mother</option>
-                              <option>Brother</option>
-                              <option>Sister</option>
-                              <option>Child</option>
-                              <option>Other</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Occupation</label>
-                            <select
-                              className="input w-full mt-1"
-                              value={member.occupation}
-                              onChange={e => updateFamilyMember(idx, 'occupation', e.target.value)}
-                            >
-                              <option value="">Select Type</option>
-                              <option>Salaried</option>
-                              <option>Self Employed</option>
-                              <option>Business</option>
-                              <option>Student</option>
-                              <option>Homemaker</option>
-                              <option>Retired</option>
-                              <option>Other</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Row 3: WhatsApp | Calling Number | Education */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">WhatsApp</label>
-                            <div className="mt-1">
-                              <CountryPhoneInput
-                                value={member.whatsapp || ''}
-                                onChange={(value: string) => updateFamilyMember(idx, 'whatsapp', value)}
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Calling Number</label>
-                            <div className="mt-1">
-                              <CountryPhoneInput
-                                value={member.callingNumber || ''}
-                                onChange={(value: string) => updateFamilyMember(idx, 'callingNumber', value)}
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Education</label>
-                            <select
-                              className="input w-full mt-1"
-                              value={member.education}
-                              onChange={e => updateFamilyMember(idx, 'education', e.target.value)}
-                            >
-                              <option value="">Select Type</option>
-                              <option>Below 10th</option>
-                              <option>10th Pass</option>
-                              <option>12th Pass</option>
-                              <option>Graduate</option>
-                              <option>Post Graduate</option>
-                              <option>Other</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Row 3.5: Marital Status | Wedding Anniversary & Age (if married) | Height & Weight */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3">
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Marital Status</label>
-                            <input
-                              type="text"
-                              list={`marital-status-list-${idx}`}
-                              className="input w-full mt-1"
-                              placeholder="Select or type..."
-                              value={member.maritalStatus || ''}
-                              onChange={e => updateFamilyMember(idx, 'maritalStatus', e.target.value)}
-                            />
-                            <datalist id={`marital-status-list-${idx}`}>
-                              <option value="Single" />
-                              <option value="Married" />
-                              <option value="Unmarried" />
-                              <option value="Divorced" />
-                              <option value="Widowed" />
-                              <option value="Other" />
-                            </datalist>
-                          </div>
-
-                          {member.maritalStatus?.toLowerCase() === 'married' ? (
-                            <>
-                              <div>
-                                <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Wedding Anniversary Date</label>
-                                <DatePicker
-                                  className="input w-full mt-1"
-                                  value={member.weddingAnniversary || ''}
-                                  onChange={val => updateFamilyMember(idx, 'weddingAnniversary', val)}
-                                />
+                      {/* Card Body */}
+                      {!isCollapsed && (
+                        <div className="p-4 space-y-4 bg-white">
+                          {/* 1. Basic & Relationship Details */}
+                          <div className="bg-slate-50/70 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                                <UserCircle2 size={13} />
                               </div>
+                              <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                Basic &amp; Relationship Details
+                              </h4>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div>
-                                <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Age</label>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Relation <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                  className="input w-full text-xs"
+                                  value={member.relation}
+                                  onChange={e => updateFamilyMember(idx, 'relation', e.target.value)}
+                                >
+                                  <option value="">Select Relation</option>
+                                  <option value="Spouse">Spouse</option>
+                                  <option value="Son">Son</option>
+                                  <option value="Daughter">Daughter</option>
+                                  <option value="Father">Father</option>
+                                  <option value="Mother">Mother</option>
+                                  <option value="Brother">Brother</option>
+                                  <option value="Sister">Sister</option>
+                                  <option value="Child">Child</option>
+                                  <option value="Other">Other</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  First Name <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                   type="text"
-                                  className="input w-full mt-1"
+                                  className="input w-full text-xs"
+                                  placeholder="First name"
+                                  value={member.firstName}
+                                  onChange={e => updateFamilyMemberName(idx, e.target.value, member.middleName, member.lastName)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Middle Name
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs"
+                                  placeholder="Middle name"
+                                  value={member.middleName}
+                                  onChange={e => updateFamilyMemberName(idx, member.firstName, e.target.value, member.lastName)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Last Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs"
+                                  placeholder="Last name"
+                                  value={member.lastName}
+                                  onChange={e => updateFamilyMemberName(idx, member.firstName, member.middleName, e.target.value)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Date of Birth
+                                </label>
+                                <DatePicker
+                                  className="input w-full text-xs"
+                                  value={member.dob}
+                                  onDateChange={val => updateFamilyMemberDOB(idx, val)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Age
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs"
                                   placeholder="Age"
                                   value={member.age || ''}
                                   onChange={e => updateFamilyMember(idx, 'age', e.target.value)}
                                 />
                               </div>
-                            </>
-                          ) : (
-                            <div>
-                              <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Age</label>
-                              <input
-                                type="text"
-                                className="input w-full mt-1"
-                                placeholder="Age"
-                                value={member.age || ''}
-                                onChange={e => updateFamilyMember(idx, 'age', e.target.value)}
-                              />
                             </div>
-                          )}
-
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Height (cm / ft)</label>
-                            <input
-                              type="text"
-                              className="input w-full mt-1"
-                              placeholder="e.g. 170 cm or 5.6 ft"
-                              value={member.height || ''}
-                              onChange={e => updateFamilyMember(idx, 'height', e.target.value)}
-                            />
                           </div>
 
-                          <div>
-                            <label className="label text-[10px] font-bold text-gray-500 uppercase tracking-wider">Weight (kg)</label>
-                            <input
-                              type="text"
-                              className="input w-full mt-1"
-                              placeholder="e.g. 65 kg"
-                              value={member.weight || ''}
-                              onChange={e => updateFamilyMember(idx, 'weight', e.target.value)}
-                            />
-                          </div>
-                        </div>
+                          {/* 2. Contact & Demographics */}
+                          <div className="bg-slate-50/70 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <Phone size={13} />
+                              </div>
+                              <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                Contact &amp; Personal Profile
+                              </h4>
+                            </div>
 
-                        {/* Row 4: Medical History */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pt-3 pb-3">
-                          {/* Generic Medical History */}
-                          <div className="col-span-3">
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Medical History (Select if applicable)</label>
-                            <div className="flex flex-wrap gap-x-6 gap-y-2">
-                              {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
-                                const isOthers = condition === 'Others';
-                                const current = member.medicalHistory || [];
-                                const isSelected = isOthers
-                                  ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                  : current.includes(condition);
-                                return (
-                                  <label key={condition} className="flex flex-wrap items-center gap-1.5 cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      className="accent-blue-600 w-3.5 h-3.5"
-                                      checked={isSelected}
-                                      onChange={() => {
-                                        setFamilyMembers(prev => prev.map((m, i) => {
-                                          if (i !== idx) return m;
-                                          const list: string[] = m.medicalHistory || [];
-                                          if (isOthers) {
-                                            if (isSelected) {
-                                              return {
-                                                ...m,
-                                                medicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
-                                              };
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  WhatsApp Number
+                                </label>
+                                <CountryPhoneInput
+                                  value={member.whatsapp || ''}
+                                  onChange={(value: string) => updateFamilyMember(idx, 'whatsapp', value)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Calling Number
+                                </label>
+                                <CountryPhoneInput
+                                  value={member.callingNumber || ''}
+                                  onChange={(value: string) => updateFamilyMember(idx, 'callingNumber', value)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Marital Status
+                                </label>
+                                <input
+                                  type="text"
+                                  list={`marital-status-list-${idx}`}
+                                  className="input w-full text-xs"
+                                  placeholder="Select or type..."
+                                  value={member.maritalStatus || ''}
+                                  onChange={e => updateFamilyMember(idx, 'maritalStatus', e.target.value)}
+                                />
+                                <datalist id={`marital-status-list-${idx}`}>
+                                  <option value="Single" />
+                                  <option value="Married" />
+                                  <option value="Unmarried" />
+                                  <option value="Divorced" />
+                                  <option value="Widowed" />
+                                  <option value="Other" />
+                                </datalist>
+                              </div>
+
+                              {member.maritalStatus?.toLowerCase() === 'married' && (
+                                <div className="sm:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fadeIn">
+                                  <div>
+                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                      Wedding Anniversary Date
+                                    </label>
+                                    <DatePicker
+                                      className="input w-full text-xs"
+                                      value={member.weddingAnniversary || ''}
+                                      onDateChange={val => updateFamilyMember(idx, 'weddingAnniversary', val)}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Occupation
+                                </label>
+                                <select
+                                  className="input w-full text-xs bg-white"
+                                  value={member.occupation}
+                                  onChange={e => updateFamilyMember(idx, 'occupation', e.target.value)}
+                                >
+                                  <option value="">Select Occupation</option>
+                                  {OCCUPATION_TYPE_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Education
+                                </label>
+                                <select
+                                  className="input w-full text-xs bg-white"
+                                  value={member.education}
+                                  onChange={e => updateFamilyMember(idx, 'education', e.target.value)}
+                                >
+                                  <option value="">Select Education</option>
+                                  {EDUCATION_OPTIONS.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Height (cm / ft)
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs"
+                                  placeholder="e.g. 170 cm or 5.6 ft"
+                                  value={member.height || ''}
+                                  onChange={e => updateFamilyMember(idx, 'height', e.target.value)}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Weight (kg)
+                                </label>
+                                <input
+                                  type="text"
+                                  className="input w-full text-xs"
+                                  placeholder="e.g. 65 kg"
+                                  value={member.weight || ''}
+                                  onChange={e => updateFamilyMember(idx, 'weight', e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3. Medical History */}
+                          <div className="bg-slate-50/70 rounded-2xl border border-slate-200/70 p-4 space-y-3 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                <Heart size={13} />
+                              </div>
+                              <h4 className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                Medical History (Optional)
+                              </h4>
+                            </div>
+
+                            {/* Generic Medical History */}
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-2">
+                                Common Conditions
+                              </label>
+                              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                                {['BP', 'Sugar', 'Heart', 'Thyroid', 'Others'].map((condition) => {
+                                  const isOthers = condition === 'Others';
+                                  const current = member.medicalHistory || [];
+                                  const isSelected = isOthers
+                                    ? current.some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                    : current.includes(condition);
+                                  return (
+                                    <label key={condition} className="flex items-center gap-1.5 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        className="accent-blue-600 w-3.5 h-3.5 rounded"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          setFamilyMembers(prev => prev.map((m, i) => {
+                                            if (i !== idx) return m;
+                                            const list: string[] = m.medicalHistory || [];
+                                            if (isOthers) {
+                                              if (isSelected) {
+                                                return {
+                                                  ...m,
+                                                  medicalHistory: list.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c))
+                                                };
+                                              } else {
+                                                return {
+                                                  ...m,
+                                                  medicalHistory: [...list, '']
+                                                };
+                                              }
                                             } else {
                                               return {
                                                 ...m,
-                                                medicalHistory: [...list, '']
+                                                medicalHistory: isSelected
+                                                  ? list.filter((c: string) => c !== condition)
+                                                  : [...list, condition]
                                               };
                                             }
-                                          } else {
-                                            return {
-                                              ...m,
-                                              medicalHistory: isSelected
-                                                ? list.filter((c: string) => c !== condition)
-                                                : [...list, condition]
-                                            };
-                                          }
-                                        }));
-                                      }}
-                                    />
-                                    <span className="text-xs text-slate-600 font-medium">{condition}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                            {(member.medicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
-                              <div className="mt-2 animate-fadeIn">
-                                <input
-                                  type="text"
-                                  className="input w-full text-xs py-1 px-2.5"
-                                  placeholder="Type medical conditions..."
-                                  value={(member.medicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
-                                  onChange={e => {
-                                    const val = e.target.value;
-                                    setFamilyMembers(prev => prev.map((m, i) => {
-                                      if (i !== idx) return m;
-                                      const current: string[] = m.medicalHistory || [];
-                                      const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
-                                      return {
-                                        ...m,
-                                        medicalHistory: [...baseVal, val]
-                                      };
-                                    }));
-                                  }}
-                                />
+                                          }));
+                                        }}
+                                      />
+                                      <span className="text-xs text-slate-700 font-semibold">{condition}</span>
+                                    </label>
+                                  );
+                                })}
                               </div>
-                            )}
-                          </div>
+                              {(member.medicalHistory || []).some((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) && (
+                                <div className="mt-2 animate-fadeIn">
+                                  <input
+                                    type="text"
+                                    className="input w-full text-xs py-1.5 px-3 bg-white"
+                                    placeholder="Type other medical conditions..."
+                                    value={(member.medicalHistory || []).find((c: string) => !['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c)) || ''}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setFamilyMembers(prev => prev.map((m, i) => {
+                                        if (i !== idx) return m;
+                                        const current: string[] = m.medicalHistory || [];
+                                        const baseVal = current.filter((c: string) => ['BP', 'Sugar', 'Heart', 'Thyroid'].includes(c));
+                                        return {
+                                          ...m,
+                                          medicalHistory: [...baseVal, val]
+                                        };
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
 
-                          {/* Declared Medical History Multi-Select */}
-                          <div className="col-span-3">
-                            <MultiSelectBox
-                              label="Declared Medical History (Multi-Select)"
-                              selectedValues={member.declaredMedicalHistory || []}
-                              onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, declaredMedicalHistory: vals } : m))}
-                              badgeColor="blue"
-                              placeholder="Click to select declared medical conditions..."
-                            />
-                          </div>
+                            {/* Declared & NOT Declared Medical History */}
+                            <div className="space-y-3 pt-1">
+                              <MultiSelectBox
+                                label="Declared Medical History (Multi-Select)"
+                                selectedValues={member.declaredMedicalHistory || []}
+                                onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, declaredMedicalHistory: vals } : m))}
+                                badgeColor="blue"
+                                placeholder="Click to select declared medical conditions..."
+                              />
+                              <MultiSelectBox
+                                label="NOT Declared Medical History (Multi-Select)"
+                                selectedValues={member.notDeclaredMedicalHistory || []}
+                                onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, notDeclaredMedicalHistory: vals } : m))}
+                                badgeColor="orange"
+                                placeholder="Click to select NOT declared conditions..."
+                              />
+                            </div>
 
-                          {/* NOT Declared Medical History Multi-Select */}
-                          <div className="col-span-3">
-                            <MultiSelectBox
-                              label="NOT Declared Medical History (Multi-Select)"
-                              selectedValues={member.notDeclaredMedicalHistory || []}
-                              onChange={(vals) => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, notDeclaredMedicalHistory: vals } : m))}
-                              badgeColor="orange"
-                              placeholder="Click to select NOT declared conditions..."
-                            />
-                          </div>
-
-                          {/* Details of Medical History */}
-                          <div className="col-span-3">
-                            <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Details of Medical History</label>
-                            <textarea
-                              className="input w-full resize-none"
-                              rows={2}
-                              placeholder="Add any additional medical history details..."
-                              value={member.medicalHistoryDetails || ''}
-                              onChange={e => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, medicalHistoryDetails: e.target.value } : m))}
-                            />
+                            {/* Details of Medical History */}
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                Details / Notes of Medical History
+                              </label>
+                              <textarea
+                                className="input w-full text-xs resize-none bg-white"
+                                rows={2}
+                                placeholder="Add any additional medical history details..."
+                                value={member.medicalHistoryDetails || ''}
+                                onChange={e => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, medicalHistoryDetails: e.target.value } : m))}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add Member Button */}
+                <button
+                  type="button"
+                  onClick={addFamilyMember}
+                  className="w-full mt-2 py-3 rounded-2xl border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/40 hover:bg-blue-50 text-blue-600 hover:text-blue-700 text-[10px] sm:text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                >
+                  + Add Member
+                </button>
               </div>
             )}
 

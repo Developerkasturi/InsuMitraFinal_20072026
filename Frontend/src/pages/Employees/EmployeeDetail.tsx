@@ -23,8 +23,8 @@ import JobDescriptionPanel from '../Workspace/components/JobDescriptionPanel';
 const employeeEditSchema = z.object({
   firstName:         z.string().min(1, 'Required'),
   lastName:          z.string().min(1, 'Required'),
-  phone:             z.string().min(6, 'Required'),
-  alternatePhone:    z.string().optional(),
+  phone:             z.string().min(1, 'Phone is required').regex(/^\d{10}$/, 'Mobile number must be exactly 10 digits'),
+  alternatePhone:    z.string().refine(v => !v || /^\d{10}$/.test(v), 'Alternate phone must be exactly 10 digits').optional(),
   designation:       z.string().optional(),
   department:        z.string().optional(),
   reportingManager:  z.string().optional(),
@@ -35,7 +35,7 @@ const employeeEditSchema = z.object({
   panNumber:         z.string().optional(),
   aadhaarNumber:     z.string().optional(),
   emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
+  emergencyContactPhone: z.string().refine(v => !v || /^\d{10}$/.test(v), 'Emergency phone must be exactly 10 digits').optional(),
   address:           z.string().optional(),
   baseSalary:        z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
   bonusPlanned:      z.union([z.literal(''), z.coerce.number().min(0)]).optional(),
@@ -561,7 +561,20 @@ export default function EmployeeDetail() {
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase">Primary Phone *</span>
                   {isEditMode ? (
-                    <input {...editForm.register('phone')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                    <div>
+                      <input 
+                        {...editForm.register('phone')} 
+                        className="input w-full p-2 mt-1 text-xs font-semibold" 
+                        maxLength={10}
+                        placeholder="10-digit mobile"
+                        onInput={(e) => {
+                          e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                        }}
+                      />
+                      {editForm.formState.errors.phone && (
+                        <p className="text-[10px] text-red-500 mt-0.5 font-medium">{editForm.formState.errors.phone.message}</p>
+                      )}
+                    </div>
                   ) : (
                     <p className="font-bold text-gray-800 mt-1">{emp.phone || '—'}</p>
                   )}
@@ -570,7 +583,20 @@ export default function EmployeeDetail() {
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase">Alternate Phone</span>
                   {isEditMode ? (
-                    <input {...editForm.register('alternatePhone')} className="input w-full p-2 mt-1 text-xs font-semibold" />
+                    <div>
+                      <input 
+                        {...editForm.register('alternatePhone')} 
+                        className="input w-full p-2 mt-1 text-xs font-semibold" 
+                        maxLength={10}
+                        placeholder="10-digit mobile"
+                        onInput={(e) => {
+                          e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                        }}
+                      />
+                      {editForm.formState.errors.alternatePhone && (
+                        <p className="text-[10px] text-red-500 mt-0.5 font-medium">{editForm.formState.errors.alternatePhone.message}</p>
+                      )}
+                    </div>
                   ) : (
                     <p className="font-bold text-gray-800 mt-1">{emp.alternatePhone || '—'}</p>
                   )}
@@ -601,7 +627,7 @@ export default function EmployeeDetail() {
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase">Aadhaar Number</span>
                   {isEditMode ? (
-                    <input {...editForm.register('aadhaarNumber')} className="input w-full p-2 mt-1 text-xs font-semibold" placeholder="12-digit Aadhaar" />
+                    <input {...editForm.register('aadhaarNumber')} className="input w-full p-2 mt-1 text-xs font-semibold" placeholder="12-digit Aadhaar" maxLength={12} />
                   ) : (
                     <p className="font-bold font-mono text-gray-800 mt-1">{emp.aadhaarNumber || '4589 1234 5678'}</p>
                   )}
@@ -621,7 +647,20 @@ export default function EmployeeDetail() {
                   {isEditMode ? (
                     <div className="grid grid-cols-2 gap-2 mt-1">
                       <input {...editForm.register('emergencyContactName')} className="input p-2 text-xs" placeholder="Name (Relation)" />
-                      <input {...editForm.register('emergencyContactPhone')} className="input p-2 text-xs" placeholder="Phone Number" />
+                      <div>
+                        <input 
+                          {...editForm.register('emergencyContactPhone')} 
+                          className="input p-2 text-xs w-full" 
+                          placeholder="10-digit Phone" 
+                          maxLength={10}
+                          onInput={(e) => {
+                            e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                          }}
+                        />
+                        {editForm.formState.errors.emergencyContactPhone && (
+                          <p className="text-[10px] text-red-500 mt-0.5 font-medium">{editForm.formState.errors.emergencyContactPhone.message}</p>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="font-bold text-gray-800 mt-1">

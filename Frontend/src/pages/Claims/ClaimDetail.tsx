@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { claimsService, documentsService } from '@api/index';
-import { ArrowLeft, Upload, FileText, Trash2, X, Plus, DollarSign, MessageCircle, Download, Eye } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, X, Plus, DollarSign, MessageCircle, Download, Eye, Building2, MapPin } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -148,6 +148,15 @@ export default function ClaimDetail() {
   const notesData = getClaimNotesData(cl.notes);
   const displayStatus = cl.status;
 
+  const parsedDoctors: any[] = (() => {
+    try {
+      const list = JSON.parse(notesData.hospitalDoctors || '[]');
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  })();
+
   const emp = employees.find(e => e.userId === cl.assignedEmployeeId);
   const assigneeName = emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned';
 
@@ -246,6 +255,78 @@ export default function ClaimDetail() {
 
         {/* Right: Expenses Breakdown & Documents */}
         <div className="lg:col-span-2 space-y-4">
+
+          {/* Hospital & Medical Team Card */}
+          {(notesData.hospitalName || notesData.hospital || parsedDoctors.length > 0) && (
+            <div className="card space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Building2 size={16} className="text-blue-600" /> Hospital &amp; Medical Team
+                </h3>
+                {notesData.hospitalType && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                    {notesData.hospitalType}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-gray-400 block text-[10px] uppercase font-bold">Hospital Name</span>
+                  <span className="font-bold text-slate-800 text-sm">{notesData.hospitalName || notesData.hospital || '—'}</span>
+                  {notesData.hospitalRating && (
+                    <span className="inline-block mt-0.5 ml-1 text-[10px] text-amber-700 font-semibold">
+                      ⭐ {notesData.hospitalRating}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-[10px] uppercase font-bold">Location</span>
+                  <span className="text-slate-700 font-medium">
+                    {[notesData.hospitalAddress, notesData.hospitalCity, notesData.hospitalState, notesData.hospitalPincode].filter(Boolean).join(', ') || '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-[10px] uppercase font-bold">Hospital Contact</span>
+                  <span className="text-slate-700 font-medium">{notesData.hospitalContactNo || '—'}</span>
+                </div>
+                {(notesData.claimsPerson1Name || notesData.claimsPerson1Contact) && (
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-bold">Claims Dept Person 1</span>
+                    <span className="text-slate-700 font-medium">
+                      {notesData.claimsPerson1Name} {notesData.claimsPerson1Contact ? `(${notesData.claimsPerson1Contact})` : ''}
+                    </span>
+                  </div>
+                )}
+                {(notesData.claimsPerson2Name || notesData.claimsPerson2Contact) && (
+                  <div>
+                    <span className="text-gray-400 block text-[10px] uppercase font-bold">Claims Dept Person 2</span>
+                    <span className="text-slate-700 font-medium">
+                      {notesData.claimsPerson2Name} {notesData.claimsPerson2Contact ? `(${notesData.claimsPerson2Contact})` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {parsedDoctors.length > 0 && (
+                <div className="pt-2 border-t border-gray-100">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">Consulting Doctors ({parsedDoctors.length})</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {parsedDoctors.map((doc: any, i: number) => (
+                      <div key={i} className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                        <div className="font-bold text-slate-800 flex items-center justify-between text-xs">
+                          <span>{doc.name || 'Doctor'}</span>
+                          {doc.degree && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">{doc.degree}</span>}
+                        </div>
+                        {doc.speciality && <div className="text-[11px] text-slate-500 mt-0.5">{doc.speciality}</div>}
+                        {doc.contactNo && <div className="text-[10px] text-slate-400 mt-1">📞 {doc.contactNo}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Expense Breakdown Card */}
           <div className="card space-y-4">

@@ -312,8 +312,15 @@ export const leadFormSchema = z.object({
   // System fields mapping
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
-  phone: z.string().min(10, 'Min 10 digits'),
-  alternatePhone: z.string().optional(),
+  phone: z.string().refine(v => {
+    const d = (v || '').replace(/\D/g, '');
+    return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+  }, 'Mobile number must be exactly 10 digits'),
+  alternatePhone: z.string().optional().refine(v => {
+    if (!v) return true;
+    const d = v.replace(/\D/g, '');
+    return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+  }, 'Alternate phone must be exactly 10 digits').or(z.literal('')),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
   dateOfBirth: z.string().optional(),
@@ -1464,9 +1471,8 @@ export default function Leads() {
   const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
 
   const isFieldRequired = (key: string, defaultRequired: boolean) => {
-    if (['firstName', 'phone'].includes(key)) return true; // System protected
     const rule = compulsoryRules.find((r: any) => (r.module === 'Lead' || r.module === 'Leads') && r.fieldKey === key);
-    if (rule) return rule.required;
+    if (rule !== undefined) return rule.required;
     return defaultRequired;
   };
 
@@ -1474,8 +1480,26 @@ export default function Leads() {
     return z.object({
       firstName: isFieldRequired('firstName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
       lastName: isFieldRequired('lastName', true) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
-      phone: isFieldRequired('phone', true) ? z.string().min(10, 'Min 10 digits') : z.string().optional().or(z.literal('')),
-      alternatePhone: isFieldRequired('alternatePhone', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      phone: isFieldRequired('phone', true)
+        ? z.string().refine(v => {
+            const d = (v || '').replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Mobile number must be exactly 10 digits')
+        : z.string().optional().refine(v => {
+            if (!v) return true;
+            const d = v.replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Mobile number must be exactly 10 digits').or(z.literal('')),
+      alternatePhone: isFieldRequired('alternatePhone', false)
+        ? z.string().refine(v => {
+            const d = (v || '').replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Alternate phone must be exactly 10 digits')
+        : z.string().optional().refine(v => {
+            if (!v) return true;
+            const d = v.replace(/\D/g, '');
+            return d.length === 10 || (d.length > 10 && d.slice(-10).length === 10);
+          }, 'Alternate phone must be exactly 10 digits').or(z.literal('')),
       email: isFieldRequired('email', false) ? z.string().email('Invalid email') : z.string().email('Invalid email').optional().or(z.literal('')),
       gender: isFieldRequired('gender', false) ? z.enum(['MALE', 'FEMALE', 'OTHER']).refine(val => !!val, { message: 'Required' }) : z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
       dateOfBirth: isFieldRequired('dateOfBirth', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
@@ -1543,6 +1567,16 @@ export default function Leads() {
     if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
       toast.error('WhatsApp Number must be exactly 10 digits');
       return;
+    }
+
+    if (personalFields.callingNumber?.trim()) {
+      const rawCallDigits = personalFields.callingNumber.trim().replace(/\D/g, '');
+      const matchedCallCode = sortedCodes.find(c => rawCallDigits.startsWith(c));
+      const callLocalDigits = matchedCallCode ? rawCallDigits.slice(matchedCallCode.length) : rawCallDigits;
+      if (!/^\d{10}$/.test(callLocalDigits) && !/^\d{10}$/.test(rawCallDigits)) {
+        toast.error('Calling Number must be exactly 10 digits');
+        return;
+      }
     }
 
     const hasAadhaar = !!personalFields.aadhaarNumber.trim();
