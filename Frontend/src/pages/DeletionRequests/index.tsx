@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import { useAuthStore } from '@store/auth.store';
-import { ShieldAlert, Check, X, Clock, Trash2, Shield, Calendar as CalendarIcon, User } from 'lucide-react';
+import { ShieldAlert, Check, X, Clock, Trash2, Shield, Calendar as CalendarIcon, User, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import clsx from 'clsx';
@@ -197,13 +197,16 @@ export default function DeletionRequests() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-          placeholder="Search entity, user, or reason..."
-          className="input text-xs px-3 py-1.5 h-9 rounded-xl border border-slate-200 bg-white shadow-2xs w-64 focus:ring-2 focus:ring-indigo-500/20"
-        />
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            placeholder="Search entity, user, or reason..."
+            className="input text-xs pl-8 pr-3 py-1.5 h-9 rounded-xl border border-slate-200 bg-white shadow-2xs w-64 focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-2xs">
           {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
             <button

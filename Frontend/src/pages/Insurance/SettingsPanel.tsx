@@ -464,41 +464,7 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
               </div>
 
-              {/* Card 3: Access Control */}
-              <div 
-                onClick={() => setActiveTab('access')}
-                className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0 shadow-2xs">
-                    <ShieldCheck size={22} strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Access Control</h4>
-                    <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">Manage roles, permissions & user access</p>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-              </div>
-
-              {/* Card 4: Employee Access & Login */}
-              <div 
-                onClick={() => setActiveTab('employee_access')}
-                className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 shadow-2xs">
-                    <UserCheck size={22} strokeWidth={2.2} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">Employee Access & Login</h4>
-                    <p className="text-xs text-slate-500 font-semibold leading-tight mt-0.5">Manage employees, access rights & login credentials</p>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-              </div>
-
-              {/* Card 5: Audit Logs */}
+              {/* Card 3: Audit Logs */}
               <div 
                 onClick={() => setActiveTab('audit')}
                 className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"
@@ -515,7 +481,7 @@ export default function SettingsPanel({ initialSubTab = 'dashboard', onBack }: S
                 <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
               </div>
 
-              {/* Card 6: Table Columns Configuration */}
+              {/* Card 4: Table Column Selection */}
               <div 
                 onClick={() => setActiveTab('columns')}
                 className="bg-white rounded-2xl border border-slate-200/60 p-5 flex items-center justify-between cursor-pointer hover:border-indigo-300 hover:shadow-sm hover:scale-[1.01] transition-all group"

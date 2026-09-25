@@ -2627,12 +2627,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPolicyDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                         Policy Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Base Policy Configuration</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Base Policy Configuration</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isPolicyDetailsCollapsed ? 'rotate-180' : ''}`}
@@ -2644,8 +2644,8 @@ export default function Policies() {
                       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         {/* Customer Picker */}
                         <div className="col-span-1 md:col-span-2 relative flex flex-col gap-1">
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
-                            Customer <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-0.5">
+                            Customer <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <input type="hidden" {...register('contactId')} />
                           <div className="relative">
@@ -2689,8 +2689,8 @@ export default function Policies() {
 
                         {/* Policy Type */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Policy Type <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Policy Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2713,8 +2713,8 @@ export default function Policies() {
 
                         {/* Insurance Company Category */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Insurance Company Category <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Insurance Company Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2738,8 +2738,8 @@ export default function Policies() {
 
                         {/* Insurance Company */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Insurance Company <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Insurance Company <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2762,8 +2762,8 @@ export default function Policies() {
 
                         {/* Insurance Plan Category */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Insurance Plan Category <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Insurance Plan Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2787,8 +2787,8 @@ export default function Policies() {
 
                         {/* Plan Name */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Plan Name <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Plan Name <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2811,7 +2811,7 @@ export default function Policies() {
 
                         {/* Customer Category */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Customer Category
                           </label>
                           <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
@@ -2824,7 +2824,7 @@ export default function Policies() {
 
                         {/* Agent Name */}
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Agent Name
                           </label>
                           <input
@@ -2837,8 +2837,8 @@ export default function Policies() {
 
                         {/* Comment */}
                         <div className="col-span-1 md:col-span-2">
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Comment <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Comment <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <textarea
                             rows={2}
@@ -2858,12 +2858,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-indigo-50/80 via-slate-50 to-purple-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPlanDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                         Plan Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Coverage & Plan Options</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Coverage & Plan Options</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isPlanDetailsCollapsed ? 'rotate-180' : ''}`}
@@ -2876,8 +2876,8 @@ export default function Policies() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                           {/* Policy Number */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                              Policy Number <span className="text-red-500">*</span>
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                              Policy Number <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                             </label>
                             <input
                               {...register('policyNumber')}
@@ -2888,7 +2888,7 @@ export default function Policies() {
 
                           {/* Family Size */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Family Size
                             </label>
                             <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
@@ -2904,7 +2904,7 @@ export default function Policies() {
 
                           {/* Policy Zone Location Tier */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Policy Zone Location Tier
                             </label>
                             <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
@@ -2916,7 +2916,7 @@ export default function Policies() {
 
                           {/* Policy Zone Location Pincode */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Policy Zone Location Pincode
                             </label>
                             <input
@@ -2929,8 +2929,8 @@ export default function Policies() {
 
                           {/* Sum Insured */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                              Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-500">*</span>}
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                              Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>}
                             </label>
                             <select
                               className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -2950,7 +2950,7 @@ export default function Policies() {
 
                           {/* Deductible */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Deductible
                             </label>
                             <input
@@ -2962,7 +2962,7 @@ export default function Policies() {
 
                           {/* Bonus 1 */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Bonus 1 (No Claim Bonus)
                             </label>
                             <input
@@ -2974,7 +2974,7 @@ export default function Policies() {
 
                           {/* Bonus 2 */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Bonus 2 (Super / Cumulative)
                             </label>
                             <input
@@ -2986,8 +2986,8 @@ export default function Policies() {
 
                           {/* Policy Status */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                              Policy Status <span className="text-red-500">*</span>
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                              Policy Status <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                             </label>
                             <select
                               {...register('status')}
@@ -3001,7 +3001,7 @@ export default function Policies() {
                           {/* Assigned To */}
                           {user?.role !== 'EMPLOYEE' && (
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Assigned To
                               </label>
                               <select
@@ -3021,7 +3021,7 @@ export default function Policies() {
 
                         {/* Riders / Addons */}
                         <div className="flex flex-col gap-1 pt-2">
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Riders / Addons
                           </label>
                           <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
@@ -3060,12 +3060,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPremiumBreakdownCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                         Premium Breakdown & Instalments
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Premium Amounts & Frequency</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Premium Amounts & Frequency</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isPremiumBreakdownCollapsed ? 'rotate-180' : ''}`}
@@ -3076,8 +3076,8 @@ export default function Policies() {
                     {!isPremiumBreakdownCollapsed && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Premium Amount (₹) <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Premium Amount (₹) <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <div className="relative">
                             <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500/80" />
@@ -3103,7 +3103,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             1st Year Premium Amount (₹)
                           </label>
                           <input
@@ -3127,7 +3127,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             2nd Year Onwards Premium Amount (₹)
                           </label>
                           <input
@@ -3151,8 +3151,8 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Installment Frequency <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Installment Frequency <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <select
                             {...register('paymentFrequency')}
@@ -3167,7 +3167,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Premium Payment Period (Years)
                           </label>
                           <input
@@ -3187,12 +3187,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsTenureDatesCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                         Tenure, Maturity & Term Dates
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Tenure & Policy Dates</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Tenure & Policy Dates</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isTenureDatesCollapsed ? 'rotate-180' : ''}`}
@@ -3203,7 +3203,7 @@ export default function Policies() {
                     {!isTenureDatesCollapsed && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Tenure (Years)
                           </label>
                           <select
@@ -3222,7 +3222,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Term
                           </label>
                           <input
@@ -3234,21 +3234,21 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                            Policy Start Date <span className="text-red-500">*</span>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Policy Start Date <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <DatePicker {...register('startDate')} className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200" />
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy End Date
                           </label>
                           <DatePicker {...register('endDate')} className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Date of Maturity
                           </label>
                           <DatePicker
@@ -3259,7 +3259,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy 1st Instalment Date
                           </label>
                           <DatePicker
@@ -3269,7 +3269,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Last Premium Date
                           </label>
                           <DatePicker
@@ -3279,7 +3279,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Age at Entry
                           </label>
                           <input
@@ -3290,7 +3290,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Age at Last Premium
                           </label>
                           <input
@@ -3301,7 +3301,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Age at Maturity
                           </label>
                           <input
@@ -3320,12 +3320,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsEmiDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-600 to-blue-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                         Installment / EMI Gateway Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Gateway & Installment Case</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Gateway & Installment Case</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isEmiDetailsCollapsed ? 'rotate-180' : ''}`}
@@ -3337,7 +3337,7 @@ export default function Policies() {
                       <div className="p-4 space-y-3 animate-fadeIn">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Installment Case?
                             </label>
                             <select
@@ -3403,12 +3403,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPaymentModeLoanCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">4</span>
                         Payment Mode & Loan Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Payment Method & Financed Loan</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Payment Method & Financed Loan</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isPaymentModeLoanCollapsed ? 'rotate-180' : ''}`}
@@ -3420,7 +3420,7 @@ export default function Policies() {
                       <div className="p-4 space-y-4 animate-fadeIn">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Payment Mode
                             </label>
                             <select
@@ -3438,7 +3438,7 @@ export default function Policies() {
                           </div>
 
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Payment Transaction / Cheque Date
                             </label>
                             <DatePicker
@@ -3449,7 +3449,7 @@ export default function Policies() {
                           </div>
 
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Transaction Ref / Cheque No.
                             </label>
                             <input
@@ -3462,7 +3462,7 @@ export default function Policies() {
                           </div>
 
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Loan Case / Financed Policy?
                             </label>
                             <select
@@ -3530,12 +3530,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsPaymentAccountCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">5</span>
                         Payment Account Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Bank & Account Specifications</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Bank & Account Specifications</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isPaymentAccountCollapsed ? 'rotate-180' : ''}`}
@@ -3546,7 +3546,7 @@ export default function Policies() {
                     {!isPaymentAccountCollapsed && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 animate-fadeIn">
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Bank Name
                           </label>
                           <input
@@ -3559,7 +3559,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             IFSC Code
                           </label>
                           <input
@@ -3572,7 +3572,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Branch Name
                           </label>
                           <input
@@ -3585,7 +3585,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             A/c No. (Account Number)
                           </label>
                           <input
@@ -3598,7 +3598,7 @@ export default function Policies() {
                         </div>
 
                         <div className="col-span-1 md:col-span-2">
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Account Type
                           </label>
                           <select
@@ -3622,12 +3622,12 @@ export default function Policies() {
                       className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                       onClick={() => setIsGstDetailsCollapsed(prev => !prev)}
                     >
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">6</span>
                         GST No Details
                       </h4>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] text-slate-400 font-semibold">Firm Name, PAN & GST Registration</span>
+                        <span className="text-[10px] text-slate-700 font-bold">Firm Name, PAN & GST Registration</span>
                         <ChevronDown
                           size={16}
                           className={`text-slate-500 transition-transform duration-200 ${isGstDetailsCollapsed ? 'rotate-180' : ''}`}
@@ -3638,7 +3638,7 @@ export default function Policies() {
                     {!isGstDetailsCollapsed && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Firm Name
                           </label>
                           <input
@@ -3651,7 +3651,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Firm PAN No.
                           </label>
                           <input
@@ -3665,7 +3665,7 @@ export default function Policies() {
                         </div>
 
                         <div>
-                          <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Firm GST No.
                           </label>
                           <input
@@ -3688,12 +3688,12 @@ export default function Policies() {
                         className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                         onClick={() => setIsPhcCollapsed(prev => !prev)}
                       >
-                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">7</span>
                           Preventive Health Checkup Details
                         </h4>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Status</span>
+                          <span className="text-[10px] text-slate-700 font-bold">PHC Benefits & Status</span>
                           <ChevronDown
                             size={16}
                             className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
@@ -3705,7 +3705,7 @@ export default function Policies() {
                         <div className="p-4 space-y-3 animate-fadeIn">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Preventive Health Checkup?
                               </label>
                               <select
@@ -3871,7 +3871,7 @@ export default function Policies() {
                           {/* Person Fields */}
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Full Name
                               </label>
                               <input
@@ -3884,7 +3884,7 @@ export default function Policies() {
                             </div>
 
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Relationship
                               </label>
                               <select
@@ -3905,7 +3905,7 @@ export default function Policies() {
                             </div>
 
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Contact No.
                               </label>
                               <input
@@ -3918,7 +3918,7 @@ export default function Policies() {
                             </div>
 
                             <div>
-                              <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Gender
                               </label>
                               <select
@@ -4031,12 +4031,12 @@ export default function Policies() {
                           className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                           onClick={() => setIsPhcCollapsed(prev => !prev)}
                         >
-                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                             <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
                             PHC Configuration & Eligibility
                           </h4>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] text-slate-400 font-semibold">PHC Benefits & Eligibility</span>
+                            <span className="text-[10px] text-slate-700 font-bold">PHC Benefits & Eligibility</span>
                             <ChevronDown
                               size={16}
                               className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
@@ -4048,7 +4048,7 @@ export default function Policies() {
                           <div className="p-4 space-y-3.5 animate-fadeIn">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                   Preventive Health Checkup?
                                 </label>
                                 <select
@@ -4064,7 +4064,7 @@ export default function Policies() {
                               {watchPhcRequired && (
                                 <>
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
                                     <input
                                       type="number"
                                       {...register('phcAmount')}
@@ -4074,7 +4074,7 @@ export default function Policies() {
                                   </div>
 
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Balance Amount (₹)</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Balance Amount (₹)</label>
                                     <input
                                       type="text"
                                       value={phcExtraDetails.balanceAmount ? `₹${phcExtraDetails.balanceAmount}` : '₹1,500'}
@@ -4085,7 +4085,7 @@ export default function Policies() {
                                   </div>
 
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Eligibility Start Date</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Eligibility Start Date</label>
                                     <DatePicker
                                       value={phcExtraDetails.eligibilityStartDate}
                                       onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, eligibilityStartDate: val }))}
@@ -4094,7 +4094,7 @@ export default function Policies() {
                                   </div>
 
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Frequency</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Frequency</label>
                                     <select
                                       value={phcExtraDetails.frequency || 'ANNUAL'}
                                       onChange={e => setPhcExtraDetails(p => ({ ...p, frequency: e.target.value }))}
@@ -4107,7 +4107,7 @@ export default function Policies() {
                                   </div>
 
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Status</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Status</label>
                                     <select
                                       {...register('phcStatus')}
                                       className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -4122,7 +4122,7 @@ export default function Policies() {
                                   </div>
 
                                   <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Follow-up Date</label>
                                     <DatePicker
                                       value={phcExtraDetails.followUpDate}
                                       onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, followUpDate: val }))}
@@ -4131,7 +4131,7 @@ export default function Policies() {
                                   </div>
 
                                   <div className="col-span-1 md:col-span-3">
-                                    <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Comment</label>
+                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Comment</label>
                                     <textarea
                                       rows={2}
                                       className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -4152,12 +4152,12 @@ export default function Policies() {
                             className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                             onClick={() => setIsPhcBookingCollapsed(prev => !prev)}
                           >
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
                               PHC Booking & Centre Details
                             </h4>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] text-slate-400 font-semibold">Appointment & Lab Information</span>
+                              <span className="text-[10px] text-slate-700 font-bold">Appointment & Lab Information</span>
                               <ChevronDown
                                 size={16}
                                 className={`text-slate-500 transition-transform duration-200 ${isPhcBookingCollapsed ? 'rotate-180' : ''}`}
@@ -4168,7 +4168,7 @@ export default function Policies() {
                           {!isPhcBookingCollapsed && (
                             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Insured Person Name</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Insured Person Name</label>
                                 <input
                                   type="text"
                                   value={phcExtraDetails.insuredPersonName}
@@ -4179,7 +4179,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Booking Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Booking Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.bookingDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, bookingDate: val }))}
@@ -4188,7 +4188,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Appointment Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Appointment Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.appointmentDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, appointmentDate: val }))}
@@ -4197,7 +4197,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Centre / Lab Name</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab Name</label>
                                 <input
                                   type="text"
                                   value={phcExtraDetails.centreName}
@@ -4208,7 +4208,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Centre / Lab City</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab City</label>
                                 <input
                                   type="text"
                                   value={phcExtraDetails.centreCity}
@@ -4229,12 +4229,12 @@ export default function Policies() {
                             className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                             onClick={() => setIsPhcSettlementCollapsed(prev => !prev)}
                           >
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                               <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
                               PHC Claim & Settlement Details
                             </h4>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] text-slate-400 font-semibold">Reports, Submissions & Stage</span>
+                              <span className="text-[10px] text-slate-700 font-bold">Reports, Submissions & Stage</span>
                               <ChevronDown
                                 size={16}
                                 className={`text-slate-500 transition-transform duration-200 ${isPhcSettlementCollapsed ? 'rotate-180' : ''}`}
@@ -4245,7 +4245,7 @@ export default function Policies() {
                           {!isPhcSettlementCollapsed && (
                             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Utilized Amount (₹)</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Utilized Amount (₹)</label>
                                 <input
                                   type="number"
                                   value={phcExtraDetails.utilizedAmount}
@@ -4256,7 +4256,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Reimbursement / Cashless</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Reimbursement / Cashless</label>
                                 <select
                                   value={phcExtraDetails.reimbursementCashless}
                                   onChange={e => setPhcExtraDetails(p => ({ ...p, reimbursementCashless: e.target.value }))}
@@ -4268,7 +4268,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Report Received Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report Received Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.reportReceivedDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportReceivedDate: val }))}
@@ -4277,7 +4277,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Report & Bill Received Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Received Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.reportBillReceivedDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillReceivedDate: val }))}
@@ -4286,7 +4286,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Report & Bill Submitted Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Submitted Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.reportBillSubmittedDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillSubmittedDate: val }))}
@@ -4295,7 +4295,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Settlement Date</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Settlement Date</label>
                                 <DatePicker
                                   value={phcExtraDetails.settlementDate}
                                   onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, settlementDate: val }))}
@@ -4304,7 +4304,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Stage</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Stage</label>
                                 <select
                                   value={phcExtraDetails.phcStage}
                                   onChange={e => setPhcExtraDetails(p => ({ ...p, phcStage: e.target.value }))}
@@ -4321,7 +4321,7 @@ export default function Policies() {
                               </div>
 
                               <div>
-                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
                                 <select
                                   className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
                                   onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
@@ -4349,11 +4349,11 @@ export default function Policies() {
                 <div className="space-y-4 animate-fadeIn">
                   <div className="flex items-center justify-between bg-gradient-to-r from-slate-100/80 via-slate-50 to-slate-100/50 p-4 border border-slate-200/90 rounded-2xl shadow-2xs">
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
                         <FileText size={16} className="text-blue-600" />
                         Policy Documents Upload
                       </h4>
-                      <p className="text-[10px] text-slate-400 font-semibold mt-1">Upload files related to this policy</p>
+                      <p className="text-[10px] text-slate-700 font-bold mt-1">Upload files related to this policy</p>
                     </div>
                     <button
                       type="button"
@@ -4506,7 +4506,7 @@ export default function Policies() {
       >
         <div className="space-y-4">
           <div>
-            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Type <span className="text-red-500">*</span></label>
+            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
             <select
               value={docUploadFields.type}
               onChange={e => setDocUploadFields(p => ({ ...p, type: e.target.value }))}
@@ -4519,7 +4519,7 @@ export default function Policies() {
             </select>
           </div>
           <div>
-            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Document Title <span className="text-red-500">*</span></label>
+            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Title <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
             <input
               type="text"
               value={docUploadFields.title}
@@ -4529,7 +4529,7 @@ export default function Policies() {
             />
           </div>
           <div>
-            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Description</label>
+            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Description</label>
             <textarea
               rows={2}
               value={docUploadFields.description}
@@ -4539,7 +4539,7 @@ export default function Policies() {
             />
           </div>
           <div>
-            <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Choose File <span className="text-red-500">*</span></label>
+            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Choose File <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
             <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
               <input
                 type="file"
