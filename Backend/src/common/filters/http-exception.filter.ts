@@ -34,8 +34,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const resp = exceptionResponse as any;
         message = resp.message ?? exception.message;
         errors  = Array.isArray(resp.message) ? resp.message : undefined;
-        if (errors) {
-          message = 'Validation failed';
+        if (errors && Array.isArray(errors)) {
+          message = errors.join(' | ');
           this.logger.error(`Validation errors: ${JSON.stringify(errors)}`);
         }
       } else {

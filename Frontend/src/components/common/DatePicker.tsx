@@ -26,19 +26,19 @@ const MONTHS: Record<string, number> = {
   dec: 11, december: 11,
 };
 
-/** ISO yyyy-MM-dd → display DD/MMM/YYYY (e.g. 31/Jul/2026) */
+/** ISO yyyy-MM-dd → display DD/MM/YYYY (e.g. 31/07/2026) */
 function toDisplay(iso: any): string {
   if (!iso) return '';
   const strVal = typeof iso === 'string' ? iso : (iso?.target?.value || String(iso));
   if (!strVal || strVal === '[object Object]') return '';
   try {
     const d = new Date(strVal);
-    if (!isNaN(d.getTime())) return format(d, 'dd/MMM/yyyy');
+    if (!isNaN(d.getTime())) return format(d, 'dd/MM/yyyy');
   } catch { /* ignore */ }
   return '';
 }
 
-/** Parse DD/MMM/YYYY or DD/MM/YYYY or DD-MM-YYYY string → ISO yyyy-MM-dd string (or '' if invalid) */
+/** Parse DD/MM/YYYY or DD/MMM/YYYY or DD-MM-YYYY string → ISO yyyy-MM-dd string (or '' if invalid) */
 function parseDateString(text: string, allowTwoDigitYear = false): string {
   if (!text) return '';
   const trimmed = text.trim();
@@ -58,7 +58,7 @@ function parseDateString(text: string, allowTwoDigitYear = false): string {
     mon = parseInt(trimmed.slice(2, 4), 10) - 1;
     year = parseInt(trimmed.slice(4, 8), 10);
   }
-  // Separated parts: 31/Jul/2026 or 31/07/2026 or 31-07-2026 or 31-jul-2026
+  // Separated parts: 31/07/2026 or 31/Jul/2026 or 31-07-2026 or 31-jul-2026
   else {
     const parts = trimmed.split(/[\/\-\.\s]+/);
     if (parts.length === 3) {
@@ -96,76 +96,26 @@ function parseDateString(text: string, allowTwoDigitYear = false): string {
   return format(d, 'yyyy-MM-dd');
 }
 
-/** Auto-format masked string as user types, adding slashes automatically and advancing segment */
+/** Auto-format masked string as user types digits: DD/MM/YYYY */
 function formatMasked(input: string): string {
-  // Strip non-alphanumeric
-  const clean = input.replace(/[^0-9a-zA-Z]/g, '');
+  const clean = input.replace(/\D/g, '');
   if (!clean) return '';
 
-  // Extract day (first up to 2 digits)
-  const dayMatch = clean.match(/^(\d{1,2})/);
-  if (!dayMatch) return input;
-
-  const dayStr = dayMatch[1];
-  const rest = clean.slice(dayStr.length);
-
-  let result = dayStr;
-
-  // Add first slash if 2 digits of day entered or month started
-  if (dayStr.length === 2 || rest.length > 0) {
-    result += '/';
-  } else {
-    return result;
+  if (clean.length <= 2) {
+    return clean;
   }
-
-  if (!rest) return result;
-
-  // Check if rest starts with letters or numbers
-  const isLetterMonth = /^[A-Za-z]/.test(rest);
-
-  if (isLetterMonth) {
-    const monthMatch = rest.match(/^([A-Za-z]{1,3})/);
-    const monRaw = monthMatch ? monthMatch[1] : '';
-    const monStr = monRaw ? monRaw.charAt(0).toUpperCase() + monRaw.slice(1).toLowerCase() : '';
-    const yearStr = rest.slice(monRaw.length).replace(/\D/g, '').slice(0, 4);
-
-    result += monStr;
-    if (monStr.length === 3 || yearStr.length > 0) {
-      result += '/';
-      if (yearStr) {
-        result += yearStr;
-      }
-    }
-    return result;
-  } else {
-    // Numeric month
-    const monthMatch = rest.match(/^(\d{1,2})/);
-    const monRaw = monthMatch ? monthMatch[1] : '';
-    let monStr = monRaw;
-
-    // Convert 2-digit month number to 3-letter month name automatically (e.g. 07 -> Jul, 05 -> May)
-    if (monRaw.length === 2) {
-      const mNum = parseInt(monRaw, 10);
-      if (mNum >= 1 && mNum <= 12) {
-        monStr = MONTH_NAMES[mNum - 1];
-      }
-    }
-
-    const yearStr = rest.slice(monRaw.length).replace(/\D/g, '').slice(0, 4);
-
-    result += monStr;
-    if (monStr.length === 3 || monRaw.length === 2 || yearStr.length > 0) {
-      result += '/';
-      if (yearStr) {
-        result += yearStr;
-      }
-    }
-    return result;
+  const day = clean.slice(0, 2);
+  if (clean.length <= 4) {
+    const mon = clean.slice(2);
+    return `${day}/${mon}`;
   }
+  const mon = clean.slice(2, 4);
+  const year = clean.slice(4, 8);
+  return `${day}/${mon}/${year}`;
 }
 
 export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
-  ({ value, onChange, onDateChange, className, placeholder = 'DD/MMM/YYYY', disabled, required, ...props }, ref) => {
+  ({ value, onChange, onDateChange, className, placeholder = 'DD/MM/YYYY', disabled, required, ...props }, ref) => {
     const nativeInputRef = useRef<HTMLInputElement | null>(null);
     const [isoValue, setIsoValue] = useState(value || '');
     const [typedText, setTypedText] = useState(toDisplay(value || ''));
@@ -250,14 +200,8 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           const dayPadded = parts[0].padStart(2, '0');
           setTypedText(dayPadded + '/');
         } else if (parts.length === 2 && parts[1].length > 0) {
-          let monStr = parts[1];
-          if (/^\d+$/.test(monStr)) {
-            const mNum = parseInt(monStr, 10);
-            if (mNum >= 1 && mNum <= 12) {
-              monStr = MONTH_NAMES[mNum - 1];
-            }
-          }
-          setTypedText(parts[0] + '/' + monStr + '/');
+          const monPadded = parts[1].padStart(2, '0');
+          setTypedText(parts[0] + '/' + monPadded + '/');
         }
       }
     };
@@ -341,7 +285,7 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           onBlur={handleTextBlur}
           onFocus={() => setIsTyping(true)}
           className={`${className} cursor-text pl-2.5 pr-7 text-gray-900 text-xs min-w-[130px]`}
-          maxLength={11}
+          maxLength={10}
           autoComplete="off"
         />
 

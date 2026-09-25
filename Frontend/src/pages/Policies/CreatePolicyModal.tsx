@@ -35,6 +35,18 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   });
   const contactsList: any[] = Array.isArray(contactsRes?.data) ? contactsRes.data : Array.isArray(contactsRes) ? contactsRes : [];
 
+  const { data: compulsoryRulesRes } = useQuery({
+    queryKey: ['compulsory-rules'],
+    queryFn: () => insuranceService.getCompulsoryRules(),
+    enabled: open,
+  });
+  const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
+  const isFieldRequired = (key: string, defaultRequired: boolean) => {
+    const rule = compulsoryRules.find((r: any) => r.module === 'Policy' && r.fieldKey === key);
+    if (rule !== undefined) return rule.required;
+    return defaultRequired;
+  };
+
   useEffect(() => {
     if (open) {
       loadEmployees();
@@ -931,13 +943,16 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     {/* Sum Assured */}
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Sum Assured (₹)</label>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        Sum Assured (₹) {isFieldRequired('sumAssured', false) && <span className="text-red-500">*</span>}
+                      </label>
                       <input
                         type="number"
                         className="input text-xs w-full mt-1"
                         placeholder="e.g. 500000"
                         value={sumAssured}
                         onChange={(e) => setSumAssured(e.target.value)}
+                        required={isFieldRequired('sumAssured', false)}
                       />
                     </div>
 

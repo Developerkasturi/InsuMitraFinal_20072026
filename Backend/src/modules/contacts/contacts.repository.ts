@@ -11,6 +11,48 @@ import {
   CreateRelationshipDto, ContactFilterDto,
 } from './dto/contact.dto';
 
+export function parseSafeDate(val: any): Date | undefined {
+  if (!val) return undefined;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? undefined : val;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return undefined;
+
+    let d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
+
+    const MONTH_MAP: Record<string, number> = {
+      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    };
+    const parts = trimmed.split(/[\/\-\.\s]+/);
+    if (parts.length === 3) {
+      let day: number, mon: number, year: number;
+      if (/^\d{4}$/.test(parts[0])) {
+        year = parseInt(parts[0], 10);
+        mon = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      } else {
+        day = parseInt(parts[0], 10);
+        const mStr = parts[1].toLowerCase();
+        if (/^\d+$/.test(mStr)) {
+          mon = parseInt(mStr, 10) - 1;
+        } else if (MONTH_MAP[mStr.slice(0, 3)] !== undefined) {
+          mon = MONTH_MAP[mStr.slice(0, 3)];
+        } else {
+          return undefined;
+        }
+        year = parseInt(parts[2], 10);
+      }
+      d = new Date(year, mon, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return undefined;
+}
+
 @Injectable()
 export class ContactsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,7 +62,7 @@ export class ContactsRepository {
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
     const {
       page = 1, limit = 20,
-      search, sortBy = 'createdAt', sortOrder = 'asc',
+      search, sortBy = 'createdAt', sortOrder = 'desc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
 
@@ -127,7 +169,7 @@ export class ContactsRepository {
         documents:    { orderBy: { createdAt: 'desc' }, take: 10 },
         activityLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
         policies: {
-          where:   { status: 'ACTIVE' },
+          where:   { deletedAt: null },
           include: { plan: { include: { company: true } } },
         },
         productInterests: {
@@ -147,16 +189,19 @@ export class ContactsRepository {
       select: { id: true, firstName: true, lastName: true, phone: true, isActive: true },
     });
   }
+
   // ── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateContactDto) {
     const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
+    const dob = parseSafeDate(dateOfBirth);
+    const fuDate = parseSafeDate(followUpDate);
     return this.prisma.contact.create({
       data: {
         ...rest,
         tenantId,
-        ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
-        ...(followUpDate ? { followUpDate: new Date(followUpDate) } : {}),
+        ...(dob ? { dateOfBirth: dob } : {}),
+        ...(fuDate ? { followUpDate: fuDate } : {}),
       },
     });
   }
@@ -165,6 +210,8 @@ export class ContactsRepository {
 
   async update(tenantId: string, id: string, dto: UpdateContactDto) {
     const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
+    const dob = parseSafeDate(dateOfBirth);
+    const fuDate = parseSafeDate(followUpDate);
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
     const whereCondition: any = {
       tenantId,
@@ -174,8 +221,8 @@ export class ContactsRepository {
       where: whereCondition,
       data: {
         ...rest,
-        ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
-        ...(followUpDate ? { followUpDate: new Date(followUpDate) } : {}),
+        ...(dob ? { dateOfBirth: dob } : {}),
+        ...(fuDate ? { followUpDate: fuDate } : {}),
       } as any,
     });
   }

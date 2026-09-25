@@ -228,6 +228,57 @@ export class InsuranceService {
     return { data };
   }
 
+  async updateHospital(tenantId: string, id: string, dto: any) {
+    const hospital = await this.prisma.hospital.findFirst({
+      where: { id, tenantId },
+    });
+    if (!hospital) throw new NotFoundException('Hospital not found');
+
+    const { doctors, ...hospitalData } = dto;
+
+    if (doctors && Array.isArray(doctors)) {
+      await this.prisma.doctor.deleteMany({
+        where: { hospitalId: id },
+      });
+    }
+
+    const data = await this.prisma.hospital.update({
+      where: { id },
+      data: {
+        name: hospitalData.name,
+        city: hospitalData.city,
+        state: hospitalData.state || null,
+        address: hospitalData.address,
+        phone: hospitalData.phone || hospitalData.contactNo,
+        email: hospitalData.email || null,
+        registrationNo: hospitalData.registrationNo || null,
+        pincode: hospitalData.pincode,
+        type: hospitalData.type,
+        claimsPerson1Name: hospitalData.claimsPerson1Name,
+        claimsPerson1Contact: hospitalData.claimsPerson1Contact,
+        claimsPerson2Name: hospitalData.claimsPerson2Name,
+        claimsPerson2Contact: hospitalData.claimsPerson2Contact,
+        comment: hospitalData.comment,
+        ...(doctors && Array.isArray(doctors)
+          ? {
+              doctors: {
+                create: doctors.map((doc: any) => ({
+                  name: doc.name,
+                  degree: doc.degree,
+                  specialty: doc.speciality || doc.specialty,
+                  phone: doc.contactNo || doc.phone,
+                  email: doc.email || null,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: { doctors: true },
+    });
+
+    return { data };
+  }
+
   async removeHospital(tenantId: string, id: string) {
     const hospital = await this.prisma.hospital.findFirst({
       where: { id, tenantId },

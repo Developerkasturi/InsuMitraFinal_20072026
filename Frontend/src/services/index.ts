@@ -231,6 +231,7 @@ export const insuranceService = {
   deletePlan:     (planId: string)             => api.delete(`/insurance/plans/${planId}`).then(r => r.data),
   listHospitals:  ()                           => api.get('/insurance/hospitals').then(r => r.data),
   createHospital: (body: any)                  => api.post('/insurance/hospitals', body).then(r => r.data),
+  updateHospital: (id: string, body: any)      => api.patch(`/insurance/hospitals/${id}`, body).then(r => r.data),
   deleteHospital: (id: string)                 => api.delete(`/insurance/hospitals/${id}`).then(r => r.data),
   getCompulsoryRules:    ()                    => api.get('/insurance/compulsory-rules').then(r => r.data),
   updateCompulsoryRules: (rules: any[])        => api.post('/insurance/compulsory-rules', { rules }).then(r => r.data),

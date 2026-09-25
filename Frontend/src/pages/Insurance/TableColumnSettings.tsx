@@ -22,20 +22,28 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   const updateMutation = useMutation({
     mutationFn: (data: { pageId: string; colName: string; isHidden: boolean }) =>
       insuranceService.updateTableColumnVisibility(data.pageId, data.colName, data.isHidden),
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: ['table-columns'] }).then(() => {
-        // Optimistically update local rules inside the manager to reflect instantly
-        if (visibilityRulesRes?.data) {
-          const arr: any[] = visibilityRulesRes.data;
-          const idx = arr.findIndex(a => a.pageId === variables.pageId && a.colName === variables.colName);
-          if (idx >= 0) arr[idx].isHidden = variables.isHidden;
-          else arr.push({ ...variables, tenantId: 'local' });
-          tableVisibilityManager.setRules(arr);
-        }
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: ['table-columns'] });
+      const previousData = qc.getQueryData(['table-columns']);
+      qc.setQueryData(['table-columns'], (old: any) => {
+        const arr = [...(old?.data || [])];
+        const idx = arr.findIndex((a: any) => a.pageId === variables.pageId && a.colName === variables.colName);
+        if (idx >= 0) arr[idx] = { ...arr[idx], isHidden: variables.isHidden };
+        else arr.push({ ...variables, tenantId: 'local' });
+        tableVisibilityManager.setRules(arr);
+        return { ...old, data: arr };
       });
-      toast.success(`${variables.colName} is now ${variables.isHidden ? 'Hidden' : 'Visible'}`);
+      return { previousData };
     },
-    onError: () => toast.error('Failed to update visibility'),
+    onError: (_err, _variables, context: any) => {
+      if (context?.previousData) {
+        qc.setQueryData(['table-columns'], context.previousData);
+      }
+      toast.error('Failed to update visibility');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['table-columns'] });
+    }
   });
 
   if (isLoading) {
@@ -45,7 +53,8 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   const rules = visibilityRulesRes?.data || [];
   
   const getIsHidden = (pageId: string, colName: string) => {
-    const rule = rules.find((r: any) => r.pageId === pageId && r.colName === colName);
+    const norm = (str: string) => str.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const rule = rules.find((r: any) => r.pageId === pageId && (r.colName === colName || norm(r.colName) === norm(colName)));
     return rule ? rule.isHidden : false;
   };
 
@@ -55,15 +64,19 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   };
 
   const handleReset = () => {
-    // Reset all rules for this page
-    const tasks = TABLE_COLUMNS_CONFIG.find(p => p.pageId === selectedPageId)?.columns.map(col => {
-      if (getIsHidden(selectedPageId, col)) {
-        return updateMutation.mutateAsync({ pageId: selectedPageId, colName: col, isHidden: false });
-      }
-      return null;
-    }).filter(Boolean);
+    // Reset all rules stored for this page (including old names and config names)
+    const currentHiddenRules = rules.filter((r: any) => r.pageId === selectedPageId && r.isHidden);
+    const configCols = TABLE_COLUMNS_CONFIG.find(p => p.pageId === selectedPageId)?.columns || [];
     
-    if (tasks && tasks.length > 0) {
+    const allToReset = new Set<string>([
+      ...currentHiddenRules.map((r: any) => r.colName),
+      ...configCols.filter(col => getIsHidden(selectedPageId, col))
+    ]);
+
+    if (allToReset.size > 0) {
+      const tasks = Array.from(allToReset).map(colName =>
+        updateMutation.mutateAsync({ pageId: selectedPageId, colName, isHidden: false })
+      );
       Promise.all(tasks).then(() => {
         toast.success(`Reset ${selectedPageId} columns to default (Show All).`);
       });

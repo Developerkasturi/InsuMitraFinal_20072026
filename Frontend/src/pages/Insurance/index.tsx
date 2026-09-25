@@ -593,8 +593,9 @@ export default function Insurance() {
 
   const [companySearch, setCompanySearch] = useState('');
   const [hospitalModal, setHospitalModal] = useState(false);
+  const [editHospitalId, setEditHospitalId] = useState<string | null>(null);
 
-  // Add Hospital form states
+  // Add/Edit Hospital form states
   const [hospitalForm, setHospitalForm] = useState({
     name: '',
     address: '',
@@ -904,8 +905,11 @@ export default function Insurance() {
     mutationFn: (body: any) => insuranceService.createHospital(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hospitals-list'] });
+      qc.invalidateQueries({ queryKey: ['hospitals'] });
       toast.success('Hospital created successfully');
       setHospitalModal(false);
+      setEditHospitalId(null);
+      setCurrentView('mapping');
       setHospitalForm({
         name: '',
         address: '',
@@ -924,10 +928,63 @@ export default function Insurance() {
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to create hospital'),
   });
 
+  const updateHospitalMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: any }) => insuranceService.updateHospital(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hospitals-list'] });
+      qc.invalidateQueries({ queryKey: ['hospitals'] });
+      toast.success('Hospital updated successfully');
+      setHospitalModal(false);
+      setEditHospitalId(null);
+      setCurrentView('mapping');
+      setHospitalForm({
+        name: '',
+        address: '',
+        city: '',
+        pincode: '',
+        contactNo: '',
+        type: 'Network',
+        claimsPerson1Name: '',
+        claimsPerson1Contact: '',
+        claimsPerson2Name: '',
+        claimsPerson2Contact: '',
+        comment: ''
+      });
+      setHospitalDoctors([]);
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to update hospital'),
+  });
+
+  const openEditHospital = (h: any) => {
+    setEditHospitalId(h.id);
+    setHospitalForm({
+      name: h.name || '',
+      address: h.address || '',
+      city: h.city || '',
+      pincode: h.pincode || '',
+      contactNo: h.phone || h.contactNo || '',
+      type: h.type || 'Network',
+      claimsPerson1Name: h.claimsPerson1Name || '',
+      claimsPerson1Contact: h.claimsPerson1Contact || '',
+      claimsPerson2Name: h.claimsPerson2Name || '',
+      claimsPerson2Contact: h.claimsPerson2Contact || '',
+      comment: h.comment || '',
+    });
+    setHospitalDoctors((h.doctors || []).map((d: any) => ({
+      id: d.id || `doc-${Date.now()}-${Math.random()}`,
+      name: d.name || '',
+      degree: d.degree || '',
+      contactNo: d.phone || d.contactNo || '',
+      speciality: d.specialty || d.speciality || '',
+    })));
+    setHospitalModal(true);
+  };
+
   const removeHospitalMutation = useMutation({
     mutationFn: (id: string) => insuranceService.deleteHospital(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hospitals-list'] });
+      qc.invalidateQueries({ queryKey: ['hospitals'] });
       toast.success('Hospital deleted successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to delete hospital'),
@@ -1516,13 +1573,52 @@ export default function Insurance() {
               {currentView === 'mapping' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Hospital List & Doctors Mapping</h3>
-                    <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-full">{hospitals.length} Hospitals</span>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Hospital List &amp; Doctors Mapping</h3>
+                      <p className="text-[11px] text-slate-500">Registered hospitals &amp; consulting providers available across Claims</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-full">{hospitals.length} Hospitals</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditHospitalId(null);
+                          setHospitalForm({
+                            name: '',
+                            address: '',
+                            city: '',
+                            pincode: '',
+                            contactNo: '',
+                            type: 'Network',
+                            claimsPerson1Name: '',
+                            claimsPerson1Contact: '',
+                            claimsPerson2Name: '',
+                            claimsPerson2Contact: '',
+                            comment: ''
+                          });
+                          setHospitalDoctors([]);
+                          setHospitalModal(true);
+                        }}
+                        className="btn-primary text-xs py-1.5 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Plus size={14} /> Add Hospital
+                      </button>
+                    </div>
                   </div>
 
                   {hospitals.length === 0 ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500 italic text-xs">
-                      No hospitals registered yet. Go back and click 'Add Hospital' to register hospitals.
+                    <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-500 italic text-xs space-y-3">
+                      <p>No hospitals registered yet. Click 'Add Hospital' to register hospitals and doctors.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditHospitalId(null);
+                          setHospitalModal(true);
+                        }}
+                        className="btn-primary text-xs py-1.5 px-3 rounded-xl inline-flex items-center gap-1.5"
+                      >
+                        <Plus size={14} /> Add Hospital
+                      </button>
                     </div>
                   ) : (
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
@@ -1532,7 +1628,7 @@ export default function Insurance() {
                             <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                               <th className="p-3">Hospital Info</th>
                               <th className="p-3">Claims Department</th>
-                              <th className="p-3">Doctors</th>
+                              <th className="p-3">Doctors ({totalDoctors})</th>
                               <th className="p-3">Comment</th>
                               <th className="p-3 text-right">Actions</th>
                             </tr>
@@ -1571,11 +1667,14 @@ export default function Insurance() {
                                 </td>
                                 <td className="p-3">
                                   {h.doctors && h.doctors.length > 0 ? (
-                                    <div className="space-y-1 max-w-[220px]">
+                                    <div className="space-y-1 max-w-[240px]">
                                       {h.doctors.map((d: any, idx: number) => (
-                                        <div key={d.id || idx} className="text-[10px] bg-slate-50 border border-slate-100 rounded-md p-1">
-                                          <div className="font-bold text-slate-800">{d.name} <span className="text-[9px] font-normal text-slate-500">({d.degree})</span></div>
-                                          <div className="text-slate-500">{d.specialty} {d.phone && `· ${d.phone}`}</div>
+                                        <div key={d.id || idx} className="text-[10px] bg-slate-50 border border-slate-100 rounded-md p-1.5">
+                                          <div className="font-bold text-slate-800 flex items-center justify-between">
+                                            <span>{d.name}</span>
+                                            {d.degree && <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 px-1 rounded">({d.degree})</span>}
+                                          </div>
+                                          <div className="text-slate-500 text-[9px]">{d.specialty || d.speciality || 'General'} {d.phone && `· 📞 ${d.phone}`}</div>
                                         </div>
                                       ))}
                                     </div>
@@ -1587,17 +1686,28 @@ export default function Insurance() {
                                   {h.comment || <span className="text-slate-300 italic">-</span>}
                                 </td>
                                 <td className="p-3 text-right">
-                                  <button
-                                    onClick={() => {
-                                      if (confirm(`Are you sure you want to delete ${h.name}?`)) {
-                                        removeHospitalMutation.mutate(h.id);
-                                      }
-                                    }}
-                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                    title="Delete Hospital"
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditHospital(h)}
+                                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Edit Hospital / Manage Doctors"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete ${h.name}?`)) {
+                                          removeHospitalMutation.mutate(h.id);
+                                        }
+                                      }}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Delete Hospital"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -2051,11 +2161,12 @@ export default function Insurance() {
       )}
 
 
-      {/* ── Add Hospital Modal ──────────────────────────────────────────────── */}
+      {/* ── Add/Edit Hospital Modal ────────────────────────────────────────── */}
       <Modal
         open={hospitalModal}
         onClose={() => {
           setHospitalModal(false);
+          setEditHospitalId(null);
           setHospitalForm({
             name: '',
             address: '',
@@ -2071,10 +2182,17 @@ export default function Insurance() {
           });
           setHospitalDoctors([]);
         }}
-        title="Add Hospital"
+        title={editHospitalId ? 'Edit Hospital & Doctors' : 'Add Hospital'}
         actions={
-          <button type="submit" form="hospital-form" className="btn-primary py-1.5 px-4 text-xs cursor-pointer shadow-md shadow-primary-500/20 rounded-xl" disabled={createHospitalMutation.isPending}>
-            {createHospitalMutation.isPending ? 'Saving...' : 'Save Hospital'}
+          <button 
+            type="submit" 
+            form="hospital-form" 
+            className="btn-primary py-1.5 px-4 text-xs cursor-pointer shadow-md shadow-primary-500/20 rounded-xl" 
+            disabled={createHospitalMutation.isPending || updateHospitalMutation.isPending}
+          >
+            {editHospitalId 
+              ? (updateHospitalMutation.isPending ? 'Updating...' : 'Update Hospital') 
+              : (createHospitalMutation.isPending ? 'Saving...' : 'Save Hospital')}
           </button>
         }
         size="3xl"
@@ -2110,10 +2228,20 @@ export default function Insurance() {
 
           const handleFormSubmit = (e: React.FormEvent) => {
             e.preventDefault();
-            createHospitalMutation.mutate({
-              ...hospitalForm,
-              doctors: hospitalDoctors
-            });
+            if (editHospitalId) {
+              updateHospitalMutation.mutate({
+                id: editHospitalId,
+                body: {
+                  ...hospitalForm,
+                  doctors: hospitalDoctors
+                }
+              });
+            } else {
+              createHospitalMutation.mutate({
+                ...hospitalForm,
+                doctors: hospitalDoctors
+              });
+            }
           };
 
           return (

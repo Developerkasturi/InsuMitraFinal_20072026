@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchService } from '@api/index';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, Shield, FileText, TrendingUp } from 'lucide-react';
+import { Search, Users, Shield, FileText, TrendingUp, UserCheck, Briefcase } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 
-const SECTION_META: Record<string, { label: string; Icon: React.ElementType; route: string; color: string }> = {
-  contacts: { label: 'Contacts', Icon: Users, route: '/contacts', color: 'text-blue-500 bg-blue-50' },
-  policies: { label: 'Policies', Icon: Shield, route: '/policies', color: 'text-green-500 bg-green-50' },
-  claims:   { label: 'Claims', Icon: FileText, route: '/claims', color: 'text-yellow-500 bg-yellow-50' },
-  leads:    { label: 'Leads', Icon: TrendingUp, route: '/leads', color: 'text-purple-500 bg-purple-50' },
+const SECTION_META: Record<string, { label: string; Icon: React.ElementType; getRoute: (item: any) => string; color: string }> = {
+  contacts:   { label: 'Contacts',   Icon: Users,       getRoute: (i) => `/contacts/${i.id}`,   color: 'text-blue-600 bg-blue-50' },
+  leads:      { label: 'Leads',      Icon: TrendingUp,  getRoute: (i) => `/leads/${i.id}`,      color: 'text-purple-600 bg-purple-50' },
+  policies:   { label: 'Policies',   Icon: Shield,      getRoute: (i) => `/policies/${i.id}`,   color: 'text-emerald-600 bg-emerald-50' },
+  claims:     { label: 'Claims',     Icon: FileText,    getRoute: (i) => `/claims/${i.id}`,     color: 'text-amber-600 bg-amber-50' },
+  employees:  { label: 'Employees',  Icon: UserCheck,   getRoute: (i) => `/employees/${i.id}`,  color: 'text-teal-600 bg-teal-50' },
+  operations: { label: 'Operations', Icon: Briefcase,   getRoute: () => `/operations`,          color: 'text-indigo-600 bg-indigo-50' },
 };
 
 function getItemLabel(section: string, item: any): string {
@@ -17,6 +19,12 @@ function getItemLabel(section: string, item: any): string {
     const cid = item.contact_id || item.contactId;
     const name = item.contactName || `${item.firstName ?? item.first_name ?? ''} ${item.lastName ?? item.last_name ?? ''}`.trim() || item.phone || 'Contact';
     return cid ? `[${cid}] ${name}` : name;
+  }
+  if (section === 'employees') {
+    return item.contactName || `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || item.email || 'Employee';
+  }
+  if (section === 'operations') {
+    return item.name || 'Operation';
   }
   if (section === 'policies') return item.policyNumber || item.contactName || 'Policy';
   if (section === 'claims')   return item.claimNumber || item.contactName || 'Claim';
@@ -30,6 +38,8 @@ function getItemSub(section: string, item: any): string {
   const phone = item.phone || item.contact?.phone || item.email || '';
 
   if (section === 'contacts') return [item.contact_id || item.contactId, phone, item.email, item.aadhaarNumber].filter(Boolean).join(' · ');
+  if (section === 'employees') return [item.designation, item.department, item.phone, item.email].filter(Boolean).join(' · ');
+  if (section === 'operations') return [item.type, item.sub].filter(Boolean).join(' · ');
   if (section === 'policies') return [plan, contact, item.status].filter(Boolean).join(' · ');
   if (section === 'claims')   return [item.claimType, contact, item.policyNumber, item.status].filter(Boolean).join(' · ');
   if (section === 'leads')    return [item.lead_id || item.leadId, plan, contact, item.stage].filter(Boolean).join(' · ');
@@ -55,7 +65,7 @@ export default function GlobalSearch() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h2 className="text-lg font-bold text-gray-900 mb-1">Global Search</h2>
-        <p className="text-sm text-gray-500">Search across contacts, policies, claims, and leads.</p>
+        <p className="text-sm text-gray-500">Search across contacts, leads, policies, claims, employees, and operations.</p>
       </div>
 
       {/* Search Input */}
@@ -63,7 +73,7 @@ export default function GlobalSearch() {
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           className="w-full pl-11 pr-4 py-3 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
-          placeholder="Type to search contacts, policies, claims, leads…"
+          placeholder="Type to search contacts, leads, policies, claims, employees…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           autoFocus
@@ -109,7 +119,7 @@ export default function GlobalSearch() {
           {Object.entries(SECTION_META).map(([section, meta]) => {
             const items: any[] = results[section] ?? [];
             if (items.length === 0) return null;
-            const { label, Icon, route, color } = meta;
+            const { label, Icon, getRoute, color } = meta;
             return (
               <div key={section} className="card space-y-2">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -121,8 +131,8 @@ export default function GlobalSearch() {
                   {items.map((item: any) => (
                     <button
                       key={item.id}
-                      onClick={() => navigate(`${route}/${item.id}`)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 text-left transition-colors group">
+                      onClick={() => navigate(getRoute(item))}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 text-left transition-colors group cursor-pointer">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{getItemLabel(section, item)}</p>
                         {getItemSub(section, item) && (

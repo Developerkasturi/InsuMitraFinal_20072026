@@ -295,8 +295,8 @@ export default function OverdueWorkPanel({
 
                       {/* 6. Status */}
                       <td className="px-4 py-3 align-middle text-xs border border-rose-100 whitespace-nowrap">
-                        <span className={clsx("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border", (statusCfg as any)?.badge || 'bg-amber-50 text-amber-700 border-amber-200')}>
-                          <span className={clsx("w-1.5 h-1.5 rounded-full", (statusCfg as any)?.dot || 'bg-amber-500')} />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                           {task.status?.replace(/_/g, ' ') || 'OVERDUE'}
                         </span>
                       </td>

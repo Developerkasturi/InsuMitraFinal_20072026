@@ -195,37 +195,28 @@ export default function DeletionRequests() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-3">
-            <Shield className="text-indigo-600" size={28} />
-            Deletion Requests
-          </h1>
-          <p className="text-gray-500 mt-1">Review and manage delete requests submitted by employees.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-            placeholder="Search entity, user, or reason..."
-            className="input text-xs px-3 py-1.5 h-9 rounded-xl border border-slate-200 bg-white shadow-2xs w-64 focus:ring-2 focus:ring-indigo-500/20"
-          />
-          <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-2xs">
-            {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setStatusFilter(tab as any); setPage(1); }}
-                className={clsx(
-                  'px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
-                  statusFilter === tab ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                )}
-              >
-                {tab.charAt(0) + tab.slice(1).toLowerCase()}
-              </button>
-            ))}
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+          placeholder="Search entity, user, or reason..."
+          className="input text-xs px-3 py-1.5 h-9 rounded-xl border border-slate-200 bg-white shadow-2xs w-64 focus:ring-2 focus:ring-indigo-500/20"
+        />
+        <div className="flex flex-wrap items-center gap-1 bg-white rounded-xl p-1 border border-slate-200 shadow-2xs">
+          {['PENDING', 'APPROVED', 'REJECTED', 'ALL'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => { setStatusFilter(tab as any); setPage(1); }}
+              className={clsx(
+                'px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer',
+                statusFilter === tab ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              )}
+            >
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
+            </button>
+          ))}
         </div>
       </div>
 

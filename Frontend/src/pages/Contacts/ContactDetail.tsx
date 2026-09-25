@@ -534,7 +534,7 @@ export default function ContactDetail() {
                 {c.dateOfBirth && (
                   <div className="text-sm text-gray-600">
                     <span className="text-gray-400">DOB: </span>
-                    {format(new Date(c.dateOfBirth), 'dd/MMM/yyyy')}
+                    {format(new Date(c.dateOfBirth), 'dd/MM/yyyy')}
                   </div>
                 )}
                 {c.gender && <div className="text-sm text-gray-600"><span className="text-gray-400">Gender: </span>{c.gender}</div>}

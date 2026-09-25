@@ -46,7 +46,7 @@ const createSchema = z.object({
   firstName:         z.string().min(1, 'First name is required'),
   lastName:          z.string().min(1, 'Last name is required'),
   email:             z.string().email('Valid email is required'),
-  phone:             z.string().min(6, 'Valid phone number is required'),
+  phone:             z.string().min(1, 'Mobile phone is required').regex(/^\d{10}$/, 'Mobile phone number must be exactly 10 digits'),
   password:          z.string().min(8, 'Minimum 8 characters required'),
   aadhaarNumber:     z.string().min(1, 'Aadhaar is required').regex(/^\d{12}$/, 'Must be exactly 12 digits'),
   designation:       z.string().optional(),
@@ -559,7 +559,15 @@ export default function EmployeesLayout() {
                   </div>
                   <div>
                     <label className="label font-bold text-slate-700">Mobile Phone <span className="text-red-500">*</span></label>
-                    <input {...register('phone')} className="input" placeholder="9876543210" />
+                    <input 
+                      {...register('phone')} 
+                      className="input" 
+                      placeholder="9876543210" 
+                      maxLength={10}
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                      }}
+                    />
                     {errors.phone && <p className="text-xs text-red-500 mt-1 font-medium">{errors.phone.message}</p>}
                   </div>
 

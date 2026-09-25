@@ -45,18 +45,24 @@ export class PoliciesService {
       ];
     }
     if (contactId) {
-      if (/^[0-9a-fA-F]{24}$/.test(contactId)) {
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(contactId);
+      const targetContact = await this.prisma.contact.findFirst({
+        where: {
+          tenantId,
+          OR: [
+            ...(isObjectId ? [{ id: contactId }] : []),
+            { contactId },
+            { phone: contactId },
+          ],
+        },
+        select: { id: true, contactId: true },
+      });
+      if (targetContact) {
+        where.contactId = targetContact.id;
+      } else if (isObjectId) {
         where.contactId = contactId;
       } else {
-        const targetContact = await this.prisma.contact.findFirst({
-          where: { tenantId, contactId },
-          select: { id: true },
-        });
-        if (targetContact) {
-          where.contactId = targetContact.id;
-        } else {
-          where.contactId = contactId;
-        }
+        where.contactId = contactId;
       }
     }
     if (planId)    where.planId    = planId;
