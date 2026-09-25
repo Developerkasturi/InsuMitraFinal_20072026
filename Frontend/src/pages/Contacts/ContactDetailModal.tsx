@@ -235,7 +235,7 @@ export default function ContactDetailModal({ open, onClose, contactId, onEditCli
                     {c.phone && <p><strong>Phone:</strong> {c.phone}</p>}
                     {c.alternatePhone && <p><strong>Alt Phone:</strong> {c.alternatePhone}</p>}
                     {c.email && <p><strong>Email:</strong> {c.email}</p>}
-                    {c.dateOfBirth && <p><strong>DOB:</strong> {format(new Date(c.dateOfBirth), 'dd/MMM/yyyy')}</p>}
+                    {c.dateOfBirth && <p><strong>DOB:</strong> {format(new Date(c.dateOfBirth), 'dd/MM/yyyy')}</p>}
                     {c.gender && <p><strong>Gender:</strong> {c.gender}</p>}
                     {c.panNumber && <p><strong>PAN:</strong> {c.panNumber}</p>}
                     {c.aadhaarNumber && <p><strong>Aadhaar:</strong> {c.aadhaarNumber}</p>}

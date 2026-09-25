@@ -116,7 +116,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDigits = e.target.value.replace(/\D/g, '');
+    const newDigits = e.target.value.replace(/\D/g, '').slice(0, 10);
     onChange(`${currentOption.code}${newDigits}`);
   };
 
@@ -150,6 +150,7 @@ export const CountryPhoneInput: React.FC<CountryPhoneInputProps> = ({
         <input
           type="tel"
           disabled={disabled}
+          maxLength={10}
           value={phoneDigits}
           onChange={handlePhoneChange}
           placeholder={placeholder}

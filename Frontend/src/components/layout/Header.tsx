@@ -1,4 +1,4 @@
-import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp, Menu } from 'lucide-react';
+import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shield, FileText, TrendingUp, UserCheck, Briefcase, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsService, searchService } from '@api/index';
@@ -9,11 +9,13 @@ import { authService } from '@api/auth.service';
 import { useDebounce } from '@hooks/useDebounce';
 import TopBarShiftTracker from './TopBarShiftTracker';
 
-const SECTION_META: Record<string, { label: string; Icon: React.ElementType; color: string; iconBg: string }> = {
-  contacts: { label: 'Contacts', Icon: Users, color: 'text-blue-600', iconBg: 'bg-blue-50' },
-  policies: { label: 'Policies', Icon: Shield, color: 'text-emerald-600', iconBg: 'bg-emerald-50' },
-  claims: { label: 'Claims', Icon: FileText, color: 'text-amber-600', iconBg: 'bg-amber-50' },
-  leads: { label: 'Leads', Icon: TrendingUp, color: 'text-purple-600', iconBg: 'bg-purple-50' },
+const SECTION_META: Record<string, { label: string; Icon: React.ElementType; color: string; iconBg: string; getRoute: (item: any) => string }> = {
+  contacts:   { label: 'Contacts',   Icon: Users,       color: 'text-blue-600',    iconBg: 'bg-blue-50',    getRoute: (i) => `/contacts/${i.id}` },
+  leads:      { label: 'Leads',      Icon: TrendingUp,  color: 'text-purple-600',  iconBg: 'bg-purple-50',  getRoute: (i) => `/leads/${i.id}` },
+  policies:   { label: 'Policies',   Icon: Shield,      color: 'text-emerald-600', iconBg: 'bg-emerald-50', getRoute: (i) => `/policies/${i.id}` },
+  claims:     { label: 'Claims',     Icon: FileText,    color: 'text-amber-600',   iconBg: 'bg-amber-50',   getRoute: (i) => `/claims/${i.id}` },
+  employees:  { label: 'Employees',  Icon: UserCheck,   color: 'text-teal-600',    iconBg: 'bg-teal-50',    getRoute: (i) => `/employees/${i.id}` },
+  operations: { label: 'Operations', Icon: Briefcase,   color: 'text-indigo-600',  iconBg: 'bg-indigo-50',  getRoute: () => `/operations` },
 };
 
 export default function Header({ title, setMobileOpen }: { title?: string, setMobileOpen: (v: boolean) => void }) {
@@ -45,9 +47,11 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
     : (searchResults?.data ?? searchResults ?? {});
   const sectionMap: Record<string, any[]> = {
     contacts: resultsObj?.contacts ?? [],
+    leads: resultsObj?.leads ?? [],
     policies: resultsObj?.policies ?? [],
     claims: resultsObj?.claims ?? [],
-    leads: resultsObj?.leads ?? [],
+    employees: resultsObj?.employees ?? [],
+    operations: resultsObj?.operations ?? [],
   };
   const totalCount = Object.values(sectionMap).reduce((acc, arr) => acc + (arr?.length ?? 0), 0);
   const hasResults = totalCount > 0;
@@ -102,7 +106,7 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
                        placeholder-slate-400 outline-none transition-all duration-300
                        hover:bg-slate-100/70 hover:border-slate-300
                        focus:bg-white focus:border-blue-500/70 focus:ring-4 focus:ring-blue-500/5 focus:shadow-[0_0_15px_rgba(59,130,246,0.06)]"
-            placeholder="Search contacts, policies, claims…"
+            placeholder="Search contacts, leads, policies, claims, employees…"
             value={query}
             onChange={e => { setQuery(e.target.value); setShowSearch(true); }}
             onFocus={() => setShowSearch(true)}
@@ -111,94 +115,118 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
 
           {/* Search dropdown */}
           {showSearch && query.trim().length >= 2 && (
-            <div className="absolute top-full mt-2 w-[calc(100vw-24px)] sm:w-full min-w-[280px] sm:min-w-[420px] max-w-[440px] -left-8 sm:left-0 bg-white/98 backdrop-blur-md rounded-2xl overflow-hidden animate-fade-in shadow-xl border border-slate-200/80 z-50">
+            <div className="absolute top-full mt-2 w-[calc(100vw-32px)] sm:w-[460px] max-w-[480px] -left-6 sm:left-0 bg-white rounded-2xl overflow-hidden animate-fade-in shadow-2xl border border-slate-200/90 z-50">
               {isSearchLoading ? (
-                <div className="p-5 flex flex-col items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs text-slate-400 font-medium">Searching…</p>
+                <div className="p-6 flex flex-col items-center justify-center gap-2.5 bg-white">
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-slate-500 font-medium">Searching across all modules…</p>
                 </div>
               ) : isSearchError ? (
-                <div className="p-5 text-center">
+                <div className="p-6 text-center bg-white">
                   <p className="text-xs text-red-500 font-semibold">Search failed. Please try again.</p>
                   <p className="text-[10px] text-slate-400 mt-1">Check your connection or contact support.</p>
                 </div>
               ) : hasResults ? (
-                <div>
-                  {(['contacts', 'policies', 'claims', 'leads'] as const).map(section => {
-                    const items = sectionMap[section] ?? [];
-                    if (!items.length) return null;
-                    const { label, Icon, color, iconBg } = SECTION_META[section];
-                    return (
-                      <div key={section} className="border-b border-slate-100 last:border-0">
-                        {/* Section header */}
-                        <div className={`px-4 py-1.5 flex items-center gap-1.5 bg-slate-50/80`}>
-                          <span className={`p-0.5 rounded ${iconBg}`}>
-                            <Icon size={10} className={color} />
-                          </span>
-                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
-                            {label}
-                          </span>
-                          <span className="ml-auto text-[9px] font-bold text-slate-400 bg-slate-200/70 px-1.5 py-0.5 rounded-full">
-                            {items.length}
-                          </span>
-                        </div>
-                        {/* Items */}
-                        {items.map((item: any) => {
-                          const titleText =
-                            item.contactName ||
-                            (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : null) ||
-                            item.policyNumber ||
-                            item.claimNumber ||
-                            'Result';
-
-                          const subParts = [
-                            section !== 'contacts' && item.policyNumber,
-                            section !== 'contacts' && item.claimNumber,
-                            item.planName,
-                            item.claimType,
-                            item.stage,
-                            item.status,
-                          ].filter(Boolean);
-
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              className="w-full text-left px-3 sm:px-4 py-1.5 sm:py-2.5 text-[10px] sm:text-xs transition-all hover:bg-blue-50/60 flex flex-wrap items-center gap-3 cursor-pointer group"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                setShowSearch(false);
-                                setQuery('');
-                                navigate(`/${section}/${item.id}`);
-                              }}
-                            >
-                              {/* Section icon dot */}
-                              <span className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+                <div className="bg-white flex flex-col">
+                  {/* Scrollable list */}
+                  <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+                    {(['contacts', 'leads', 'policies', 'claims', 'employees', 'operations'] as const).map(section => {
+                      const items = sectionMap[section] ?? [];
+                      if (!items.length) return null;
+                      const meta = SECTION_META[section];
+                      if (!meta) return null;
+                      const { label, Icon, color, iconBg, getRoute } = meta;
+                      return (
+                        <div key={section} className="bg-white">
+                          {/* Section header */}
+                          <div className="px-3.5 py-1.5 flex items-center justify-between bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`p-1 rounded-md ${iconBg}`}>
                                 <Icon size={11} className={color} />
                               </span>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-slate-700 truncate">{titleText}</p>
-                                {subParts.length > 0 && (
-                                  <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                                    {subParts.join(' · ')}
-                                  </p>
-                                )}
-                              </div>
-                              {item.phone && (
-                                <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {item.phone}
-                                </span>
-                              )}
-                              <span className={`text-[10px] font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity ${color}`}>→</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  {/* View all results link */}
-                  <div className="px-4 py-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 font-medium">{totalCount} result{totalCount !== 1 ? 's' : ''} for &ldquo;{debouncedQuery}&rdquo;</span>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                                {label}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                              {items.length}
+                            </span>
+                          </div>
+
+                          {/* Items */}
+                          <div className="divide-y divide-slate-50">
+                            {items.map((item: any) => {
+                              const titleText =
+                                item.contactName ||
+                                (item.firstName ? `${item.firstName} ${item.lastName || ''}`.trim() : null) ||
+                                item.name ||
+                                item.policyNumber ||
+                                item.claimNumber ||
+                                'Result';
+
+                              const subParts = [
+                                item.designation,
+                                item.department,
+                                item.type,
+                                item.sub,
+                                section !== 'contacts' && section !== 'employees' && item.policyNumber,
+                                section !== 'contacts' && section !== 'employees' && item.claimNumber,
+                                item.planName,
+                                item.claimType,
+                                item.stage,
+                                item.status,
+                              ].filter(Boolean);
+
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 transition-colors flex items-center gap-3 cursor-pointer group select-none bg-white"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setShowSearch(false);
+                                    setQuery('');
+                                    navigate(getRoute(item));
+                                  }}
+                                >
+                                  {/* Section icon */}
+                                  <span className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${iconBg} group-hover:scale-105 transition-transform`}>
+                                    <Icon size={13} className={color} />
+                                  </span>
+
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                                      {titleText}
+                                    </p>
+                                    {subParts.length > 0 && (
+                                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                        {subParts.join(' · ')}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {item.phone && (
+                                    <span className="text-[10px] text-slate-500 font-mono shrink-0 bg-slate-100 px-2 py-0.5 rounded-md">
+                                      {item.phone}
+                                    </span>
+                                  )}
+                                  <span className={`text-xs font-bold shrink-0 opacity-40 group-hover:opacity-100 transition-opacity ${color}`}>
+                                    →
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* View all results footer */}
+                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {totalCount} result{totalCount !== 1 ? 's' : ''} found
+                    </span>
                     <button
                       type="button"
                       onMouseDown={(e) => {
@@ -206,17 +234,17 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
                         setShowSearch(false);
                         navigate('/search');
                       }}
-                      className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
                     >
-                      View all →
+                      View All in Search Page →
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="p-5 text-center">
-                  <Search size={20} className="mx-auto mb-2 text-slate-200" />
-                  <p className="text-xs text-slate-400 font-medium">No results for &ldquo;{debouncedQuery}&rdquo;</p>
-                  <p className="text-[10px] text-slate-300 mt-1">Try a different name, phone, or policy number</p>
+                <div className="p-6 text-center bg-white">
+                  <Search size={24} className="mx-auto mb-2 text-slate-300" />
+                  <p className="text-xs font-semibold text-slate-700">No results for &ldquo;{debouncedQuery}&rdquo;</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Try searching by name, phone, policy number, or employee</p>
                 </div>
               )}
             </div>

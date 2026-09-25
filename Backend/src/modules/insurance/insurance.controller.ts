@@ -107,6 +107,12 @@ export class InsuranceController {
     return this.svc.createHospital(req.tenantId, dto);
   }
 
+  @Patch('hospitals/:id')
+  @ApiOperation({ summary: 'Update a hospital and its doctors' })
+  updateHospital(@Req() req: any, @Param('id') id: string, @Body() dto: any) {
+    return this.svc.updateHospital(req.tenantId, id, dto);
+  }
+
   @Delete('hospitals/:id')
   @Roles(UserRole.OWNER)
   @ApiOperation({ summary: 'Delete a hospital' })

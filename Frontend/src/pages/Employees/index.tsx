@@ -21,7 +21,7 @@ import { canEditModule, canManageModule } from '../../utils/permissions';
 const editSchema = z.object({
   firstName:         z.string().min(1, 'Required'),
   lastName:          z.string().min(1, 'Required'),
-  phone:             z.string().min(6, 'Required'),
+  phone:             z.string().min(1, 'Phone is required').regex(/^\d{10}$/, 'Mobile number must be exactly 10 digits'),
   designation:       z.string().optional(),
   department:        z.string().optional(),
   dateOfJoining:     z.string().or(z.literal('')).optional(),
@@ -420,7 +420,15 @@ export default function Employees() {
             </div>
             <div>
               <label className="label">Phone *</label>
-              <input {...regEdit('phone')} className="input" />
+              <input 
+                {...regEdit('phone')} 
+                className="input" 
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                }}
+              />
               {editErrors.phone && <p className="text-xs text-red-500 mt-1">{editErrors.phone.message}</p>}
             </div>
             <div>

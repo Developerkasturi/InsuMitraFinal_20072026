@@ -2,7 +2,7 @@
 // Contacts Service — business logic layer
 // ─────────────────────────────────────────────────────────────────────────────
 import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, ForbiddenException, OnModuleInit } from '@nestjs/common';
-import { ContactsRepository } from './contacts.repository';
+import { ContactsRepository, parseSafeDate } from './contacts.repository';
 import { PrismaService }      from '../../database/prisma.service';
 import { EmailService }       from '../../common/email/email.service';
 import * as bcrypt from 'bcryptjs';
@@ -373,6 +373,7 @@ export class ContactsService implements OnModuleInit {
           isDependent: true,
           assignedEmployeeId: primaryContact.assignedEmployeeId,
           contactId: nextContactId,
+          tags: (primaryContact.tags && primaryContact.tags.length > 0) ? primaryContact.tags : ['contact'],
         } as any);
 
         const primaryAddr = await this.prisma.address.findFirst({
@@ -786,13 +787,18 @@ export class ContactsService implements OnModuleInit {
       dto.contact.assignedEmployeeId = createdById;
     }
 
+    const nextContactId = await this.getNextContactId();
     const result = await this.prisma.$transaction(async (tx) => {
-      const { dateOfBirth, city, ...rest } = dto.contact as any;
+      const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto.contact as any;
+      const dob = parseSafeDate(dateOfBirth);
+      const fuDate = parseSafeDate(followUpDate);
       const contact = await tx.contact.create({
         data: {
           ...rest,
           tenantId,
-          ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
+          contactId: rest.contactId || nextContactId,
+          ...(dob ? { dateOfBirth: dob } : {}),
+          ...(fuDate ? { followUpDate: fuDate } : {}),
         },
       });
 

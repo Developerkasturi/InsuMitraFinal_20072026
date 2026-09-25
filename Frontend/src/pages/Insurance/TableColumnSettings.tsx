@@ -22,20 +22,28 @@ export default function TableColumnSettings({ onBack }: TableColumnSettingsProps
   const updateMutation = useMutation({
     mutationFn: (data: { pageId: string; colName: string; isHidden: boolean }) =>
       insuranceService.updateTableColumnVisibility(data.pageId, data.colName, data.isHidden),
-    onSuccess: (_, variables) => {
-      qc.invalidateQueries({ queryKey: ['table-columns'] }).then(() => {
-        // Optimistically update local rules inside the manager to reflect instantly
-        if (visibilityRulesRes?.data) {
-          const arr: any[] = visibilityRulesRes.data;
-          const idx = arr.findIndex(a => a.pageId === variables.pageId && a.colName === variables.colName);
-          if (idx >= 0) arr[idx].isHidden = variables.isHidden;
-          else arr.push({ ...variables, tenantId: 'local' });
-          tableVisibilityManager.setRules(arr);
-        }
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: ['table-columns'] });
+      const previousData = qc.getQueryData(['table-columns']);
+      qc.setQueryData(['table-columns'], (old: any) => {
+        const arr = [...(old?.data || [])];
+        const idx = arr.findIndex((a: any) => a.pageId === variables.pageId && a.colName === variables.colName);
+        if (idx >= 0) arr[idx] = { ...arr[idx], isHidden: variables.isHidden };
+        else arr.push({ ...variables, tenantId: 'local' });
+        tableVisibilityManager.setRules(arr);
+        return { ...old, data: arr };
       });
-      toast.success(`${variables.colName} is now ${variables.isHidden ? 'Hidden' : 'Visible'}`);
+      return { previousData };
     },
-    onError: () => toast.error('Failed to update visibility'),
+    onError: (_err, _variables, context: any) => {
+      if (context?.previousData) {
+        qc.setQueryData(['table-columns'], context.previousData);
+      }
+      toast.error('Failed to update visibility');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['table-columns'] });
+    }
   });
 
   if (isLoading) {

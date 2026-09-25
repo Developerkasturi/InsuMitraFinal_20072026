@@ -129,12 +129,16 @@ export class CreateContactDto {
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
-  @IsDateString()
+  @IsString()
   dateOfBirth?: string;
 
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
-  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @Transform(({ value }) => {
+    if (!value || typeof value !== 'string') return undefined;
+    const upper = value.trim().toUpperCase();
+    return ['MALE', 'FEMALE', 'OTHER'].includes(upper) ? upper : undefined;
+  })
   @IsEnum(Gender)
   gender?: Gender;
 
@@ -345,7 +349,7 @@ export class CreateRelationshipDto {
 
   @ApiPropertyOptional({ description: 'Date of birth for manual entry' })
   @IsOptional()
-  @IsDateString()
+  @IsString()
   dateOfBirth?: string;
 
   @ApiPropertyOptional({ description: 'Gender for manual entry' })

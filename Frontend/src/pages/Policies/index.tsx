@@ -70,7 +70,7 @@ export const policyFormSchema = z.object({
   contactId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact'),
   planId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a plan'),
   policyNumber: z.string().min(1, 'Policy number required'),
-  sumAssured: z.coerce.number().positive('Enter a valid sum assured'),
+  sumAssured: z.coerce.number().positive('Enter a valid sum assured').optional(),
   premiumAmount: z.coerce.number().positive('Enter a valid premium'),
   startDate: z.string().min(1, 'Start date required'),
   endDate: z.string().min(1, 'End date required'),
@@ -1114,9 +1114,8 @@ export default function Policies() {
   const compulsoryRules = useMemo(() => compulsoryRulesRes?.data ?? [], [compulsoryRulesRes]);
 
   const isFieldRequired = (key: string, defaultRequired: boolean) => {
-    if (['contactId', 'planId', 'policyNumber', 'startDate', 'endDate'].includes(key)) return true; // System protected
     const rule = compulsoryRules.find((r: any) => r.module === 'Policy' && r.fieldKey === key);
-    if (rule) return rule.required;
+    if (rule !== undefined) return rule.required;
     return defaultRequired;
   };
 
@@ -2932,18 +2931,18 @@ export default function Policies() {
                           {/* Sum Insured */}
                           <div>
                             <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                              Sum Insured (₹) <span className="text-red-500">*</span>
+                              Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-500">*</span>}
                             </label>
                             <select
                               className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                               value={watchSumAssured || ''}
                               onChange={(e) => {
-                                const num = Number(e.target.value);
-                                setValue('sumAssured', num, { shouldValidate: true, shouldDirty: true });
+                                const num = e.target.value ? Number(e.target.value) : undefined;
+                                setValue('sumAssured', num as any, { shouldValidate: true, shouldDirty: true });
                               }}
-                              required
+                              required={isFieldRequired('sumAssured', true)}
                             >
-                              <option value="">Select Sum Insured *</option>
+                              <option value="">Select Sum Insured {isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}</option>
                               {SUM_INSURED_OPTIONS.map(opt => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                               ))}
@@ -3994,10 +3993,11 @@ export default function Policies() {
                                   <label className="label text-[10px] font-extrabold text-purple-700 uppercase tracking-wider block mb-1">Contact No.</label>
                                   <input
                                     type="tel"
+                                    maxLength={10}
                                     value={person.nomineeContact || person.contactNo}
-                                    onChange={e => updateConnectedPerson(person.id, { nomineeContact: e.target.value })}
+                                    onChange={e => updateConnectedPerson(person.id, { nomineeContact: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                     className="input w-full h-9 text-xs rounded-xl bg-white border border-purple-200"
-                                    placeholder="Nominee Phone"
+                                    placeholder="10-digit Phone"
                                   />
                                 </div>
 

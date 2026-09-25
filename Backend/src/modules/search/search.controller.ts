@@ -12,14 +12,14 @@ export class SearchController {
   constructor(private readonly svc: SearchService) { }
 
   /**
-   * Full-text search across contacts, policies, claims, and leads.
+   * Full-text search across contacts, policies, claims, leads, employees, and operations.
    * Uses provider-neutral Prisma filters for names, phone numbers,
    * PAN, and identifier strings.
    */
   @Get()
   @ApiOperation({ summary: 'Global full-text search across all entities' })
   @ApiQuery({ name: 'q', required: true, description: 'Search term (min 1 char)' })
-  @ApiQuery({ name: 'type', required: false, enum: ['contacts', 'policies', 'claims', 'leads', 'all'], description: 'Filter by entity type (default: all)' })
+  @ApiQuery({ name: 'type', required: false, enum: ['contacts', 'policies', 'claims', 'leads', 'employees', 'operations', 'all'], description: 'Filter by entity type (default: all)' })
   @ApiQuery({ name: 'limit', required: false, description: 'Max results per entity (default: 10, max: 50)' })
   search(
     @CurrentUser() user: any,
@@ -27,13 +27,14 @@ export class SearchController {
     @Query('type') type?: SearchType,
     @Query('limit') limit?: string,
   ) {
+    const parsedLimit = limit && !isNaN(parseInt(limit, 10)) ? parseInt(limit, 10) : 10;
     return this.svc.search(
       user.tenantId,
       user.id,
       user.role,
       q,
       type as any,
-      Number(limit)
+      parsedLimit
     );
   }
 
@@ -50,6 +51,7 @@ export class SearchController {
     @Query('q') q: string,
     @Query('limit') limit?: string,
   ) {
-    return this.svc.suggestions(user.tenantId, q, limit ? parseInt(limit, 10) : 5);
+    const parsedLimit = limit && !isNaN(parseInt(limit, 10)) ? parseInt(limit, 10) : 5;
+    return this.svc.suggestions(user.tenantId, q, parsedLimit);
   }
 }
