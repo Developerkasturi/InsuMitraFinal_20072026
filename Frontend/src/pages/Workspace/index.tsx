@@ -269,7 +269,7 @@ export default function Workspace() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-sm sm:text-base">
       {/* 1. TOP KPI METRIC CARDS */}
       <WorkspaceKpiCards
         activeCounts={activeCounts}

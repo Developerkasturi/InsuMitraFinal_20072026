@@ -266,7 +266,7 @@ export default function EmployeesLayout() {
   };
 
   return (
-    <div className="space-y-4 relative pb-20">
+    <div className="space-y-4 relative pb-20 text-sm sm:text-base">
       {/* Near-limit warning */}
       {isNearLimit && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-xl flex items-center justify-between text-sm shadow-sm">

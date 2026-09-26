@@ -140,7 +140,7 @@ export default function WhatsApp() {
   ] as const;
 
   return (
-    <div className="space-y-4 animate-fade-in pb-12" style={{ zoom: 0.9 }}>
+    <div className="space-y-4 animate-fade-in pb-12 text-sm sm:text-base">
 
       {/* ── Sleek Light Navigation Bar (Consolidated Tabs with Hover Effects) ── */}
       <div className="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 p-2 shadow-xs">

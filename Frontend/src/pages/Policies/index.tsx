@@ -1768,7 +1768,7 @@ export default function Policies() {
   const currentTab = searchParams.get('tab') || searchParams.get('view') || (location.pathname.includes('emi') ? 'emi' : 'list');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-sm sm:text-base">
       {/* Top View Switcher Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-3">
         <div className="flex flex-wrap items-center gap-2">

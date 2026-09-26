@@ -236,7 +236,7 @@ export default function LeadDetail() {
             <h2 className="text-xl font-bold text-gray-900">
               {l.contact?.firstName} {l.contact?.lastName}
             </h2>
-            <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium', STAGE_COLORS[l.stage] ?? 'bg-gray-100 text-gray-700')}>
+            <span className={clsx('text-sm px-2.5 py-0.5 rounded-full font-bold', STAGE_COLORS[l.stage] ?? 'bg-gray-100 text-gray-700')}>
               {STAGE_LABELS[l.stage] ?? l.stage}
             </span>
           </div>
@@ -247,7 +247,7 @@ export default function LeadDetail() {
 
       {/* Stage Pipeline */}
       <div className="card">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Stage Pipeline</h3>
+        <h3 className="text-base font-bold text-gray-900 mb-4">Stage Pipeline</h3>
         <div className="flex flex-wrap items-center gap-1 flex-wrap">
           {STAGES.map((s, idx) => (
             <div key={s} className="flex items-center">
@@ -263,7 +263,7 @@ export default function LeadDetail() {
                 }}
                 disabled={moveStage.isPending || s === l.stage}
                 className={clsx(
-                  'text-xs px-3 py-1.5 rounded-full font-medium transition-all',
+                  'text-sm px-3.5 py-1.5 rounded-full font-bold transition-all',
                   s === l.stage
                     ? clsx(STAGE_COLORS[s], 'ring-2 ring-offset-1 ring-current cursor-default')
                     : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700 cursor-pointer',
