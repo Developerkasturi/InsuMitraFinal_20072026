@@ -747,6 +747,9 @@ export default function Leads() {
       const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
       setPersonalFields({
+        role: contact.role || contact.user?.role || 'Contact',
+        contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
+        isActive: contact.isActive !== false,
         fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
         firstName: contact.firstName || '',
         middleName: contact.middleName || '',
@@ -1110,6 +1113,9 @@ export default function Leads() {
   type PersonalFields = Record<string, any>;
 
   const [personalFields, setPersonalFields] = useState<PersonalFields>({
+    role: 'Contact',
+    contactStatus: 'Active',
+    isActive: true,
     firstName: '',
     middleName: '',
     lastName: '',
@@ -1340,6 +1346,21 @@ export default function Leads() {
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
   const isOwner = user?.role === 'OWNER';
+  const isAdminOrSuperadmin = user?.role === 'OWNER' || user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
+
+  const LEAD_SOURCES = useMemo(() => [
+    'Social Media',
+    'Our Customer Self',
+    'Refered by our customer',
+    'Walkin',
+    'BNI'
+  ], []);
+
+
+
+
+
+
 
   const [draggedOverStage, setDraggedOverStage] = useState<string | null>(null);
 
@@ -1935,6 +1956,8 @@ export default function Leads() {
             firstName,
             middleName: personalFields.middleName || undefined,
             lastName,
+            role: personalFields.role || 'Contact',
+            isActive: personalFields.contactStatus ? personalFields.contactStatus === 'Active' : (personalFields.isActive !== false),
             phone: (personalFields.whatsappNumber || '').trim().replace(/\D/g, ''),
             height: personalFields.height ? Number(personalFields.height) : undefined,
             weight: personalFields.weight ? Number(personalFields.weight) : undefined,
@@ -2113,6 +2136,9 @@ export default function Leads() {
     setEditContactId(null);
     setLoadedContact(null);
     setPersonalFields({
+      role: 'Contact',
+      contactStatus: 'Active',
+      isActive: true,
       fullName: '',
       firstName: '',
       middleName: '',
@@ -2205,6 +2231,9 @@ export default function Leads() {
       const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
       setPersonalFields({
+        role: contact.role || contact.user?.role || 'Contact',
+        contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
+        isActive: contact.isActive !== false,
         fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
@@ -2443,6 +2472,9 @@ export default function Leads() {
         const primaryOcc = contact.occupations?.find((o: any) => o.isPrimary) || contact.occupations?.[0];
 
         setPersonalFields({
+          role: contact.role || contact.user?.role || 'Contact',
+          contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
+          isActive: contact.isActive !== false,
           fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
           gender: contact.gender || '',
           maritalStatus: contact.maritalStatus || '',
@@ -3108,13 +3140,9 @@ export default function Leads() {
               className="input text-xs font-semibold w-full bg-white shadow-2xs"
             >
               <option value="">All Sources</option>
-              <option value="Social Media">Social Media</option>
-              <option value="Referral">Referral</option>
-              <option value="Website">Website</option>
-              <option value="Cold Call">Cold Call</option>
-              <option value="Walk-in">Walk-in</option>
-              <option value="Campaign">Campaign</option>
-              <option value="Other">Other</option>
+              {LEAD_SOURCES.map(src => (
+                <option key={src} value={src}>{src}</option>
+              ))}
             </select>
           </div>
 
@@ -3714,23 +3742,34 @@ export default function Leads() {
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
-                              <input
-                                type="text"
-                                disabled={isExisting}
-                                list={`lead-source-list-${card.id}`}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
-                                placeholder="e.g. Social Media"
-                                value={card.leadSource}
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                  Lead Source <span className="text-red-500">*</span>
+                                  {isAdminOrSuperadmin ? (
+                                    <span className="ml-1 text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                      Editable by Admin & Superadmin
+                                    </span>
+                                  ) : isExisting ? (
+                                    <span className="ml-1 text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                      Locked
+                                    </span>
+                                  ) : null}
+                                </label>
+                              </div>
+
+                              <select
+                                disabled={isExisting && !isAdminOrSuperadmin}
+                                className={`input w-full text-xs bg-white font-medium ${isExisting && !isAdminOrSuperadmin ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                value={card.leadSource || 'Walkin'}
                                 onChange={e => updateProductInterest(card.id, 'leadSource', e.target.value)}
-                              />
-                              <datalist id={`lead-source-list-${card.id}`}>
-                                <option value="Social Media" />
-                                <option value="Our Customer Self" />
-                                <option value="Referred by Customer" />
-                                <option value="Walk-in" />
-                                <option value="BNI" />
-                              </datalist>
+                              >
+                                {LEAD_SOURCES.map(src => (
+                                  <option key={src} value={src}>{src}</option>
+                                ))}
+                                {card.leadSource && !LEAD_SOURCES.includes(card.leadSource) && (
+                                  <option value={card.leadSource}>{card.leadSource}</option>
+                                )}
+                              </select>
                             </div>
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
@@ -4067,6 +4106,19 @@ export default function Leads() {
                           }
                         />
                       </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Role</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all font-semibold"
+                          value={personalFields.role || 'Contact'}
+                          onChange={e => setPersonalFields(p => ({ ...p, role: e.target.value }))}
+                        >
+                          <option value="Contact">Contact</option>
+                          <option value="Employee">Employee</option>
+                          <option value="ADMIN/OWNER">ADMIN/OWNER</option>
+                          <option value="Business Associate">Business Associate</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -4144,6 +4196,24 @@ export default function Leads() {
                             }))
                           }
                         />
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Contact Status</label>
+                        <select
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all font-semibold"
+                          value={personalFields.contactStatus || (personalFields.isActive !== false ? 'Active' : 'Inactive')}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setPersonalFields(p => ({
+                              ...p,
+                              contactStatus: val,
+                              isActive: val === 'Active'
+                            }));
+                          }}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                        </select>
                       </div>
                     </div>
                   </div>
@@ -5832,6 +5902,8 @@ export default function Leads() {
           </div>
         </form>
       </Modal>
+
+
     </div>
   );
 }
@@ -6259,10 +6331,14 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
   const consultations: any[] = fullLead.consultations ?? [];
 
   const initialNotes = parseLeadNotes(fullLead.notes);
+  const authUser = useAuthStore(s => s.user);
+  const isAdminOrSuperadmin = authUser?.role === 'OWNER' || authUser?.role === 'SUPERADMIN' || authUser?.role === 'ADMIN';
+
   const [editStage, setEditStage] = useState(fullLead.stage || 'TO_CONTACT');
   const [editStatus, setEditStatus] = useState(initialNotes.leadStatus || fullLead.status || 'Interested');
   const [editType, setEditType] = useState(initialNotes.leadType || fullLead.type || 'Fresh');
-  const [editSource, setEditSource] = useState(fullLead.source || 'Walk-in');
+  const [editSource, setEditSource] = useState(fullLead.source || 'Walkin');
+  const leadSourcesList = ['Social Media', 'Our Customer Self', 'Refered by our customer', 'Walkin', 'BNI'];
   const [editAssignee, setEditAssignee] = useState(fullLead.assignedEmployeeId ?? '');
   const [editFollowUp, setEditFollowUp] = useState(fullLead.followUpDate ? fullLead.followUpDate.slice(0, 10) : '');
   const [editPremium, setEditPremium] = useState<string | number>(fullLead.premiumBudget || fullLead.expectedPremium || '');
@@ -6641,21 +6717,32 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
 
                 {/* Lead Source */}
                 <div>
-                  <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                      Lead Source <span className="text-red-500">*</span>
+                    </label>
+                    {isAdminOrSuperadmin ? (
+                      <span className="text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        Editable by Admin & Superadmin
+                      </span>
+                    ) : (
+                      <span className="text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        Locked
+                      </span>
+                    )}
+                  </div>
                   <select
+                    disabled={!isAdminOrSuperadmin}
                     value={editSource}
                     onChange={e => setEditSource(e.target.value)}
-                    className="input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white"
+                    className={`input text-xs font-semibold bg-slate-50/50 border-slate-200 focus:bg-white ${!isAdminOrSuperadmin ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
                   >
-                    <option value="Walk-in">Walk-in</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Website">Website</option>
-                    <option value="Cold Call">Cold Call</option>
-                    <option value="Campaign">Campaign</option>
-                    <option value="Social Media">Social Media</option>
-                    <option value="Partner">Partner</option>
-                    <option value="Existing Client">Existing Client</option>
-                    <option value="Other">Other</option>
+                    {leadSourcesList.map((src: string) => (
+                      <option key={src} value={src}>{src}</option>
+                    ))}
+                    {editSource && !leadSourcesList.includes(editSource) && (
+                      <option value={editSource}>{editSource}</option>
+                    )}
                   </select>
                 </div>
 

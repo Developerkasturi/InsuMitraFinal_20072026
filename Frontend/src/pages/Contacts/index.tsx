@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download, ExternalLink
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download, ExternalLink, X
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { useClaims } from '@hooks/useClaims';
@@ -264,6 +264,8 @@ export default function Contacts() {
   const [sortKey, setSortKey] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    role: true,
+    contactStatus: true,
     name: true,
     phone: true,
     leadStage: true,
@@ -303,6 +305,19 @@ export default function Contacts() {
   const [isUploadingContactDoc, setIsUploadingContactDoc] = useState(false);
   const [docPreviewModal, setDocPreviewModal] = useState<{ open: boolean; title: string; url: string }>({ open: false, title: '', url: '' });
   const { user: authUser } = useAuthStore();
+  const isAdminOrSuperadmin = authUser?.role === 'OWNER' || authUser?.role === 'SUPERADMIN' || authUser?.role === 'ADMIN';
+
+  const LEAD_SOURCES = useMemo(() => [
+    'Social Media',
+    'Our Customer Self',
+    'Refered by our customer',
+    'Walkin',
+    'BNI'
+  ], []);
+
+
+
+
   const [formMedHistory, setFormMedHistory] = useState<string[]>([]);
   const [formRelationships, setFormRelationships] = useState<any[]>([]);
 
@@ -499,6 +514,9 @@ export default function Contacts() {
   type PersonalFields = Record<string, any>;
 
   const [personalFields, setPersonalFields] = useState<PersonalFields>({
+    role: 'Contact',
+    contactStatus: 'Active',
+    isActive: true,
     firstName: '',
     middleName: '',
     lastName: '',
@@ -543,7 +561,7 @@ export default function Contacts() {
     profileType: 'Lead Profile', // 'Lead Profile' | 'Client Profile'
     leadStatus: 'OPEN',
     interestedIn: ['Health'], // Health, Term, Mutual Funds, Pooling, Other
-    leadSource: 'Walk-in',
+    leadSource: 'Walkin',
     assignedEmployeeId: '',
     followUpDate: '',
   });
@@ -638,7 +656,7 @@ export default function Contacts() {
     dependencyType: 'SELF',
     dependentDetails: '',
     leadType: 'FRESH',
-    leadSource: 'Walk-in',
+    leadSource: 'Walkin',
     assignedEmployeeId: '',
     followUpDate: '',
     expectedPremium: '',
@@ -1121,6 +1139,9 @@ export default function Contacts() {
 
   const openCustomerCreate = () => {
     setPersonalFields({
+      role: 'Contact',
+      contactStatus: 'Active',
+      isActive: true,
       isDependent: false,
       dependentNo: '',
       firstName: '',
@@ -1160,7 +1181,7 @@ export default function Contacts() {
       profileType: 'Client Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'Walk-in',
+      leadSource: 'Walkin',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -1215,6 +1236,9 @@ export default function Contacts() {
     const initialNames = extractNameFields(fallbackContact);
 
     setPersonalFields({
+      role: fallbackContact.role || fallbackContact.contact?.role || fallbackContact.user?.role || 'Contact',
+      contactStatus: (fallbackContact.isActive !== false && fallbackContact.contact?.isActive !== false) ? 'Active' : 'Inactive',
+      isActive: fallbackContact.isActive !== false && fallbackContact.contact?.isActive !== false,
       firstName: initialNames.firstName,
       middleName: initialNames.middleName,
       lastName: initialNames.lastName,
@@ -1261,6 +1285,9 @@ export default function Contacts() {
         const updatedNames = extractNameFields(contact, fallbackContact);
 
         setPersonalFields({
+          role: contact.role || fallbackContact.role || fallbackContact.contact?.role || fallbackContact.user?.role || 'Contact',
+          contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
+          isActive: contact.isActive !== false,
           isDependent: !!(contact.isDependent ?? fallbackContact.isDependent),
           dependentNo: contact.dependentNo || fallbackContact.dependentNo || '',
           firstName: updatedNames.firstName,
@@ -1696,6 +1723,8 @@ export default function Contacts() {
           phone: cleanPhone,
           isDependent: !!personalFields.isDependent,
           dependentNo: personalFields.isDependent ? personalFields.dependentNo : undefined,
+          role: personalFields.role || 'Contact',
+          isActive: personalFields.contactStatus ? personalFields.contactStatus === 'Active' : (personalFields.isActive !== false),
         };
         if (chosenEmpId) updateBody.assignedEmployeeId = chosenEmpId;
         if (personalFields.middleName?.trim()) updateBody.middleName = personalFields.middleName.trim();
@@ -1755,6 +1784,8 @@ export default function Contacts() {
           phone: cleanPhone,
           isDependent: !!personalFields.isDependent,
           dependentNo: personalFields.isDependent ? personalFields.dependentNo : undefined,
+          role: personalFields.role || 'Contact',
+          isActive: personalFields.contactStatus ? personalFields.contactStatus === 'Active' : (personalFields.isActive !== false),
         };
         if (personalFields.middleName?.trim()) contactBody.middleName = personalFields.middleName.trim();
         if (cleanAltPhone) contactBody.alternatePhone = cleanAltPhone;
@@ -2068,6 +2099,9 @@ export default function Contacts() {
 
   const openCreate = () => {
     setPersonalFields({
+      role: 'Contact',
+      contactStatus: 'Active',
+      isActive: true,
       fullName: '',
       gender: '',
       maritalStatus: '',
@@ -2098,7 +2132,7 @@ export default function Contacts() {
       profileType: 'Contact Profile',
       leadStatus: 'OPEN',
       interestedIn: ['Health'],
-      leadSource: 'Walk-in',
+      leadSource: 'Walkin',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
     });
@@ -2459,6 +2493,39 @@ export default function Contacts() {
       label: 'PHONE',
       sortable: true,
       render: r => <span className="text-slate-700 text-xs font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
+    },
+    {
+      key: 'role',
+      label: 'ROLE',
+      sortable: true,
+      render: r => {
+        const role = r.role || r.user?.role || 'Contact';
+        const roleColors: Record<string, string> = {
+          'Contact': 'bg-blue-50 text-blue-700 border-blue-200/60',
+          'Employee': 'bg-purple-50 text-purple-700 border-purple-200/60',
+          'ADMIN/OWNER': 'bg-rose-50 text-rose-700 border-rose-200/60',
+          'Business Associate': 'bg-amber-50 text-amber-700 border-amber-200/60',
+        };
+        const cls = roleColors[role] || 'bg-slate-50 text-slate-600 border-slate-200';
+        return (
+          <span className={clsx(cls, 'inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold tracking-wide border')}>
+            {role}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'contactStatus',
+      label: 'STATUS',
+      sortable: true,
+      render: r => {
+        const isActive = r.isActive !== false;
+        return (
+          <span className={isActive ? 'badge-green' : 'badge-gray'}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        );
+      }
     },
     {
       key: 'leadStage',
@@ -3474,9 +3541,12 @@ export default function Contacts() {
               <label className="label text-[11px] font-bold text-slate-600">Role</label>
               <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
                 <option value="ALL">All Roles</option>
+                <option value="Contact">Contact</option>
+                <option value="Employee">Employee</option>
+                <option value="ADMIN/OWNER">ADMIN/OWNER</option>
+                <option value="Business Associate">Business Associate</option>
                 <option value="SUPERADMIN">Super Admin</option>
                 <option value="ADMIN">Admin</option>
-                <option value="EMPLOYEE">Employee</option>
                 <option value="CUSTOMER">Customer</option>
                 <option value="AGENT">Agent</option>
               </select>
@@ -4096,23 +4166,34 @@ export default function Contacts() {
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source *</label>
-                              <input
-                                type="text"
-                                disabled={isExisting}
-                                list={`lead-source-list-${card.id}`}
-                                className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
-                                placeholder="e.g. Social Media"
-                                value={card.leadSource}
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                  Lead Source <span className="text-red-500">*</span>
+                                  {isAdminOrSuperadmin ? (
+                                    <span className="ml-1 text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                      Editable by Admin & Superadmin
+                                    </span>
+                                  ) : isExisting ? (
+                                    <span className="ml-1 text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                      Locked
+                                    </span>
+                                  ) : null}
+                                </label>
+                              </div>
+
+                              <select
+                                disabled={isExisting && !isAdminOrSuperadmin}
+                                className={`input w-full text-xs bg-white font-medium ${isExisting && !isAdminOrSuperadmin ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
+                                value={card.leadSource || 'Walkin'}
                                 onChange={e => updateProductInterest(card.id, 'leadSource', e.target.value)}
-                              />
-                              <datalist id={`lead-source-list-${card.id}`}>
-                                <option value="Social Media" />
-                                <option value="Our Customer Self" />
-                                <option value="Referred by Customer" />
-                                <option value="Walk-in" />
-                                <option value="BNI" />
-                              </datalist>
+                              >
+                                {LEAD_SOURCES.map(src => (
+                                  <option key={src} value={src}>{src}</option>
+                                ))}
+                                {card.leadSource && !LEAD_SOURCES.includes(card.leadSource) && (
+                                  <option value={card.leadSource}>{card.leadSource}</option>
+                                )}
+                              </select>
                             </div>
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Assigned Employee</label>
@@ -4445,6 +4526,19 @@ export default function Contacts() {
                         onChange={(e) => setPersonalFields(p => ({ ...p, pan: e.target.value.toUpperCase(), panNumber: e.target.value.toUpperCase() }))}
                       />
                     </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Role</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all font-semibold"
+                        value={personalFields.role || 'Contact'}
+                        onChange={e => setPersonalFields(p => ({ ...p, role: e.target.value }))}
+                      >
+                        <option value="Contact">Contact</option>
+                        <option value="Employee">Employee</option>
+                        <option value="ADMIN/OWNER">ADMIN/OWNER</option>
+                        <option value="Business Associate">Business Associate</option>
+                      </select>
+                    </div>
                     </div>
                   )}
                 </div>
@@ -4535,6 +4629,24 @@ export default function Contacts() {
                           }))
                         }
                       />
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Contact Status</label>
+                      <select
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all font-semibold"
+                        value={personalFields.contactStatus || (personalFields.isActive !== false ? 'Active' : 'Inactive')}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setPersonalFields(p => ({
+                            ...p,
+                            contactStatus: val,
+                            isActive: val === 'Active'
+                          }));
+                        }}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
                     </div>
                     </div>
                   )}
@@ -5779,9 +5891,18 @@ export default function Contacts() {
                           Personal Information Log
                         </h4>
                       </div>
-                      <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md">
-                        Active Contact
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md">
+                          {personalFields.role || loadedContact?.role || 'Contact'}
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                          (personalFields.contactStatus === 'Active' || (personalFields.contactStatus !== 'Inactive' && loadedContact?.isActive !== false))
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : 'bg-rose-50 text-rose-700 border-rose-100'
+                        }`}>
+                          {personalFields.contactStatus || (loadedContact?.isActive !== false ? 'Active' : 'Inactive')}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -6392,6 +6513,7 @@ export default function Contacts() {
           }
         }}
       />
+
     </div>
   );
 }

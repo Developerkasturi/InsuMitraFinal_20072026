@@ -1637,75 +1637,94 @@ export default function Insurance() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                           <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                              <th className="p-3">Hospital Info</th>
-                              <th className="p-3">Claims Department</th>
-                              <th className="p-3">Doctors ({totalDoctors})</th>
-                              <th className="p-3">Comment</th>
-                              <th className="p-3 text-right">Actions</th>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-black text-slate-700 uppercase tracking-wider">
+                              <th className="py-4 px-5">Hospital Info</th>
+                              <th className="py-4 px-5">Claims Department</th>
+                              <th className="py-4 px-5">Doctors ({totalDoctors})</th>
+                              <th className="py-4 px-5">Comment</th>
+                              <th className="py-4 px-5 text-right">Actions</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 text-xs">
+                          <tbody className="divide-y divide-slate-100">
                             {hospitals.map((h: any) => (
-                              <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="p-3 space-y-1">
-                                  <div className="font-bold text-slate-900">{h.name}</div>
-                                  <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-2 gap-y-0.5">
-                                    <span className={`px-1.5 py-0.2 rounded-full font-bold ${
-                                      h.type === 'Network' ? 'bg-emerald-50 text-emerald-600' :
-                                      h.type === 'Blacklisted' ? 'bg-red-50 text-red-600' :
-                                      'bg-slate-100 text-slate-600'
+                              <tr key={h.id} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="py-4 px-5 space-y-1.5 align-top">
+                                  <div className="flex items-center gap-2.5 flex-wrap">
+                                    <span className="text-base font-black text-slate-900 capitalize tracking-tight">{h.name}</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${
+                                      h.type === 'Network' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' :
+                                      h.type === 'Blacklisted' ? 'bg-red-50 text-red-700 border-red-200/80' :
+                                      'bg-slate-100 text-slate-700 border-slate-200/80'
                                     }`}>{h.type}</span>
-                                    <span>{h.city}</span>
-                                    {h.pincode && <span>- {h.pincode}</span>}
                                   </div>
-                                  {h.phone && <div className="text-[10px] text-slate-500">📞 {h.phone}</div>}
-                                  {h.address && <div className="text-[10px] text-slate-400 max-w-[200px] truncate" title={h.address}>{h.address}</div>}
+                                  <div className="text-xs font-bold text-slate-600 flex flex-wrap items-center gap-2">
+                                    <span className="text-slate-800">{h.city}</span>
+                                    {h.pincode && <span className="text-slate-500 font-semibold">- {h.pincode}</span>}
+                                  </div>
+                                  {h.phone && (
+                                    <div className="text-xs font-bold text-blue-700 bg-blue-50/80 border border-blue-100 rounded-lg px-2.5 py-1 inline-flex items-center gap-1.5">
+                                      <span>📞</span> {h.phone}
+                                    </div>
+                                  )}
+                                  {h.address && (
+                                    <div className="text-xs text-slate-500 font-medium max-w-[280px]" title={h.address}>
+                                      {h.address}
+                                    </div>
+                                  )}
                                 </td>
-                                <td className="p-3 space-y-1">
+                                <td className="py-4 px-5 space-y-2 align-top">
                                   {h.claimsPerson1Name && (
-                                    <div className="text-[10px] text-slate-600">
-                                      <span className="font-semibold">{h.claimsPerson1Name}</span>: {h.claimsPerson1Contact}
+                                    <div className="text-xs text-slate-800 bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 space-y-0.5">
+                                      <div className="font-extrabold text-slate-900 text-xs">{h.claimsPerson1Name}</div>
+                                      <div className="font-bold text-blue-700 text-xs">📞 {h.claimsPerson1Contact || 'No contact'}</div>
                                     </div>
                                   )}
                                   {h.claimsPerson2Name && (
-                                    <div className="text-[10px] text-slate-600">
-                                      <span className="font-semibold">{h.claimsPerson2Name}</span>: {h.claimsPerson2Contact}
+                                    <div className="text-xs text-slate-800 bg-slate-50/80 border border-slate-200/70 rounded-xl p-2.5 space-y-0.5">
+                                      <div className="font-extrabold text-slate-900 text-xs">{h.claimsPerson2Name}</div>
+                                      <div className="font-bold text-blue-700 text-xs">📞 {h.claimsPerson2Contact || 'No contact'}</div>
                                     </div>
                                   )}
                                   {!h.claimsPerson1Name && !h.claimsPerson2Name && (
-                                    <span className="text-slate-400 italic text-[10px]">Not Provided</span>
+                                    <span className="text-slate-400 italic text-xs font-medium">Not Provided</span>
                                   )}
                                 </td>
-                                <td className="p-3">
+                                <td className="py-4 px-5 align-top">
                                   {h.doctors && h.doctors.length > 0 ? (
-                                    <div className="space-y-1 max-w-[240px]">
+                                    <div className="space-y-2 min-w-[220px] max-w-[300px]">
                                       {h.doctors.map((d: any, idx: number) => (
-                                        <div key={d.id || idx} className="text-[10px] bg-slate-50 border border-slate-100 rounded-md p-1.5">
-                                          <div className="font-bold text-slate-800 flex items-center justify-between">
-                                            <span>{d.name}</span>
-                                            {d.degree && <span className="text-[9px] font-semibold text-blue-600 bg-blue-50 px-1 rounded">({d.degree})</span>}
+                                        <div key={d.id || idx} className="text-xs bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 shadow-2xs">
+                                          <div className="font-extrabold text-slate-900 flex items-center justify-between gap-1">
+                                            <span className="text-xs">{d.name}</span>
+                                            {d.degree && (
+                                              <span className="text-[10px] font-black text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded-md">
+                                                ({d.degree})
+                                              </span>
+                                            )}
                                           </div>
-                                          <div className="text-slate-500 text-[9px]">{d.specialty || d.speciality || 'General'} {d.phone && `· 📞 ${d.phone}`}</div>
+                                          <div className="text-slate-600 text-xs mt-1 font-semibold flex items-center gap-1.5 flex-wrap">
+                                            <span>{d.specialty || d.speciality || 'General'}</span>
+                                            {d.phone && <span className="text-blue-700 font-bold">· 📞 {d.phone}</span>}
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <span className="text-slate-400 italic text-[10px]">No Doctors Mapped</span>
+                                    <span className="text-slate-400 italic text-xs font-medium">No Doctors Mapped</span>
                                   )}
                                 </td>
-                                <td className="p-3 text-[10px] text-slate-500 max-w-[150px] truncate" title={h.comment}>
+                                <td className="py-4 px-5 text-xs text-slate-600 font-medium max-w-[180px] align-top" title={h.comment}>
                                   {h.comment || <span className="text-slate-300 italic">-</span>}
                                 </td>
-                                <td className="p-3 text-right">
-                                  <div className="flex items-center justify-end gap-1">
+                                <td className="py-4 px-5 text-right align-top">
+                                  <div className="flex items-center justify-end gap-1.5">
                                     <button
                                       type="button"
                                       onClick={() => openEditHospital(h)}
-                                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                      className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-100 rounded-xl transition-all cursor-pointer shadow-2xs"
                                       title="Edit Hospital / Manage Doctors"
                                     >
-                                      <Pencil size={14} />
+                                      <Pencil size={16} />
                                     </button>
                                     <button
                                       type="button"
@@ -1714,10 +1733,10 @@ export default function Insurance() {
                                           removeHospitalMutation.mutate(h.id);
                                         }
                                       }}
-                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100 rounded-xl transition-all cursor-pointer shadow-2xs"
                                       title="Delete Hospital"
                                     >
-                                      <Trash2 size={14} />
+                                      <Trash2 size={16} />
                                     </button>
                                   </div>
                                 </td>
@@ -2259,18 +2278,103 @@ export default function Insurance() {
 
           const handleFormSubmit = (e: React.FormEvent) => {
             e.preventDefault();
+
+            // 1. Required field validations
+            if (!hospitalForm.name?.trim()) {
+              toast.error('Hospital Name is required');
+              return;
+            }
+            if (!hospitalForm.type?.trim()) {
+              toast.error('Hospital Type is required');
+              return;
+            }
+            if (!hospitalForm.city?.trim()) {
+              toast.error('Hospital City is required');
+              return;
+            }
+            const cleanPincode = hospitalForm.pincode ? hospitalForm.pincode.replace(/\D/g, '') : '';
+            if (!cleanPincode || cleanPincode.length !== 6) {
+              toast.error('Hospital Pincode must be exactly 6 digits');
+              return;
+            }
+
+            // 2. Hospital Contact No validation (required, exactly 10 digits)
+            const cleanHospitalContact = hospitalForm.contactNo ? hospitalForm.contactNo.replace(/\D/g, '') : '';
+            if (!cleanHospitalContact) {
+              toast.error('Hospital Contact No is required');
+              return;
+            }
+            if (cleanHospitalContact.length !== 10) {
+              toast.error('Hospital Contact No must be exactly 10 digits');
+              return;
+            }
+
+            // 3. Claims Person 1 Contact No (if provided, must be exactly 10 digits)
+            if (hospitalForm.claimsPerson1Contact) {
+              const cleanC1 = hospitalForm.claimsPerson1Contact.replace(/\D/g, '');
+              if (cleanC1.length > 0 && cleanC1.length !== 10) {
+                toast.error('Claims Person 1 Contact No must be exactly 10 digits');
+                return;
+              }
+            }
+
+            // 4. Claims Person 2 Contact No (if provided, must be exactly 10 digits)
+            if (hospitalForm.claimsPerson2Contact) {
+              const cleanC2 = hospitalForm.claimsPerson2Contact.replace(/\D/g, '');
+              if (cleanC2.length > 0 && cleanC2.length !== 10) {
+                toast.error('Claims Person 2 Contact No must be exactly 10 digits');
+                return;
+              }
+            }
+
+            // 5. Doctors validation (if any doctor added)
+            for (let i = 0; i < hospitalDoctors.length; i++) {
+              const doc = hospitalDoctors[i];
+              if (!doc.name?.trim()) {
+                toast.error(`Doctor #${i + 1}: Doctor Name is required`);
+                return;
+              }
+              if (!doc.degree?.trim()) {
+                toast.error(`Doctor #${i + 1}: Doctor Degree is required`);
+                return;
+              }
+              const cleanDocContact = (doc.contactNo || '').replace(/\D/g, '');
+              if (!cleanDocContact) {
+                toast.error(`Doctor #${i + 1}: Contact No is required`);
+                return;
+              }
+              if (cleanDocContact.length !== 10) {
+                toast.error(`Doctor #${i + 1}: Contact No must be exactly 10 digits`);
+                return;
+              }
+            }
+
             if (editHospitalId) {
               updateHospitalMutation.mutate({
                 id: editHospitalId,
                 body: {
                   ...hospitalForm,
-                  doctors: hospitalDoctors
+                  pincode: cleanPincode,
+                  contactNo: cleanHospitalContact,
+                  claimsPerson1Contact: hospitalForm.claimsPerson1Contact ? hospitalForm.claimsPerson1Contact.replace(/\D/g, '').slice(0, 10) : '',
+                  claimsPerson2Contact: hospitalForm.claimsPerson2Contact ? hospitalForm.claimsPerson2Contact.replace(/\D/g, '').slice(0, 10) : '',
+                  doctors: hospitalDoctors.map(d => ({
+                    ...d,
+                    contactNo: d.contactNo ? d.contactNo.replace(/\D/g, '').slice(0, 10) : ''
+                  }))
                 }
               });
             } else {
               createHospitalMutation.mutate({
                 ...hospitalForm,
-                doctors: hospitalDoctors
+                pincode: cleanPincode,
+                contactNo: cleanHospitalContact,
+                claimsPerson1Contact: hospitalForm.claimsPerson1Contact ? hospitalForm.claimsPerson1Contact.replace(/\D/g, '').slice(0, 10) : '',
+                claimsPerson2Contact: hospitalForm.claimsPerson2Contact ? hospitalForm.claimsPerson2Contact.replace(/\D/g, '').slice(0, 10) : '',
+                doctors: hospitalDoctors.map(d => ({
+                  ...d,
+                  contactNo: d.contactNo ? d.contactNo.replace(/\D/g, '').slice(0, 10) : ''
+                }))
               });
             }
           };
@@ -2330,34 +2434,52 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
-                      Hospital Pincode <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                        Hospital Pincode <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-semibold">6 digits</span>
+                    </div>
                     <input
                       type="text"
                       pattern="[0-9]{6}"
                       maxLength={6}
                       required
                       value={hospitalForm.pincode}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, pincode: e.target.value.replace(/\D/g, '') }))}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
                       className="input text-xs"
                       placeholder="e.g. 411001"
                     />
+                    {hospitalForm.pincode && hospitalForm.pincode.length < 6 && (
+                      <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+                        {6 - hospitalForm.pincode.length} more {6 - hospitalForm.pincode.length === 1 ? 'digit' : 'digits'} needed (6 digits required)
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
-                      Hospital Contact No <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                        Hospital Contact No <span className="text-red-600 font-black text-sm ml-1" style={{ color: '#dc2626' }}>*</span>
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-semibold">10 digits</span>
+                    </div>
                     <input
                       type="text"
-                      maxLength={15}
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      title="10 digit contact number"
                       required
                       value={hospitalForm.contactNo}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, contactNo: e.target.value.replace(/\D/g, '') }))}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, contactNo: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                       className="input text-xs"
                       placeholder="e.g. 9876543210"
                     />
+                    {hospitalForm.contactNo && hospitalForm.contactNo.length < 10 && (
+                      <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+                        {10 - hospitalForm.contactNo.length} more {10 - hospitalForm.contactNo.length === 1 ? 'digit' : 'digits'} needed (10 digits required)
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
@@ -2383,15 +2505,25 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 1 Contact No</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 1 Contact No</label>
+                      <span className="text-[10px] text-slate-400 font-semibold">10 digits</span>
+                    </div>
                     <input
                       type="text"
-                      maxLength={15}
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      title="10 digit contact number"
                       value={hospitalForm.claimsPerson1Contact}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson1Contact: e.target.value.replace(/\D/g, '') }))}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson1Contact: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                       className="input text-xs"
                       placeholder="e.g. 9876543210"
                     />
+                    {hospitalForm.claimsPerson1Contact && hospitalForm.claimsPerson1Contact.length < 10 && (
+                      <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+                        {10 - hospitalForm.claimsPerson1Contact.length} more {10 - hospitalForm.claimsPerson1Contact.length === 1 ? 'digit' : 'digits'} needed (10 digits required)
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -2406,15 +2538,25 @@ export default function Insurance() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 2 Contact No</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Claims Person 2 Contact No</label>
+                      <span className="text-[10px] text-slate-400 font-semibold">10 digits</span>
+                    </div>
                     <input
                       type="text"
-                      maxLength={15}
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      title="10 digit contact number"
                       value={hospitalForm.claimsPerson2Contact}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson2Contact: e.target.value.replace(/\D/g, '') }))}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, claimsPerson2Contact: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                       className="input text-xs"
                       placeholder="e.g. 9876543211"
                     />
+                    {hospitalForm.claimsPerson2Contact && hospitalForm.claimsPerson2Contact.length < 10 && (
+                      <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">
+                        {10 - hospitalForm.claimsPerson2Contact.length} more {10 - hospitalForm.claimsPerson2Contact.length === 1 ? 'digit' : 'digits'} needed (10 digits required)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -2497,18 +2639,28 @@ export default function Insurance() {
                           </div>
 
                           <div className="flex flex-col gap-0.5">
-                            <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
-                              Contact No <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
-                            </label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center">
+                                Contact No <span className="text-red-600 font-black text-xs ml-1" style={{ color: '#dc2626' }}>*</span>
+                              </label>
+                              <span className="text-[9px] text-slate-400 font-semibold">10 digits</span>
+                            </div>
                             <input
                               type="text"
-                              maxLength={15}
+                              maxLength={10}
+                              pattern="[0-9]{10}"
+                              title="10 digit contact number"
                               required
                               value={doc.contactNo}
-                              onChange={(e) => handleUpdateDoctor(doc.id, 'contactNo', e.target.value.replace(/\D/g, ''))}
+                              onChange={(e) => handleUpdateDoctor(doc.id, 'contactNo', e.target.value.replace(/\D/g, '').slice(0, 10))}
                               className="input text-xs py-1"
                               placeholder="e.g. 9876543210"
                             />
+                            {doc.contactNo && doc.contactNo.length < 10 && (
+                              <span className="text-[9px] text-amber-600 font-semibold block mt-0.5">
+                                {10 - doc.contactNo.length} more {10 - doc.contactNo.length === 1 ? 'digit' : 'digits'} needed (10 digits required)
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex flex-col gap-0.5">

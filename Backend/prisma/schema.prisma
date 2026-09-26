@@ -353,6 +353,7 @@ model Contact {
   leadStage         String?           @map("lead_stage")
   leadStatus        String?           @map("lead_status")
   leadType          String?           @map("lead_type")
+  role              String?           @default("Contact") @map("role")
   isDependent       Boolean?  @default(false)          @map("is_dependent")
   dependentNo       String?   @map("dependent_no")
   isActive          Boolean   @default(true)           @map("is_active")
