@@ -137,6 +137,12 @@ export class CreateContactDto {
   @IsString()
   dateOfBirth?: string;
 
+  @ApiPropertyOptional({ description: 'Birth place of contact' })
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  birthPlace?: string;
+
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
   @Transform(({ value }) => {

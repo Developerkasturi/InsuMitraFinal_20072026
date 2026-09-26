@@ -338,6 +338,7 @@ model Contact {
   phone             String
   alternatePhone    String?   @map("alternate_phone")
   dateOfBirth       DateTime? @map("date_of_birth")
+  birthPlace        String?   @map("birth_place")
   gender            Gender?
   maritalStatus     String?   @map("marital_status")
   education         String?   @map("education")

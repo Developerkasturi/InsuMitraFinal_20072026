@@ -76,6 +76,7 @@ export const contactFormSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
   dateOfBirth: z.string().optional(),
+  birthPlace: z.string().optional(),
   panNumber: z.string().optional(),
   aadhaarNumber: z.string().optional(),
   annualIncome: z.coerce.number().min(0).optional().or(z.literal('')),
@@ -95,7 +96,7 @@ type Form = z.infer<typeof schema>;
 
 interface Contact {
   id: string; firstName: string; lastName: string; phone: string; email?: string;
-  alternatePhone?: string; gender?: string; dateOfBirth?: string;
+  alternatePhone?: string; gender?: string; dateOfBirth?: string; birthPlace?: string;
   panNumber?: string; aadhaarNumber?: string; annualIncome?: number;
   notes?: string; tags?: string[]; isActive: boolean;
 }
@@ -524,6 +525,7 @@ export default function Contacts() {
     gender: '',
     maritalStatus: '',
     dateOfBirth: '',
+    birthPlace: '',
     age: '',
     height: '',
     weight: '',
@@ -1162,6 +1164,7 @@ export default function Contacts() {
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
+      birthPlace: '',
       age: '',
       height: '',
       weight: '',
@@ -1257,6 +1260,7 @@ export default function Contacts() {
       gender: fallbackContact.gender || fallbackContact.contact?.gender || '',
       maritalStatus: fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
       dateOfBirth: fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : (fallbackContact.contact?.dateOfBirth ? fallbackContact.contact.dateOfBirth.split('T')[0] : ''),
+      birthPlace: fallbackContact.birthPlace || fallbackContact.contact?.birthPlace || '',
       age: (fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth) ? String(calculateAge(fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth)) : '',
       height: fallbackContact.height ? String(fallbackContact.height) : '',
       weight: fallbackContact.weight ? String(fallbackContact.weight) : '',
@@ -1309,6 +1313,7 @@ export default function Contacts() {
           gender: contact.gender || fallbackContact.gender || fallbackContact.contact?.gender || '',
           maritalStatus: contact.maritalStatus || fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
           dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : (fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : ''),
+          birthPlace: contact.birthPlace || fallbackContact.birthPlace || fallbackContact.contact?.birthPlace || '',
           age: contact.dateOfBirth ? String(calculateAge(contact.dateOfBirth)) : (fallbackContact.dateOfBirth ? String(calculateAge(fallbackContact.dateOfBirth)) : ''),
           height: contact.height ? String(contact.height) : (fallbackContact.height ? String(fallbackContact.height) : ''),
           weight: contact.weight ? String(contact.weight) : (fallbackContact.weight ? String(fallbackContact.weight) : ''),
@@ -1746,6 +1751,7 @@ export default function Contacts() {
         if (personalFields.gender) updateBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) updateBody.maritalStatus = personalFields.maritalStatus;
         if (personalFields.dateOfBirth?.trim()) updateBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
+        if (personalFields.birthPlace?.trim()) updateBody.birthPlace = personalFields.birthPlace.trim();
         if (personalFields.height) updateBody.height = Number(personalFields.height);
         if (personalFields.weight) updateBody.weight = Number(personalFields.weight);
         if (personalFields.panNumber || personalFields.pan) updateBody.panNumber = personalFields.panNumber || personalFields.pan;
@@ -1806,6 +1812,7 @@ export default function Contacts() {
         if (personalFields.gender) contactBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) contactBody.maritalStatus = personalFields.maritalStatus;
         if (personalFields.dateOfBirth?.trim()) contactBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
+        if (personalFields.birthPlace?.trim()) contactBody.birthPlace = personalFields.birthPlace.trim();
         if (personalFields.height) contactBody.height = Number(personalFields.height);
         if (personalFields.weight) contactBody.weight = Number(personalFields.weight);
         if (personalFields.panNumber || personalFields.pan) contactBody.panNumber = personalFields.panNumber || personalFields.pan;
@@ -2050,6 +2057,7 @@ export default function Contacts() {
       email: isFieldRequired('email', false) ? z.string().email('Invalid email') : z.string().email('Invalid email').optional().or(z.literal('')),
       gender: isFieldRequired('gender', false) ? z.enum(['MALE', 'FEMALE', 'OTHER']).refine(val => !!val, { message: 'Required' }) : z.enum(['MALE', 'FEMALE', 'OTHER', '']).optional(),
       dateOfBirth: isFieldRequired('dateOfBirth', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
+      birthPlace: isFieldRequired('birthPlace', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
       panNumber: isFieldRequired('panNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
       aadhaarNumber: isFieldRequired('aadhaarNumber', false) ? z.string().min(1, 'Required') : z.string().optional().or(z.literal('')),
       annualIncome: isFieldRequired('annualIncome', false) ? z.coerce.number().min(0) : z.coerce.number().min(0).optional().or(z.literal('')),
@@ -2119,6 +2127,7 @@ export default function Contacts() {
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
+      birthPlace: '',
       declaredMedicalHistory: [],
       notDeclaredMedicalHistory: [],
       medicalHistoryDetails: '',
@@ -4183,11 +4192,7 @@ export default function Contacts() {
                               <div className="flex items-center justify-between mb-1">
                                 <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                   Lead Source <span className="text-red-500">*</span>
-                                  {isAdminOrSuperadmin ? (
-                                    <span className="ml-1 text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                      Editable by Admin & Superadmin
-                                    </span>
-                                  ) : isExisting ? (
+                                  {isExisting && !isAdminOrSuperadmin ? (
                                     <span className="ml-1 text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                                       Locked
                                     </span>
@@ -4552,6 +4557,16 @@ export default function Contacts() {
                         <option value="ADMIN/OWNER">ADMIN/OWNER</option>
                         <option value="Business Associate">Business Associate</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Birth Place</label>
+                      <input
+                        type="text"
+                        className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                        placeholder="e.g. Pune, Maharashtra"
+                        value={personalFields.birthPlace || ''}
+                        onChange={e => setPersonalFields(p => ({ ...p, birthPlace: e.target.value }))}
+                      />
                     </div>
                     </div>
                   )}
@@ -5950,6 +5965,15 @@ export default function Contacts() {
                           {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
                         </p>
                       </div>
+
+                      {(personalFields.birthPlace || loadedContact?.birthPlace) && (
+                        <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
+                          <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Birth Place</span>
+                          <p className="font-semibold text-slate-700">
+                            {personalFields.birthPlace || loadedContact?.birthPlace}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {(personalFields.streetAddress || personalFields.city || loadedContact?.address) && (
