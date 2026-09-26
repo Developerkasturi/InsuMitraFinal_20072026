@@ -62,7 +62,7 @@ export class ContactsRepository {
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
     const {
       page = 1, limit = 20,
-      search, sortBy = 'createdAt', sortOrder = 'desc',
+      search, sortBy = 'createdAt', sortOrder = 'asc',
       gender, tags, dobFrom, dobTo, isActive = true, occupationType,
     } = query;
 

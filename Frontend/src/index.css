@@ -21,7 +21,7 @@
   --border:        #e2e8f0;
   --border-light:  #f1f5f9;
   --radius:        1rem;
-  --app-font-size: 0.84375rem;
+  --app-font-size: 0.9375rem;
   --shadow-xs:     0 1px 2px rgba(0,0,0,0.02);
   --shadow-sm:     0 2px 8px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.02);
   --shadow:        0 4px 16px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.02);
@@ -42,13 +42,13 @@
 
   @media (max-width: 639px) {
     html {
-      font-size: 12.8px;
+      font-size: 14px;
     }
   }
 
   @media (min-width: 640px) and (max-width: 1023px) {
     html {
-      font-size: 14.4px;
+      font-size: 15px;
     }
   }
 
@@ -56,7 +56,7 @@
     background: var(--bg-body);
     color: var(--text-main);
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: var(--app-font-size, 0.84375rem);
+    font-size: var(--app-font-size, 0.9375rem);
     letter-spacing: -0.01em;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -93,7 +93,7 @@
 
   .btn-primary {
     @apply inline-flex items-center justify-center gap-1.5
-           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-sm sm:text-[13px] font-semibold
+           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-base sm:text-sm font-semibold
            bg-blue-600 text-white
            hover:bg-blue-700 active:bg-blue-800
            disabled:opacity-50 disabled:cursor-not-allowed
@@ -103,7 +103,7 @@
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-1.5
-           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-sm sm:text-[13px] font-medium
+           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-base sm:text-sm font-medium
            bg-white text-gray-700
            border border-gray-200
            hover:bg-gray-50 hover:border-gray-300
@@ -114,7 +114,7 @@
 
   .btn-danger {
     @apply inline-flex items-center justify-center gap-1.5
-           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-sm sm:text-[13px] font-semibold
+           px-4 py-2 sm:px-3.5 sm:py-[7px] rounded-lg text-base sm:text-sm font-semibold
            bg-red-600 text-white
            hover:bg-red-700 active:bg-red-800
            disabled:opacity-50 disabled:cursor-not-allowed
@@ -124,7 +124,7 @@
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5
-           px-4 py-2 sm:px-3 sm:py-[7px] rounded-lg text-sm sm:text-[13px] font-medium
+           px-4 py-2 sm:px-3 sm:py-[7px] rounded-lg text-base sm:text-sm font-medium
            text-gray-600 hover:bg-gray-100 hover:text-gray-900
            disabled:opacity-50 disabled:cursor-not-allowed
            transition-all duration-150 select-none;
@@ -160,7 +160,7 @@
 
   .input {
     @apply w-full rounded-lg border bg-white px-3.5 py-2.5 sm:px-3 sm:py-[7px]
-           text-sm sm:text-[13px] text-gray-900 placeholder-gray-400
+           text-base sm:text-sm text-gray-900 placeholder-gray-400
            outline-none transition-all duration-150
            disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed;
     border-color: var(--border);
@@ -174,14 +174,14 @@
   }
 
   .label {
-    @apply block text-xs sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-900 mb-1.5;
+    @apply block text-xs sm:text-xs font-extrabold uppercase tracking-wider text-slate-900 mb-1.5;
   }
 
   /* ──────────────────────────── Badges ────────────────────────────────────── */
 
   .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-[11px] font-semibold border tracking-wide;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full
+           text-xs font-semibold border tracking-wide;
   }
   .badge-blue   { @apply badge bg-blue-50   text-blue-700   border-blue-200/80;   }
   .badge-green  { @apply badge bg-emerald-50 text-emerald-700 border-emerald-200/80; }
@@ -201,7 +201,7 @@
     border: 1px solid #e5e7eb;
   }
   .toggle-group button {
-    @apply px-3.5 py-1.5 text-[12px] font-semibold text-gray-500
+    @apply px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-gray-500
            rounded-md transition-all duration-150 whitespace-nowrap;
   }
   .toggle-group button.active {
@@ -216,15 +216,15 @@
   }
 
   .page-title {
-    @apply text-[20px] font-bold text-gray-900 tracking-tight;
+    @apply text-2xl font-bold text-gray-900 tracking-tight;
   }
 
   .page-subtitle {
-    @apply text-[13px] text-slate-600 font-medium mt-0.5;
+    @apply text-sm text-slate-600 font-medium mt-0.5;
   }
 
   .section-label {
-    @apply text-[10px] font-extrabold uppercase tracking-widest text-slate-900 mb-3;
+    @apply text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3;
   }
 
   /* ──────────────────────────── Misc helpers ──────────────────────────────── */
@@ -241,7 +241,7 @@
   }
 
   .form-section-title {
-    @apply text-[11px] font-extrabold uppercase tracking-widest text-slate-900 mb-1;
+    @apply text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-1;
   }
 
   /* ──────────────────────────── Scrollbar ─────────────────────────────────── */
@@ -255,11 +255,11 @@
 
   .modern-table { @apply w-full border-collapse; }
   .modern-table th {
-    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider
            text-gray-400 border-b border-gray-100 bg-gray-50/70;
   }
   .modern-table td {
-    @apply px-4 py-3 text-[13px] text-gray-700 border-b border-gray-50;
+    @apply px-4 py-3 text-sm text-gray-700 border-b border-gray-50;
   }
   .hover-row { @apply transition-colors duration-100 cursor-pointer; }
   .hover-row:hover { @apply bg-blue-50/30; }
@@ -268,7 +268,7 @@
 
   .badge-assign {
     @apply inline-flex items-center px-2 py-0.5 rounded-full
-           text-[11px] font-semibold bg-gray-100 text-gray-500;
+           text-xs font-semibold bg-gray-100 text-gray-500;
   }
 
   /* ──────────────────────────── Stat highlight ────────────────────────────── */

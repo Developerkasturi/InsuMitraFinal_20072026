@@ -887,7 +887,19 @@ export default function Contacts() {
   const [policies, setPolicies] = useState<PolicyPortfolio[]>([]);
 
   // Personal Info Collapsed Sub-Sections State
-  const [personalCollapsed, setPersonalCollapsed] = useState<Record<string, boolean>>({});
+  const INITIAL_PERSONAL_COLLAPSED: Record<string, boolean> = {
+    personalDetails: true,
+    contactDetails: true,
+    educationOccupation: true,
+    addressDetails: true,
+    bankDetails: true,
+    lifestyleHabits: true,
+    healthHistory: true,
+    surgeryDetails: true,
+    prescriptionDetails: true,
+  };
+
+  const [personalCollapsed, setPersonalCollapsed] = useState<Record<string, boolean>>(INITIAL_PERSONAL_COLLAPSED);
   const togglePersonalCollapse = (key: string) =>
     setPersonalCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -935,7 +947,7 @@ export default function Contacts() {
     limit: 20,
     search: search || undefined,
     sortBy: 'createdAt',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
   });
 
   const contactsListArray = useMemo(() => {
@@ -1245,6 +1257,7 @@ export default function Contacts() {
       streetAddress: fallbackContact.notes || fallbackContact.contact?.notes || ''
     });
 
+    setPersonalCollapsed(INITIAL_PERSONAL_COLLAPSED);
     setActiveLeadTab('Personal');
     setLeadModalOpen(true);
 
@@ -2109,6 +2122,7 @@ export default function Contacts() {
     setPolicies([]);
     setSelectedCampaigns([]);
     setEditContactId(null);
+    setPersonalCollapsed(INITIAL_PERSONAL_COLLAPSED);
     setActiveLeadTab('Personal');
     setLeadModalOpen(true);
   };
@@ -2434,7 +2448,7 @@ export default function Contacts() {
               e.stopPropagation();
               openLeadView(r);
             }}
-            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {displayId}
           </button>
@@ -2448,7 +2462,7 @@ export default function Contacts() {
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
             {fullName}
           </span>
         );
@@ -2458,7 +2472,7 @@ export default function Contacts() {
       key: 'phone',
       label: 'PHONE',
       sortable: true,
-      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
+      render: r => <span className="text-slate-700 text-sm font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
     },
     {
       key: 'leadStage',
@@ -2474,7 +2488,7 @@ export default function Contacts() {
         };
         const cls = stageColors[r.leadStage] || 'bg-slate-50 text-slate-500 border-slate-200';
         return (
-          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs')}>
+          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-extrabold uppercase tracking-wider border shadow-2xs')}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
             {r.leadStage || '—'}
           </span>
@@ -2494,7 +2508,7 @@ export default function Contacts() {
         };
         const cls = statusColors[r.leadStatus] || 'bg-slate-50 text-slate-500 border-slate-200';
         return (
-          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase tracking-wider border shadow-2xs')}>
+          <span className={clsx(cls, 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-extrabold uppercase tracking-wider border shadow-2xs')}>
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
             {r.leadStatus || '—'}
           </span>
@@ -2505,7 +2519,7 @@ export default function Contacts() {
       key: 'followUpDate',
       label: 'NEXT FOLLOW-UP',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-sm font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'assignedTo',
@@ -2526,7 +2540,7 @@ export default function Contacts() {
                     e.stopPropagation();
                     handlePickContact(r);
                   }}
-                  className="px-2.5 py-1 text-[11px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg cursor-pointer shadow-xs transition-all hover:scale-105"
+                  className="px-2.5 py-1 text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg cursor-pointer shadow-xs transition-all hover:scale-105"
                   title="Assign this contact to yourself"
                 >
                   Pick Contact
@@ -2535,14 +2549,14 @@ export default function Contacts() {
             </div>
           );
         }
-        return <span className="text-slate-700 text-xs font-bold">{empName}</span>;
+        return <span className="text-slate-700 text-sm font-bold">{empName}</span>;
       }
     },
     {
       key: 'source',
       label: 'SOURCE',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-bold capitalize bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">{r.source || '—'}</span>
+      render: r => <span className="text-slate-600 text-sm font-bold capitalize bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">{r.source || '—'}</span>
     },
     {
       key: 'actions',
@@ -2607,7 +2621,7 @@ export default function Contacts() {
               e.stopPropagation();
               openLeadView(r);
             }}
-            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {displayId}
           </button>
@@ -2621,7 +2635,7 @@ export default function Contacts() {
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
             {fullName}
           </span>
         );
@@ -2631,7 +2645,7 @@ export default function Contacts() {
       key: 'phone',
       label: 'PHONE',
       sortable: true,
-      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
+      render: r => <span className="text-slate-700 text-sm font-bold">{r.phone && !r.phone.startsWith('00') ? r.phone : '—'}</span>
     },
     {
       key: 'product',
@@ -2639,7 +2653,7 @@ export default function Contacts() {
       sortable: true,
       render: r => {
         const policies = policyMap[r.id] ?? [];
-        if (policies.length === 0) return <span className="text-slate-400 text-xs">—</span>;
+        if (policies.length === 0) return <span className="text-slate-400 text-sm">—</span>;
         return (
           <div className="flex gap-1 flex-wrap">
             {policies.map((p: any) => {
@@ -2653,7 +2667,7 @@ export default function Contacts() {
                     e.stopPropagation();
                     setSelectedPolicyModalId(p.id);
                   }}
-                  className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200/60 text-[10px] font-extrabold shadow-2xs transition-all cursor-pointer"
+                  className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200/60 text-xs font-extrabold shadow-2xs transition-all cursor-pointer"
                   title={`Click to view policy details ${p.policyNumber ? `(${p.policyNumber})` : ''}`}
                 >
                   {label}
@@ -2671,16 +2685,16 @@ export default function Contacts() {
       render: r => {
         const policies = policyMap[r.id] ?? [];
         const active = policies.filter((p: any) => p.status === 'ACTIVE');
-        if (active.length === 0) return <span className="text-slate-400 text-xs">—</span>;
+        if (active.length === 0) return <span className="text-slate-400 text-sm">—</span>;
         const due = active.some((p: any) =>
           p.endDate && new Date(p.endDate) <= new Date(Date.now() + 30 * 86400000)
         );
         return due ? (
-          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider shadow-xs shadow-orange-500/20 border border-orange-400">
+          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-xs shadow-orange-500/20 border border-orange-400">
             <Flame size={11} /> Due
           </span>
         ) : (
-          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+          <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 font-extrabold text-xs uppercase tracking-wider shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> OK
           </span>
         );
@@ -2693,7 +2707,7 @@ export default function Contacts() {
       render: r => {
         const policies = policyMap[r.id] ?? [];
         const active = policies.find((p: any) => p.status === 'ACTIVE' && p.assignedEmployeeId);
-        return <span className="text-blue-600 text-xs font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
+        return <span className="text-blue-600 text-sm font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
       }
     },
     {
@@ -2702,19 +2716,19 @@ export default function Contacts() {
       sortable: true,
       render: r => {
         const claims = claimMap[r.id] ?? [];
-        if (claims.length === 0) return <span className="text-slate-400 text-xs">—</span>;
+        if (claims.length === 0) return <span className="text-slate-400 text-sm">—</span>;
         const active = claims.find((c: any) => ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status));
         if (active) {
           const CLAIM_LABELS: Record<string, string> = {
             INTIMATED: 'Intimated', FILED: 'Filed', IN_REVIEW: 'In Review',
           };
           return (
-            <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 font-extrabold text-[10px] uppercase tracking-wider shadow-2xs">
+            <span className="inline-flex flex-wrap items-center gap-1 px-2.5 py-0.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200/60 font-extrabold text-xs uppercase tracking-wider shadow-2xs">
               <Star size={11} className="text-amber-500" /> {CLAIM_LABELS[active.status] ?? active.status}
             </span>
           );
         }
-        return <span className="text-slate-400 text-xs">—</span>;
+        return <span className="text-slate-400 text-sm">—</span>;
       }
     },
     {
@@ -2726,7 +2740,7 @@ export default function Contacts() {
         const active = claims.find((c: any) =>
           ['INTIMATED', 'FILED', 'IN_REVIEW'].includes(c.status) && c.assignedEmployeeId
         );
-        return <span className="text-slate-600 text-xs font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
+        return <span className="text-slate-600 text-sm font-bold">{active ? getEmployeeName(active.assignedEmployeeId) : '—'}</span>;
       }
     },
     {
@@ -2741,7 +2755,7 @@ export default function Contacts() {
           'Term Insurance Promo',
           'Family Health Package'
         ].includes(t)) || [];
-        return <span className="text-slate-600 text-xs font-semibold">{campaigns.join(', ') || '—'}</span>;
+        return <span className="text-slate-600 text-sm font-semibold">{campaigns.join(', ') || '—'}</span>;
       }
     },
     {
@@ -2793,7 +2807,7 @@ export default function Contacts() {
               e.stopPropagation();
               openLeadView(r);
             }}
-            className="px-2 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-xs transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
           >
             {displayId}
           </button>
@@ -2807,7 +2821,7 @@ export default function Contacts() {
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-xs hover:text-blue-600 transition-colors">
+          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
             {fullName}
           </span>
         );
@@ -2817,13 +2831,13 @@ export default function Contacts() {
       key: 'phone',
       label: 'PHONE',
       sortable: true,
-      render: r => <span className="text-slate-700 text-xs font-bold">{r.phone || '—'}</span>
+      render: r => <span className="text-slate-700 text-sm font-bold">{r.phone || '—'}</span>
     },
     {
       key: 'dateOfBirth',
       label: 'DATE OF BIRTH',
       sortable: true,
-      render: r => <span className="text-slate-600 text-xs font-semibold">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MM/yyyy') : '—'}</span>
+      render: r => <span className="text-slate-600 text-sm font-semibold">{r.dateOfBirth ? format(new Date(r.dateOfBirth), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'daysUntil',
@@ -2914,7 +2928,7 @@ export default function Contacts() {
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
 
   return (
-    <div className="space-y-4 font-sans text-slate-800">
+    <div className="space-y-4 font-sans text-slate-800 text-sm sm:text-base">
       {/* Hidden file input for CSV import */}
       <input
         ref={fileInputRef}
@@ -3994,7 +4008,7 @@ export default function Contacts() {
                             {card.interestedIn.includes('Other') && (
                               <div className="bg-slate-100/90 border-2 border-slate-300 rounded-xl p-3 space-y-1.5 animate-fadeIn mt-2.5">
                                 <label className="label text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">
-                                  Specify Other Product Name *
+                                  Specify Other Product Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="text"
@@ -4030,7 +4044,7 @@ export default function Contacts() {
                           {/* Row 1: Stage, Status, Type */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Stage <span className="text-red-500">*</span></label>
                               <select
                                 className="input w-full text-xs"
                                 value={card.leadStage}
@@ -4046,7 +4060,7 @@ export default function Contacts() {
                             </div>
                             <div>
                               <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                                Lead Status *{isExisting ? ' (Editable)' : ''}
+                                Lead Status <span className="text-red-500">*</span>{isExisting ? ' (Editable)' : ''}
                               </label>
                               <select
                                 className="input w-full text-xs"
@@ -4061,7 +4075,7 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Type <span className="text-red-500">*</span></label>
                               <select
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -4080,7 +4094,7 @@ export default function Contacts() {
                             <div className="bg-blue-50/80 border-2 border-blue-200 rounded-xl p-3 space-y-1.5 animate-fadeIn">
                               <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider flex flex-wrap items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                                Dependent Details / Name / Relation *
+                                Dependent Details / Name / Relation <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
@@ -4096,7 +4110,7 @@ export default function Contacts() {
                           {/* Row 2: Source, Assigned Employee, Follow-up Date, Expected Premium */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Lead Source <span className="text-red-500">*</span></label>
                               <input
                                 type="text"
                                 disabled={isExisting}
@@ -4134,7 +4148,7 @@ export default function Contacts() {
                               </select>
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Follow-up Date <span className="text-red-500">*</span></label>
                               <DatePicker
                                 disabled={isExisting}
                                 className={`input w-full text-xs ${isExisting ? 'opacity-75 bg-slate-100 cursor-not-allowed' : ''}`}
@@ -4143,7 +4157,7 @@ export default function Contacts() {
                               />
                             </div>
                             <div>
-                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) *</label>
+                              <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Expected Premium / Budget (₹) <span className="text-red-500">*</span></label>
                               <input
                                 type="number"
                                 disabled={isExisting}
