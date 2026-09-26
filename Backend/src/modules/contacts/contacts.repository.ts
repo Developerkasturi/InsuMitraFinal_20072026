@@ -115,6 +115,7 @@ export class ContactsRepository {
       if (dobTo)   where.dateOfBirth.lte = new Date(dobTo);
     }
     if (occupationType) where.occupations = { some: { type: occupationType } };
+    if (query.role) where.role = query.role;
 
     const [data, total] = await Promise.all([
       this.prisma.contact.findMany({
