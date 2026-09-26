@@ -2884,7 +2884,7 @@ export default function Claims() {
 
   return (
     <>
-    <div className="space-y-4">
+    <div className="space-y-4 text-sm sm:text-base">
       {/* Floating Right Action Panel */}
       <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
       <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">

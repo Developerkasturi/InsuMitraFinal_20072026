@@ -64,7 +64,7 @@ export default function DataTable<T>({
                 <th
                   key={String(col.key)}
                   className={clsx(
-                    'px-3 sm:px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-wider border border-slate-200/80',
+                    'px-3 sm:px-4 py-2.5 text-left text-xs font-black uppercase tracking-wider border border-slate-200/80',
                     'text-slate-500 whitespace-normal sm:whitespace-nowrap min-w-[100px] sm:min-w-0 select-none',
                     col.sortable && 'cursor-pointer hover:text-blue-600 transition-colors duration-150',
                     col.className,
@@ -114,7 +114,7 @@ export default function DataTable<T>({
                       <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-200/60 shadow-2xs">
                         <Inbox size={22} className="text-slate-400" />
                       </div>
-                      <p className="text-xs font-bold text-slate-500">{emptyMessage}</p>
+                      <p className="text-sm font-bold text-slate-500">{emptyMessage}</p>
                     </div>
                   </td>
                 </tr>
@@ -134,7 +134,7 @@ export default function DataTable<T>({
                   {columns.map(col => (
                     <td
                       key={String(col.key)}
-                      className={clsx('px-3 sm:px-4 py-2.5 text-slate-700 align-middle text-xs font-medium border border-slate-200/80', col.className)}
+                      className={clsx('px-3 sm:px-4 py-2.5 text-slate-700 align-middle text-sm font-medium border border-slate-200/80', col.className)}
                     >
                       {col.render ? col.render(row) : String((row as any)[col.key] ?? '')}
                     </td>
@@ -149,7 +149,7 @@ export default function DataTable<T>({
       {/* ── Pagination ────────────────────────────────────────────────── */}
       {total > pageSize && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/50">
-          <p className="text-xs font-medium text-slate-500">
+          <p className="text-sm font-medium text-slate-500">
             Showing{' '}
             <span className="font-extrabold text-slate-800">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span>
             {' '}of{' '}
@@ -177,7 +177,7 @@ export default function DataTable<T>({
                   key={pg}
                   onClick={() => onPageChange?.(pg)}
                   className={clsx(
-                    'min-w-[30px] h-7 px-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer',
+                    'min-w-[30px] h-7 px-2 rounded-lg text-sm font-extrabold transition-all border cursor-pointer',
                     pg === page
                       ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 shadow-2xs',

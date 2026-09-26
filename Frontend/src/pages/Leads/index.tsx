@@ -1378,11 +1378,22 @@ export default function Leads() {
   const leadsFlat = useMemo(() => {
     const rawData = kanbanRes?.data ?? {};
     const flat: any[] = [];
-    Object.keys(rawData).forEach(backendStage => {
-      (rawData[backendStage] || []).forEach((card: any) => {
-        flat.push({ ...card, uiStage: BACKEND_TO_UI[card.stage] || 'New' });
+
+    const processCard = (card: any, defaultBackendStage?: string) => {
+      let st = card.stage || defaultBackendStage || 'TO_CONTACT';
+      if (st === 'OPEN' || st === 'NEW') st = 'TO_CONTACT';
+      const ui = BACKEND_TO_UI[st] || 'To Contact';
+      return { ...card, stage: st, uiStage: ui };
+    };
+
+    if (Array.isArray(rawData)) {
+      rawData.forEach((card: any) => flat.push(processCard(card)));
+    } else if (typeof rawData === 'object' && rawData !== null) {
+      Object.keys(rawData).forEach(backendStage => {
+        const list = Array.isArray(rawData[backendStage]) ? rawData[backendStage] : [];
+        list.forEach((card: any) => flat.push(processCard(card, backendStage)));
       });
-    });
+    }
     return flat;
   }, [kanbanRes]);
 
@@ -1566,7 +1577,9 @@ export default function Leads() {
   // Board columns
   const filteredBoard = useMemo(() => {
     const b: Record<string, any[]> = {};
-    UI_STAGES.forEach(s => { b[s] = filteredLeads.filter(l => l.uiStage === s); });
+    UI_STAGES.forEach(s => {
+      b[s] = filteredLeads.filter(l => l.uiStage === s || (s === 'To Contact' && (!l.uiStage || !UI_STAGES.includes(l.uiStage))));
+    });
     return b;
   }, [filteredLeads]);
 
@@ -3255,7 +3268,7 @@ export default function Leads() {
               >
                 <div className="flex items-center justify-between mb-2 px-1.5 py-1 select-none">
                   <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                    <span className={clsx('h-2 w-2 rounded-full shrink-0',
+                    <span className={clsx('h-2.5 w-2.5 rounded-full shrink-0',
                       stage === 'New' && 'bg-blue-500',
                       stage === 'Contacted' && 'bg-indigo-500',
                       stage === 'Proposal Sent' && 'bg-purple-500',
@@ -3264,19 +3277,19 @@ export default function Leads() {
                       stage === 'Payment Done' && 'bg-emerald-500',
                       stage === 'Lost' && 'bg-rose-500'
                     )} />
-                    <span className="text-xs font-bold text-slate-800 truncate">{stage}</span>
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 border border-slate-200/50 px-1 py-0.5 rounded-md shrink-0">{cards.length}</span>
+                    <span className="text-sm sm:text-base font-extrabold text-slate-800 truncate">{stage}</span>
+                    <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/50 px-1.5 py-0.5 rounded-md shrink-0">{cards.length}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[9px] text-slate-400 font-bold shrink-0">
+                    <span className="text-xs text-slate-500 font-bold shrink-0">
                       ₹{totalBudget >= 100000 ? `${(totalBudget / 100000).toFixed(1)}L` : `${(totalBudget / 1000).toFixed(1)}K`}
                     </span>
                     <button
                       onClick={() => openCreate(backendStage)}
-                      className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors cursor-pointer"
                       title={`Add lead in ${stage}`}
                     >
-                      <Plus size={11} />
+                      <Plus size={13} />
                     </button>
                   </div>
                 </div>
@@ -6047,18 +6060,18 @@ function KanbanCard({ card, onEdit, onDelete, onOpen, onCall, onWhatsApp }: {
                 <button
                   type="button"
                   onClick={() => onCall(card.contact?.phone)}
-                  className="p-1 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 cursor-pointer transition-colors"
+                  className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-600 cursor-pointer transition-colors"
                   title="Call"
                 >
-                  <Phone size={11} />
+                  <Phone size={13} />
                 </button>
                 <button
                   type="button"
                   onClick={() => onWhatsApp(card.contact?.phone)}
-                  className="p-1 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 text-green-600 cursor-pointer transition-colors"
+                  className="p-1.5 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 text-green-600 cursor-pointer transition-colors"
                   title="WhatsApp"
                 >
-                  <MessageCircle size={11} />
+                  <MessageCircle size={13} />
                 </button>
               </div>
             </div>
@@ -6206,20 +6219,49 @@ function LeadsTable({
     },
     {
       key: 'stage', label: 'Stage',
-      render: (r: any) => (
-        <span className={clsx('inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold border uppercase tracking-wider', BADGE_STYLES[r.stage])}>
-          {STAGE_LABELS[r.stage]}
-        </span>
-      ),
+      render: (r: any) => {
+        const stKey = r.stage || 'TO_CONTACT';
+        const label = STAGE_LABELS[stKey] || r.uiStage || stKey;
+        const badgeStyle = BADGE_STYLES[stKey] || BADGE_STYLES['TO_CONTACT'];
+        return (
+          <span className={clsx('inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-bold border uppercase tracking-wider', badgeStyle)}>
+            {label}
+          </span>
+        );
+      },
     },
     {
       key: 'actions', label: '',
       render: (r: any) => (
         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-          <button title="Call" className="p-1 rounded hover:bg-gray-100 text-gray-500 cursor-pointer" onClick={() => onCall(r.contact?.phone)}><Phone size={13} /></button>
-          <button title="WhatsApp" className="p-1 rounded hover:bg-green-50 text-green-500 cursor-pointer" onClick={() => onWhatsApp(r.contact?.phone)}><MessageCircle size={13} /></button>
-          <button title="Edit" className="p-1.5 rounded hover:bg-gray-100 text-gray-500 cursor-pointer" onClick={() => onEdit(r)}><Pencil size={13} /></button>
-          <button title="Delete" className="p-1.5 rounded hover:bg-red-50 text-red-400 cursor-pointer" onClick={() => onDelete(r)}><Trash2 size={13} /></button>
+          <button
+            onClick={() => onWhatsApp(r.contact?.phone)}
+            className="p-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-emerald-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            title="WhatsApp"
+          >
+            <MessageCircle size={14} />
+          </button>
+          <button
+            onClick={() => onCall(r.contact?.phone)}
+            className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-blue-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            title="Call"
+          >
+            <Phone size={14} />
+          </button>
+          <button
+            onClick={() => onEdit(r)}
+            className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-purple-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            title="Edit Lead"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            onClick={() => onDelete(r)}
+            className="p-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold flex items-center justify-center cursor-pointer shadow-md shadow-rose-500/20 hover:shadow-lg hover:scale-105 transition-all"
+            title="Delete Lead"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       ),
     },
@@ -6452,7 +6494,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-sm sm:text-base">
       {/* Header */}
       <div className="flex items-start justify-between bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl p-4 border border-slate-100">
         <div className="flex flex-wrap items-center gap-3">

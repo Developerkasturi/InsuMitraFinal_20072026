@@ -1373,7 +1373,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-sm sm:text-base">
       {/* ── Tab Switcher & Action Bar ────────────────────────────────────────── */}
       <div className="flex items-center justify-between border-b border-gray-200">
         <div className="flex items-center">

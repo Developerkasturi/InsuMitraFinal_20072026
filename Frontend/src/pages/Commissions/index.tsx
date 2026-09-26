@@ -412,7 +412,7 @@ export default function Commissions() {
   const isAllSelected = sortedFiltered.length > 0 && selectedIds.length === sortedFiltered.length;
 
   return (
-    <div className="space-y-5 pb-10 text-slate-800 font-sans text-xs">
+    <div className="space-y-5 pb-10 text-slate-800 font-sans text-sm sm:text-base">
       
       {/* Floating Right Action Panel (Matches Add Contact panel and position) */}
       <div className="fixed right-5 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
