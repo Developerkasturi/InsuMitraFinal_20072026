@@ -251,6 +251,18 @@
   .custom-scrollbar::-webkit-scrollbar-thumb  { background: #d1d5db; border-radius: 10px; }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
+  /* Hide scrollbar for Chrome, Safari, Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* ──────────────────────────── Tables (legacy) ───────────────────────────── */
 
   .modern-table { @apply w-full border-collapse; }

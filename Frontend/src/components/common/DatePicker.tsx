@@ -29,8 +29,20 @@ const MONTHS: Record<string, number> = {
 /** ISO yyyy-MM-dd → display DD/MM/YYYY (e.g. 31/07/2026) */
 function toDisplay(iso: any): string {
   if (!iso) return '';
-  const strVal = typeof iso === 'string' ? iso : (iso?.target?.value || String(iso));
+  const strVal = (typeof iso === 'string' ? iso : (iso?.target?.value || String(iso))).trim();
   if (!strVal || strVal === '[object Object]') return '';
+
+  // If already DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(strVal)) {
+    return strVal;
+  }
+
+  // If ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(strVal)) {
+    const [y, m, d] = strVal.slice(0, 10).split('-');
+    return `${d}/${m}/${y}`;
+  }
+
   try {
     const d = new Date(strVal);
     if (!isNaN(d.getTime())) return format(d, 'dd/MM/yyyy');
@@ -126,8 +138,10 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     // Sync when value prop changes externally
     useEffect(() => {
       if (!isTyping) {
-        setIsoValue(value || '');
-        setTypedText(toDisplay(value || ''));
+        const display = toDisplay(value || '');
+        setTypedText(display);
+        const iso = parseDateString(display) || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '');
+        setIsoValue(iso);
       }
     }, [value, isTyping]);
 
@@ -155,7 +169,17 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
     const fireChange = (iso: string) => {
       if (onDateChange) onDateChange(iso);
       if (onChange) {
-        const fakeEvent = { target: { value: iso }, toString: () => iso, valueOf: () => iso } as any;
+        const fakeEvent = {
+          target: { value: iso, name: (props as any).name || '' },
+          currentTarget: { value: iso, name: (props as any).name || '' },
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          toString: () => iso,
+          valueOf: () => iso,
+        } as any;
+        try {
+          fakeEvent[Symbol.toPrimitive] = () => iso;
+        } catch {}
         (onChange as any)(iso, fakeEvent);
       }
     };
@@ -264,15 +288,17 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
         if (nativeInputRef.current && typeof nativeInputRef.current.showPicker === 'function') {
           nativeInputRef.current.showPicker();
         } else {
-          nativeInputRef.current?.click();
+          nativeInputRef.current?.focus();
         }
       } catch {
-        nativeInputRef.current?.click();
+        try {
+          nativeInputRef.current?.focus();
+        } catch {}
       }
     };
 
     return (
-      <div className="relative w-full min-w-[130px]">
+      <div className="relative w-full min-w-[130px] flex items-center group">
         {/* Editable visible input */}
         <input
           type="text"
@@ -284,34 +310,41 @@ export const DatePicker = forwardRef<HTMLInputElement, DatePickerProps>(
           onKeyDown={handleKeyDown}
           onBlur={handleTextBlur}
           onFocus={() => setIsTyping(true)}
-          className={`${className} cursor-text pl-2.5 pr-7 text-gray-900 text-xs min-w-[130px]`}
+          className={`${className} cursor-text pl-2.5 pr-8 text-gray-900 text-xs min-w-[130px]`}
           maxLength={10}
           autoComplete="off"
         />
 
-        {/* Calendar icon button */}
-        <button
-          type="button"
-          tabIndex={-1}
-          disabled={disabled}
+        {/* Calendar icon wrapper with direct native picker overlay */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-pointer"
+          title="Click to open calendar"
           onClick={handleCalendarClick}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-0.5"
-          aria-label="Open date picker"
         >
-          <Calendar size={14} />
-        </button>
-
-        {/* Hidden native date input for calendar popup */}
-        <input
-          type="date"
-          ref={setRef}
-          value={isoValue}
-          onChange={handleNativeDateChange}
-          disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
-          tabIndex={-1}
-          {...props}
-        />
+          <Calendar size={14} className="text-gray-400 group-hover:text-blue-600 transition-colors pointer-events-none" />
+          <input
+            type="date"
+            ref={setRef}
+            value={isoValue}
+            onChange={handleNativeDateChange}
+            disabled={disabled}
+            tabIndex={-1}
+            aria-label="Pick date"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            onClick={(e) => {
+              if (disabled) {
+                e.preventDefault();
+                return;
+              }
+              try {
+                if (typeof (e.currentTarget as any).showPicker === 'function') {
+                  (e.currentTarget as any).showPicker();
+                }
+              } catch {}
+            }}
+            {...props}
+          />
+        </div>
       </div>
     );
   }

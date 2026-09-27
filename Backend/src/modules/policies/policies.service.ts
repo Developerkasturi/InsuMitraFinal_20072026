@@ -177,7 +177,7 @@ export class PoliciesService {
       where,
       include: { company: { select: { name: true, shortCode: true } } },
       orderBy: { name: 'asc' },
-      take: 50,
+      take: 200,
     });
     return { data: plans };
   }

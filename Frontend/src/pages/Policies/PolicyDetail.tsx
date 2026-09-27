@@ -422,7 +422,9 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
                     <FileText size={14} className="text-gray-400 shrink-0"/>
                     <div className="min-w-0">
                       <p className="text-sm text-gray-900 truncate">{doc.fileName ?? doc.originalName ?? 'Document'}</p>
-                      <p className="text-xs text-gray-400">{doc.tag} · {doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}</p>
+                      <p className="text-xs text-gray-400">
+                        {doc.tag === 'POLICY_DOCUMENT_ENDORSEMENT' ? 'Policy Document - Endorsement' : doc.tag === 'POLICY' || doc.tag === 'POLICY_DOCUMENT' ? 'Policy Document' : doc.tag} · {doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1 shrink-0">
@@ -578,6 +580,7 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
             <label className="label">Document Tag</label>
             <select className="input" value={uploadTag} onChange={e => setUploadTag(e.target.value)}>
               <option value="POLICY">Policy Document</option>
+              <option value="POLICY_DOCUMENT_ENDORSEMENT">Policy Document - Endorsement</option>
               <option value="PREMIUM_RECEIPT">Premium Receipt</option>
               <option value="CLAIM">Claim Document</option>
               <option value="ID_PROOF">ID Proof</option>
