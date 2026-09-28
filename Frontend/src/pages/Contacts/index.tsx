@@ -271,7 +271,6 @@ export default function Contacts() {
     phone: true,
     leadStage: true,
     leadStatus: true,
-    followUpDate: true,
     assignedTo: true,
     source: true,
     actions: true,
@@ -2590,12 +2589,6 @@ export default function Contacts() {
           </span>
         );
       }
-    },
-    {
-      key: 'followUpDate',
-      label: 'NEXT FOLLOW-UP',
-      sortable: true,
-      render: r => <span className="text-slate-600 text-sm font-semibold">{r.followUpDate ? format(new Date(r.followUpDate), 'dd/MM/yyyy') : '—'}</span>
     },
     {
       key: 'assignedTo',

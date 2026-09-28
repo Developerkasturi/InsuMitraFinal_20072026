@@ -37,7 +37,6 @@ export const TABLE_COLUMNS_CONFIG = [
       "Name",
       "Lead Stage",
       "Lead Status",
-      "Next Follow-Up",
       "Assigned Employee",
       "Source",
       "Actions",
