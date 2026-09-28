@@ -757,6 +757,7 @@ export default function Leads() {
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
         dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        birthPlace: contact.birthPlace || '',
         email: contact.email || '',
         aadhaarNumber: contact.aadhaarNumber || '',
         panNumber: contact.panNumber || contact.pan || '',
@@ -1123,6 +1124,7 @@ export default function Leads() {
     gender: '',
     maritalStatus: '',
     dateOfBirth: '',
+    birthPlace: '',
     age: '',
     height: '',
     weight: '',
@@ -1980,6 +1982,7 @@ export default function Leads() {
             gender: personalFields.gender || undefined,
             maritalStatus: personalFields.maritalStatus || undefined,
             dateOfBirth: personalFields.dateOfBirth?.trim() ? new Date(personalFields.dateOfBirth).toISOString() : undefined,
+            birthPlace: personalFields.birthPlace?.trim() || undefined,
             aadhaarNumber: personalFields.aadhaarNumber || undefined,
             education: personalFields.education || undefined,
             annualIncome: personalFields.annualIncome ? Number(personalFields.annualIncome) : undefined,
@@ -2159,6 +2162,7 @@ export default function Leads() {
       gender: '',
       maritalStatus: '',
       dateOfBirth: '',
+      birthPlace: '',
       email: '',
       aadhaarNumber: '',
       whatsappNumber: '',
@@ -2251,6 +2255,7 @@ export default function Leads() {
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
         dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+        birthPlace: contact.birthPlace || '',
         email: contact.email || '',
         aadhaarNumber: contact.aadhaarNumber || '',
         whatsappNumber: contact.phone || '',
@@ -2492,6 +2497,7 @@ export default function Leads() {
           gender: contact.gender || '',
           maritalStatus: contact.maritalStatus || '',
           dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
+          birthPlace: contact.birthPlace || '',
           email: contact.email || '',
           height: "",
           weight: "",
@@ -3397,6 +3403,7 @@ export default function Leads() {
                       gender: '',
                       maritalStatus: '',
                       dateOfBirth: '',
+                      birthPlace: '',
                       email: '',
                       aadhaarNumber: '',
                       whatsappNumber: '',
@@ -3462,6 +3469,7 @@ export default function Leads() {
                         gender: '',
                         maritalStatus: '',
                         dateOfBirth: '',
+                        birthPlace: '',
                         email: '',
                         aadhaarNumber: '',
                         whatsappNumber: '',
@@ -3758,11 +3766,7 @@ export default function Leads() {
                               <div className="flex items-center justify-between mb-1">
                                 <label className="label text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                   Lead Source <span className="text-red-500">*</span>
-                                  {isAdminOrSuperadmin ? (
-                                    <span className="ml-1 text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                      Editable by Admin & Superadmin
-                                    </span>
-                                  ) : isExisting ? (
+                                  {isExisting && !isAdminOrSuperadmin ? (
                                     <span className="ml-1 text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                                       Locked
                                     </span>
@@ -4131,6 +4135,16 @@ export default function Leads() {
                           <option value="ADMIN/OWNER">ADMIN/OWNER</option>
                           <option value="Business Associate">Business Associate</option>
                         </select>
+                      </div>
+                      <div>
+                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">Birth Place</label>
+                        <input
+                          type="text"
+                          className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
+                          placeholder="e.g. Pune, Maharashtra"
+                          value={personalFields.birthPlace || ''}
+                          onChange={e => setPersonalFields(p => ({ ...p, birthPlace: e.target.value }))}
+                        />
                       </div>
                     </div>
                   </div>
@@ -6763,11 +6777,7 @@ function LeadDetailPopup({ lead, tab, onTabChange, employees, isOwner, onEdit, o
                     <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
                       Lead Source <span className="text-red-500">*</span>
                     </label>
-                    {isAdminOrSuperadmin ? (
-                      <span className="text-[8.5px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                        Editable by Admin & Superadmin
-                      </span>
-                    ) : (
+                    {!isAdminOrSuperadmin && (
                       <span className="text-[8.5px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                         Locked
                       </span>
