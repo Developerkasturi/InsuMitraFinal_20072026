@@ -6,9 +6,46 @@ import {
   FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List, Eye
 } from 'lucide-react';
 import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from '@hooks/useClaims';
+import { usePolicies } from '@hooks/usePolicies';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, claimsService, documentsService } from '@api/index';
 import DataTable, { Column } from '@comps/common/DataTable';
+
+export function getPolicyYearString(p: any): string {
+  if (!p) return '';
+
+  const parseYear = (val: any): number | null => {
+    if (!val) return null;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.getFullYear();
+    const strMatch = String(val).match(/(\d{4})/);
+    return strMatch ? parseInt(strMatch[1], 10) : null;
+  };
+
+  const startYear = parseYear(p.startDate) || parseYear(p.firstPremiumDate) || parseYear(p.createdAt);
+  const endYear = parseYear(p.endDate) || parseYear(p.maturityDate) || parseYear(p.lastPremiumDate);
+
+  if (startYear) {
+    if (endYear && endYear > startYear) {
+      return `${startYear}-${String(endYear).slice(-2)}`;
+    }
+    return `${startYear}-${String(startYear + 1).slice(-2)}`;
+  }
+
+  if (typeof p.notes === 'string') {
+    const spanMatch = p.notes.match(/(\d{4})[–\-](\d{2,4})/);
+    if (spanMatch) {
+      return `${spanMatch[1]}-${spanMatch[2].slice(-2)}`;
+    }
+    const singleYearMatch = p.notes.match(/\b(20\d{2})\b/);
+    if (singleYearMatch) {
+      const y = parseInt(singleYearMatch[1], 10);
+      return `${y}-${String(y + 1).slice(-2)}`;
+    }
+  }
+
+  return '';
+}
 
 import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
@@ -468,7 +505,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [dateOfOccurance, setDateOfOccurance] = useState(formatDateForInput(notesData.dateOfOccurance || (initial as any).dateOfOccurance));
   const [dateOfDeath, setDateOfDeath] = useState(formatDateForInput(notesData.dateOfDeath || (initial as any).dateOfDeath));
   const [wasInComa, setWasInComa] = useState(notesData.wasInComa || '');
-  const [deathSumInsured, setDeathSumInsured] = useState(notesData.deathSumInsured || '');
+  const [deathSumInsured, setDeathSumInsured] = useState(
+    notesData.deathSumInsured ||
+    String((initial as any).policy?.sumInsured || (initial as any).policy?.sumAssured || (initial as any).policy?.plan?.sumInsured || '')
+  );
   const [deathTotalClaimedAmount, setDeathTotalClaimedAmount] = useState(notesData.deathTotalClaimedAmount || '');
   const [deathComment, setDeathComment] = useState(notesData.deathComment || '');
 
@@ -1201,7 +1241,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100">
-                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Claims Department Contact</h5>
+                  <h5 className="text-[11px] font-bold text-slate-700 mb-2">Enquiry Call / Claims Department Contact</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                       <label className="label text-[10px]">Person 1 Name</label>
@@ -2533,8 +2573,9 @@ export default function Claims() {
         return { data: [] };
       }
     },
-    enabled: !!selectedContact,
   });
+
+  const { data: allTenantPoliciesRes } = usePolicies({ limit: 1000 });
 
   const { data: compulsoryRulesRes } = useQuery({
     queryKey: ['compulsory-rules'],
@@ -2548,27 +2589,60 @@ export default function Claims() {
   };
 
   const activeContactPolicies = useMemo(() => {
+    if (!selectedContact?.id) return [];
+
+    const contactId = selectedContact.id;
+    const contactCode = (selectedContact as any)?.contactId;
+    const rawPhone = selectedContact.phone ? String(selectedContact.phone).replace(/\D/g, '') : '';
+
+    const matchesContact = (p: any): boolean => {
+      if (!p) return false;
+      const pContactId = p.contactId || p.contact?.id;
+      if (pContactId && (pContactId === contactId || (contactCode && pContactId === contactCode))) {
+        return true;
+      }
+      if (rawPhone && p.contact?.phone) {
+        const pPhone = String(p.contact.phone).replace(/\D/g, '');
+        if (pPhone && (pPhone === rawPhone || pPhone.endsWith(rawPhone) || rawPhone.endsWith(pPhone))) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // 1. From preloaded tenant policies (instant match)
+    const allList = allTenantPoliciesRes?.data?.items ?? 
+                    (Array.isArray(allTenantPoliciesRes?.data) ? allTenantPoliciesRes?.data : null) ?? 
+                    (Array.isArray(allTenantPoliciesRes) ? allTenantPoliciesRes : null) ?? [];
+    const fromAll = allList.filter(matchesContact);
+
+    // 2. Direct contact policies query
     const directList = directContactPoliciesRes?.data?.items ?? 
                        (Array.isArray(directContactPoliciesRes?.data) ? directContactPoliciesRes?.data : null) ?? 
                        (Array.isArray(directContactPoliciesRes) ? directContactPoliciesRes : null) ?? [];
-    
+
+    // 3. Contact detail nested policies
     const detailList = (Array.isArray(contactDetail?.data?.policies) ? contactDetail?.data?.policies : null) ?? 
                        (Array.isArray(contactDetail?.policies) ? contactDetail?.policies : null) ?? [];
-    
+
+    // 4. Directly on selectedContact
     const selectedList = (Array.isArray((selectedContact as any)?.policies) ? (selectedContact as any)?.policies : null) ?? [];
 
     const map = new Map<string, any>();
-    [...directList, ...detailList, ...selectedList].forEach((p: any) => {
+    [...fromAll, ...directList, ...detailList, ...selectedList].forEach((p: any) => {
       if (p && (p.id || p.policyNumber || p.policyNo)) {
-        const key = String(p.id || p.policyNumber || p.policyNo);
-        if (!map.has(key)) {
-          map.set(key, p);
+        const belongs = matchesContact(p) || !p.contactId;
+        if (belongs) {
+          const key = String(p.id || p.policyNumber || p.policyNo);
+          if (!map.has(key)) {
+            map.set(key, p);
+          }
         }
       }
     });
 
     return Array.from(map.values());
-  }, [contactDetail, directContactPoliciesRes, selectedContact]);
+  }, [allTenantPoliciesRes, contactDetail, directContactPoliciesRes, selectedContact]);
   const activeSchema = claimFormSchema;
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
@@ -2586,7 +2660,11 @@ export default function Claims() {
       setValue('insuranceProductName', p.plan?.name || p.productName || '');
       setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : (p.agentName || ''));
       setValue('deathSumInsured', String(p.sumInsured || p.sumAssured || p.plan?.sumInsured || ''));
-      setNewNominees(extractNomineesFromPolicy(p));
+      const fetchedNoms = extractNomineesFromPolicy(p);
+      setNewNominees(fetchedNoms);
+      if (fetchedNoms.length > 0) {
+        setCollapsedSections(prev => ({ ...prev, newNominee: false }));
+      }
     }
   }, [selectedContact, activeContactPolicies, selectedPolicy, setValue]);
 
@@ -2825,7 +2903,7 @@ export default function Claims() {
       render: r => (
         <div className="flex flex-col">
           <span className="font-bold text-gray-900">{r.contact ? `${r.contact.firstName} ${r.contact.lastName}` : '—'}</span>
-          <span className="text-xs text-gray-500">Policy: {r.policy?.policyNumber ?? '—'}</span>
+          <span className="text-xs text-gray-500">Policy: {r.policy?.policyNumber ? `${r.policy.policyNumber}${getPolicyYearString(r.policy) ? ` (${getPolicyYearString(r.policy)})` : ''}` : '—'}</span>
         </div>
       )
     },
@@ -4262,6 +4340,8 @@ export default function Claims() {
                               onMouseDown={() => {
                                 setSelectedContact(c);
                                 setValue('contactId', c.id, { shouldValidate: true });
+                                setSelectedPolicy(null);
+                                setValue('policyId', '');
                                 setContactDropdown(false);
                                 setContactSearch('');
                               }}
@@ -4288,12 +4368,22 @@ export default function Claims() {
                       <CustomSelect
                         className="input w-full bg-white mt-1 text-xs h-10 rounded-xl border border-slate-200"
                         value={selectedPolicy?.id || watch('policyId') || ''}
-                        placeholder={selectedContact ? (activeContactPolicies.length === 0 ? 'No policies found for this customer' : 'Select Policy Number') : 'Select Customer / Policy Number'}
+                        placeholder={selectedContact ? (activeContactPolicies.length === 0 ? 'No policies found for this customer' : 'Select Policy Number (e.g. 2023-24)') : 'Select Customer First'}
                         disabled={!selectedContact || activeContactPolicies.length === 0}
-                        options={activeContactPolicies.map((p: any) => ({
-                          value: p.id,
-                          label: p.policyNumber || p.policyNo || 'Policy #' + p.id?.slice(-6),
-                        }))}
+                        options={activeContactPolicies.map((p: any) => {
+                          const polNo = p.policyNumber || p.policyNo || 'Policy #' + p.id?.slice(-6);
+                          const yr = getPolicyYearString(p);
+                          const label = yr ? `${polNo} (${yr})` : polNo;
+                          const compName = p.plan?.company?.name || p.companyName || '';
+                          const plName = p.plan?.name || p.productName || '';
+                          const sublabel = [compName, plName].filter(Boolean).join(' · ');
+                          return {
+                            value: p.id,
+                            label,
+                            sublabel: sublabel || undefined,
+                            badge: p.status || p.displayStatus || undefined,
+                          };
+                        })}
                         onChange={(pId) => {
                           const p = activeContactPolicies.find((pol: any) => pol.id === pId);
                           if (p) {
@@ -4304,7 +4394,11 @@ export default function Claims() {
                             setValue('insuranceProductName', p.plan?.name || p.productName || '');
                             setValue('agentName', p.agent?.firstName ? `${p.agent.firstName} ${p.agent.lastName}` : (p.agentName || ''));
                             setValue('deathSumInsured', String(p.sumInsured || p.sumAssured || p.plan?.sumInsured || ''));
-                            setNewNominees(extractNomineesFromPolicy(p));
+                            const fetchedNoms = extractNomineesFromPolicy(p);
+                            setNewNominees(fetchedNoms);
+                            if (fetchedNoms.length > 0) {
+                              setCollapsedSections(prev => ({ ...prev, newNominee: false }));
+                            }
                           } else {
                             setSelectedPolicy(null);
                             setValue('policyId', '');
@@ -4365,6 +4459,19 @@ export default function Claims() {
                     <div>
                       <label className="label text-slate-700 font-bold">Agent Name</label>
                       <input {...register('agentName')} placeholder="Agent Name..." className="input mt-1 bg-white text-slate-800" />
+                    </div>
+                    <div>
+                      <label className="label text-slate-700 font-bold flex items-center gap-1.5">
+                        Sum Insured
+                        {watch('deathSumInsured') && (
+                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full">Auto-fetched</span>
+                        )}
+                      </label>
+                      <input
+                        {...register('deathSumInsured')}
+                        placeholder="Auto-fetched from policy"
+                        className="input mt-1 bg-white text-slate-800"
+                      />
                     </div>
                     <div>
                       <label className="label">Assigned Employee</label>
@@ -4573,6 +4680,11 @@ export default function Claims() {
                     <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center shadow-2xs">4</span>
                       Nominee Details
+                      {newNominees.length > 0 && (
+                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full normal-case">
+                          {newNominees.length} Auto-fetched from policy
+                        </span>
+                      )}
                     </h4>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-slate-400 font-semibold">Multiple allowed</span>
@@ -4580,42 +4692,54 @@ export default function Claims() {
                     </div>
                   </div>
                   {!collapsedSections['newNominee'] && (
-                    <div className="p-4 space-y-4">
+                    <div className="p-4 space-y-3">
+                      {newNominees.length === 0 && (
+                        <p className="text-xs text-slate-400 italic text-center py-2">No nominees yet. Select a policy to auto-fetch, or add manually below.</p>
+                      )}
                       {newNominees.map((nom, index) => (
-                        <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
-                          <div>
-                            <label className="label text-[10px]">Nominee Name</label>
-                            <input value={nom.name} onChange={e => handleNewNomineeChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
+                        <div key={index} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 space-y-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nominee #{index + 1}</span>
+                            <div className="flex items-center gap-2">
+                              {nom.name && <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full">Auto-fetched</span>}
+                              <button type="button" onClick={() => removeNewNominee(index)} className="bg-red-50 text-red-500 hover:bg-red-100 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors">Remove</button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                            <div>
+                              <label className="label text-[10px]">Nominee Name</label>
+                              <input value={nom.name} onChange={e => handleNewNomineeChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs bg-white" placeholder="Full Name" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Relationship</label>
+                              <input value={nom.relationship} onChange={e => handleNewNomineeChange(index, 'relationship', e.target.value)} className="input mt-1 py-1 text-xs bg-white" placeholder="e.g. Spouse" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Contact No.</label>
+                              <input
+                                value={nom.phone}
+                                maxLength={10}
+                                placeholder="10 digits"
+                                onChange={e => handleNewNomineeChange(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                className="input mt-1 py-1 text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Date of Birth</label>
+                              <input type="date" value={nom.dob} onChange={e => handleNewNomineeChange(index, 'dob', e.target.value)} className="input mt-1 py-1 text-xs bg-white" />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Share (%)</label>
+                              <input type="number" value={nom.percentage} onChange={e => handleNewNomineeChange(index, 'percentage', e.target.value)} className="input mt-1 py-1 text-xs bg-white" placeholder="100" />
+                            </div>
                           </div>
                           <div>
-                            <label className="label text-[10px]">Relationship</label>
-                            <input value={nom.relationship} onChange={e => handleNewNomineeChange(index, 'relationship', e.target.value)} className="input mt-1 py-1 text-xs" />
-                          </div>
-                          <div>
-                            <label className="label text-[10px]">Contact No.</label>
-                            <input 
-                              value={nom.phone} 
-                              maxLength={10}
-                              placeholder="10 digits"
-                              onChange={e => handleNewNomineeChange(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-                              className="input mt-1 py-1 text-xs" 
-                            />
-                          </div>
-                          <div>
-                            <label className="label text-[10px]">DoB</label>
-                            <input type="date" value={nom.dob} onChange={e => handleNewNomineeChange(index, 'dob', e.target.value)} className="input mt-1 py-1 text-xs" />
-                          </div>
-                          <div>
-                            <label className="label text-[10px]">Percentage (%)</label>
-                            <input type="number" value={nom.percentage} onChange={e => handleNewNomineeChange(index, 'percentage', e.target.value)} className="input mt-1 py-1 text-xs" />
-                          </div>
-                          <div className="flex gap-2">
-                            <input value={nom.comment} onChange={e => handleNewNomineeChange(index, 'comment', e.target.value)} placeholder="Comment" className="input mt-1 py-1 text-xs flex-1" />
-                            <button type="button" onClick={() => removeNewNominee(index)} className="mt-1 bg-red-50 text-red-500 hover:bg-red-100 px-2 rounded-lg text-xs font-bold transition-colors">X</button>
+                            <label className="label text-[10px]">Comment (optional)</label>
+                            <input value={nom.comment} onChange={e => handleNewNomineeChange(index, 'comment', e.target.value)} placeholder="Any remarks..." className="input mt-1 py-1 text-xs bg-white w-full" />
                           </div>
                         </div>
                       ))}
-                      <button type="button" onClick={addNewNomineeRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                      <button type="button" onClick={addNewNomineeRow} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100">
                         + Add Nominee
                       </button>
                     </div>
@@ -4661,11 +4785,14 @@ export default function Claims() {
                             placeholder="e.g. Pune"
                           />
                         </div>
-                        <div>
+                        <div className="sm:col-span-2">
                           <label className="label text-[10px]">Hospital Name</label>
-                          <select 
-                            className="input mt-1 py-1 text-xs" 
+                          <input
+                            type="text"
+                            className="input mt-1 py-1 text-xs font-medium"
                             {...register('hospitalName')}
+                            list="hospital-name-suggestions"
+                            placeholder="Type hospital name..."
                             onChange={(e) => {
                               const val = e.target.value;
                               setValue('hospitalName', val);
@@ -4683,7 +4810,6 @@ export default function Claims() {
                                 setValue('claimsPerson2Name', hosp.claimsPerson2Name || '');
                                 setValue('claimsPerson2Contact', hosp.claimsPerson2Contact || '');
                                 setValue('hospitalComment', hosp.comment || hosp.hospitalComment || '');
-
                                 const docs = hosp.doctors || hosp.hospitalDoctors || [];
                                 if (docs.length > 0 && newDoctors.length === 0) {
                                   setNewDoctors(docs.map((d: any) => ({
@@ -4697,14 +4823,14 @@ export default function Claims() {
                                 }
                               }
                             }}
-                          >
-                            <option value="">Select Hospital</option>
+                          />
+                          <datalist id="hospital-name-suggestions">
                             {hospitals.map((h: any) => (
                               <option key={h.id} value={h.name || h.hospitalName}>
                                 {h.name || h.hospitalName} {h.city ? `(${h.city})` : ''}
                               </option>
                             ))}
-                          </select>
+                          </datalist>
                         </div>
                         <div>
                           <label className="label text-[10px]">Hospital Pincode</label>
@@ -4832,7 +4958,7 @@ export default function Claims() {
                       </div>
 
                       <div className="pt-2 border-t border-slate-100">
-                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Claims Department Contact</h5>
+                        <h5 className="text-[11px] font-bold text-slate-700 mb-2">Enquiry Call / Claims Department Contact</h5>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <label className="label text-[10px]">Person 1 Name</label>
@@ -5620,7 +5746,7 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Policy Reference</label>
           <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <FileText size={14} className="text-gray-400" />
-            <span>{claim.policy?.policyNumber || 'N/A'}</span>
+            <span>{claim.policy?.policyNumber ? `${claim.policy.policyNumber}${getPolicyYearString(claim.policy) ? ` (${getPolicyYearString(claim.policy)})` : ''}` : 'N/A'}</span>
           </div>
         </div>
         <div>

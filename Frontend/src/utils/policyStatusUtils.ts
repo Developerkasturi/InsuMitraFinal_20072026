@@ -48,15 +48,32 @@ export function calculateLastInstallmentDate(
   frequency: string | undefined | null = 'MONTHLY',
   installmentDay?: string | number | null
 ): string {
-  if (!firstDateStr || !numInstallments) return '';
+  if (!numInstallments) return '';
   const num = Number(numInstallments);
   if (isNaN(num) || num <= 0) return '';
 
-  const d = new Date(firstDateStr);
-  if (isNaN(d.getTime())) return '';
+  const rawDate = firstDateStr && String(firstDateStr).trim() ? String(firstDateStr).trim() : new Date().toISOString().split('T')[0];
+
+  let d: Date;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(rawDate)) {
+    const [dd, mm, yyyy] = rawDate.split('/').map(Number);
+    d = new Date(yyyy, mm - 1, dd);
+  } else if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+    const parts = rawDate.split('T')[0].split('-').map(Number);
+    d = new Date(parts[0], parts[1] - 1, parts[2]);
+  } else {
+    d = new Date(rawDate);
+  }
+
+  if (isNaN(d.getTime())) {
+    d = new Date();
+  }
 
   if (num === 1) {
-    return d.toISOString().split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   // Determine months step per installment based on frequency
@@ -65,7 +82,12 @@ export function calculateLastInstallmentDate(
   if (freqUpper === 'QUARTERLY') stepMonths = 3;
   else if (freqUpper === 'HALF_YEARLY') stepMonths = 6;
   else if (freqUpper === 'YEARLY') stepMonths = 12;
-  else if (freqUpper === 'SINGLE') return d.toISOString().split('T')[0];
+  else if (freqUpper === 'SINGLE' || freqUpper.includes('ONE')) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 
   // The last installment is installment #N, so (num - 1) intervals
   const totalMonthsToAdd = (num - 1) * stepMonths;

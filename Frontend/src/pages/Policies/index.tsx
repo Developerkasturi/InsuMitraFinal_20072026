@@ -6,7 +6,7 @@ import PhcTrackingView from './PhcTrackingView';
 import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulkAssignPolicies } from '@hooks/usePolicies';
 import { useClaims, useCreateClaim } from '@hooks/useClaims';
 import { sortData } from '../../utils/sortUtils';
-import { formatIndianNumber, numberToIndianWords } from '../../utils/numberUtils';
+import { formatIndianNumber } from '../../utils/numberUtils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, employeesService, claimsService, documentsService, agencyDetailsService, insuranceService } from '@api/index';
 import { deletionRequestsService } from '@api/deletionRequestsService';
@@ -15,7 +15,7 @@ import Modal from '@comps/common/Modal';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, addYears } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
 import CustomSelect from '@comps/common/CustomSelect';
 
@@ -240,7 +240,11 @@ export const policyFormSchema = z.object({
   startDate: z.string().min(1, 'Start date required'),
   endDate: z.string().min(1, 'End date required'),
   paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
-  riders: z.array(z.string()).optional(),
+  riders: z.preprocess((v) => {
+    if (Array.isArray(v)) return v.filter(Boolean).map(String);
+    if (typeof v === 'string' && v.trim()) return [v.trim()];
+    return [];
+  }, z.array(z.string()).default([])),
   deductible: z.string().optional(),
   status: z.string().optional(),
   assignedEmployeeId: z.string().optional(),
@@ -443,7 +447,11 @@ export const policyEditFormSchema = z.object({
   paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
   agentCode: z.string().optional(),
   notes: z.string().optional(),
-  riders: z.array(z.string()).optional(),
+  riders: z.preprocess((v) => {
+    if (Array.isArray(v)) return v.filter(Boolean).map(String);
+    if (typeof v === 'string' && v.trim()) return [v.trim()];
+    return [];
+  }, z.array(z.string()).default([])),
   deductible: z.string().optional(),
   assignedEmployeeId: z.string().optional(),
   firstPremiumDate: z.string().optional(),
@@ -517,8 +525,8 @@ export default function Policies() {
   const [activePolicyTab, setActivePolicyTab] = useState<'policyPlan' | 'premium' | 'paymentGst' | 'connectedPersons' | 'phcDetails' | 'policyDocs' | 'policyClaims'>('policyPlan');
   const [isPolicyDetailsCollapsed, setIsPolicyDetailsCollapsed] = useState(false);
   const [isPlanDetailsCollapsed, setIsPlanDetailsCollapsed] = useState(false);
-  const [isPremiumBreakdownCollapsed, setIsPremiumBreakdownCollapsed] = useState(true);
-  const [isTenureDatesCollapsed, setIsTenureDatesCollapsed] = useState(true);
+  const [isPremiumBreakdownCollapsed, setIsPremiumBreakdownCollapsed] = useState(false);
+  const [isTenureDatesCollapsed, setIsTenureDatesCollapsed] = useState(false);
   const [isEmiDetailsCollapsed, setIsEmiDetailsCollapsed] = useState(true);
   const [isPaymentModeLoanCollapsed, setIsPaymentModeLoanCollapsed] = useState(true);
   const [isPaymentAccountCollapsed, setIsPaymentAccountCollapsed] = useState(true);
@@ -784,7 +792,7 @@ export default function Policies() {
   const companyFilterRef = useRef<HTMLDivElement>(null);
 
   // Sorting
-  const [sortBy, setSortBy] = useState('');
+  const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -1494,7 +1502,7 @@ export default function Policies() {
 
   // Client-side Sorting Logic
   const sortedPolicies = useMemo(() => {
-    let key = sortBy;
+    let key = sortBy || 'createdAt';
     // Map specific table column keys to object paths for sorting
     if (key === 'renewAssign') key = 'assignedEmployee.employeeProfile.firstName';
     if (key === 'clientName') key = 'contact.firstName';
@@ -1528,15 +1536,19 @@ export default function Policies() {
 
   const activeSchema = useMemo(() => {
     return z.object({
-      contactId: isFieldRequired('contactId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a contact') : z.string().optional().or(z.literal('')),
-      planId: isFieldRequired('planId', true) ? z.string().regex(/^[0-9a-fA-F]{24}$/, 'Select a plan') : z.string().optional().or(z.literal('')),
-      policyNumber: isFieldRequired('policyNumber', true) ? z.string().min(1, 'Policy number required') : z.string().optional().or(z.literal('')),
-      sumAssured: isFieldRequired('sumAssured', true) ? z.coerce.number().positive('Enter a valid sum assured') : z.coerce.number().optional().or(z.literal('')),
-      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().positive('Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
-      startDate: isFieldRequired('startDate', true) ? z.string().min(1, 'Start date required') : z.string().optional().or(z.literal('')),
-      endDate: isFieldRequired('endDate', true) ? z.string().min(1, 'End date required') : z.string().optional().or(z.literal('')),
+      contactId: isFieldRequired('contactId', true) ? z.string().min(1, 'Please select a Customer in Tab 1') : z.string().optional().or(z.literal('')),
+      planId: isFieldRequired('planId', true) ? z.string().min(1, 'Please select an Insurance Plan in Tab 1') : z.string().optional().or(z.literal('')),
+      policyNumber: isFieldRequired('policyNumber', true) ? z.string().min(1, 'Policy number is required in Tab 1') : z.string().optional().or(z.literal('')),
+      sumAssured: isFieldRequired('sumAssured', false) ? z.coerce.number().min(0, 'Enter a valid sum assured') : z.coerce.number().optional().or(z.literal('')),
+      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().min(0, 'Enter a valid premium amount') : z.coerce.number().optional().or(z.literal('')),
+      startDate: z.string().optional().or(z.literal('')),
+      endDate: z.string().optional().or(z.literal('')),
       paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
-      riders: z.array(z.string()).optional(),
+      riders: z.preprocess((v) => {
+        if (Array.isArray(v)) return v.filter(Boolean).map(String);
+        if (typeof v === 'string' && v.trim()) return [v.trim()];
+        return [];
+      }, z.array(z.string()).default([])),
       deductible: isFieldRequired('deductible', false) ? z.string().min(1, 'Required') : z.string().optional(),
       status: z.string().optional(),
       assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional(),
@@ -1545,21 +1557,23 @@ export default function Policies() {
       agentCode: isFieldRequired('agentCode', false) ? z.string().min(1, 'Required') : z.string().optional(),
       notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
       firstPremiumDate: isFieldRequired('firstPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       lastPremiumDate: isFieldRequired('lastPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiCase: z.boolean().optional(),
       emiGateway: isFieldRequired('emiGateway', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcRequired: z.boolean().optional(),
-      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
       phcClaimSettled: z.boolean().optional(),
-      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
-      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
-      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
-      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
-      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      lastInstallmentDate: isFieldRequired('lastInstallmentDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
     });
   }, [compulsoryRules]);
@@ -1567,34 +1581,38 @@ export default function Policies() {
   const activeEditSchema = useMemo(() => {
     return z.object({
       status: z.string().optional(),
-      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().positive('Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
-      sumAssured: isFieldRequired('sumAssured', true) ? z.coerce.number().positive() : z.coerce.number().optional(),
-      endDate: isFieldRequired('endDate', true) ? z.string().min(1, 'End date required') : z.string().optional().or(z.literal('')),
+      premiumAmount: isFieldRequired('premiumAmount', true) ? z.coerce.number().min(0, 'Enter a valid premium') : z.coerce.number().optional().or(z.literal('')),
+      sumAssured: isFieldRequired('sumAssured', false) ? z.coerce.number().min(0, 'Enter a valid sum assured') : z.coerce.number().optional().or(z.literal('')),
+      endDate: z.string().optional().or(z.literal('')),
       nextDueDate: isFieldRequired('nextDueDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       maturityDate: isFieldRequired('maturityDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       paymentFrequency: z.enum(['YEARLY', 'HALF_YEARLY', 'QUARTERLY', 'MONTHLY', 'SINGLE']),
       agentCode: isFieldRequired('agentCode', false) ? z.string().min(1, 'Required') : z.string().optional(),
       notes: isFieldRequired('notes', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      riders: z.array(z.string()).optional(),
+      riders: z.preprocess((v) => {
+        if (Array.isArray(v)) return v.filter(Boolean).map(String);
+        if (typeof v === 'string' && v.trim()) return [v.trim()];
+        return [];
+      }, z.array(z.string()).default([])),
       deductible: isFieldRequired('deductible', false) ? z.string().min(1, 'Required') : z.string().optional(),
       assignedEmployeeId: isFieldRequired('assignedEmployeeId', false) ? z.string().min(1, 'Required') : z.string().optional(),
       firstPremiumDate: isFieldRequired('firstPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      premiumPaymentPeriod: isFieldRequired('premiumPaymentPeriod', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       lastPremiumDate: isFieldRequired('lastPremiumDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiCase: z.boolean().optional(),
       emiGateway: isFieldRequired('emiGateway', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
-      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcRequired: z.boolean().optional(),
-      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
       phcClaimSettled: z.boolean().optional(),
-      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
-      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
-      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
-      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
-      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
-      noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       lastInstallmentDate: isFieldRequired('lastInstallmentDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
     });
@@ -1602,7 +1620,7 @@ export default function Policies() {
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
     resolver: zodResolver(activeSchema),
-    defaultValues: { paymentFrequency: 'YEARLY', status: 'INFORCE' },
+    defaultValues: { paymentFrequency: 'YEARLY', status: 'INFORCE', riders: [] },
   });
   const { register: regEdit, handleSubmit: handleEdit, reset: resetEdit, setValue: setEditValue, watch: watchEdit } = useForm<EditForm>({
     resolver: zodResolver(activeEditSchema),
@@ -1713,11 +1731,40 @@ export default function Policies() {
   const watchEmiDate = watch('emiDate');
   const watchStartDate = watch('startDate');
   const watchEndDate = watch('endDate');
+  const watchLastInstallmentDate = watch('lastInstallmentDate');
+  const watchLastPremiumDate = watch('lastPremiumDate');
   const watchEmiCase = watch('emiCase');
   const watchPhcRequired = watch('phcRequired');
   const [durationYears, setDurationYears] = useState<number>(1);
   const [policyTerm, setPolicyTerm] = useState<string>('1 Year');
   const [insuredPerson, setInsuredPerson] = useState<string>('');
+
+  const recalculateLastInstallment = (overrides?: {
+    baseDate?: string;
+    noOfInst?: number | string;
+    freq?: string;
+    day?: string | number;
+  }) => {
+    const freq = overrides?.freq ?? watchPaymentFrequency ?? 'YEARLY';
+    let numInst = overrides?.noOfInst !== undefined ? overrides.noOfInst : watchNoOfInstallments;
+    const isSingle = freq === 'SINGLE' || String(freq).toUpperCase().includes('ONE');
+
+    if (isSingle) {
+      numInst = 1;
+      setValue('noOfInstallments', 1, { shouldDirty: true });
+    } else if (numInst === undefined || numInst === null || numInst === '' || Number(numInst) <= 0) {
+      numInst = freq === 'MONTHLY' ? 12 : freq === 'QUARTERLY' ? 4 : freq === 'HALF_YEARLY' ? 2 : 1;
+      setValue('noOfInstallments', numInst, { shouldDirty: true });
+    }
+
+    const base = overrides?.baseDate || watchFirstPremiumDate || watchStartDate || format(new Date(), 'yyyy-MM-dd');
+    const day = overrides?.day !== undefined ? overrides.day : watchEmiDate;
+    const calculated = calculateLastInstallmentDate(base, numInst, freq, day);
+    if (calculated) {
+      setValue('lastInstallmentDate', calculated, { shouldValidate: true, shouldDirty: true });
+      setValue('lastPremiumDate', calculated, { shouldValidate: true, shouldDirty: true });
+    }
+  };
 
   useEffect(() => {
     if (durationYears) {
@@ -1782,18 +1829,21 @@ export default function Policies() {
   }, [watchStartDate, durationYears, setValue]);
 
   useEffect(() => {
-    const baseDate = watchFirstPremiumDate || watchStartDate;
-    if (baseDate && watchNoOfInstallments) {
-      const calculatedLastDate = calculateLastInstallmentDate(
-        baseDate,
-        watchNoOfInstallments,
-        watchPaymentFrequency || 'MONTHLY',
-        watchEmiDate
-      );
-      if (calculatedLastDate) {
-        setValue('lastPremiumDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
-        setValue('lastInstallmentDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
-      }
+    const baseDate = watchFirstPremiumDate || watchStartDate || format(new Date(), 'yyyy-MM-dd');
+    let numInst = watchNoOfInstallments;
+    const freq = watchPaymentFrequency || 'YEARLY';
+    if (freq === 'SINGLE' || String(freq).toUpperCase().includes('ONE')) {
+      numInst = 1;
+    }
+    const calculatedLastDate = calculateLastInstallmentDate(
+      baseDate,
+      numInst || 1,
+      freq,
+      watchEmiDate
+    );
+    if (calculatedLastDate) {
+      setValue('lastPremiumDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
+      setValue('lastInstallmentDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
     }
   }, [watchFirstPremiumDate, watchStartDate, watchNoOfInstallments, watchPaymentFrequency, watchEmiDate, setValue]);
 
@@ -2139,6 +2189,52 @@ export default function Policies() {
 
     setConnectedPersons(initialPersons);
 
+    setModalOpen(true);
+  };
+
+  const openCreatePolicy = () => {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const nextYearStr = format(addYears(new Date(), 1), 'yyyy-MM-dd');
+    reset({
+      paymentFrequency: 'YEARLY',
+      status: 'INFORCE',
+      startDate: todayStr,
+      endDate: nextYearStr,
+      maturityDate: nextYearStr,
+      firstPremiumDate: todayStr,
+      noOfInstallments: 1,
+      downpaymentAmount: 0,
+      processingFee: 0,
+      installmentAmount: 0,
+      lastInstallmentDate: todayStr,
+      lastPremiumDate: todayStr,
+      notes: '',
+      policyNumber: '',
+      sumAssured: undefined,
+      premiumAmount: undefined,
+      contactId: '',
+      planId: '',
+      riders: [],
+    } as any);
+    setSelectedContact(null);
+    setContactSearch('');
+    setSelectedPlan(null);
+    setSelectedCompany('');
+    setSelectedPolicyType('');
+    setSelectedCompanyCategory('');
+    setSelectedPlanCategory('');
+    setDurationYears(1);
+    setPolicyTerm('1 Year');
+    setInsuredPerson('');
+    setConnectedPersons([]);
+    setPendingDocs([]);
+    setEditTarget(null);
+    setIsViewMode(false);
+    setIsPremiumBreakdownCollapsed(false);
+    setIsTenureDatesCollapsed(false);
+    setIsPolicyDetailsCollapsed(false);
+    setIsPlanDetailsCollapsed(false);
+    setActivePolicyTab('policyPlan');
     setModalOpen(true);
   };
 
@@ -2586,10 +2682,103 @@ export default function Policies() {
     setDeleteTarget(null);
   };
 
+  const onInvalid = (errors: any) => {
+    console.warn('[Policy Form Validation Error]', errors);
+    const errKeys = Object.keys(errors);
+    if (errKeys.length === 0) return;
+    const firstKey = errKeys[0];
+    const fieldLabelMap: Record<string, string> = {
+      contactId: 'Customer / Client Name',
+      planId: 'Insurance Plan',
+      policyNumber: 'Policy Number',
+      sumAssured: 'Sum Assured',
+      premiumAmount: 'Premium Amount',
+      startDate: 'Policy Start Date',
+      endDate: 'Policy End Date',
+      paymentFrequency: 'Payment Frequency',
+      riders: 'Riders / Addons',
+      firstPremiumDate: '1st Instalment Date',
+      noOfInstallments: 'No. of Installments',
+      lastInstallmentDate: 'Last Installment Date',
+      insuredPerson: 'Insured Person',
+    };
+    const fieldName = fieldLabelMap[firstKey] || firstKey;
+    const rawMsg = errors[firstKey]?.message;
+    const errMsg = rawMsg ? `${fieldName}: ${rawMsg}` : `Please check ${fieldName}`;
+    toast.error(errMsg);
+
+    if (['contactId', 'planId', 'policyNumber', 'sumAssured', 'notes'].includes(firstKey)) {
+      setActivePolicyTab('policyPlan');
+    } else if (['premiumAmount', 'startDate', 'endDate', 'paymentFrequency', 'noOfInstallments', 'installmentAmount', 'firstYearPremium', 'secondYearPremium'].includes(firstKey)) {
+      setActivePolicyTab('premium');
+    }
+  };
+
   const onSubmit = async (body: Form) => {
     try {
-      // 1. Clean assignedEmployeeId
+      // 1. Resolve contact & plan
+      const finalContactId = body.contactId || selectedContact?.id;
+      if (!finalContactId) {
+        toast.error('Please select a Customer in Tab 1 (Policy & Plan Details)');
+        setActivePolicyTab('policyPlan');
+        return;
+      }
+
+      let finalPlanId = body.planId;
+      if (!finalPlanId && selectedPlan?.id) finalPlanId = selectedPlan.id;
+      if (!finalPlanId && availablePlans.length > 0) finalPlanId = availablePlans[0].id;
+      if (!finalPlanId && plansList.length > 0) finalPlanId = plansList[0].id;
+
+      if (!finalPlanId) {
+        toast.error('Please select an Insurance Plan in Tab 1 (Policy & Plan Details)');
+        setActivePolicyTab('policyPlan');
+        return;
+      }
+
+      if (!body.policyNumber?.trim()) {
+        toast.error('Please enter Policy Number in Tab 1 (Policy & Plan Details)');
+        setActivePolicyTab('policyPlan');
+        return;
+      }
+
+      // Validate Connected Persons if any are added
+      if (connectedPersons.length > 0) {
+        for (let i = 0; i < connectedPersons.length; i++) {
+          const p = connectedPersons[i];
+          if (!p.name.trim()) {
+            toast.error(`Please enter Full Name for Person ${i + 1} in Connected Persons tab`);
+            setActivePolicyTab('connectedPersons');
+            return;
+          }
+          if (p.contactNo && p.contactNo.trim().length > 0 && p.contactNo.trim().length !== 10) {
+            toast.error(`Contact number for "${p.name.trim()}" must be 10 digits`);
+            setActivePolicyTab('connectedPersons');
+            return;
+          }
+          if (p.isNominee) {
+            const nomName = p.nomineeName?.trim() || p.name.trim();
+            if (!nomName) {
+              toast.error(`Please enter Nominee Name for Person ${i + 1} in Connected Persons tab`);
+              setActivePolicyTab('connectedPersons');
+              return;
+            }
+            const nomContact = p.nomineeContact || p.contactNo;
+            if (nomContact && nomContact.trim().length > 0 && nomContact.trim().length !== 10) {
+              toast.error(`Nominee contact number for "${nomName}" must be 10 digits`);
+              setActivePolicyTab('connectedPersons');
+              return;
+            }
+          }
+        }
+      }
+
       const assignedEmployeeId = body.assignedEmployeeId?.trim() ? body.assignedEmployeeId : undefined;
+
+      const finalStartDate = body.startDate || format(new Date(), 'yyyy-MM-dd');
+      const finalEndDate = body.endDate || format(addYears(new Date(finalStartDate), Number(durationYears) || 1), 'yyyy-MM-dd');
+      const finalMaturityDate = body.maturityDate || finalEndDate;
+      const finalLastInstDate = body.lastInstallmentDate || body.lastPremiumDate || watch('lastInstallmentDate') || watch('lastPremiumDate') || '';
+      const finalNoOfInst = body.noOfInstallments || watch('noOfInstallments') || (body.paymentFrequency === 'SINGLE' ? 1 : undefined);
 
       // 2. Format notes to include extra Excel fields
       let extraNotes = '';
@@ -2618,19 +2807,19 @@ export default function Policies() {
       if (body.riders && body.riders.length > 0) extraNotes += `\nRiders/Addons: ${body.riders.join(', ')}`;
       if (body.firstPremiumDate) extraNotes += `\nFirst Premium Date: ${body.firstPremiumDate}`;
       if (body.premiumPaymentPeriod) extraNotes += `\nPremium Payment Period: ${body.premiumPaymentPeriod} Years`;
-      if (body.lastPremiumDate) extraNotes += `\nLast Premium Date: ${body.lastPremiumDate}`;
+      if (finalLastInstDate) extraNotes += `\nLast Premium Date: ${finalLastInstDate}`;
       if (body.downpaymentAmount) extraNotes += `\nDownpayment Amount: ₹${body.downpaymentAmount}`;
       if (body.processingFee) extraNotes += `\nProcessing Fee (incl. GST): ₹${body.processingFee}`;
       if (body.installmentAmount || body.emiPremium) {
         const amt = body.installmentAmount || body.emiPremium;
         extraNotes += `\nInstallment Amount: ₹${amt}`;
       }
-      if (body.noOfInstallments) extraNotes += `\nNo. of Installments: ${body.noOfInstallments}`;
-      if (body.lastInstallmentDate || body.lastPremiumDate) {
-        extraNotes += `\nLast Installment Date: ${body.lastInstallmentDate || body.lastPremiumDate}`;
+      if (finalNoOfInst) extraNotes += `\nNo. of Installments: ${finalNoOfInst}`;
+      if (finalLastInstDate) {
+        extraNotes += `\nLast Installment Date: ${finalLastInstDate}`;
       }
       if (body.emiCase) {
-        extraNotes += `\nEMI Case: Yes (Gateway: ${body.emiGateway || 'N/A'}, Date: ${body.emiDate || 'N/A'}, Premium: ₹${body.emiPremium || body.installmentAmount || '0'}, Downpayment: ₹${body.downpaymentAmount || '0'}, Processing Fee: ₹${body.processingFee || '0'}, No of Installments: ${body.noOfInstallments || 'N/A'}, Last Installment Date: ${body.lastInstallmentDate || body.lastPremiumDate || 'N/A'})`;
+        extraNotes += `\nEMI Case: Yes (Gateway: ${body.emiGateway || 'N/A'}, Date: ${body.emiDate || 'N/A'}, Premium: ₹${body.emiPremium || body.installmentAmount || '0'}, Downpayment: ₹${body.downpaymentAmount || '0'}, Processing Fee: ₹${body.processingFee || '0'}, No of Installments: ${finalNoOfInst || 'N/A'}, Last Installment Date: ${finalLastInstDate || 'N/A'})`;
       }
       if (body.phcRequired || watchPhcRequired) {
         extraNotes += `\nPreventive Health Checkup: Yes (Amount: ₹${body.phcAmount || '0'}, Status: ${body.phcStatus || 'N/A'}, Claim Settled: ${body.phcClaimSettled ? 'Yes' : 'No'}${phcExtraDetails.insuredPersonName ? `, Insured Person: ${phcExtraDetails.insuredPersonName}` : ''})`;
@@ -2653,23 +2842,19 @@ export default function Policies() {
       }
       if (body.notes) extraNotes += `\n${body.notes}`;
 
-      let finalPlanId = body.planId;
-      if (!finalPlanId && selectedPlan?.id) finalPlanId = selectedPlan.id;
-      if (!finalPlanId && availablePlans.length > 0) finalPlanId = availablePlans[0].id;
-      if (!finalPlanId && plansList.length > 0) finalPlanId = plansList[0].id;
-
       // 3. Assemble clean DTO
       const cleanedBody = {
-        policyNumber: body.policyNumber,
-        contactId: body.contactId,
+        policyNumber: body.policyNumber.trim(),
+        contactId: finalContactId,
         planId: finalPlanId,
         assignedEmployeeId,
         status: body.status || 'INFORCE',
-        sumAssured: Number(body.sumAssured),
-        premiumAmount: Number(body.premiumAmount),
-        paymentFrequency: body.paymentFrequency,
-        startDate: body.startDate,
-        endDate: body.endDate,
+        sumAssured: Number(body.sumAssured || 0),
+        premiumAmount: Number(body.premiumAmount || 0),
+        paymentFrequency: body.paymentFrequency || 'YEARLY',
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        maturityDate: finalMaturityDate,
         businessType: (custCat || 'Fresh').toUpperCase(),
         notes: extraNotes.trim(),
       };
@@ -2760,8 +2945,14 @@ export default function Policies() {
           }
         }
       }
+      await qc.invalidateQueries({ queryKey: ['policies'] });
+      await qc.refetchQueries({ queryKey: ['policies'] });
       qc.invalidateQueries({ queryKey: ['contacts'] });
-      qc.invalidateQueries({ queryKey: ['policies'] });
+      setSelectedQuickFilter('ALL');
+      setSearch('');
+      setSortBy('createdAt');
+      setSortOrder('desc');
+      setPage(1);
       toast.success('Policy created successfully');
       if (createdPolicy?.id) {
         if (keepCreateOpen) {
@@ -2788,9 +2979,13 @@ export default function Policies() {
           setInsuredPerson('');
           return;
         }
+        setPage(1);
         closeModal();
-        if (!(location.state as any)?.returnRoute) {
-          openEdit(createdPolicy as Policy);
+        if ((location.state as any)?.returnRoute) {
+          navigate((location.state as any).returnRoute, {
+            replace: true,
+            state: (location.state as any).returnPayload,
+          });
         }
       }
     } catch (e: any) {
@@ -2884,7 +3079,7 @@ export default function Policies() {
             {/* Add New Policy */}
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={openCreatePolicy}
               className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
               title="Add New Policy"
             >
@@ -2922,6 +3117,7 @@ export default function Policies() {
                     { key: 'ALL', label: 'All Types' },
                     { key: 'HEALTH', label: 'Health', icon: '🩺' },
                     { key: 'LIFE', label: 'Life', icon: '🛡️' },
+                    { key: 'MOTOR', label: 'Motor', icon: '🚗' },
                     { key: 'GENERAL', label: 'General', icon: '🏢' },
                     { key: 'ACCIDENT', label: 'Accident', icon: '🚑' },
                     { key: 'FRESH', label: 'Fresh', icon: '🌟' },
@@ -3577,7 +3773,7 @@ export default function Policies() {
               <button
                 type="button"
                 className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-                onClick={handleSubmit(onSubmit)}
+                onClick={handleSubmit(onSubmit, onInvalid)}
               >
                 {editTarget ? 'Update Policy' : 'Save Policy'}
               </button>
@@ -3585,7 +3781,7 @@ export default function Policies() {
           </div>
         }
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-3">
           {/* Sub-navigation Tabs Header */}
           <div className="flex flex-wrap bg-slate-200/60 p-1.5 rounded-2xl mb-3 gap-1.5 sm:gap-2 border border-slate-200/80 shadow-2xs">
             <button
@@ -4124,17 +4320,26 @@ export default function Policies() {
                               { id: 'MATERNITY_COVER', label: 'Maternity Cover Option' },
                               { id: 'OPD_BENEFIT', label: 'OPD Benefit Rider' },
                               { id: 'WAIVER_OF_PREMIUM', label: 'Waiver of Premium' },
-                            ].map(rider => (
-                              <label key={rider.id} className="flex flex-wrap items-center gap-2 cursor-pointer text-gray-700 hover:text-blue-600 transition-colors">
-                                <input
-                                  type="checkbox"
-                                  value={rider.id}
-                                  {...register('riders')}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-[11px] font-medium">{rider.label}</span>
-                              </label>
-                            ))}
+                            ].map(rider => {
+                              const currentRiders = Array.isArray(watch('riders')) ? (watch('riders') as string[]) : [];
+                              const isChecked = currentRiders.includes(rider.id);
+                              return (
+                                <label key={rider.id} className="flex flex-wrap items-center gap-2 cursor-pointer text-gray-700 hover:text-blue-600 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={e => {
+                                      const nextRiders = e.target.checked
+                                        ? [...currentRiders.filter(id => id !== rider.id), rider.id]
+                                        : currentRiders.filter(id => id !== rider.id);
+                                      setValue('riders', nextRiders, { shouldValidate: true, shouldDirty: true });
+                                    }}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                  />
+                                  <span className="text-[11px] font-medium">{rider.label}</span>
+                                </label>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -4189,9 +4394,6 @@ export default function Policies() {
                               placeholder="Enter premium amount"
                             />
                           </div>
-                          {watchPremiumAmount ? (
-                            <div className="text-[10.5px] text-orange-600 mt-1.5 font-bold tracking-wide bg-orange-50/50 inline-block px-2 py-0.5 rounded-md border border-orange-100/50">{numberToIndianWords(watchPremiumAmount)}</div>
-                          ) : null}
                         </div>
 
                         <div>
@@ -4213,9 +4415,6 @@ export default function Policies() {
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="1st Year Premium"
                           />
-                          {watchFirstYearPremium ? (
-                            <div className="text-[10.5px] text-orange-600 mt-1.5 font-bold tracking-wide bg-orange-50/50 inline-block px-2 py-0.5 rounded-md border border-orange-100/50">{numberToIndianWords(watchFirstYearPremium)}</div>
-                          ) : null}
                         </div>
 
                         <div>
@@ -4237,9 +4436,6 @@ export default function Policies() {
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="2nd Year Onwards Premium"
                           />
-                          {watchSecondYearPremium ? (
-                            <div className="text-[10.5px] text-orange-600 mt-1.5 font-bold tracking-wide bg-orange-50/50 inline-block px-2 py-0.5 rounded-md border border-orange-100/50">{numberToIndianWords(watchSecondYearPremium)}</div>
-                          ) : null}
                         </div>
 
                         <div>
@@ -4247,8 +4443,16 @@ export default function Policies() {
                             Installment Frequency <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <CustomSelect
-                            value={watch('paymentFrequency') || 'YEARLY'}
-                            onChange={val => setValue('paymentFrequency', val as any, { shouldValidate: true, shouldDirty: true })}
+                            value={watchPaymentFrequency || 'YEARLY'}
+                            onChange={val => {
+                              setValue('paymentFrequency', val as any, { shouldValidate: true, shouldDirty: true });
+                              if (val === 'SINGLE') {
+                                setValue('noOfInstallments', 1, { shouldValidate: true, shouldDirty: true });
+                                recalculateLastInstallment({ freq: 'SINGLE', noOfInst: 1 });
+                              } else {
+                                recalculateLastInstallment({ freq: val });
+                              }
+                            }}
                             options={[
                               { value: 'YEARLY', label: 'Yearly' },
                               { value: 'HALF_YEARLY', label: 'Half Yearly' },
@@ -4291,11 +4495,6 @@ export default function Policies() {
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="Enter downpayment amount"
                           />
-                          {watchDownpaymentAmount ? (
-                            <div className="text-[10.5px] text-emerald-600 mt-1.5 font-bold tracking-wide bg-emerald-50/50 inline-block px-2 py-0.5 rounded-md border border-emerald-100/50">
-                              {numberToIndianWords(watchDownpaymentAmount)}
-                            </div>
-                          ) : null}
                         </div>
 
                         {/* Processing Fee (incl. GST) */}
@@ -4318,11 +4517,6 @@ export default function Policies() {
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="e.g. 500"
                           />
-                          {watchProcessingFee ? (
-                            <div className="text-[10.5px] text-blue-600 mt-1.5 font-bold tracking-wide bg-blue-50/50 inline-block px-2 py-0.5 rounded-md border border-blue-100/50">
-                              {numberToIndianWords(watchProcessingFee)}
-                            </div>
-                          ) : null}
                         </div>
 
                         {/* Installment Amount */}
@@ -4347,11 +4541,62 @@ export default function Policies() {
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="Enter installment amount"
                           />
-                          {watchInstallmentAmount ? (
-                            <div className="text-[10.5px] text-purple-600 mt-1.5 font-bold tracking-wide bg-purple-50/50 inline-block px-2 py-0.5 rounded-md border border-purple-100/50">
-                              {numberToIndianWords(watchInstallmentAmount)}
-                            </div>
-                          ) : null}
+                        </div>
+
+                        {/* No. of Installments */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            No. of Installments
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={watchNoOfInstallments !== undefined && watchNoOfInstallments !== null ? watchNoOfInstallments : ''}
+                            onChange={e => {
+                              const valStr = e.target.value;
+                              const val = valStr === '' ? '' : parseInt(valStr, 10);
+                              setValue('noOfInstallments', val as any, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ noOfInst: val || 1 });
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
+                            placeholder="e.g. 12"
+                          />
+                        </div>
+
+                        {/* Installment Date (Day: 01 to 31st) */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Installment Date (01 to 31st)
+                          </label>
+                          <CustomSelect
+                            value={watchEmiDate ? String(watchEmiDate).padStart(2, '0') : ''}
+                            onChange={val => {
+                              setValue('emiDate', val, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ day: val });
+                            }}
+                            placeholder="Select Day (01 to 31st)"
+                            options={[
+                              { value: '', label: 'Select Day' },
+                              ...INSTALLMENT_DATE_OPTIONS
+                            ]}
+                          />
+                        </div>
+
+                        {/* Last Installment Date */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Last Installment Date
+                          </label>
+                          <DatePicker
+                            value={watchLastInstallmentDate || watchLastPremiumDate}
+                            onDateChange={val => {
+                              setValue('lastPremiumDate', val, { shouldValidate: true, shouldDirty: true });
+                              setValue('lastInstallmentDate', val, { shouldValidate: true, shouldDirty: true });
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 font-semibold"
+                            placeholder="DD/MM/YYYY"
+                          />
                         </div>
                       </div>
                     )}
@@ -4420,14 +4665,16 @@ export default function Policies() {
                             placeholder="e.g. 1 Year"
                           />
                         </div>
-
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Start Date <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
                           <DatePicker
                             value={watchStartDate}
-                            onDateChange={val => setValue('startDate', val, { shouldValidate: true, shouldDirty: true })}
+                            onDateChange={val => {
+                              setValue('startDate', val, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ baseDate: val });
+                            }}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
                             placeholder="DD/MM/YYYY"
                           />
@@ -4462,8 +4709,11 @@ export default function Policies() {
                             Policy 1st Instalment Date
                           </label>
                           <DatePicker
-                            value={watch('firstPremiumDate')}
-                            onDateChange={val => setValue('firstPremiumDate', val, { shouldValidate: true, shouldDirty: true })}
+                            value={watchFirstPremiumDate}
+                            onDateChange={val => {
+                              setValue('firstPremiumDate', val, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ baseDate: val });
+                            }}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
                             placeholder="DD/MM/YYYY"
                           />
@@ -4478,7 +4728,13 @@ export default function Policies() {
                             type="number"
                             min={1}
                             max={120}
-                            {...register('noOfInstallments')}
+                            value={watchNoOfInstallments !== undefined && watchNoOfInstallments !== null ? watchNoOfInstallments : ''}
+                            onChange={e => {
+                              const valStr = e.target.value;
+                              const val = valStr === '' ? '' : parseInt(valStr, 10);
+                              setValue('noOfInstallments', val as any, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ noOfInst: val || 1 });
+                            }}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
                             placeholder="e.g. 12"
                           />
@@ -4490,8 +4746,11 @@ export default function Policies() {
                             Installment Date (01 to 31st)
                           </label>
                           <CustomSelect
-                            value={watch('emiDate') ? String(watch('emiDate')).padStart(2, '0') : ''}
-                            onChange={val => setValue('emiDate', val, { shouldValidate: true, shouldDirty: true })}
+                            value={watchEmiDate ? String(watchEmiDate).padStart(2, '0') : ''}
+                            onChange={val => {
+                              setValue('emiDate', val, { shouldValidate: true, shouldDirty: true });
+                              recalculateLastInstallment({ day: val });
+                            }}
                             placeholder="Select Day (01 to 31st)"
                             options={[
                               { value: '', label: 'Select Day' },
@@ -4506,13 +4765,13 @@ export default function Policies() {
                             Last Installment Date
                           </label>
                           <DatePicker
-                            value={watch('lastPremiumDate')}
+                            value={watchLastInstallmentDate || watchLastPremiumDate}
                             onDateChange={val => {
                               setValue('lastPremiumDate', val, { shouldValidate: true, shouldDirty: true });
                               setValue('lastInstallmentDate', val, { shouldValidate: true, shouldDirty: true });
                             }}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 font-semibold"
-                            placeholder="Calculated automatically"
+                            placeholder="DD/MM/YYYY"
                           />
                         </div>
 
@@ -5198,7 +5457,7 @@ export default function Policies() {
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                             <div>
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                                Full Name
+                                Full Name <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                               </label>
                               <input
                                 type="text"
@@ -5237,10 +5496,11 @@ export default function Policies() {
                               </label>
                               <input
                                 type="tel"
+                                maxLength={10}
                                 value={person.contactNo}
-                                onChange={e => updateConnectedPerson(person.id, { contactNo: e.target.value })}
+                                onChange={e => updateConnectedPerson(person.id, { contactNo: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                 className="input w-full h-9 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                placeholder="e.g. +91 9876543210"
+                                placeholder="10-digit Phone"
                               />
                             </div>
 

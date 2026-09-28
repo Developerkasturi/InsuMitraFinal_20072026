@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -32,7 +33,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Normalize options to SelectOption[]
   const normalizedOptions: SelectOption[] = options.map(opt => {
@@ -44,31 +47,73 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
 
   const selectedOption = normalizedOptions.find(o => String(o.value) === String(value));
 
+  const updateDropdownPosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const estimatedDropdownHeight = 240;
+
+    let topPos: number;
+    let maxHeight: number;
+
+    if (spaceBelow >= 120 || spaceBelow >= spaceAbove) {
+      // Open downward
+      topPos = rect.bottom + window.scrollY + 4;
+      maxHeight = Math.min(estimatedDropdownHeight, spaceBelow - 8);
+    } else {
+      // Open upward
+      maxHeight = Math.min(estimatedDropdownHeight, spaceAbove - 8);
+      topPos = rect.top + window.scrollY - maxHeight - 4;
+    }
+
+    setDropdownStyle({
+      position: 'absolute',
+      top: topPos,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+      maxHeight: Math.max(maxHeight, 100),
+      zIndex: 99999,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) updateDropdownPosition();
+  }, [isOpen, updateDropdownPosition]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inContainer = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inContainer && !inDropdown) {
         setIsOpen(false);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
+      if (event.key === 'Escape') setIsOpen(false);
     };
+    const handleScrollOrResize = () => {
+      if (isOpen) updateDropdownPosition();
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
     };
-  }, [isOpen]);
+  }, [isOpen, updateDropdownPosition]);
 
   useEffect(() => {
-    if (!isOpen) {
-      setSearchTerm('');
-    }
+    if (!isOpen) setSearchTerm('');
   }, [isOpen]);
 
   const handleSelect = (val: string) => {
@@ -86,31 +131,13 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
     );
   });
 
-  return (
-    <div ref={containerRef} className={clsx('relative w-full', isOpen ? 'z-50' : 'z-10')}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => !disabled && setIsOpen(prev => !prev)}
-        className={clsx(
-          'w-full flex items-center justify-between text-left transition-all duration-150',
-          className || 'input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
-          disabled && 'opacity-60 cursor-not-allowed bg-slate-50',
-          !disabled && 'cursor-pointer',
-          isOpen && 'ring-2 ring-blue-500/20 border-blue-500'
-        )}
-      >
-        <span className={clsx('truncate', !selectedOption || !selectedOption.value ? 'text-slate-400' : 'text-slate-800 font-medium')}>
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown
-          size={14}
-          className={clsx('ml-2 shrink-0 text-slate-400 transition-transform duration-200', isOpen && 'rotate-180 text-blue-600')}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-[9999] max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl custom-scrollbar divide-y divide-slate-50 animate-in fade-in zoom-in-95 duration-100">
+  const dropdown = isOpen
+    ? ReactDOM.createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl custom-scrollbar divide-y divide-slate-50"
+        >
           {showSearch && (
             <div className="p-2 border-b border-slate-100 sticky top-0 bg-white z-10" onClick={e => e.stopPropagation()}>
               <div className="relative">
@@ -127,7 +154,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
               </div>
             </div>
           )}
-
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-2.5 text-xs text-slate-400 text-center">No options found</div>
           ) : (
@@ -160,8 +186,34 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
               );
             })
           )}
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(prev => !prev)}
+        className={clsx(
+          'w-full flex items-center justify-between text-left transition-all duration-150',
+          className || 'input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500',
+          disabled && 'opacity-60 cursor-not-allowed bg-slate-50',
+          !disabled && 'cursor-pointer',
+          isOpen && 'ring-2 ring-blue-500/20 border-blue-500'
+        )}
+      >
+        <span className={clsx('truncate', !selectedOption || !selectedOption.value ? 'text-slate-400' : 'text-slate-800 font-medium')}>
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown
+          size={14}
+          className={clsx('ml-2 shrink-0 text-slate-400 transition-transform duration-200', isOpen && 'rotate-180 text-blue-600')}
+        />
+      </button>
+      {dropdown}
     </div>
   );
 };

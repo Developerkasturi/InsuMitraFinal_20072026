@@ -30,7 +30,15 @@ export class PoliciesService {
     const limit = Math.min(100, Math.max(1, parseInt(String((query as any).limit ?? 20), 10) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId, deletedAt: null };
+    const andConditions: any[] = [
+      {
+        OR: [
+          { deletedAt: null },
+          { deletedAt: { isSet: false } },
+        ],
+      },
+    ];
+
     if (role === UserRole.EMPLOYEE) {
       const empProfile = await this.prisma.employeeProfile.findFirst({
         where: { userId, tenantId },
@@ -39,11 +47,28 @@ export class PoliciesService {
       const validIds = [userId];
       if (empProfile?.id) validIds.push(empProfile.id);
 
-      where.OR = [
-        { assignedEmployeeId: null },
-        { assignedEmployeeId: { in: validIds } },
-      ];
+      andConditions.push({
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: { isSet: false } },
+          { assignedEmployeeId: { in: validIds } },
+        ],
+      });
     }
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { policyNumber: { contains: search, mode: 'insensitive' } },
+          { contact: { firstName: { contains: search, mode: 'insensitive' } } },
+          { contact: { lastName:  { contains: search, mode: 'insensitive' } } },
+          { contact: { phone:     { contains: search } } },
+        ],
+      });
+    }
+
+    const where: any = { tenantId, AND: andConditions };
+    if (status)    where.status    = status;
     if (contactId) {
       const isObjectId = /^[0-9a-fA-F]{24}$/.test(contactId);
       const targetContact = await this.prisma.contact.findFirst({
@@ -75,14 +100,6 @@ export class PoliciesService {
       where.nextDueDate = {};
       if (nextDueDateFrom) where.nextDueDate.gte = new Date(nextDueDateFrom);
       if (nextDueDateTo)   where.nextDueDate.lte = new Date(nextDueDateTo);
-    }
-    if (search) {
-      where.OR = [
-        { policyNumber: { contains: search, mode: 'insensitive' } },
-        { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-        { contact: { lastName:  { contains: search, mode: 'insensitive' } } },
-        { contact: { phone:     { contains: search } } },
-      ];
     }
 
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
@@ -314,7 +331,7 @@ export class PoliciesService {
         where: {
           tenantId,
           renewedFromPolicyId: prevPolicy.id,
-          deletedAt: null,
+          OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
           status: { notIn: ['CANCELLED' as any] },
         },
       });
@@ -338,13 +355,14 @@ export class PoliciesService {
       paymentFrequency: paymentFrequency || 'YEARLY',
       startDate: parsedStart,
       endDate: parsedEnd,
+      deletedAt: null,
+      assignedEmployeeId: assignedEmployeeId || null,
       businessType: (dto as any).businessType || (isRenewalCase ? 'RENEWAL' : 'FRESH'),
       ...(renewedFromPolicyId ? { renewedFromPolicyId } : {}),
       ...(maturityDate ? { maturityDate: new Date(maturityDate) } : {}),
       ...(nextDueDate ? { nextDueDate: new Date(nextDueDate) } : {}),
       ...(agentCode ? { agentCode } : {}),
       ...(notes ? { notes } : {}),
-      ...(assignedEmployeeId ? { assignedEmployeeId } : {}),
     };
 
     let policy: any;
@@ -575,7 +593,7 @@ export class PoliciesService {
     const policies = await this.prisma.policy.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
-        deletedAt: null,
+        OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
         status: { notIn: ['INACTIVE_OLD' as any] },
       },
       select: { id: true, endDate: true, status: true },
@@ -947,6 +965,7 @@ export class PoliciesService {
             endDate: new Date(row.endDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
             contactId: contact.id,
             planId,
+            deletedAt: null,
             // Auto-assign to the importing employee
             ...(role === UserRole.EMPLOYEE ? { assignedEmployeeId: createdById } : {}),
           },
