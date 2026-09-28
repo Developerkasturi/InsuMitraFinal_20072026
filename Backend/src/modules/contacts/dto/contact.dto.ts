@@ -77,6 +77,11 @@ export class ContactFilterDto extends PaginationDto {
   @IsOptional()
   @IsString()
   occupationType?: string;
+
+  @ApiPropertyOptional({ description: 'Contact role: Contact | Employee | ADMIN/OWNER | Business Associate' })
+  @IsOptional()
+  @IsString()
+  role?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +136,12 @@ export class CreateContactDto {
   @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
   @IsString()
   dateOfBirth?: string;
+
+  @ApiPropertyOptional({ description: 'Birth place of contact' })
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  birthPlace?: string;
 
   @ApiPropertyOptional({ enum: Gender })
   @IsOptional()
@@ -241,6 +252,12 @@ export class CreateContactDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Contact role: Contact | Employee | ADMIN/OWNER | Business Associate' })
+  @IsOptional()
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @IsString()
+  role?: string;
 }
 
 export class UpdateContactDto extends PartialType(CreateContactDto) {}

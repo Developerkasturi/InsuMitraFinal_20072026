@@ -7,7 +7,7 @@ import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulk
 import { useClaims, useCreateClaim } from '@hooks/useClaims';
 import { sortData } from '../../utils/sortUtils';
 import { formatIndianNumber, numberToIndianWords } from '../../utils/numberUtils';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, employeesService, claimsService, documentsService, agencyDetailsService, insuranceService } from '@api/index';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import DataTable, { Column } from '@comps/common/DataTable';
@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
+import CustomSelect from '@comps/common/CustomSelect';
 
 const formatPreview = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -31,14 +32,176 @@ const formatPreview = (dateStr?: string) => {
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@store/auth.store';
 import clsx from 'clsx';
-import { getPolicyStatusDisplay } from '../../utils/policyStatusUtils';
+import { getPolicyStatusDisplay, calculateLastInstallmentDate } from '../../utils/policyStatusUtils';
 
+const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
+  HEALTH: [
+    'HDFC ERGO General Insurance',
+    'Star Health and Allied Insurance',
+    'Care Health Insurance',
+    'Niva Bupa Health Insurance',
+    'ICICI Lombard General Insurance',
+    'Manipal Cigna Health Insurance',
+    'Bajaj Allianz General Insurance',
+    'Tata AIG General Insurance',
+    'Aditya Birla Health Insurance',
+    'New India Assurance',
+    'Oriental Insurance',
+    'National Insurance',
+    'United India Insurance',
+  ],
+  LIFE: [
+    'Life Insurance Corporation of India (LIC)',
+    'HDFC Life Insurance',
+    'ICICI Prudential Life Insurance',
+    'SBI Life Insurance',
+    'Tata AIA Life Insurance',
+    'Max Life Insurance',
+    'Bajaj Allianz Life Insurance',
+    'Kotak Mahindra Life Insurance',
+    'PNB MetLife India Insurance',
+    'Aditya Birla Sun Life Insurance',
+  ],
+  TERM: [
+    'Life Insurance Corporation of India (LIC)',
+    'HDFC Life Insurance',
+    'ICICI Prudential Life Insurance',
+    'Tata AIA Life Insurance',
+    'SBI Life Insurance',
+    'Max Life Insurance',
+    'Bajaj Allianz Life Insurance',
+  ],
+  MOTOR: [
+    'HDFC ERGO General Insurance',
+    'ICICI Lombard General Insurance',
+    'Bajaj Allianz General Insurance',
+    'Tata AIG General Insurance',
+    'Go Digit General Insurance',
+    'Acko General Insurance',
+    'Reliance General Insurance',
+    'SBI General Insurance',
+    'New India Assurance',
+  ],
+  TRAVEL: [
+    'HDFC ERGO General Insurance',
+    'Star Health and Allied Insurance',
+    'ICICI Lombard General Insurance',
+    'Tata AIG General Insurance',
+    'Bajaj Allianz General Insurance',
+    'Care Health Insurance',
+    'Reliance General Insurance',
+  ],
+  GENERAL: [
+    'HDFC ERGO General Insurance',
+    'ICICI Lombard General Insurance',
+    'Bajaj Allianz General Insurance',
+    'Tata AIG General Insurance',
+    'New India Assurance',
+    'Oriental Insurance',
+    'National Insurance',
+    'United India Insurance',
+  ],
+  'CRITICAL ILLNESS': [
+    'Star Health and Allied Insurance',
+    'HDFC ERGO General Insurance',
+    'Care Health Insurance',
+    'HDFC Life Insurance',
+    'ICICI Prudential Life Insurance',
+  ],
+};
+
+const formatTypeLabel = (t: string) => {
+  switch (t.toUpperCase()) {
+    case 'HEALTH': return 'Health';
+    case 'LIFE': return 'Life';
+    case 'MOTOR': return 'Motor';
+    case 'TRAVEL': return 'Travel';
+    case 'TERM': return 'Term';
+    case 'GENERAL': return 'General';
+    case 'CRITICAL ILLNESS': return 'Critical Illness';
+    default: return t.charAt(0) + t.slice(1).toLowerCase();
+  }
+};
+
+export const POLICY_TYPE_OPTIONS = [
+  { value: 'Retail Individual', label: 'Retail Individual' },
+  { value: 'Retail Floater', label: 'Retail Floater' },
+  { value: 'Corporate Individual', label: 'Corporate Individual' },
+  { value: 'Corporate Floater', label: 'Corporate Floater' },
+];
+
+export const CUSTOMER_CATEGORY_OPTIONS = [
+  { value: 'Fresh', label: 'Fresh' },
+  { value: 'Port', label: 'Port' },
+  { value: 'Renewal', label: 'Renewal' },
+];
+
+export const INSURANCE_COMPANY_CATEGORY_OPTIONS = [
+  { value: 'Health', label: 'Health' },
+  { value: 'Life', label: 'Life' },
+  { value: 'General', label: 'General' },
+  { value: 'Other', label: 'Other' },
+];
+
+export const INSURANCE_PLAN_CATEGORY_OPTIONS = [
+  { value: 'Health', label: 'Health' },
+  { value: 'Accident', label: 'Accident' },
+  { value: 'Life Term', label: 'Life Term' },
+  { value: 'Life Other', label: 'Life Other' },
+  { value: 'Group PA', label: 'Group PA' },
+  { value: 'Group Health', label: 'Group Health' },
+  { value: 'SME', label: 'SME' },
+  { value: 'Travel', label: 'Travel' },
+  { value: 'Other', label: 'Other' },
+];
+
+export const POLICY_STATUS_OPTIONS = [
+  { value: 'INFORCE', label: 'Inforce' },
+  { value: 'RENEWAL_DUE', label: 'Renewal Due' },
+  { value: 'GRACE_PERIOD', label: 'Grace Period' },
+  { value: 'LAPSED', label: 'Lapsed' },
+  { value: 'INACTIVE_OLD', label: 'Inactive(Old)' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+export const INSTALLMENT_DATE_OPTIONS = Array.from({ length: 31 }, (_, i) => {
+  const day = i + 1;
+  const padDay = String(day).padStart(2, '0');
+  const suffix = (day === 1 || day === 21 || day === 31) ? 'st' : (day === 2 || day === 22) ? 'nd' : (day === 3 || day === 23) ? 'rd' : 'th';
+  return {
+    value: padDay,
+    label: `${padDay}${suffix}`,
+  };
+});
+
+export const PHC_STAGE_OPTIONS = [
+  { value: 'TO_CONTACT', label: 'To Contact' },
+  { value: 'CONTACTED', label: 'Contacted' },
+  { value: 'Test Booked', label: 'Test Booked' },
+  { value: 'Test Done', label: 'Test Done' },
+  { value: 'Reports Received - Customer', label: 'Reports Received - Customer' },
+  { value: 'Reports Received - Our Office', label: 'Reports Received - Our Office' },
+  { value: 'Reports Submitted to Company', label: 'Reports Submitted to Company' },
+  { value: 'Bill Approved', label: 'Bill Approved' },
+  { value: 'PROCESS_COMPLETED', label: 'Process Completed' },
+];
+
+export const POLICY_DOCUMENT_TYPE_OPTIONS = [
+  { value: 'POLICY_DOCUMENT', label: 'Policy Document' },
+  { value: 'POLICY_DOCUMENT_ENDORSEMENT', label: 'Policy Document - Endorsement' },
+  { value: 'PROPOSAL_FORM', label: 'Proposal Form' },
+  { value: 'KYC', label: 'KYC Document' },
+  { value: 'RENEWAL_RECEIPT', label: 'Renewal Receipt' },
+  { value: 'OTHER', label: 'Other Document' },
+];
 
 interface Policy {
   id: string; policyNumber: string; status: string;
   premiumAmount: number; sumAssured?: number; startDate?: string; endDate: string;
   paymentFrequency?: string; agentCode?: string; notes?: string;
   nextDueDate?: string; maturityDate?: string;
+  lastPremiumDate?: string; lastInstallmentDate?: string; noOfInstallments?: number;
+  insuredPerson?: string;
   contactId?: string;
   contact?: { id: string; firstName: string; lastName: string; phone?: string };
   planId?: string;
@@ -52,6 +215,8 @@ interface Policy {
   };
   assignedEmployee?: { employeeProfile?: { firstName: string; lastName: string } };
   assignedEmployeeId?: string | null;
+  businessType?: string | null;
+  policyType?: string | null;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -96,12 +261,26 @@ export const policyFormSchema = z.object({
   phcClaimSettled: z.boolean().optional(),
   firstYearPremium: z.coerce.number().optional(),
   secondYearPremium: z.coerce.number().optional(),
+  downpaymentAmount: z.coerce.number().optional(),
+  processingFee: z.coerce.number().optional(),
+  installmentAmount: z.coerce.number().optional(),
+  noOfInstallments: z.coerce.number().optional(),
+  lastInstallmentDate: z.string().optional(),
+  insuredPerson: z.string().optional(),
 });
 
 
 
 function parseExtraNotes(notesText?: string | null) {
   const res = {
+    policyType: '',
+    customerCategory: '',
+    companyCategory: '',
+    planCategory: '',
+    agentName: '',
+    policyZoneLocationCity: '',
+    policyZoneLocationPincode: '',
+    policyZoneLocationTier: '',
     deductible: '',
     riders: [] as string[],
     firstPremiumDate: '',
@@ -111,10 +290,22 @@ function parseExtraNotes(notesText?: string | null) {
     emiGateway: '',
     emiDate: '',
     emiPremium: undefined as number | undefined,
+    downpaymentAmount: undefined as number | undefined,
+    processingFee: undefined as number | undefined,
+    installmentAmount: undefined as number | undefined,
+    noOfInstallments: undefined as number | undefined,
+    lastInstallmentDate: '',
     phcRequired: false,
     phcAmount: undefined as number | undefined,
     phcStatus: '',
     phcClaimSettled: false,
+    policyTenure: '',
+    policyTerm: '',
+    insuredPerson: '',
+    phcInsuredPerson: '',
+    phcStage: 'TO_CONTACT',
+    nominees: [] as { name: string; relationship: string; contact: string; dob: string; sharePercent: number }[],
+    connectedPersons: [] as { name: string; relationship: string; contact: string; dob: string; gender: string }[],
     cleanNotes: '',
   };
   if (!notesText) return res;
@@ -123,7 +314,35 @@ function parseExtraNotes(notesText?: string | null) {
   const cleanLines: string[] = [];
 
   lines.forEach(line => {
-    if (line.startsWith('Deductible: ')) {
+    if (line.startsWith('Policy Type: ')) {
+      res.policyType = line.replace('Policy Type: ', '').trim();
+    } else if (line.startsWith('Customer Category: ')) {
+      res.customerCategory = line.replace('Customer Category: ', '').trim();
+    } else if (line.startsWith('Company Category: ')) {
+      res.companyCategory = line.replace('Company Category: ', '').trim();
+    } else if (line.startsWith('Insurance Company Category: ')) {
+      res.companyCategory = line.replace('Insurance Company Category: ', '').trim();
+    } else if (line.startsWith('Plan Category: ')) {
+      res.planCategory = line.replace('Plan Category: ', '').trim();
+    } else if (line.startsWith('Insurance Plan Category: ')) {
+      res.planCategory = line.replace('Insurance Plan Category: ', '').trim();
+    } else if (line.startsWith('Agent Name: ')) {
+      res.agentName = line.replace('Agent Name: ', '').trim();
+    } else if (line.startsWith('Insured Person: ')) {
+      res.insuredPerson = line.replace('Insured Person: ', '').trim();
+    } else if (line.startsWith('Policy Zone City: ')) {
+      res.policyZoneLocationCity = line.replace('Policy Zone City: ', '').trim();
+    } else if (line.startsWith('Policy Zone Location City: ')) {
+      res.policyZoneLocationCity = line.replace('Policy Zone Location City: ', '').trim();
+    } else if (line.startsWith('Policy Zone Location Pincode: ')) {
+      res.policyZoneLocationPincode = line.replace('Policy Zone Location Pincode: ', '').trim();
+    } else if (line.startsWith('Policy Zone Location Tier: ')) {
+      res.policyZoneLocationTier = line.replace('Policy Zone Location Tier: ', '').trim();
+    } else if (line.startsWith('Policy Tenure: ')) {
+      res.policyTenure = line.replace('Policy Tenure: ', '').trim();
+    } else if (line.startsWith('Policy Term: ')) {
+      res.policyTerm = line.replace('Policy Term: ', '').trim();
+    } else if (line.startsWith('Deductible: ')) {
       res.deductible = line.replace('Deductible: ', '').trim();
     } else if (line.startsWith('Riders/Addons: ')) {
       res.riders = line.replace('Riders/Addons: ', '').split(',').map(s => s.trim());
@@ -140,15 +359,71 @@ function parseExtraNotes(notesText?: string | null) {
       const premiumMatch = line.match(/Premium:\s*₹([0-9.]+)/);
       if (gatewayMatch) res.emiGateway = gatewayMatch[1].trim();
       if (dateMatch) res.emiDate = dateMatch[1].trim();
-      if (premiumMatch) res.emiPremium = Number(premiumMatch[1]) || undefined;
+      if (premiumMatch) {
+        res.emiPremium = Number(premiumMatch[1]) || undefined;
+        if (!res.installmentAmount) res.installmentAmount = Number(premiumMatch[1]) || undefined;
+      }
+      const downpaymentMatch = line.match(/Downpayment:\s*₹?([0-9.]+)/);
+      const processingMatch = line.match(/Processing Fee:\s*₹?([0-9.]+)/);
+      if (downpaymentMatch) res.downpaymentAmount = Number(downpaymentMatch[1]) || undefined;
+      if (processingMatch) res.processingFee = Number(processingMatch[1]) || undefined;
+    } else if (line.startsWith('Downpayment Amount: ')) {
+      res.downpaymentAmount = Number(line.replace('Downpayment Amount: ', '').replace('₹', '').replace(/,/g, '').trim()) || undefined;
+    } else if (line.startsWith('Processing Fee: ')) {
+      res.processingFee = Number(line.replace('Processing Fee: ', '').replace('₹', '').replace(/,/g, '').trim()) || undefined;
+    } else if (line.startsWith('Processing Fee (incl. GST): ')) {
+      res.processingFee = Number(line.replace('Processing Fee (incl. GST): ', '').replace('₹', '').replace(/,/g, '').trim()) || undefined;
+    } else if (line.startsWith('Installment Amount: ')) {
+      res.installmentAmount = Number(line.replace('Installment Amount: ', '').replace('₹', '').replace(/,/g, '').trim()) || undefined;
+    } else if (line.startsWith('No. of Installments: ')) {
+      res.noOfInstallments = Number(line.replace('No. of Installments: ', '').trim()) || undefined;
+    } else if (line.startsWith('Installment Date: ')) {
+      res.emiDate = line.replace('Installment Date: ', '').trim();
+    } else if (line.startsWith('Last Installment Date: ')) {
+      res.lastInstallmentDate = line.replace('Last Installment Date: ', '').trim();
+      if (!res.lastPremiumDate) res.lastPremiumDate = res.lastInstallmentDate;
+    } else if (line.startsWith('PHC Insured Person: ')) {
+      res.phcInsuredPerson = line.replace('PHC Insured Person: ', '').trim();
+    } else if (line.startsWith('Insured Person for PHC: ')) {
+      res.phcInsuredPerson = line.replace('Insured Person for PHC: ', '').trim();
+    } else if (line.startsWith('PHC Stage: ')) {
+      res.phcStage = line.replace('PHC Stage: ', '').trim();
     } else if (line.startsWith('Preventive Health Checkup: ')) {
       res.phcRequired = true;
       const amountMatch = line.match(/Amount:\s*₹([0-9.]+)/);
       const statusMatch = line.match(/Status:\s*([^,)]+)/);
       const settledMatch = line.match(/Claim Settled:\s*([^,)]+)/);
+      const personMatch = line.match(/Insured Person:\s*([^,)]+)/);
       if (amountMatch) res.phcAmount = Number(amountMatch[1]) || undefined;
       if (statusMatch) res.phcStatus = statusMatch[1].trim();
       if (settledMatch) res.phcClaimSettled = settledMatch[1].trim().toLowerCase() === 'yes';
+      if (personMatch) res.phcInsuredPerson = personMatch[1].trim();
+    } else if (line.startsWith('Nominee Details')) {
+      const nameM = line.match(/Name:\s*([^,]+)/);
+      const relM = line.match(/Relationship:\s*([^,]+)/);
+      const contactM = line.match(/Contact:\s*([^,]+)/);
+      const dobM = line.match(/DoB:\s*([^,]+)/);
+      const shareM = line.match(/Share:\s*([0-9.]+)%/);
+      res.nominees.push({
+        name: nameM ? nameM[1].trim() : '',
+        relationship: relM ? relM[1].trim() : '',
+        contact: contactM ? contactM[1].trim() : '',
+        dob: dobM && dobM[1].trim() !== 'N/A' ? dobM[1].trim() : '',
+        sharePercent: shareM ? Number(shareM[1]) : 100,
+      });
+    } else if (line.startsWith('Connected Person')) {
+      const nameM = line.match(/Name:\s*([^,]+)/);
+      const relM = line.match(/Relationship:\s*([^,]+)/);
+      const contactM = line.match(/Contact:\s*([^,]+)/);
+      const dobM = line.match(/DoB:\s*([^,]+)/);
+      const genderM = line.match(/Gender:\s*([^,]+)/);
+      res.connectedPersons.push({
+        name: nameM ? nameM[1].trim() : '',
+        relationship: relM ? relM[1].trim() : '',
+        contact: contactM ? contactM[1].trim() : '',
+        dob: dobM && dobM[1].trim() !== 'N/A' ? dobM[1].trim() : '',
+        gender: genderM ? genderM[1].trim() : 'MALE',
+      });
     } else {
       cleanLines.push(line);
     }
@@ -182,6 +457,9 @@ export const policyEditFormSchema = z.object({
   phcAmount: z.coerce.number().optional(),
   phcStatus: z.string().optional(),
   phcClaimSettled: z.boolean().optional(),
+  downpaymentAmount: z.coerce.number().optional(),
+  processingFee: z.coerce.number().optional(),
+  installmentAmount: z.coerce.number().optional(),
 });
 
 
@@ -237,17 +515,17 @@ export default function Policies() {
   const [isViewMode, setIsViewMode] = useState(false);
   const [keepCreateOpen, setKeepCreateOpen] = useState(false);
   const [activePolicyTab, setActivePolicyTab] = useState<'policyPlan' | 'premium' | 'paymentGst' | 'connectedPersons' | 'phcDetails' | 'policyDocs' | 'policyClaims'>('policyPlan');
-  const [isPolicyDetailsCollapsed, setIsPolicyDetailsCollapsed] = useState(true);
-  const [isPlanDetailsCollapsed, setIsPlanDetailsCollapsed] = useState(true);
+  const [isPolicyDetailsCollapsed, setIsPolicyDetailsCollapsed] = useState(false);
+  const [isPlanDetailsCollapsed, setIsPlanDetailsCollapsed] = useState(false);
   const [isPremiumBreakdownCollapsed, setIsPremiumBreakdownCollapsed] = useState(true);
   const [isTenureDatesCollapsed, setIsTenureDatesCollapsed] = useState(true);
   const [isEmiDetailsCollapsed, setIsEmiDetailsCollapsed] = useState(true);
   const [isPaymentModeLoanCollapsed, setIsPaymentModeLoanCollapsed] = useState(true);
   const [isPaymentAccountCollapsed, setIsPaymentAccountCollapsed] = useState(true);
   const [isGstDetailsCollapsed, setIsGstDetailsCollapsed] = useState(true);
-  const [isPhcCollapsed, setIsPhcCollapsed] = useState(true);
-  const [isPhcBookingCollapsed, setIsPhcBookingCollapsed] = useState(true);
-  const [isPhcSettlementCollapsed, setIsPhcSettlementCollapsed] = useState(true);
+  const [isPhcCollapsed, setIsPhcCollapsed] = useState(false);
+  const [isPhcBookingCollapsed, setIsPhcBookingCollapsed] = useState(false);
+  const [isPhcSettlementCollapsed, setIsPhcSettlementCollapsed] = useState(false);
   const [isDocCollapsed, setIsDocCollapsed] = useState(true);
   const [isEndorsementDocCollapsed, setIsEndorsementDocCollapsed] = useState(true);
   const [isAddPolicyClaimOpen, setIsAddPolicyClaimOpen] = useState(false);
@@ -282,25 +560,50 @@ export default function Policies() {
     reportBillReceivedDate: '',
     reportBillSubmittedDate: '',
     settlementDate: '',
-    phcStage: 'INTIMATIONS',
+    phcStage: 'TO_CONTACT',
   });
+  const [isCustomPhcPersonManual, setIsCustomPhcPersonManual] = useState(false);
 
   const [isDocUploadModalOpen, setIsDocUploadModalOpen] = useState(false);
   const [docUploadFields, setDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
-    type: 'POLICY',
+    type: 'POLICY_DOCUMENT',
     title: '',
     description: '',
     file: null,
   });
   const [pendingDocs, setPendingDocs] = useState<{ type: string; title: string; description: string; file: File }[]>([]);
 
+
+
   const handleDocUploadAdd = () => {
     if (!docUploadFields.file) return toast.error('Please select a file to upload.');
     if (!docUploadFields.title) return toast.error('Please provide a document title.');
     setPendingDocs(prev => [...prev, docUploadFields as any]);
     setIsDocUploadModalOpen(false);
-    setDocUploadFields({ type: 'POLICY', title: '', description: '', file: null });
+    setDocUploadFields({ type: 'POLICY_DOCUMENT', title: '', description: '', file: null });
   };
+
+  const viewDoc = async (docId: string) => {
+    try {
+      const res = await documentsService.url(docId);
+      const url = (res as any)?.url || (res as any)?.data?.url;
+      if (url) window.open(url, '_blank');
+      else toast.error('Document URL not found');
+    } catch {
+      toast.error('Could not load document URL');
+    }
+  };
+
+  const deleteExistingDocMutation = useMutation({
+    mutationFn: (docId: string) => documentsService.remove(docId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['policy-docs', editTarget?.id] });
+      toast.success('Document deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete document');
+    },
+  });
 
   // Payment Account Details
   const [paymentAccount, setPaymentAccount] = useState({
@@ -422,6 +725,7 @@ export default function Policies() {
   const defaultFilters = {
     companyCategory: '',
     company: '',
+    insuredPerson: '',
     planCategory: '',
     plan: '',
     businessCategory: '',
@@ -503,6 +807,12 @@ export default function Policies() {
     secondYearPremium: true,
     premiumAmount: true,
     installmentCase: true,
+    downpaymentAmount: true,
+    processingFee: true,
+    installmentAmount: true,
+    noOfInstallments: true,
+    lastInstallmentDate: true,
+    insuredPerson: true,
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
   const colPickerRef = useRef<HTMLDivElement>(null);
@@ -693,6 +1003,10 @@ export default function Policies() {
   const [contactDropdown, setContactDropdown] = useState(false);
 
   // Plan picker cascade states
+  const [selectedPolicyType, setSelectedPolicyType] = useState('');
+  const [selectedCompanyCategory, setSelectedCompanyCategory] = useState('');
+  const [selectedPlanCategory, setSelectedPlanCategory] = useState('');
+  const [customerCategory, setCustomerCategory] = useState('Fresh');
   const [selectedType, setSelectedType] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -710,27 +1024,66 @@ export default function Policies() {
   const plansList = allPlansRes?.data ?? [];
 
   const availableTypes = useMemo(() => {
-    return Array.from(new Set(plansList.map((p: any) => p.category))).filter(Boolean) as string[];
+    const fromPlans = plansList.map((p: any) => (p.category || '').toUpperCase()).filter(Boolean);
+    const standard = ['HEALTH', 'LIFE', 'MOTOR', 'TRAVEL', 'TERM', 'GENERAL', 'CRITICAL ILLNESS'];
+    return Array.from(new Set([...standard, ...fromPlans]));
   }, [plansList]);
 
   const availableCompanies = useMemo(() => {
-    if (!selectedType) return [];
-    return Array.from(
-      new Set(
-        plansList
-          .filter((p: any) => p.category === selectedType)
+    const filterCat = (selectedCompanyCategory || selectedType || '').toUpperCase();
+
+    const listFromPlans = filterCat && filterCat !== 'OTHER'
+      ? plansList
+          .filter((p: any) => {
+            const compCat = (p.company?.category || '').toUpperCase();
+            const planCat = (p.category || '').toUpperCase();
+            return compCat.includes(filterCat) || planCat.includes(filterCat);
+          })
           .map((p: any) => p.company?.name)
           .filter(Boolean)
-      )
-    ) as string[];
-  }, [plansList, selectedType]);
+      : plansList.map((p: any) => p.company?.name).filter(Boolean);
+
+    const defaultsForType = filterCat && DEFAULT_COMPANIES_BY_TYPE[filterCat]
+      ? DEFAULT_COMPANIES_BY_TYPE[filterCat]
+      : Array.from(new Set(Object.values(DEFAULT_COMPANIES_BY_TYPE).flat()));
+
+    const allDbCompanies = Array.from(new Set(plansList.map((p: any) => p.company?.name).filter(Boolean)));
+
+    return Array.from(
+      new Set([
+        ...listFromPlans,
+        ...defaultsForType,
+        ...(!filterCat || filterCat === 'OTHER' ? allDbCompanies : []),
+      ])
+    ).filter(Boolean).sort() as string[];
+  }, [plansList, selectedCompanyCategory, selectedType]);
 
   const availablePlans = useMemo(() => {
-    if (!selectedType || !selectedCompany) return [];
-    return plansList.filter(
-      (p: any) => p.category === selectedType && p.company?.name === selectedCompany
+    if (!selectedCompany) return [];
+    const directMatches = plansList.filter((p: any) => {
+      const coMatch = (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() ||
+                      (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase();
+      const filterCat = (selectedPlanCategory || selectedCompanyCategory || selectedType || '').toUpperCase();
+      const typeMatch = !filterCat || filterCat === 'OTHER' || (p.category || '').toUpperCase().includes(filterCat) || filterCat.includes((p.category || '').toUpperCase());
+      return coMatch && typeMatch;
+    });
+
+    if (directMatches.length > 0) return directMatches;
+
+    const companyMatches = plansList.filter((p: any) => 
+      (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() ||
+      (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase()
     );
-  }, [plansList, selectedType, selectedCompany]);
+    if (companyMatches.length > 0) return companyMatches;
+
+    if (selectedPlanCategory || selectedType) {
+      const targetCat = (selectedPlanCategory || selectedType).toUpperCase();
+      const catMatches = plansList.filter((p: any) => (p.category || '').toUpperCase().includes(targetCat) || targetCat.includes((p.category || '').toUpperCase()));
+      if (catMatches.length > 0) return catMatches;
+    }
+
+    return plansList;
+  }, [plansList, selectedPlanCategory, selectedCompanyCategory, selectedType, selectedCompany]);
 
   // Derived filter options
   const filterPlansOptions = useMemo(() => {
@@ -778,9 +1131,17 @@ export default function Policies() {
     // Quick Select filters
     if (selectedQuickFilter !== 'ALL') {
       if (['FRESH', 'PORT', 'RENEWAL'].includes(selectedQuickFilter)) {
-        list = list.filter((p: any) => p.policyType === selectedQuickFilter);
+        list = list.filter((p: any) => {
+          const extra = parseExtraNotes(p.notes);
+          const cat = (extra.customerCategory || (p.businessType ? (p.businessType === 'FRESH' ? 'Fresh' : p.businessType === 'PORT' ? 'Port' : p.businessType === 'RENEWAL' ? 'Renewal' : p.businessType) : '') || p.policyType || '').toUpperCase();
+          return cat === selectedQuickFilter;
+        });
       } else {
-        list = list.filter((p: any) => p.plan?.category === selectedQuickFilter);
+        list = list.filter((p: any) => {
+          const extra = parseExtraNotes(p.notes);
+          const cat = (extra.planCategory || extra.companyCategory || p.plan?.category || '').toUpperCase();
+          return cat.includes(selectedQuickFilter);
+        });
       }
     }
 
@@ -811,7 +1172,8 @@ export default function Policies() {
     // Company Category Filter
     if (appliedFilters.companyCategory) {
       list = list.filter((p: any) => {
-        const cat = (p.plan?.company?.category || p.plan?.category || '').toUpperCase();
+        const extra = parseExtraNotes(p.notes);
+        const cat = (extra.companyCategory || p.plan?.company?.category || p.plan?.category || '').toUpperCase();
         return cat.includes(appliedFilters.companyCategory.toUpperCase());
       });
     }
@@ -819,7 +1181,8 @@ export default function Policies() {
     // Plan Category Filter
     if (appliedFilters.planCategory) {
       list = list.filter((p: any) => {
-        const cat = (p.plan?.category || '').toUpperCase();
+        const extra = parseExtraNotes(p.notes);
+        const cat = (extra.planCategory || p.plan?.category || '').toUpperCase();
         return cat.includes(appliedFilters.planCategory.toUpperCase());
       });
     }
@@ -836,20 +1199,35 @@ export default function Policies() {
     // Business Category Filter
     if (appliedFilters.businessCategory) {
       list = list.filter((p: any) => {
-        const bCat = (p.policyType || p.type || '').toUpperCase();
+        const extra = parseExtraNotes(p.notes);
+        const bCat = (extra.customerCategory || (p.businessType ? (p.businessType === 'FRESH' ? 'Fresh' : p.businessType === 'PORT' ? 'Port' : p.businessType === 'RENEWAL' ? 'Renewal' : p.businessType) : '') || p.policyType || p.type || '').toUpperCase();
         return bCat === appliedFilters.businessCategory.toUpperCase();
       });
     }
 
     // Status Filter
     if (appliedFilters.status) {
-      list = list.filter((p: any) => p.status === appliedFilters.status);
+      list = list.filter((p: any) => {
+        const targetStatus = appliedFilters.status.toUpperCase();
+        const rawStatus = String(p.status || '').toUpperCase();
+        if (rawStatus === targetStatus) return true;
+        const disp = getPolicyStatusDisplay(p);
+        const dispLabel = disp.label.toUpperCase();
+        if (targetStatus === 'INFORCE' && (dispLabel === 'INFORCE' || rawStatus === 'ACTIVE')) return true;
+        if (targetStatus === 'RENEWAL_DUE' && dispLabel.includes('RENEWAL DUE')) return true;
+        if (targetStatus === 'GRACE_PERIOD' && dispLabel.includes('GRACE PERIOD')) return true;
+        if (targetStatus === 'LAPSED' && dispLabel.includes('LAPSED')) return true;
+        if (targetStatus === 'INACTIVE_OLD' && (dispLabel.includes('INACTIVE') || rawStatus === 'INACTIVE_OLD')) return true;
+        if (targetStatus === 'CANCELLED' && (dispLabel.includes('CANCELLED') || rawStatus === 'CANCELLED')) return true;
+        return false;
+      });
     }
 
     // Policy Type Filter
     if (appliedFilters.policyType) {
       list = list.filter((p: any) => {
-        const pType = (p.policyCategory || p.type || p.policyType || '').toLowerCase();
+        const extra = parseExtraNotes(p.notes);
+        const pType = (extra.policyType || p.policyCategory || p.type || p.policyType || '').toLowerCase();
         return pType.includes(appliedFilters.policyType.toLowerCase());
       });
     }
@@ -858,9 +1236,11 @@ export default function Policies() {
     if (appliedFilters.agency || appliedFilters.agentName) {
       const term = (appliedFilters.agency || appliedFilters.agentName).toLowerCase();
       list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
         const code = (p.agentCode || '').toLowerCase();
         const empName = (p.assignedEmployee?.employeeProfile?.firstName || '').toLowerCase();
-        return code.includes(term) || empName.includes(term);
+        const extraAgent = (extra.agentName || '').toLowerCase();
+        return code.includes(term) || empName.includes(term) || extraAgent.includes(term);
       });
     }
 
@@ -873,10 +1253,21 @@ export default function Policies() {
       });
     }
 
+    // Insured Person Filter
+    if (appliedFilters.insuredPerson) {
+      const q = appliedFilters.insuredPerson.toLowerCase();
+      list = list.filter((p: any) => {
+        const extra = parseExtraNotes(p.notes);
+        const name = (extra.insuredPerson || `${p.contact?.firstName || ''} ${p.contact?.lastName || ''}`).toLowerCase();
+        return name.includes(q);
+      });
+    }
+
     // City Filter
     if (appliedFilters.city) {
       list = list.filter((p: any) => {
-        const city = (p.contact?.address?.city || p.contact?.city || '').toLowerCase();
+        const extra = parseExtraNotes(p.notes);
+        const city = (extra.policyZoneLocationCity || p.contact?.address?.city || p.contact?.city || '').toLowerCase();
         return city.includes(appliedFilters.city.toLowerCase());
       });
     }
@@ -915,11 +1306,26 @@ export default function Policies() {
       });
     }
 
-    // Policy Tenure Filter
+    // Policy Tenure Filter (Supports typing 1 to 99 Yr or raw numbers)
     if (appliedFilters.policyTenure) {
+      const rawFilter = appliedFilters.policyTenure.trim();
+      const filterNum = parseInt(rawFilter.replace(/\D/g, ''), 10);
       list = list.filter((p: any) => {
-        const tenure = String(p.tenure || p.duration || '1 Year').toLowerCase();
-        return tenure.includes(appliedFilters.policyTenure.toLowerCase());
+        const extra = parseExtraNotes(p.notes);
+        const calcYears = (p.startDate && p.endDate)
+          ? Math.max(1, Math.round((new Date(p.endDate).getTime() - new Date(p.startDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
+          : null;
+        const notesTenure = (extra.policyTenure || '').toLowerCase();
+        const propTenure = String(p.tenure || p.duration || '').toLowerCase();
+
+        if (!isNaN(filterNum) && filterNum > 0) {
+          if (calcYears === filterNum) return true;
+          const numStr = String(filterNum);
+          if (notesTenure.includes(numStr)) return true;
+          if (propTenure.includes(numStr)) return true;
+        }
+
+        return notesTenure.includes(rawFilter.toLowerCase()) || propTenure.includes(rawFilter.toLowerCase());
       });
     }
 
@@ -1037,7 +1443,8 @@ export default function Policies() {
     // No of Installments Filter
     if (appliedFilters.noOfInstallments) {
       list = list.filter((p: any) => {
-        const count = String(p.noOfInstallments || '');
+        const extra = parseExtraNotes(p.notes);
+        const count = String(extra.noOfInstallments || p.noOfInstallments || '');
         return count.includes(appliedFilters.noOfInstallments);
       });
     }
@@ -1150,6 +1557,10 @@ export default function Policies() {
       phcClaimSettled: z.boolean().optional(),
       firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
       secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
     });
   }, [compulsoryRules]);
 
@@ -1180,16 +1591,109 @@ export default function Policies() {
       phcClaimSettled: z.boolean().optional(),
       firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
       secondYearPremium: isFieldRequired('secondYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      downpaymentAmount: isFieldRequired('downpaymentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      processingFee: isFieldRequired('processingFee', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      installmentAmount: isFieldRequired('installmentAmount', false) ? z.coerce.number().min(0, 'Required') : z.coerce.number().optional(),
+      noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional(),
+      lastInstallmentDate: isFieldRequired('lastInstallmentDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
+      insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
     });
   }, [compulsoryRules]);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
     resolver: zodResolver(activeSchema),
-    defaultValues: { paymentFrequency: 'YEARLY' },
+    defaultValues: { paymentFrequency: 'YEARLY', status: 'INFORCE' },
   });
   const { register: regEdit, handleSubmit: handleEdit, reset: resetEdit, setValue: setEditValue, watch: watchEdit } = useForm<EditForm>({
     resolver: zodResolver(activeEditSchema),
   });
+
+  const handleCompanyCategoryChange = (newCat: string) => {
+    setSelectedCompanyCategory(newCat);
+    setSelectedType(newCat);
+
+    if (selectedCompany && newCat) {
+      const catKey = newCat.toUpperCase();
+      const isCompanyInType = plansList.some(
+        (p: any) => (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() &&
+                    ((p.company?.category || '').toUpperCase().includes(catKey) || 
+                     (p.category || '').toUpperCase().includes(catKey))
+      ) || (DEFAULT_COMPANIES_BY_TYPE[catKey] || []).some(
+        c => c.toLowerCase() === selectedCompany.toLowerCase()
+      );
+      if (!isCompanyInType && catKey !== 'OTHER') {
+        setSelectedCompany('');
+        setSelectedPlan(null);
+        setValue('planId', '');
+      }
+    }
+  };
+
+  const handlePlanCategoryChange = (newCat: string) => {
+    setSelectedPlanCategory(newCat);
+    if (selectedPlan && newCat && newCat !== 'Other') {
+      const pCat = (selectedPlan.category || '').toLowerCase();
+      if (!pCat.includes(newCat.toLowerCase()) && !newCat.toLowerCase().includes(pCat)) {
+        setSelectedPlan(null);
+        setValue('planId', '');
+      }
+    }
+  };
+
+  const handleTypeChange = (newType: string) => {
+    setSelectedType(newType);
+    setSelectedPlan(null);
+    setValue('planId', '');
+
+    if (selectedCompany && newType) {
+      const isCompanyInType = plansList.some(
+        (p: any) => (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() &&
+                    (p.category || '').toUpperCase() === newType.toUpperCase()
+      ) || (DEFAULT_COMPANIES_BY_TYPE[newType.toUpperCase()] || []).some(
+        c => c.toLowerCase() === selectedCompany.toLowerCase()
+      );
+      if (!isCompanyInType) {
+        setSelectedCompany('');
+      }
+    }
+  };
+
+  const handleCompanyChange = (compName: string) => {
+    setSelectedCompany(compName);
+    setSelectedPlan(null);
+    setValue('planId', '');
+
+    if (compName && !selectedCompanyCategory) {
+      const plan = plansList.find((p: any) => (p.company?.name || '').toLowerCase() === compName.toLowerCase());
+      if (plan?.company?.category) {
+        const cat = plan.company.category;
+        const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toLowerCase() === cat.toLowerCase());
+        if (matchingCat) {
+          setSelectedCompanyCategory(matchingCat.value);
+          setSelectedType(matchingCat.value);
+        }
+      } else {
+        for (const [type, companies] of Object.entries(DEFAULT_COMPANIES_BY_TYPE)) {
+          if (companies.some(c => c.toLowerCase() === compName.toLowerCase())) {
+            const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toUpperCase() === type.toUpperCase());
+            if (matchingCat) {
+              setSelectedCompanyCategory(matchingCat.value);
+              setSelectedType(matchingCat.value);
+            }
+            break;
+          }
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCompany && availablePlans.length > 0 && !selectedPlan) {
+      const first = availablePlans[0];
+      setSelectedPlan(first);
+      setValue('planId', first.id, { shouldValidate: true });
+    }
+  }, [selectedCompany, availablePlans, selectedPlan, setValue]);
   const watchEditEmiCase = watchEdit('emiCase');
   const watchEditPhcRequired = watchEdit('phcRequired');
   const watchEditEndDate = watchEdit('endDate');
@@ -1200,22 +1704,144 @@ export default function Policies() {
   const watchSumAssured = watch('sumAssured');
   const watchFirstYearPremium = watch('firstYearPremium');
   const watchSecondYearPremium = watch('secondYearPremium');
+  const watchDownpaymentAmount = watch('downpaymentAmount');
+  const watchProcessingFee = watch('processingFee');
+  const watchInstallmentAmount = watch('installmentAmount');
+  const watchNoOfInstallments = watch('noOfInstallments');
+  const watchFirstPremiumDate = watch('firstPremiumDate');
+  const watchPaymentFrequency = watch('paymentFrequency');
+  const watchEmiDate = watch('emiDate');
   const watchStartDate = watch('startDate');
   const watchEndDate = watch('endDate');
   const watchEmiCase = watch('emiCase');
   const watchPhcRequired = watch('phcRequired');
   const [durationYears, setDurationYears] = useState<number>(1);
+  const [policyTerm, setPolicyTerm] = useState<string>('1 Year');
+  const [insuredPerson, setInsuredPerson] = useState<string>('');
+
+  useEffect(() => {
+    if (durationYears) {
+      setPolicyTerm(`${durationYears} ${Number(durationYears) === 1 ? 'Year' : 'Years'}`);
+    }
+  }, [durationYears]);
+  const [selectedFamilySize, setSelectedFamilySize] = useState<string>('1');
+  const [selectedZoneTier, setSelectedZoneTier] = useState<string>('ZONE_1');
+  const [policyZoneLocationCity, setPolicyZoneLocationCity] = useState<string>('');
+  const [policyZoneLocationPincode, setPolicyZoneLocationPincode] = useState<string>('');
+  const [selectedAgentName, setSelectedAgentName] = useState<string>(
+    user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Rahul Mehta' : 'Rahul Mehta'
+  );
+
+  const agentOptions = useMemo(() => {
+    const list: { value: string; label: string; empId?: string; agentCode?: string }[] = [];
+
+    // 1. Current logged in user
+    if (user) {
+      const selfName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Current User';
+      list.push({ value: selfName, label: `${selfName} (Current User)`, empId: user.id });
+    }
+
+    // 2. Employees from employeeResults
+    (employeeResults?.data || []).forEach((emp: any) => {
+      const name = `${emp.firstName || emp.employeeProfile?.firstName || ''} ${emp.lastName || emp.employeeProfile?.lastName || ''}`.trim();
+      if (name && !list.some(x => x.value.toLowerCase() === name.toLowerCase())) {
+        list.push({ value: name, label: name, empId: emp.userId || emp.id });
+      }
+    });
+
+    // 3. Agencies / Agents from agencyRes
+    (agencyRes?.data || []).forEach((ag: any) => {
+      const agName = ag.name?.trim();
+      if (agName && !list.some(x => x.value.toLowerCase() === agName.toLowerCase())) {
+        list.push({ value: agName, label: `${agName}${ag.agentCode ? ` (${ag.agentCode})` : ''}`, agentCode: ag.agentCode });
+      }
+    });
+
+    // 4. Default / common agents
+    const defaultAgents = ['Rahul Mehta', 'Priya Sharma', 'Amit Patel', 'Sneha Kulkarni'];
+    defaultAgents.forEach(name => {
+      if (!list.some(x => x.value.toLowerCase() === name.toLowerCase())) {
+        list.push({ value: name, label: name });
+      }
+    });
+
+    return list;
+  }, [user, employeeResults, agencyRes]);
 
   useEffect(() => {
     if (watchStartDate) {
       const start = new Date(watchStartDate);
       if (!isNaN(start.getTime())) {
+        const numYears = Number(durationYears) || 1;
         const end = new Date(start);
-        end.setFullYear(start.getFullYear() + durationYears);
+        end.setFullYear(start.getFullYear() + numYears);
         setValue('endDate', end.toISOString().split('T')[0]);
+        setValue('maturityDate', end.toISOString().split('T')[0]);
       }
     }
   }, [watchStartDate, durationYears, setValue]);
+
+  useEffect(() => {
+    const baseDate = watchFirstPremiumDate || watchStartDate;
+    if (baseDate && watchNoOfInstallments) {
+      const calculatedLastDate = calculateLastInstallmentDate(
+        baseDate,
+        watchNoOfInstallments,
+        watchPaymentFrequency || 'MONTHLY',
+        watchEmiDate
+      );
+      if (calculatedLastDate) {
+        setValue('lastPremiumDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
+        setValue('lastInstallmentDate', calculatedLastDate, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  }, [watchFirstPremiumDate, watchStartDate, watchNoOfInstallments, watchPaymentFrequency, watchEmiDate, setValue]);
+
+  // Fetch existing policy documents when in edit mode
+  const { data: existingPolicyDocsRes } = useQuery({
+    queryKey: ['policy-docs', editTarget?.id],
+    queryFn: () => documentsService.list({ policyId: editTarget!.id }),
+    enabled: !!editTarget?.id && modalOpen,
+  });
+  const existingPolicyDocs: any[] = existingPolicyDocsRes?.data ?? [];
+
+  const phcInsuredPersonOptions = useMemo(() => {
+    const list: { value: string; label: string; sublabel?: string }[] = [];
+    const seen = new Set<string>();
+
+    const primary = (insuredPerson || (selectedContact ? `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim() : '')).trim();
+    if (primary) {
+      list.push({
+        value: primary,
+        label: `${primary} (Self / Primary)`,
+        sublabel: 'Primary Insured Person',
+      });
+      seen.add(primary.toLowerCase());
+    }
+
+    connectedPersons.forEach((cp) => {
+      const name = (cp.name || '').trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        list.push({
+          value: name,
+          label: `${name} (${cp.relationship || 'Member'})`,
+          sublabel: cp.relationship ? `Relationship: ${cp.relationship}` : 'Family Member',
+        });
+        seen.add(name.toLowerCase());
+      }
+    });
+
+    const current = (phcExtraDetails.insuredPersonName || '').trim();
+    if (current && !seen.has(current.toLowerCase())) {
+      list.push({
+        value: current,
+        label: current,
+        sublabel: 'Custom Name',
+      });
+    }
+
+    return list;
+  }, [insuredPerson, selectedContact, connectedPersons, phcExtraDetails.insuredPersonName]);
 
   const closeModal = () => {
     const returnState = location.state as any;
@@ -1226,10 +1852,41 @@ export default function Policies() {
     reset();
     setSelectedContact(null);
     setContactSearch('');
+    setSelectedPolicyType('');
+    setSelectedCompanyCategory('');
+    setSelectedPlanCategory('');
+    setCustomerCategory('Fresh');
+    setSelectedAgentName(user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Rahul Mehta' : 'Rahul Mehta');
+    setPolicyZoneLocationCity('');
+    setPolicyZoneLocationPincode('');
+    setDurationYears(1);
+    setPolicyTerm('1 Year');
+    setInsuredPerson('');
+    setSelectedZoneTier('ZONE_1');
     setSelectedType('');
     setSelectedCompany('');
     setSelectedPlan(null);
     setPendingDocs([]);
+    setConnectedPersons([]);
+    setPhcExtraDetails({
+      balanceAmount: '1500',
+      eligibilityStartDate: '',
+      frequency: 'ANNUAL',
+      followUpDate: '',
+      insuredPersonName: '',
+      bookingDate: '',
+      appointmentDate: '',
+      centreName: '',
+      centreCity: '',
+      utilizedAmount: '',
+      reimbursementCashless: 'CASHLESS',
+      reportReceivedDate: '',
+      reportBillReceivedDate: '',
+      reportBillSubmittedDate: '',
+      settlementDate: '',
+      phcStage: 'TO_CONTACT',
+    });
+    setIsCustomPhcPersonManual(false);
     setKeepCreateOpen(false);
     if (returnRoute) {
       navigate(returnRoute, {
@@ -1247,6 +1904,56 @@ export default function Policies() {
   const openEdit = (p: Policy) => {
     setEditTarget(p);
     const extra = parseExtraNotes(p.notes);
+
+    // Set Policy Type
+    setSelectedPolicyType(extra.policyType || (p as any).policyType || '');
+
+    // Set Customer Category
+    const custCat = extra.customerCategory || (p.businessType ? (p.businessType === 'FRESH' ? 'Fresh' : p.businessType === 'PORT' ? 'Port' : p.businessType === 'RENEWAL' ? 'Renewal' : p.businessType) : '');
+    setCustomerCategory(custCat || 'Fresh');
+    setValue('customerCategory' as any, custCat || 'Fresh');
+
+    // Set Company Category
+    const compCat = extra.companyCategory || p.plan?.company?.category || '';
+    const matchCompCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toLowerCase() === compCat.toLowerCase());
+    setSelectedCompanyCategory(matchCompCat ? matchCompCat.value : compCat);
+
+    // Set Plan Category
+    const planCat = extra.planCategory || p.plan?.category || '';
+    const matchPlanCat = INSURANCE_PLAN_CATEGORY_OPTIONS.find(o => o.value.toLowerCase() === planCat.toLowerCase());
+    setSelectedPlanCategory(matchPlanCat ? matchPlanCat.value : planCat);
+
+    // Set Agent Name
+    if (extra.agentName) {
+      setSelectedAgentName(extra.agentName);
+    } else if (p.assignedEmployee?.employeeProfile) {
+      const name = `${p.assignedEmployee.employeeProfile.firstName || ''} ${p.assignedEmployee.employeeProfile.lastName || ''}`.trim();
+      setSelectedAgentName(name || (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Rahul Mehta' : 'Rahul Mehta'));
+    } else if (p.agentCode) {
+      const match = agentOptions.find(o => o.agentCode === p.agentCode);
+      setSelectedAgentName(match ? match.value : p.agentCode);
+    } else {
+      setSelectedAgentName(user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Rahul Mehta' : 'Rahul Mehta');
+    }
+
+    // Set Policy Zone Location City, Pincode, Tier
+    if (extra.policyZoneLocationCity) {
+      setPolicyZoneLocationCity(extra.policyZoneLocationCity);
+    } else {
+      setPolicyZoneLocationCity('');
+    }
+
+    if (extra.policyZoneLocationPincode) {
+      setPolicyZoneLocationPincode(extra.policyZoneLocationPincode);
+    } else {
+      setPolicyZoneLocationPincode('');
+    }
+
+    if (extra.policyZoneLocationTier) {
+      setSelectedZoneTier(extra.policyZoneLocationTier);
+    }
+
+    setSelectedType(compCat || planCat || '');
 
     setValue('contactId', p.contactId || '');
     if (p.contact) {
@@ -1270,7 +1977,7 @@ export default function Policies() {
     }
 
     setValue('policyNumber', p.policyNumber || '');
-    setValue('status', (p.status as any) || 'ACTIVE');
+    setValue('status', (p.status === 'ACTIVE' ? 'INFORCE' : p.status) || 'INFORCE');
     setValue('premiumAmount', p.premiumAmount || 0);
     setValue('sumAssured', (p.sumAssured as any) || undefined);
     setValue('startDate', p.startDate ? p.startDate.slice(0, 10) : '');
@@ -1294,22 +2001,44 @@ export default function Policies() {
     setValue('phcAmount', extra.phcAmount || undefined);
     setValue('phcStatus', extra.phcStatus || '');
     setValue('phcClaimSettled', extra.phcClaimSettled || false);
+    setValue('downpaymentAmount', extra.downpaymentAmount || undefined);
+    setValue('processingFee', extra.processingFee || undefined);
+    setValue('installmentAmount', extra.installmentAmount || extra.emiPremium || undefined);
+    setValue('noOfInstallments', extra.noOfInstallments || (p as any).noOfInstallments || undefined);
+    setValue('lastInstallmentDate', extra.lastInstallmentDate || extra.lastPremiumDate || p.lastPremiumDate || '');
+    setValue('lastPremiumDate', extra.lastPremiumDate || extra.lastInstallmentDate || p.lastPremiumDate || '');
+    setValue('emiDate', extra.emiDate || '');
 
-    if (extra.phcAmount || extra.phcStatus) {
+    if (extra.phcAmount || extra.phcStatus || extra.phcInsuredPerson || extra.phcStage) {
       setPhcExtraDetails(prev => ({
         ...prev,
         balanceAmount: '1500',
         frequency: 'ANNUAL',
+        insuredPersonName: extra.phcInsuredPerson || prev.insuredPersonName || '',
+        phcStage: extra.phcStage || prev.phcStage || 'TO_CONTACT',
       }));
     }
 
+    const parsedTenureNum = parseInt((extra.policyTenure || '').replace(/\D/g, ''), 10);
+    if (!isNaN(parsedTenureNum) && parsedTenureNum > 0) {
+      setDurationYears(parsedTenureNum);
+    } else if (p.startDate && p.endDate) {
+      const years = Math.max(1, Math.round((new Date(p.endDate).getTime() - new Date(p.startDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+      setDurationYears(years);
+    } else {
+      setDurationYears(1);
+    }
+    setPolicyTerm(extra.policyTerm || (extra.policyTenure ? extra.policyTenure : '1 Year'));
+    setInsuredPerson(extra.insuredPerson || (p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : ''));
+
+    let initialPersons: ConnectedPersonItem[] = [];
     if ((p as any).members && (p as any).members.length > 0) {
-      setConnectedPersons((p as any).members.map((m: any) => ({
+      initialPersons = (p as any).members.map((m: any) => ({
         id: m.id || String(Math.random()),
         name: m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
         relationship: m.relationship || 'Spouse',
         contactNo: m.contactNo || m.phone || '',
-        dob: m.dateOfBirth ? m.dateOfBirth.slice(0, 10) : '',
+        dob: m.dateOfBirth ? m.dateOfBirth.slice(0, 10) : (m.dob || ''),
         gender: m.gender || 'MALE',
         isCovered: true,
         isNominee: false,
@@ -1318,8 +2047,97 @@ export default function Policies() {
         nomineeContact: '',
         nomineeDob: '',
         nomineePercentage: 100,
-      })));
+      }));
+    } else if (extra.connectedPersons && extra.connectedPersons.length > 0) {
+      initialPersons = extra.connectedPersons.map((cp: any) => ({
+        id: String(Math.random()),
+        name: cp.name,
+        relationship: cp.relationship || 'Spouse',
+        contactNo: cp.contact || '',
+        dob: cp.dob || '',
+        gender: cp.gender || 'MALE',
+        isCovered: true,
+        isNominee: false,
+        nomineeName: '',
+        nomineeRelation: 'Spouse',
+        nomineeContact: '',
+        nomineeDob: '',
+        nomineePercentage: 100,
+      }));
     }
+
+    if ((p as any).nominees && (p as any).nominees.length > 0) {
+      const nomList = (p as any).nominees;
+      if (initialPersons.length === 0) {
+        initialPersons = nomList.map((n: any) => ({
+          id: n.id || String(Math.random()),
+          name: n.name || '',
+          relationship: n.relationship || 'Nominee',
+          contactNo: n.phone || '',
+          dob: n.dateOfBirth ? n.dateOfBirth.slice(0, 10) : '',
+          gender: 'MALE',
+          isCovered: false,
+          isNominee: true,
+          nomineeName: n.name || '',
+          nomineeRelation: n.relationship || '',
+          nomineeContact: n.phone || '',
+          nomineeDob: n.dateOfBirth ? n.dateOfBirth.slice(0, 10) : '',
+          nomineePercentage: n.sharePercent ?? 100,
+        }));
+      } else {
+        initialPersons = initialPersons.map(person => {
+          const match = nomList.find((n: any) => n.name?.toLowerCase() === person.name?.toLowerCase());
+          if (match) {
+            return {
+              ...person,
+              isNominee: true,
+              nomineeName: match.name || person.nomineeName || person.name,
+              nomineeRelation: match.relationship || person.nomineeRelation || person.relationship,
+              nomineeContact: match.phone || person.nomineeContact || person.contactNo,
+              nomineeDob: match.dateOfBirth ? match.dateOfBirth.slice(0, 10) : (person.nomineeDob || person.dob),
+              nomineePercentage: match.sharePercent ?? person.nomineePercentage,
+            };
+          }
+          return person;
+        });
+      }
+    } else if (extra.nominees && extra.nominees.length > 0) {
+      if (initialPersons.length === 0) {
+        initialPersons = extra.nominees.map((n: any) => ({
+          id: String(Math.random()),
+          name: n.name || '',
+          relationship: n.relationship || 'Nominee',
+          contactNo: n.contact || '',
+          dob: n.dob || '',
+          gender: 'MALE',
+          isCovered: false,
+          isNominee: true,
+          nomineeName: n.name || '',
+          nomineeRelation: n.relationship || '',
+          nomineeContact: n.contact || '',
+          nomineeDob: n.dob || '',
+          nomineePercentage: n.sharePercent ?? 100,
+        }));
+      } else {
+        initialPersons = initialPersons.map(person => {
+          const match = extra.nominees.find((n: any) => n.name?.toLowerCase() === person.name?.toLowerCase());
+          if (match) {
+            return {
+              ...person,
+              isNominee: true,
+              nomineeName: match.name || person.nomineeName || person.name,
+              nomineeRelation: match.relationship || person.nomineeRelation || person.relationship,
+              nomineeContact: match.contact || person.nomineeContact || person.contactNo,
+              nomineeDob: match.dob || person.nomineeDob || person.dob,
+              nomineePercentage: match.sharePercent ?? person.nomineePercentage,
+            };
+          }
+          return person;
+        });
+      }
+    }
+
+    setConnectedPersons(initialPersons);
 
     setModalOpen(true);
   };
@@ -1424,17 +2242,31 @@ export default function Policies() {
         render: r => <span className="font-bold text-slate-800 text-xs">{r.contact?.phone || '—'}</span>
       },
       {
+        key: 'insuredPerson',
+        label: 'Insured Person',
+        sortable: true,
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          const name = extra.insuredPerson || (r.contact ? `${r.contact.firstName} ${r.contact.lastName || ''}`.trim() : '—');
+          return <span className="font-extrabold text-slate-900 text-xs">{name}</span>;
+        }
+      },
+      {
         key: 'city',
         label: 'City',
         sortable: true,
-        render: r => <span className="font-bold text-slate-800 text-xs">{(r.contact as any)?.address?.city || (r.contact as any)?.city || '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.policyZoneLocationCity || (r.contact as any)?.address?.city || (r.contact as any)?.city || '—'}</span>;
+        }
       },
       {
         key: 'companyCategory',
         label: 'Insurance Company Category',
         sortable: true,
         render: r => {
-          const val = r.plan?.company?.category || (r as any).insuranceCompanyCategory || '—';
+          const extra = parseExtraNotes(r.notes);
+          const val = extra.companyCategory || r.plan?.company?.category || (r as any).insuranceCompanyCategory || '—';
           return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-800 border border-slate-200">{val}</span>;
         }
       },
@@ -1448,7 +2280,10 @@ export default function Policies() {
         key: 'plan.category',
         label: 'Insurance Plan Category',
         sortable: true,
-        render: r => <span className="font-bold text-slate-800 text-xs">{r.plan?.category ? r.plan.category : '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.planCategory || r.plan?.category || '—'}</span>;
+        }
       },
       {
         key: 'plan.name',
@@ -1459,12 +2294,18 @@ export default function Policies() {
       {
         key: 'customerCategory',
         label: 'Customer Category',
-        render: r => <span className="font-bold text-slate-800 text-xs">{(r.contact as any)?.category || (r as any).customerCategory || '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.customerCategory || (r.businessType ? (r.businessType === 'FRESH' ? 'Fresh' : r.businessType === 'PORT' ? 'Port' : r.businessType === 'RENEWAL' ? 'Renewal' : r.businessType) : '') || (r.contact as any)?.category || (r as any).customerCategory || '—'}</span>;
+        }
       },
       {
         key: 'policyType',
         label: 'Policy Type',
-        render: r => <span className="font-bold text-slate-800 text-xs">{r.plan?.category || '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.policyType || (r as any).policyType || r.plan?.category || '—'}</span>;
+        }
       },
       {
         key: 'policyNumber',
@@ -1494,7 +2335,15 @@ export default function Policies() {
       {
         key: 'policyTenure',
         label: 'Policy Tenure',
-        render: r => <span className="font-bold text-slate-800 text-xs">{(r.startDate && r.endDate) ? `${format(new Date(r.startDate), 'dd/MMM/yyyy')} - ${format(new Date(r.endDate), 'dd/MMM/yyyy')}` : '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          if (extra.policyTenure) return <span className="font-bold text-slate-800 text-xs">{extra.policyTenure}</span>;
+          if (r.startDate && r.endDate) {
+            const years = Math.max(1, Math.round((new Date(r.endDate).getTime() - new Date(r.startDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+            return <span className="font-bold text-slate-800 text-xs">{`${years} ${years === 1 ? 'Year' : 'Years'}`}</span>;
+          }
+          return <span className="font-bold text-slate-800 text-xs">{(r as any).tenure || (r as any).duration || '—'}</span>;
+        }
       },
       {
         key: 'policyTerm',
@@ -1552,6 +2401,76 @@ export default function Policies() {
               {isEmi ? 'Yes' : 'No'}
             </span>
           );
+        }
+      },
+      {
+        key: 'downpaymentAmount',
+        label: 'Downpayment Amount',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.downpaymentAmount ? `₹${Number(extra.downpaymentAmount).toLocaleString('en-IN')}` : '—'}</span>;
+        }
+      },
+      {
+        key: 'processingFee',
+        label: 'Processing Fee (incl. GST)',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.processingFee ? `₹${Number(extra.processingFee).toLocaleString('en-IN')}` : '—'}</span>;
+        }
+      },
+      {
+        key: 'installmentAmount',
+        label: 'Installment Amount',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          const amt = extra.installmentAmount || extra.emiPremium;
+          return <span className="font-bold text-slate-800 text-xs">{amt ? `₹${Number(amt).toLocaleString('en-IN')}` : '—'}</span>;
+        }
+      },
+      {
+        key: 'noOfInstallments',
+        label: 'No. of Installments',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-bold text-slate-800 text-xs">{extra.noOfInstallments || (r as any).noOfInstallments || '—'}</span>;
+        }
+      },
+      {
+        key: 'lastInstallmentDate',
+        label: 'Last Installment Date',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          const d = extra.lastInstallmentDate || extra.lastPremiumDate || r.lastPremiumDate;
+          return <span className="font-bold text-slate-800 text-xs">{d ? d.slice(0, 10) : '—'}</span>;
+        }
+      },
+      {
+        key: 'nomineeDetails',
+        label: 'Nominee Details',
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          if (extra.nominees && extra.nominees.length > 0) {
+            const nom = extra.nominees[0];
+            return (
+              <div className="text-xs">
+                <span className="font-extrabold text-purple-900">{nom.name}</span>
+                <span className="text-slate-500 font-medium ml-1">({nom.relationship})</span>
+                {nom.dob && <span className="block text-[10px] text-slate-500 font-medium">DoB: {nom.dob}</span>}
+              </div>
+            );
+          }
+          if ((r as any).nominees && (r as any).nominees.length > 0) {
+            const nom = (r as any).nominees[0];
+            return (
+              <div className="text-xs">
+                <span className="font-extrabold text-purple-900">{nom.name}</span>
+                <span className="text-slate-500 font-medium ml-1">({nom.relationship})</span>
+                {nom.dateOfBirth && <span className="block text-[10px] text-slate-500 font-medium">DoB: {nom.dateOfBirth.slice(0, 10)}</span>}
+              </div>
+            );
+          }
+          return <span className="text-slate-400 text-xs">—</span>;
         }
       }
     ];
@@ -1616,8 +2535,14 @@ export default function Policies() {
     if (body.emiCase) {
       extraNotes += `\nEMI Case: Yes (Gateway: ${body.emiGateway || 'N/A'}, Date: ${body.emiDate || 'N/A'}, Premium: ₹${body.emiPremium || '0'})`;
     }
-    if (body.phcRequired) {
-      extraNotes += `\nPreventive Health Checkup: Yes (Amount: ₹${body.phcAmount || '0'}, Status: ${body.phcStatus || 'N/A'}, Claim Settled: ${body.phcClaimSettled ? 'Yes' : 'No'})`;
+    if (body.phcRequired || watchPhcRequired) {
+      extraNotes += `\nPreventive Health Checkup: Yes (Amount: ₹${body.phcAmount || '0'}, Status: ${body.phcStatus || 'N/A'}, Claim Settled: ${body.phcClaimSettled ? 'Yes' : 'No'}${phcExtraDetails.insuredPersonName ? `, Insured Person: ${phcExtraDetails.insuredPersonName}` : ''})`;
+      if (phcExtraDetails.insuredPersonName) {
+        extraNotes += `\nPHC Insured Person: ${phcExtraDetails.insuredPersonName}`;
+      }
+      if (phcExtraDetails.phcStage) {
+        extraNotes += `\nPHC Stage: ${phcExtraDetails.phcStage}`;
+      }
     }
 
     const cleanedBody = {
@@ -1668,30 +2593,84 @@ export default function Policies() {
 
       // 2. Format notes to include extra Excel fields
       let extraNotes = '';
+      if (selectedPolicyType) extraNotes += `\nPolicy Type: ${selectedPolicyType}`;
+      const custCat = customerCategory || watch('customerCategory' as any) || 'Fresh';
+      if (custCat) extraNotes += `\nCustomer Category: ${custCat}`;
+      if (selectedCompanyCategory) extraNotes += `\nInsurance Company Category: ${selectedCompanyCategory}`;
+      if (selectedPlanCategory) extraNotes += `\nInsurance Plan Category: ${selectedPlanCategory}`;
+      if (selectedAgentName) extraNotes += `\nAgent Name: ${selectedAgentName}`;
+      if (policyZoneLocationCity) {
+        extraNotes += `\nPolicy Zone City: ${policyZoneLocationCity}`;
+        extraNotes += `\nPolicy Zone Location City: ${policyZoneLocationCity}`;
+      }
+      if (policyZoneLocationPincode) extraNotes += `\nPolicy Zone Location Pincode: ${policyZoneLocationPincode}`;
+      if (selectedZoneTier) extraNotes += `\nPolicy Zone Location Tier: ${selectedZoneTier}`;
+      if (durationYears) {
+        extraNotes += `\nPolicy Tenure: ${durationYears} ${Number(durationYears) === 1 ? 'Year' : 'Years'}`;
+      }
+      if (policyTerm) {
+        extraNotes += `\nPolicy Term: ${policyTerm}`;
+      }
+      if (insuredPerson) {
+        extraNotes += `\nInsured Person: ${insuredPerson}`;
+      }
       if (body.deductible) extraNotes += `\nDeductible: ${body.deductible}`;
       if (body.riders && body.riders.length > 0) extraNotes += `\nRiders/Addons: ${body.riders.join(', ')}`;
       if (body.firstPremiumDate) extraNotes += `\nFirst Premium Date: ${body.firstPremiumDate}`;
       if (body.premiumPaymentPeriod) extraNotes += `\nPremium Payment Period: ${body.premiumPaymentPeriod} Years`;
       if (body.lastPremiumDate) extraNotes += `\nLast Premium Date: ${body.lastPremiumDate}`;
+      if (body.downpaymentAmount) extraNotes += `\nDownpayment Amount: ₹${body.downpaymentAmount}`;
+      if (body.processingFee) extraNotes += `\nProcessing Fee (incl. GST): ₹${body.processingFee}`;
+      if (body.installmentAmount || body.emiPremium) {
+        const amt = body.installmentAmount || body.emiPremium;
+        extraNotes += `\nInstallment Amount: ₹${amt}`;
+      }
+      if (body.noOfInstallments) extraNotes += `\nNo. of Installments: ${body.noOfInstallments}`;
+      if (body.lastInstallmentDate || body.lastPremiumDate) {
+        extraNotes += `\nLast Installment Date: ${body.lastInstallmentDate || body.lastPremiumDate}`;
+      }
       if (body.emiCase) {
-        extraNotes += `\nEMI Case: Yes (Gateway: ${body.emiGateway || 'N/A'}, Date: ${body.emiDate || 'N/A'}, Premium: ₹${body.emiPremium || '0'})`;
+        extraNotes += `\nEMI Case: Yes (Gateway: ${body.emiGateway || 'N/A'}, Date: ${body.emiDate || 'N/A'}, Premium: ₹${body.emiPremium || body.installmentAmount || '0'}, Downpayment: ₹${body.downpaymentAmount || '0'}, Processing Fee: ₹${body.processingFee || '0'}, No of Installments: ${body.noOfInstallments || 'N/A'}, Last Installment Date: ${body.lastInstallmentDate || body.lastPremiumDate || 'N/A'})`;
       }
-      if (body.phcRequired) {
-        extraNotes += `\nPreventive Health Checkup: Yes (Amount: ₹${body.phcAmount || '0'}, Status: ${body.phcStatus || 'N/A'}, Claim Settled: ${body.phcClaimSettled ? 'Yes' : 'No'})`;
+      if (body.phcRequired || watchPhcRequired) {
+        extraNotes += `\nPreventive Health Checkup: Yes (Amount: ₹${body.phcAmount || '0'}, Status: ${body.phcStatus || 'N/A'}, Claim Settled: ${body.phcClaimSettled ? 'Yes' : 'No'}${phcExtraDetails.insuredPersonName ? `, Insured Person: ${phcExtraDetails.insuredPersonName}` : ''})`;
+        if (phcExtraDetails.insuredPersonName) {
+          extraNotes += `\nPHC Insured Person: ${phcExtraDetails.insuredPersonName}`;
+        }
+        if (phcExtraDetails.phcStage) {
+          extraNotes += `\nPHC Stage: ${phcExtraDetails.phcStage}`;
+        }
       }
+      if (connectedPersons.length > 0) {
+        connectedPersons.forEach((p, idx) => {
+          if (p.name.trim()) {
+            extraNotes += `\nConnected Person ${idx + 1}: Name: ${p.name.trim()}, Relationship: ${p.relationship}, Contact: ${p.contactNo || 'N/A'}, DoB: ${p.dob || 'N/A'}, Gender: ${p.gender || 'MALE'}`;
+          }
+          if (p.isNominee) {
+            extraNotes += `\nNominee Details ${idx + 1}: Name: ${p.nomineeName?.trim() || p.name.trim()}, Relationship: ${p.nomineeRelation || p.relationship}, Contact: ${p.nomineeContact || p.contactNo || 'N/A'}, DoB: ${p.nomineeDob || p.dob || 'N/A'}, Share: ${p.nomineePercentage}%`;
+          }
+        });
+      }
+      if (body.notes) extraNotes += `\n${body.notes}`;
+
+      let finalPlanId = body.planId;
+      if (!finalPlanId && selectedPlan?.id) finalPlanId = selectedPlan.id;
+      if (!finalPlanId && availablePlans.length > 0) finalPlanId = availablePlans[0].id;
+      if (!finalPlanId && plansList.length > 0) finalPlanId = plansList[0].id;
 
       // 3. Assemble clean DTO
       const cleanedBody = {
         policyNumber: body.policyNumber,
         contactId: body.contactId,
-        planId: body.planId,
+        planId: finalPlanId,
         assignedEmployeeId,
-        status: body.status || 'ACTIVE',
+        status: body.status || 'INFORCE',
         sumAssured: Number(body.sumAssured),
         premiumAmount: Number(body.premiumAmount),
         paymentFrequency: body.paymentFrequency,
         startDate: body.startDate,
         endDate: body.endDate,
+        businessType: (custCat || 'Fresh').toUpperCase(),
         notes: extraNotes.trim(),
       };
 
@@ -1707,6 +2686,29 @@ export default function Policies() {
             });
           } catch (uploadErr) {
             console.error(`[Document Upload Error] ${doc.title}`, uploadErr);
+          }
+        }
+        for (const person of connectedPersons) {
+          if (person.name.trim()) {
+            try {
+              await policiesService.addMember(editTarget.id, {
+                name: person.name.trim(),
+                relationship: person.relationship || 'Spouse',
+                dateOfBirth: person.dob ? new Date(person.dob).toISOString() : undefined,
+                gender: person.gender || 'MALE',
+              });
+            } catch { /* ignore */ }
+            if (person.isNominee) {
+              try {
+                await policiesService.addNominee(editTarget.id, {
+                  name: person.nomineeName?.trim() || person.name.trim(),
+                  relationship: person.nomineeRelation || person.relationship || 'Other',
+                  sharePercent: Number(person.nomineePercentage) || 100,
+                  dateOfBirth: (person.nomineeDob || person.dob) ? new Date(person.nomineeDob || person.dob).toISOString() : undefined,
+                  phone: person.nomineeContact || person.contactNo || undefined,
+                });
+              } catch { /* ignore */ }
+            }
           }
         }
         qc.invalidateQueries({ queryKey: ['contacts'] });
@@ -1733,6 +2735,31 @@ export default function Policies() {
           }
         }
       }
+      if (createdPolicy?.id) {
+        for (const person of connectedPersons) {
+          if (person.name.trim()) {
+            try {
+              await policiesService.addMember(createdPolicy.id, {
+                name: person.name.trim(),
+                relationship: person.relationship || 'Spouse',
+                dateOfBirth: person.dob ? new Date(person.dob).toISOString() : undefined,
+                gender: person.gender || 'MALE',
+              });
+            } catch { /* ignore */ }
+            if (person.isNominee) {
+              try {
+                await policiesService.addNominee(createdPolicy.id, {
+                  name: person.nomineeName?.trim() || person.name.trim(),
+                  relationship: person.nomineeRelation || person.relationship || 'Other',
+                  sharePercent: Number(person.nomineePercentage) || 100,
+                  dateOfBirth: (person.nomineeDob || person.dob) ? new Date(person.nomineeDob || person.dob).toISOString() : undefined,
+                  phone: person.nomineeContact || person.contactNo || undefined,
+                });
+              } catch { /* ignore */ }
+            }
+          }
+        }
+      }
       qc.invalidateQueries({ queryKey: ['contacts'] });
       qc.invalidateQueries({ queryKey: ['policies'] });
       toast.success('Policy created successfully');
@@ -1741,12 +2768,24 @@ export default function Policies() {
           reset({
             contactId: body.contactId,
             paymentFrequency: 'YEARLY',
+            customerCategory: 'Fresh',
           } as any);
           setSelectedPlan(null);
+          setSelectedPolicyType('');
+          setSelectedCompanyCategory('');
+          setSelectedPlanCategory('');
+          setCustomerCategory('Fresh');
+          setSelectedAgentName(user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Rahul Mehta' : 'Rahul Mehta');
+          setPolicyZoneLocationCity('');
+          setPolicyZoneLocationPincode('');
+          setSelectedZoneTier('ZONE_1');
           setSelectedType('');
           setSelectedCompany('');
           setPendingDocs([]);
+          setConnectedPersons([]);
           setDurationYears(1);
+          setPolicyTerm('1 Year');
+          setInsuredPerson('');
           return;
         }
         closeModal();
@@ -2100,11 +3139,9 @@ export default function Policies() {
                   <label className="label text-[11px] font-bold text-slate-600">Company Category</label>
                   <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.companyCategory} onChange={e => setTempFilters({ ...tempFilters, companyCategory: e.target.value })}>
                     <option value="">All Categories</option>
-                    <option value="HEALTH">Health Insurance</option>
-                    <option value="LIFE">Life Insurance</option>
-                    <option value="GENERAL">General Insurance</option>
-                    <option value="MOTOR">Motor Insurance</option>
-                    <option value="OTHER">Other Category</option>
+                    {INSURANCE_COMPANY_CATEGORY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2124,12 +3161,9 @@ export default function Policies() {
                   <label className="label text-[11px] font-bold text-slate-600">Plan Category</label>
                   <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.planCategory} onChange={e => setTempFilters({ ...tempFilters, planCategory: e.target.value })}>
                     <option value="">All Plan Categories</option>
-                    <option value="HEALTH">Health</option>
-                    <option value="LIFE">Life</option>
-                    <option value="ACCIDENT">Accident</option>
-                    <option value="MOTOR">Motor</option>
-                    <option value="MF">Mutual Funds</option>
-                    <option value="OTHER">Other</option>
+                    {INSURANCE_PLAN_CATEGORY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2146,13 +3180,12 @@ export default function Policies() {
 
                 {/* 5. Business Category */}
                 <div>
-                  <label className="label text-[11px] font-bold text-slate-600">Business Category</label>
+                  <label className="label text-[11px] font-bold text-slate-600">Business / Customer Category</label>
                   <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.businessCategory} onChange={e => setTempFilters({ ...tempFilters, businessCategory: e.target.value })}>
-                    <option value="">All Business Categories</option>
-                    <option value="FRESH">Fresh</option>
-                    <option value="PORT">Porting</option>
-                    <option value="RENEWAL">Renewal</option>
-                    <option value="ROLLOVER">Rollover</option>
+                    <option value="">All Categories</option>
+                    {CUSTOMER_CATEGORY_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2161,10 +3194,9 @@ export default function Policies() {
                   <label className="label text-[11px] font-bold text-slate-600">Policy Type</label>
                   <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.policyType} onChange={e => setTempFilters({ ...tempFilters, policyType: e.target.value })}>
                     <option value="">All Types</option>
-                    <option value="INDIVIDUAL">Individual</option>
-                    <option value="FLOATER">Family Floater</option>
-                    <option value="MULTI_INDIVIDUAL">Multi Individual</option>
-                    <option value="GROUP">Group</option>
+                    {POLICY_TYPE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -2190,6 +3222,18 @@ export default function Policies() {
                     <option value="4">4 Persons (2+2)</option>
                     <option value="5">5+ Persons</option>
                   </select>
+                </div>
+
+                {/* Insured Person Filter */}
+                <div>
+                  <label className="label text-[11px] font-bold text-slate-600">Insured Person</label>
+                  <input
+                    type="text"
+                    placeholder="Search insured person..."
+                    className="input text-xs w-full bg-white shadow-2xs mt-1"
+                    value={tempFilters.insuredPerson}
+                    onChange={e => setTempFilters({ ...tempFilters, insuredPerson: e.target.value })}
+                  />
                 </div>
 
                 {/* 9. Policy Zone Location City */}
@@ -2251,14 +3295,21 @@ export default function Policies() {
 
                 {/* 14. Policy Tenure */}
                 <div>
-                  <label className="label text-[11px] font-bold text-slate-600">Policy Tenure</label>
-                  <select className="input text-xs w-full bg-white shadow-2xs mt-1" value={tempFilters.policyTenure} onChange={e => setTempFilters({ ...tempFilters, policyTenure: e.target.value })}>
-                    <option value="">All Tenures</option>
-                    <option value="1 Year">1 Year</option>
-                    <option value="2 Years">2 Years</option>
-                    <option value="3 Years">3 Years</option>
-                    <option value="5 Years">5 Years</option>
-                  </select>
+                  <label className="label text-[11px] font-bold text-slate-600">Policy Tenure (1 to 99 Yr)</label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      placeholder="Type tenure (1-99)..."
+                      className="input text-xs w-full bg-white shadow-2xs pr-10"
+                      value={tempFilters.policyTenure}
+                      onChange={e => setTempFilters({ ...tempFilters, policyTenure: e.target.value })}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 pointer-events-none">
+                      Yr
+                    </span>
+                  </div>
                 </div>
 
                 {/* 15. Policy Term */}
@@ -2307,9 +3358,9 @@ export default function Policies() {
                 <div>
                   <label className="label text-[11px] font-bold text-slate-600">Policy Start Date</label>
                   <div className="flex gap-2 items-center mt-1">
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateFrom} onChange={val => setTempFilters({ ...tempFilters, startDateFrom: val })} title="From" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateFrom} onDateChange={val => setTempFilters({ ...tempFilters, startDateFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateTo} onChange={val => setTempFilters({ ...tempFilters, startDateTo: val })} title="To" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.startDateTo} onDateChange={val => setTempFilters({ ...tempFilters, startDateTo: val })} title="To" />
                   </div>
                 </div>
 
@@ -2317,9 +3368,9 @@ export default function Policies() {
                 <div>
                   <label className="label text-[11px] font-bold text-slate-600">Policy End Date</label>
                   <div className="flex gap-2 items-center mt-1">
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateFrom} onChange={val => setTempFilters({ ...tempFilters, endDateFrom: val })} title="From" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateFrom} onDateChange={val => setTempFilters({ ...tempFilters, endDateFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateTo} onChange={val => setTempFilters({ ...tempFilters, endDateTo: val })} title="To" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.endDateTo} onDateChange={val => setTempFilters({ ...tempFilters, endDateTo: val })} title="To" />
                   </div>
                 </div>
 
@@ -2327,9 +3378,9 @@ export default function Policies() {
                 <div>
                   <label className="label text-[11px] font-bold text-slate-600">Policy 1st Inception Date</label>
                   <div className="flex gap-2 items-center mt-1">
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionFrom} onChange={val => setTempFilters({ ...tempFilters, firstInceptionFrom: val })} title="From" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionFrom} onDateChange={val => setTempFilters({ ...tempFilters, firstInceptionFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionTo} onChange={val => setTempFilters({ ...tempFilters, firstInceptionTo: val })} title="To" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInceptionTo} onDateChange={val => setTempFilters({ ...tempFilters, firstInceptionTo: val })} title="To" />
                   </div>
                 </div>
 
@@ -2343,6 +3394,7 @@ export default function Policies() {
                     <option value="GRACE_PERIOD">Grace Period</option>
                     <option value="LAPSED">Lapsed</option>
                     <option value="INACTIVE_OLD">Inactive(Old)</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                 </div>
 
@@ -2410,9 +3462,9 @@ export default function Policies() {
                 <div>
                   <label className="label text-[11px] font-bold text-slate-600">1st Installment Date</label>
                   <div className="flex gap-2 items-center mt-1">
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentFrom} onChange={val => setTempFilters({ ...tempFilters, firstInstallmentFrom: val })} title="From" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentFrom} onDateChange={val => setTempFilters({ ...tempFilters, firstInstallmentFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentTo} onChange={val => setTempFilters({ ...tempFilters, firstInstallmentTo: val })} title="To" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.firstInstallmentTo} onDateChange={val => setTempFilters({ ...tempFilters, firstInstallmentTo: val })} title="To" />
                   </div>
                 </div>
 
@@ -2420,9 +3472,9 @@ export default function Policies() {
                 <div>
                   <label className="label text-[11px] font-bold text-slate-600">Last Installment Date</label>
                   <div className="flex gap-2 items-center mt-1">
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentFrom} onChange={val => setTempFilters({ ...tempFilters, lastInstallmentFrom: val })} title="From" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentFrom} onDateChange={val => setTempFilters({ ...tempFilters, lastInstallmentFrom: val })} title="From" />
                     <span className="text-gray-400 font-bold">-</span>
-                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentTo} onChange={val => setTempFilters({ ...tempFilters, lastInstallmentTo: val })} title="To" />
+                    <DatePicker className="input text-xs w-full shadow-2xs" value={tempFilters.lastInstallmentTo} onDateChange={val => setTempFilters({ ...tempFilters, lastInstallmentTo: val })} title="To" />
                   </div>
                 </div>
 
@@ -2534,13 +3586,13 @@ export default function Policies() {
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          {/* Sub-navigation 4 Tabs Header matching Add New Contact style */}
-          <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+          {/* Sub-navigation Tabs Header */}
+          <div className="flex flex-wrap bg-slate-200/60 p-1.5 rounded-2xl mb-3 gap-1.5 sm:gap-2 border border-slate-200/80 shadow-2xs">
             <button
               type="button"
               onClick={() => setActivePolicyTab('policyPlan')}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'policyPlan'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2553,7 +3605,7 @@ export default function Policies() {
               type="button"
               onClick={() => setActivePolicyTab('premium')}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'premium'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2566,7 +3618,7 @@ export default function Policies() {
               type="button"
               onClick={() => setActivePolicyTab('connectedPersons')}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'connectedPersons'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2577,9 +3629,17 @@ export default function Policies() {
             </button>
             <button
               type="button"
-              onClick={() => setActivePolicyTab('phcDetails')}
+              onClick={() => {
+                setActivePolicyTab('phcDetails');
+                if (watchPhcRequired === undefined) {
+                  setValue('phcRequired', true);
+                  if (!selectedCompanyCategory) {
+                    handleCompanyCategoryChange('Health');
+                  }
+                }
+              }}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'phcDetails'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2592,7 +3652,7 @@ export default function Policies() {
               type="button"
               onClick={() => setActivePolicyTab('policyDocs')}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'policyDocs'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2605,7 +3665,7 @@ export default function Policies() {
               type="button"
               onClick={() => setActivePolicyTab('policyClaims')}
               className={clsx(
-                'px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
                 activePolicyTab === 'policyClaims'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -2616,15 +3676,15 @@ export default function Policies() {
             </button>
           </div>
 
-          <div className="h-[520px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
+          <div className="space-y-4">
             <fieldset disabled={isViewMode} className="min-w-0 border-0 p-0 m-0 w-full">
               {/* ════════════════ TAB 1: Policy Details + Plan Details ════════════════ */}
               {activePolicyTab === 'policyPlan' && (
                 <div className="space-y-4 animate-fadeIn">
                   {/* Section 1: Policy Details */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsPolicyDetailsCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -2643,7 +3703,7 @@ export default function Policies() {
                     {!isPolicyDetailsCollapsed && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         {/* Customer Picker */}
-                        <div className="col-span-1 md:col-span-2 relative flex flex-col gap-1">
+                        <div className="relative flex flex-col gap-1">
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-0.5">
                             Customer <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
@@ -2675,6 +3735,9 @@ export default function Policies() {
                                 <li key={c.id} onMouseDown={() => {
                                   setSelectedContact(c);
                                   setValue('contactId', c.id, { shouldValidate: true });
+                                  if (!insuredPerson) {
+                                    setInsuredPerson(`${c.firstName || ''} ${c.lastName || ''}`.trim());
+                                  }
                                   setContactDropdown(false);
                                   setContactSearch('');
                                 }} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer">
@@ -2687,28 +3750,34 @@ export default function Policies() {
                           )}
                         </div>
 
+                        {/* Insured Person */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Insured Person
+                          </label>
+                          <input
+                            type="text"
+                            value={insuredPerson}
+                            onChange={e => setInsuredPerson(e.target.value)}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
+                            placeholder="e.g. Self / Name of Insured Person"
+                          />
+                        </div>
+
                         {/* Policy Type */}
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            value={selectedType}
-                            onChange={e => {
-                              setSelectedType(e.target.value);
-                              setSelectedCompany('');
-                              setSelectedPlan(null);
-                              setValue('planId', '');
-                            }}
-                          >
-                            <option value="">Select Policy Type</option>
-                            {availableTypes.map(t => (
-                              <option key={t} value={t}>
-                                {t === 'HEALTH' ? 'Health' : t === 'LIFE' ? 'Life' : t.charAt(0) + t.slice(1).toLowerCase()}
-                              </option>
-                            ))}
-                          </select>
+                          <CustomSelect
+                            value={selectedPolicyType}
+                            onChange={val => setSelectedPolicyType(val)}
+                            placeholder="Select Policy Type"
+                            options={[
+                              { value: '', label: 'Select Policy Type' },
+                              ...POLICY_TYPE_OPTIONS
+                            ]}
+                          />
                         </div>
 
                         {/* Insurance Company Category */}
@@ -2716,24 +3785,15 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Insurance Company Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            value={selectedType || ''}
-                            onChange={e => {
-                              setSelectedType(e.target.value);
-                              setSelectedCompany('');
-                              setSelectedPlan(null);
-                              setValue('planId', '');
-                            }}
-                            required
-                          >
-                            <option value="">Select Insurance Company Category *</option>
-                            {availableTypes.map(t => (
-                              <option key={t} value={t}>
-                                {t === 'HEALTH' ? 'Health Insurance Category' : t === 'LIFE' ? 'Life Insurance Category' : `${t} Category`}
-                              </option>
-                            ))}
-                          </select>
+                          <CustomSelect
+                            value={selectedCompanyCategory}
+                            onChange={val => handleCompanyCategoryChange(val)}
+                            placeholder="Select Insurance Company Category *"
+                            options={[
+                              { value: '', label: 'Select Insurance Company Category *' },
+                              ...INSURANCE_COMPANY_CATEGORY_OPTIONS
+                            ]}
+                          />
                         </div>
 
                         {/* Insurance Company */}
@@ -2741,23 +3801,16 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Insurance Company <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          <CustomSelect
                             value={selectedCompany}
-                            onChange={e => {
-                              setSelectedCompany(e.target.value);
-                              setSelectedPlan(null);
-                              setValue('planId', '');
-                            }}
-                            required
-                          >
-                            <option value="">Select Insurance Company *</option>
-                            {availableCompanies.map(c => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={val => handleCompanyChange(val)}
+                            placeholder="Select Insurance Company *"
+                            searchable
+                            options={[
+                              { value: '', label: 'Select Insurance Company *' },
+                              ...availableCompanies.map(c => ({ value: c, label: c }))
+                            ]}
+                          />
                         </div>
 
                         {/* Insurance Plan Category */}
@@ -2765,24 +3818,15 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Insurance Plan Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            value={selectedType || ''}
-                            onChange={e => {
-                              setSelectedType(e.target.value);
-                              setSelectedCompany('');
-                              setSelectedPlan(null);
-                              setValue('planId', '');
-                            }}
-                            required
-                          >
-                            <option value="">Select Insurance Plan Category *</option>
-                            {availableTypes.map(t => (
-                              <option key={t} value={t}>
-                                {t === 'HEALTH' ? 'Health Plan Category' : t === 'LIFE' ? 'Life Plan Category' : `${t} Plan Category`}
-                              </option>
-                            ))}
-                          </select>
+                          <CustomSelect
+                            value={selectedPlanCategory}
+                            onChange={val => handlePlanCategoryChange(val)}
+                            placeholder="Select Insurance Plan Category *"
+                            options={[
+                              { value: '', label: 'Select Insurance Plan Category *' },
+                              ...INSURANCE_PLAN_CATEGORY_OPTIONS
+                            ]}
+                          />
                         </div>
 
                         {/* Plan Name */}
@@ -2790,23 +3834,21 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Plan Name <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          <CustomSelect
                             value={selectedPlan?.id || ''}
-                            onChange={e => {
-                              const p = plansList.find((x: any) => x.id === e.target.value);
+                            onChange={val => {
+                              const p = plansList.find((x: any) => x.id === val);
                               setSelectedPlan(p || null);
                               setValue('planId', p?.id || '', { shouldValidate: true });
                             }}
                             disabled={!selectedCompany}
-                          >
-                            <option value="">Select Plan Name</option>
-                            {availablePlans.map((p: any) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
+                            placeholder={selectedCompany ? 'Select Plan Name' : 'Select Company First'}
+                            searchable
+                            options={[
+                              { value: '', label: selectedCompany ? 'Select Plan Name' : 'Select Company First' },
+                              ...availablePlans.map((p: any) => ({ value: p.id, label: p.name }))
+                            ]}
+                          />
                         </div>
 
                         {/* Customer Category */}
@@ -2814,12 +3856,18 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Customer Category
                           </label>
-                          <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-                            <option value="INDIVIDUAL">Individual</option>
-                            <option value="FAMILY_FLOATER">Family Floater</option>
-                            <option value="CORPORATE_GROUP">Corporate / Group</option>
-                            <option value="SENIOR_CITIZEN">Senior Citizen</option>
-                          </select>
+                          <CustomSelect
+                            value={customerCategory}
+                            onChange={val => {
+                              setCustomerCategory(val);
+                              setValue('customerCategory' as any, val);
+                            }}
+                            placeholder="Select Customer Category"
+                            options={[
+                              { value: '', label: 'Select Customer Category' },
+                              ...CUSTOMER_CATEGORY_OPTIONS
+                            ]}
+                          />
                         </div>
 
                         {/* Agent Name */}
@@ -2827,11 +3875,20 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Agent Name
                           </label>
-                          <input
-                            type="text"
-                            readOnly
-                            className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-600"
-                            value={user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Agent'}
+                          <CustomSelect
+                            value={selectedAgentName}
+                            onChange={val => {
+                              setSelectedAgentName(val);
+                              const match = agentOptions.find(o => o.value === val);
+                              if (match?.empId) setValue('assignedEmployeeId', match.empId, { shouldDirty: true });
+                              if (match?.agentCode) setValue('agentCode', match.agentCode, { shouldDirty: true });
+                            }}
+                            placeholder="Select Agent Name"
+                            searchable
+                            options={[
+                              { value: '', label: 'Select Agent Name' },
+                              ...agentOptions.map(o => ({ value: o.value, label: o.label }))
+                            ]}
                           />
                         </div>
 
@@ -2853,9 +3910,9 @@ export default function Policies() {
                   </div>
 
                   {/* Section 2: Plan Details */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-indigo-50/80 via-slate-50 to-purple-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-indigo-50/80 via-slate-50 to-purple-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsPlanDetailsCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -2886,20 +3943,38 @@ export default function Policies() {
                             />
                           </div>
 
+                          {/* Insured Person */}
+                          <div>
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                              Insured Person
+                            </label>
+                            <input
+                              type="text"
+                              value={insuredPerson}
+                              onChange={e => setInsuredPerson(e.target.value)}
+                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
+                              placeholder="e.g. Self / Name of Insured Person"
+                            />
+                          </div>
+
                           {/* Family Size */}
                           <div>
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Family Size
                             </label>
-                            <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-                              <option value="1">1 Adult (Individual)</option>
-                              <option value="2">2 Adults (1A + 1A)</option>
-                              <option value="2_1">2 Adults + 1 Child</option>
-                              <option value="2_2">2 Adults + 2 Children</option>
-                              <option value="2_3">2 Adults + 3 Children</option>
-                              <option value="1_1">1 Adult + 1 Child</option>
-                              <option value="1_2">1 Adult + 2 Children</option>
-                            </select>
+                            <CustomSelect
+                              value={selectedFamilySize}
+                              onChange={val => setSelectedFamilySize(val)}
+                              options={[
+                                { value: '1', label: '1 Adult (Individual)' },
+                                { value: '2', label: '2 Adults (1A + 1A)' },
+                                { value: '2_1', label: '2 Adults + 1 Child' },
+                                { value: '2_2', label: '2 Adults + 2 Children' },
+                                { value: '2_3', label: '2 Adults + 3 Children' },
+                                { value: '1_1', label: '1 Adult + 1 Child' },
+                                { value: '1_2', label: '1 Adult + 2 Children' },
+                              ]}
+                            />
                           </div>
 
                           {/* Policy Zone Location Tier */}
@@ -2907,11 +3982,29 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Policy Zone Location Tier
                             </label>
-                            <select className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
-                              <option value="ZONE_1">Zone 1 (Metro / Tier 1)</option>
-                              <option value="ZONE_2">Zone 2 (Tier 2)</option>
-                              <option value="ZONE_3">Zone 3 (Rest of India)</option>
-                            </select>
+                            <CustomSelect
+                              value={selectedZoneTier}
+                              onChange={val => setSelectedZoneTier(val)}
+                              options={[
+                                { value: 'ZONE_1', label: 'Zone 1 (Metro / Tier 1)' },
+                                { value: 'ZONE_2', label: 'Zone 2 (Tier 2)' },
+                                { value: 'ZONE_3', label: 'Zone 3 (Rest of India)' },
+                              ]}
+                            />
+                          </div>
+
+                          {/* Policy Zone City */}
+                          <div>
+                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                              Policy Zone City
+                            </label>
+                            <input
+                              type="text"
+                              value={policyZoneLocationCity}
+                              onChange={e => setPolicyZoneLocationCity(e.target.value)}
+                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                              placeholder="Type policy zone city manually..."
+                            />
                           </div>
 
                           {/* Policy Zone Location Pincode */}
@@ -2921,6 +4014,8 @@ export default function Policies() {
                             </label>
                             <input
                               type="text"
+                              value={policyZoneLocationPincode}
+                              onChange={e => setPolicyZoneLocationPincode(e.target.value)}
                               maxLength={6}
                               className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                               placeholder="e.g. 400001"
@@ -2932,20 +4027,18 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>}
                             </label>
-                            <select
-                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                              value={watchSumAssured || ''}
-                              onChange={(e) => {
-                                const num = e.target.value ? Number(e.target.value) : undefined;
+                            <CustomSelect
+                              value={watchSumAssured ? String(watchSumAssured) : ''}
+                              onChange={val => {
+                                const num = val ? Number(val) : undefined;
                                 setValue('sumAssured', num as any, { shouldValidate: true, shouldDirty: true });
                               }}
-                              required={isFieldRequired('sumAssured', true)}
-                            >
-                              <option value="">Select Sum Insured {isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}</option>
-                              {SUM_INSURED_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
+                              placeholder={`Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}`}
+                              options={[
+                                { value: '', label: `Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}` },
+                                ...SUM_INSURED_OPTIONS.map(opt => ({ value: String(opt.value), label: opt.label }))
+                              ]}
+                            />
                           </div>
 
                           {/* Deductible */}
@@ -2989,13 +4082,11 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Policy Status <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                             </label>
-                            <select
-                              {...register('status')}
-                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            >
-                              <option value="ACTIVE">Auto Lifecycle (Inforce / Renewal Due / Grace Period / Lapsed)</option>
-                              <option value="INACTIVE_OLD">Inactive(Old)</option>
-                            </select>
+                            <CustomSelect
+                              value={watch('status') === 'ACTIVE' ? 'INFORCE' : (watch('status') || 'INFORCE')}
+                              onChange={val => setValue('status', val as any, { shouldValidate: true, shouldDirty: true })}
+                              options={POLICY_STATUS_OPTIONS}
+                            />
                           </div>
 
                           {/* Assigned To */}
@@ -3004,17 +4095,18 @@ export default function Policies() {
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Assigned To
                               </label>
-                              <select
-                                {...register('assignedEmployeeId')}
-                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                              >
-                                <option value="">Select Employee</option>
-                                {employeeResults?.data?.map((emp: any) => (
-                                  <option key={emp.id} value={emp.userId}>
-                                    {emp.firstName || emp.employeeProfile?.firstName || ''} {emp.lastName || emp.employeeProfile?.lastName || ''}
-                                  </option>
-                                ))}
-                              </select>
+                              <CustomSelect
+                                value={watch('assignedEmployeeId') || ''}
+                                onChange={val => setValue('assignedEmployeeId', val, { shouldValidate: true, shouldDirty: true })}
+                                placeholder="Select Employee"
+                                options={[
+                                  { value: '', label: 'Select Employee' },
+                                  ...(employeeResults?.data || []).map((emp: any) => ({
+                                    value: emp.userId,
+                                    label: `${emp.firstName || emp.employeeProfile?.firstName || ''} ${emp.lastName || emp.employeeProfile?.lastName || ''}`.trim()
+                                  }))
+                                ]}
+                              />
                             </div>
                           )}
                         </div>
@@ -3055,9 +4147,9 @@ export default function Policies() {
               {activePolicyTab === 'premium' && (
                 <div className="space-y-4 animate-fadeIn">
                   {/* Section 1: Premium Breakdown & Instalments */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsPremiumBreakdownCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3154,16 +4246,17 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Installment Frequency <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <select
-                            {...register('paymentFrequency')}
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                          >
-                            <option value="YEARLY">Yearly</option>
-                            <option value="HALF_YEARLY">Half Yearly</option>
-                            <option value="QUARTERLY">Quarterly</option>
-                            <option value="MONTHLY">Monthly</option>
-                            <option value="SINGLE">One Time</option>
-                          </select>
+                          <CustomSelect
+                            value={watch('paymentFrequency') || 'YEARLY'}
+                            onChange={val => setValue('paymentFrequency', val as any, { shouldValidate: true, shouldDirty: true })}
+                            options={[
+                              { value: 'YEARLY', label: 'Yearly' },
+                              { value: 'HALF_YEARLY', label: 'Half Yearly' },
+                              { value: 'QUARTERLY', label: 'Quarterly' },
+                              { value: 'MONTHLY', label: 'Monthly' },
+                              { value: 'SINGLE', label: 'One Time' },
+                            ]}
+                          />
                         </div>
 
                         <div>
@@ -3177,14 +4270,97 @@ export default function Policies() {
                             placeholder="e.g. 10"
                           />
                         </div>
+
+                        {/* Downpayment Amount */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Downpayment Amount (₹)
+                          </label>
+                          <input
+                            type="text"
+                            value={formatIndianNumber(watchDownpaymentAmount || 0)}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/,/g, '');
+                              const num = Number(raw);
+                              if (!isNaN(num)) {
+                                setValue('downpaymentAmount', num, { shouldValidate: true, shouldDirty: true });
+                              } else if (raw === '') {
+                                setValue('downpaymentAmount', 0 as any, { shouldValidate: true, shouldDirty: true });
+                              }
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            placeholder="Enter downpayment amount"
+                          />
+                          {watchDownpaymentAmount ? (
+                            <div className="text-[10.5px] text-emerald-600 mt-1.5 font-bold tracking-wide bg-emerald-50/50 inline-block px-2 py-0.5 rounded-md border border-emerald-100/50">
+                              {numberToIndianWords(watchDownpaymentAmount)}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Processing Fee (incl. GST) */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Processing Fee (incl. GST) (₹)
+                          </label>
+                          <input
+                            type="text"
+                            value={formatIndianNumber(watchProcessingFee || 0)}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/,/g, '');
+                              const num = Number(raw);
+                              if (!isNaN(num)) {
+                                setValue('processingFee', num, { shouldValidate: true, shouldDirty: true });
+                              } else if (raw === '') {
+                                setValue('processingFee', 0 as any, { shouldValidate: true, shouldDirty: true });
+                              }
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            placeholder="e.g. 500"
+                          />
+                          {watchProcessingFee ? (
+                            <div className="text-[10.5px] text-blue-600 mt-1.5 font-bold tracking-wide bg-blue-50/50 inline-block px-2 py-0.5 rounded-md border border-blue-100/50">
+                              {numberToIndianWords(watchProcessingFee)}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Installment Amount */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Installment Amount (₹)
+                          </label>
+                          <input
+                            type="text"
+                            value={formatIndianNumber(watchInstallmentAmount || 0)}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/,/g, '');
+                              const num = Number(raw);
+                              if (!isNaN(num)) {
+                                setValue('installmentAmount', num, { shouldValidate: true, shouldDirty: true });
+                                setValue('emiPremium', num, { shouldValidate: true, shouldDirty: true });
+                              } else if (raw === '') {
+                                setValue('installmentAmount', 0 as any, { shouldValidate: true, shouldDirty: true });
+                                setValue('emiPremium', 0 as any, { shouldValidate: true, shouldDirty: true });
+                              }
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                            placeholder="Enter installment amount"
+                          />
+                          {watchInstallmentAmount ? (
+                            <div className="text-[10.5px] text-purple-600 mt-1.5 font-bold tracking-wide bg-purple-50/50 inline-block px-2 py-0.5 rounded-md border border-purple-100/50">
+                              {numberToIndianWords(watchInstallmentAmount)}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     )}
                   </div>
 
                   {/* Section 2: Policy Tenure & Term Dates */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsTenureDatesCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3206,19 +4382,30 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Tenure (Years)
                           </label>
-                          <select
-                            value={durationYears}
-                            onChange={e => setDurationYears(Number(e.target.value))}
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                          >
-                            <option value={1}>1 Year</option>
-                            <option value={2}>2 Years</option>
-                            <option value={3}>3 Years</option>
-                            <option value={5}>5 Years</option>
-                            <option value={10}>10 Years</option>
-                            <option value={15}>15 Years</option>
-                            <option value={20}>20 Years</option>
-                          </select>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={durationYears || ''}
+                              onChange={e => {
+                                const valStr = e.target.value;
+                                if (valStr === '') {
+                                  setDurationYears('' as any);
+                                  return;
+                                }
+                                const val = parseInt(valStr, 10);
+                                if (!isNaN(val)) {
+                                  setDurationYears(Math.min(99, Math.max(1, val)));
+                                }
+                              }}
+                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-10 font-bold text-slate-800"
+                              placeholder="1 to 99"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 pointer-events-none">
+                              Yr
+                            </span>
+                          </div>
                         </div>
 
                         <div>
@@ -3227,9 +4414,10 @@ export default function Policies() {
                           </label>
                           <input
                             type="text"
-                            className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-600"
-                            value={`${durationYears} Years`}
-                            readOnly
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 font-bold"
+                            value={policyTerm}
+                            onChange={e => setPolicyTerm(e.target.value)}
+                            placeholder="e.g. 1 Year"
                           />
                         </div>
 
@@ -3237,14 +4425,24 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy Start Date <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                           </label>
-                          <DatePicker {...register('startDate')} className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200" />
+                          <DatePicker
+                            value={watchStartDate}
+                            onDateChange={val => setValue('startDate', val, { shouldValidate: true, shouldDirty: true })}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                            placeholder="DD/MM/YYYY"
+                          />
                         </div>
 
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Policy End Date
                           </label>
-                          <DatePicker {...register('endDate')} className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200" disabled />
+                          <DatePicker
+                            value={watchEndDate}
+                            onDateChange={val => setValue('endDate', val, { shouldValidate: true, shouldDirty: true })}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                            placeholder="DD/MM/YYYY"
+                          />
                         </div>
 
                         <div>
@@ -3252,9 +4450,10 @@ export default function Policies() {
                             Date of Maturity
                           </label>
                           <DatePicker
-                            {...register('endDate')}
-                            className="input w-full h-10 text-xs rounded-xl bg-slate-50 border border-slate-200"
-                            disabled
+                            value={watch('maturityDate') || watchEndDate}
+                            onDateChange={val => setValue('maturityDate', val, { shouldValidate: true, shouldDirty: true })}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                            placeholder="DD/MM/YYYY"
                           />
                         </div>
 
@@ -3263,18 +4462,57 @@ export default function Policies() {
                             Policy 1st Instalment Date
                           </label>
                           <DatePicker
-                            {...register('firstPremiumDate')}
+                            value={watch('firstPremiumDate')}
+                            onDateChange={val => setValue('firstPremiumDate', val, { shouldValidate: true, shouldDirty: true })}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                            placeholder="DD/MM/YYYY"
                           />
                         </div>
 
+                        {/* No. of Installments */}
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                            Last Premium Date
+                            No. of Installments
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            {...register('noOfInstallments')}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
+                            placeholder="e.g. 12"
+                          />
+                        </div>
+
+                        {/* Installment Date (Day: 01 to 31st) */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Installment Date (01 to 31st)
+                          </label>
+                          <CustomSelect
+                            value={watch('emiDate') ? String(watch('emiDate')).padStart(2, '0') : ''}
+                            onChange={val => setValue('emiDate', val, { shouldValidate: true, shouldDirty: true })}
+                            placeholder="Select Day (01 to 31st)"
+                            options={[
+                              { value: '', label: 'Select Day' },
+                              ...INSTALLMENT_DATE_OPTIONS
+                            ]}
+                          />
+                        </div>
+
+                        {/* Last Installment Date */}
+                        <div>
+                          <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                            Last Installment Date
                           </label>
                           <DatePicker
-                            {...register('lastPremiumDate')}
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                            value={watch('lastPremiumDate')}
+                            onDateChange={val => {
+                              setValue('lastPremiumDate', val, { shouldValidate: true, shouldDirty: true });
+                              setValue('lastInstallmentDate', val, { shouldValidate: true, shouldDirty: true });
+                            }}
+                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 font-semibold"
+                            placeholder="Calculated automatically"
                           />
                         </div>
 
@@ -3315,9 +4553,9 @@ export default function Policies() {
                   </div>
 
                   {/* Section 3: Installment / EMI Gateway Details */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsEmiDetailsCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3340,13 +4578,14 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Installment Case?
                             </label>
-                            <select
-                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                              onChange={e => setValue('emiCase', e.target.value === 'yes')}
-                            >
-                              <option value="no">No</option>
-                              <option value="yes">Yes</option>
-                            </select>
+                            <CustomSelect
+                              value={watchEmiCase ? 'yes' : 'no'}
+                              onChange={val => setValue('emiCase', val === 'yes')}
+                              options={[
+                                { value: 'no', label: 'No' },
+                                { value: 'yes', label: 'Yes' },
+                              ]}
+                            />
                           </div>
                         </div>
 
@@ -3356,39 +4595,119 @@ export default function Policies() {
                               <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
                                 Installment Gateway
                               </label>
-                              <select
-                                {...register('emiGateway')}
-                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200"
-                              >
-                                <option value="">Select Gateway</option>
-                                <option value="FIBE">FIBE</option>
-                                <option value="Shopse">Shopse</option>
-                                <option value="BimaPay">BimaPay</option>
-                              </select>
+                              <CustomSelect
+                                value={watch('emiGateway') || ''}
+                                onChange={val => setValue('emiGateway', val)}
+                                placeholder="Select Gateway"
+                                options={[
+                                  { value: '', label: 'Select Gateway' },
+                                  { value: 'FIBE', label: 'FIBE' },
+                                  { value: 'Shopse', label: 'Shopse' },
+                                  { value: 'BimaPay', label: 'BimaPay' },
+                                ]}
+                              />
                             </div>
                             <div>
                               <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
-                                Installment Date
+                                Installment Date (01 to 31st)
                               </label>
-                              <select
-                                {...register('emiDate')}
-                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200"
-                              >
-                                <option value="">Select Date</option>
-                                {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                                  <option key={d} value={String(d)}>{d}</option>
-                                ))}
-                              </select>
+                              <CustomSelect
+                                value={watch('emiDate') ? String(watch('emiDate')).padStart(2, '0') : ''}
+                                onChange={val => setValue('emiDate', val)}
+                                placeholder="Select Date"
+                                options={[
+                                  { value: '', label: 'Select Date' },
+                                  ...INSTALLMENT_DATE_OPTIONS
+                                ]}
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
+                                No. of Installments
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={120}
+                                {...register('noOfInstallments')}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200 font-bold text-slate-800"
+                                placeholder="e.g. 12"
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
+                                Last Installment Date
+                              </label>
+                              <DatePicker
+                                value={watch('lastPremiumDate')}
+                                onDateChange={val => {
+                                  setValue('lastPremiumDate', val, { shouldValidate: true, shouldDirty: true });
+                                  setValue('lastInstallmentDate', val, { shouldValidate: true, shouldDirty: true });
+                                }}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200 font-semibold"
+                                placeholder="Calculated automatically"
+                              />
                             </div>
                             <div>
                               <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
                                 Installment Amount (₹)
                               </label>
                               <input
-                                type="number"
-                                {...register('emiPremium')}
+                                type="text"
+                                value={formatIndianNumber(watchInstallmentAmount || 0)}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/,/g, '');
+                                  const num = Number(raw);
+                                  if (!isNaN(num)) {
+                                    setValue('installmentAmount', num, { shouldValidate: true, shouldDirty: true });
+                                    setValue('emiPremium', num, { shouldValidate: true, shouldDirty: true });
+                                  } else if (raw === '') {
+                                    setValue('installmentAmount', 0 as any, { shouldValidate: true, shouldDirty: true });
+                                    setValue('emiPremium', 0 as any, { shouldValidate: true, shouldDirty: true });
+                                  }
+                                }}
                                 className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200"
                                 placeholder="Installment Amount"
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
+                                Downpayment Amount (₹)
+                              </label>
+                              <input
+                                type="text"
+                                value={formatIndianNumber(watchDownpaymentAmount || 0)}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/,/g, '');
+                                  const num = Number(raw);
+                                  if (!isNaN(num)) {
+                                    setValue('downpaymentAmount', num, { shouldValidate: true, shouldDirty: true });
+                                  } else if (raw === '') {
+                                    setValue('downpaymentAmount', 0 as any, { shouldValidate: true, shouldDirty: true });
+                                  }
+                                }}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200"
+                                placeholder="Downpayment Amount"
+                              />
+                            </div>
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block mb-1">
+                                Processing Fee (incl. GST) (₹)
+                              </label>
+                              <input
+                                type="text"
+                                value={formatIndianNumber(watchProcessingFee || 0)}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(/,/g, '');
+                                  const num = Number(raw);
+                                  if (!isNaN(num)) {
+                                    setValue('processingFee', num, { shouldValidate: true, shouldDirty: true });
+                                  } else if (raw === '') {
+                                    setValue('processingFee', 0 as any, { shouldValidate: true, shouldDirty: true });
+                                  }
+                                }}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-blue-200"
+                                placeholder="e.g. 500"
                               />
                             </div>
                           </div>
@@ -3398,9 +4717,9 @@ export default function Policies() {
                   </div>
 
                   {/* Section 4: Payment Mode & Loan Details */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsPaymentModeLoanCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3423,18 +4742,18 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Payment Mode
                             </label>
-                            <select
+                            <CustomSelect
                               value={paymentModeDetails.paymentMode}
-                              onChange={e => setPaymentModeDetails(p => ({ ...p, paymentMode: e.target.value }))}
-                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            >
-                              <option value="ONLINE">UPI / NetBanking / Online</option>
-                              <option value="CHEQUE">Cheque</option>
-                              <option value="NEFT_RTGS">NEFT / RTGS</option>
-                              <option value="CREDIT_CARD">Credit Card</option>
-                              <option value="AUTO_DEBIT">Auto Debit / NACH</option>
-                              <option value="CASH">Cash</option>
-                            </select>
+                              onChange={val => setPaymentModeDetails(p => ({ ...p, paymentMode: val }))}
+                              options={[
+                                { value: 'ONLINE', label: 'UPI / NetBanking / Online' },
+                                { value: 'CHEQUE', label: 'Cheque' },
+                                { value: 'NEFT_RTGS', label: 'NEFT / RTGS' },
+                                { value: 'CREDIT_CARD', label: 'Credit Card' },
+                                { value: 'AUTO_DEBIT', label: 'Auto Debit / NACH' },
+                                { value: 'CASH', label: 'Cash' },
+                              ]}
+                            />
                           </div>
 
                           <div>
@@ -3465,14 +4784,14 @@ export default function Policies() {
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                               Loan Case / Financed Policy?
                             </label>
-                            <select
+                            <CustomSelect
                               value={paymentModeDetails.isLoanCase ? 'yes' : 'no'}
-                              onChange={e => setPaymentModeDetails(p => ({ ...p, isLoanCase: e.target.value === 'yes' }))}
-                              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            >
-                              <option value="no">No</option>
-                              <option value="yes">Yes</option>
-                            </select>
+                              onChange={val => setPaymentModeDetails(p => ({ ...p, isLoanCase: val === 'yes' }))}
+                              options={[
+                                { value: 'no', label: 'No' },
+                                { value: 'yes', label: 'Yes' },
+                              ]}
+                            />
                           </div>
                         </div>
 
@@ -3525,9 +4844,9 @@ export default function Policies() {
                   </div>
 
                   {/* Section 5: Payment Account Details */}
-                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                     <div
-                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                      className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                       onClick={() => setIsPaymentAccountCollapsed(prev => !prev)}
                     >
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3601,16 +4920,17 @@ export default function Policies() {
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                             Account Type
                           </label>
-                          <select
+                          <CustomSelect
                             value={paymentAccount.accountType}
-                            onChange={e => setPaymentAccount(p => ({ ...p, accountType: e.target.value }))}
-                            className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                          >
-                            <option value="SAVINGS">Savings Account</option>
-                            <option value="CURRENT">Current Account</option>
-                            <option value="OVERDRAFT">Overdraft Account (OD)</option>
-                            <option value="NRE_NRO">NRE / NRO Account</option>
-                          </select>
+                            onChange={val => setPaymentAccount(p => ({ ...p, accountType: val }))}
+                            placeholder="Select Account Type"
+                            options={[
+                              { value: 'SAVINGS', label: 'Savings Account' },
+                              { value: 'CURRENT', label: 'Current Account' },
+                              { value: 'OVERDRAFT', label: 'Overdraft Account (OD)' },
+                              { value: 'NRE_NRO', label: 'NRE / NRO Account' },
+                            ]}
+                          />
                         </div>
                       </div>
                     )}
@@ -3682,10 +5002,10 @@ export default function Policies() {
                   </div>
 
                   {/* Section 7: Conditional PHC Details */}
-                  {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') && (
-                    <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  {(selectedCompanyCategory?.toUpperCase() === 'HEALTH' || selectedPlanCategory?.toUpperCase() === 'HEALTH' || selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH' || watchPhcRequired) && (
+                    <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                       <div
-                        className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                        className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                         onClick={() => setIsPhcCollapsed(prev => !prev)}
                       >
                         <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
@@ -3708,13 +5028,15 @@ export default function Policies() {
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Preventive Health Checkup?
                               </label>
-                              <select
-                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                onChange={e => setValue('phcRequired', e.target.value === 'yes')}
-                              >
-                                <option value="no">No</option>
-                                <option value="yes">Yes</option>
-                              </select>
+                              <CustomSelect
+                                value={watchPhcRequired ? 'yes' : 'no'}
+                                onChange={val => setValue('phcRequired', val === 'yes')}
+                                placeholder="Select Option"
+                                options={[
+                                  { value: 'no', label: 'No' },
+                                  { value: 'yes', label: 'Yes' },
+                                ]}
+                              />
                             </div>
                           </div>
                           {watchPhcRequired && (
@@ -3730,25 +5052,29 @@ export default function Policies() {
                               </div>
                               <div>
                                 <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Status</label>
-                                <select
-                                  {...register('phcStatus')}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
-                                >
-                                  <option value="">Select Status</option>
-                                  <option value="SCHEDULED">Scheduled</option>
-                                  <option value="COMPLETED">Completed</option>
-                                  <option value="CANCELLED">Cancelled</option>
-                                </select>
+                                <CustomSelect
+                                  value={watch('phcStatus') || ''}
+                                  onChange={val => setValue('phcStatus', val)}
+                                  placeholder="Select Status"
+                                  options={[
+                                    { value: '', label: 'Select Status' },
+                                    { value: 'SCHEDULED', label: 'Scheduled' },
+                                    { value: 'COMPLETED', label: 'Completed' },
+                                    { value: 'CANCELLED', label: 'Cancelled' },
+                                  ]}
+                                />
                               </div>
                               <div>
                                 <label className="label text-[10px] font-extrabold text-emerald-800 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
-                                <select
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-emerald-200"
-                                  onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
-                                >
-                                  <option value="no">No</option>
-                                  <option value="yes">Yes</option>
-                                </select>
+                                <CustomSelect
+                                  value={watch('phcClaimSettled') ? 'yes' : 'no'}
+                                  onChange={val => setValue('phcClaimSettled', val === 'yes')}
+                                  placeholder="Select Option"
+                                  options={[
+                                    { value: 'no', label: 'No' },
+                                    { value: 'yes', label: 'Yes' },
+                                  ]}
+                                />
                               </div>
                             </div>
                           )}
@@ -3869,7 +5195,7 @@ export default function Policies() {
                           </div>
 
                           {/* Person Fields */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                             <div>
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Full Name
@@ -3887,21 +5213,22 @@ export default function Policies() {
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Relationship
                               </label>
-                              <select
+                              <CustomSelect
                                 value={person.relationship}
-                                onChange={e => updateConnectedPerson(person.id, { relationship: e.target.value })}
-                                className="input w-full h-9 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                              >
-                                <option value="Spouse">Spouse</option>
-                                <option value="Son">Son</option>
-                                <option value="Daughter">Daughter</option>
-                                <option value="Father">Father</option>
-                                <option value="Mother">Mother</option>
-                                <option value="Brother">Brother</option>
-                                <option value="Sister">Sister</option>
-                                <option value="Dependent">Dependent</option>
-                                <option value="Other">Other</option>
-                              </select>
+                                onChange={val => updateConnectedPerson(person.id, { relationship: val })}
+                                placeholder="Select Relationship"
+                                options={[
+                                  { value: 'Spouse', label: 'Spouse' },
+                                  { value: 'Son', label: 'Son' },
+                                  { value: 'Daughter', label: 'Daughter' },
+                                  { value: 'Father', label: 'Father' },
+                                  { value: 'Mother', label: 'Mother' },
+                                  { value: 'Brother', label: 'Brother' },
+                                  { value: 'Sister', label: 'Sister' },
+                                  { value: 'Dependent', label: 'Dependent' },
+                                  { value: 'Other', label: 'Other' },
+                                ]}
+                              />
                             </div>
 
                             <div>
@@ -3919,17 +5246,30 @@ export default function Policies() {
 
                             <div>
                               <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                                Date of Birth (DoB)
+                              </label>
+                              <DatePicker
+                                value={person.dob}
+                                onDateChange={val => updateConnectedPerson(person.id, { dob: val })}
+                                className="input w-full h-9 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                placeholder="DD/MM/YYYY"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                                 Gender
                               </label>
-                              <select
+                              <CustomSelect
                                 value={person.gender}
-                                onChange={e => updateConnectedPerson(person.id, { gender: e.target.value })}
-                                className="input w-full h-9 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                              >
-                                <option value="MALE">Male</option>
-                                <option value="FEMALE">Female</option>
-                                <option value="OTHER">Other</option>
-                              </select>
+                                onChange={val => updateConnectedPerson(person.id, { gender: val })}
+                                placeholder="Select Gender"
+                                options={[
+                                  { value: 'MALE', label: 'Male' },
+                                  { value: 'FEMALE', label: 'Female' },
+                                  { value: 'OTHER', label: 'Other' },
+                                ]}
+                              />
                             </div>
                           </div>
 
@@ -3949,7 +5289,18 @@ export default function Policies() {
                               <input
                                 type="checkbox"
                                 checked={person.isNominee}
-                                onChange={e => updateConnectedPerson(person.id, { isNominee: e.target.checked })}
+                                onChange={e => {
+                                  const isNom = e.target.checked;
+                                  updateConnectedPerson(person.id, {
+                                    isNominee: isNom,
+                                    ...(isNom ? {
+                                      nomineeName: person.nomineeName || person.name,
+                                      nomineeRelation: person.nomineeRelation || person.relationship,
+                                      nomineeContact: person.nomineeContact || person.contactNo,
+                                      nomineeDob: person.nomineeDob || person.dob,
+                                    } : {})
+                                  });
+                                }}
                                 className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
                               />
                               <span className="text-xs font-bold text-slate-700">Set as Nominee</span>
@@ -3962,7 +5313,7 @@ export default function Policies() {
                               <h6 className="text-[11px] font-extrabold text-purple-800 uppercase tracking-wider flex flex-wrap items-center gap-1.5">
                                 Nominee Specification
                               </h6>
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                                 <div>
                                   <label className="label text-[10px] font-extrabold text-purple-700 uppercase tracking-wider block mb-1">Nominee Name</label>
                                   <input
@@ -3998,6 +5349,16 @@ export default function Policies() {
                                 </div>
 
                                 <div>
+                                  <label className="label text-[10px] font-extrabold text-purple-700 uppercase tracking-wider block mb-1">Nominee DoB</label>
+                                  <DatePicker
+                                    value={person.nomineeDob || person.dob}
+                                    onDateChange={val => updateConnectedPerson(person.id, { nomineeDob: val })}
+                                    className="input w-full h-9 text-xs rounded-xl bg-white border border-purple-200"
+                                    placeholder="DD/MM/YYYY"
+                                  />
+                                </div>
+
+                                <div>
                                   <label className="label text-[10px] font-extrabold text-purple-700 uppercase tracking-wider block mb-1">Nominee Share (%)</label>
                                   <input
                                     type="number"
@@ -4022,325 +5383,373 @@ export default function Policies() {
               {/* ════════════════ TAB 5: Preventive Health Checkup ════════════════ */}
               {activePolicyTab === 'phcDetails' && (
                 <div className="space-y-4 animate-fadeIn">
-                  {/* Section 1: Preventive Health Checkup Details (Health policies only) */}
-                  {(selectedType?.toUpperCase() === 'HEALTH' || selectedPlan?.category?.toUpperCase() === 'HEALTH') ? (
-                    <div className="space-y-4">
-                      {/* Card 1A: PHC Configuration & Eligibility */}
-                      <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                  {/* PHC Info Header Banner */}
+                  <div className="bg-gradient-to-r from-teal-50 via-slate-50 to-blue-50 border border-teal-200/80 rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                        <Activity size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                          Preventive Health Checkup (PHC)
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">Health Benefit</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">Configure health checkup allowance, lab booking, appointments and claim settlements.</p>
+                      </div>
+                    </div>
+                    {selectedCompanyCategory?.toUpperCase() !== 'HEALTH' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleCompanyCategoryChange('Health');
+                          setValue('phcRequired', true);
+                          toast.success('Insurance Company Category set to Health');
+                        }}
+                        className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>Set Policy as Health</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Card 1A: PHC Configuration & Eligibility */}
+                    <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
+                      <div
+                        className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
+                        onClick={() => setIsPhcCollapsed(prev => !prev)}
+                      >
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                          PHC Configuration & Eligibility
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] text-slate-700 font-bold">PHC Benefits & Eligibility</span>
+                          <ChevronDown
+                            size={16}
+                            className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
+                          />
+                        </div>
+                      </div>
+
+                      {!isPhcCollapsed && (
+                        <div className="p-4 space-y-3.5 animate-fadeIn">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                                Preventive Health Checkup?
+                              </label>
+                              <CustomSelect
+                                value={(watchPhcRequired ?? true) ? 'yes' : 'no'}
+                                onChange={val => {
+                                  setValue('phcRequired', val === 'yes');
+                                  if (val === 'yes' && !selectedCompanyCategory) {
+                                    handleCompanyCategoryChange('Health');
+                                  }
+                                }}
+                                placeholder="Select Option"
+                                options={[
+                                  { value: 'yes', label: 'Yes' },
+                                  { value: 'no', label: 'No' },
+                                ]}
+                              />
+                            </div>
+
+                            {(watchPhcRequired ?? true) && (
+                              <>
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    {...register('phcAmount')}
+                                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                    placeholder="e.g. 5000"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Balance Amount (₹)</label>
+                                  <input
+                                    type="text"
+                                    value={phcExtraDetails.balanceAmount ? `₹${phcExtraDetails.balanceAmount}` : '₹1,500'}
+                                    onChange={e => setPhcExtraDetails(p => ({ ...p, balanceAmount: e.target.value.replace(/[^0-9]/g, '') }))}
+                                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
+                                    placeholder="₹1,500"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Eligibility Start Date</label>
+                                  <DatePicker
+                                    value={phcExtraDetails.eligibilityStartDate}
+                                    onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, eligibilityStartDate: val }))}
+                                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Frequency</label>
+                                  <CustomSelect
+                                    value={phcExtraDetails.frequency || 'ANNUAL'}
+                                    onChange={val => setPhcExtraDetails(p => ({ ...p, frequency: val }))}
+                                    placeholder="Select Frequency"
+                                    options={[
+                                      { value: 'ANNUAL', label: 'Annual' },
+                                      { value: 'BI_ANNUAL', label: 'Bi-Annual' },
+                                      { value: 'ONCE_TENURE', label: 'Once Per Tenure' },
+                                    ]}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Status</label>
+                                  <CustomSelect
+                                    value={watch('phcStatus') || ''}
+                                    onChange={val => setValue('phcStatus', val)}
+                                    placeholder="Select Status"
+                                    options={[
+                                      { value: '', label: 'Select Status' },
+                                      { value: 'NOT_INTERESTED', label: 'Not Interested' },
+                                      { value: 'INTERESTED', label: 'Interested' },
+                                      { value: 'REMIND_LATER', label: 'Remind Later' },
+                                      { value: 'FULLY_UTILISED', label: 'Fully Utilised' },
+                                      { value: 'PARTIAL_UTILISED', label: 'Partial Utilised' },
+                                    ]}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Follow-up Date</label>
+                                  <DatePicker
+                                    value={phcExtraDetails.followUpDate}
+                                    onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, followUpDate: val }))}
+                                    className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                  />
+                                </div>
+
+                                <div className="col-span-1 md:col-span-3">
+                                  <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Comment</label>
+                                  <textarea
+                                    rows={2}
+                                    className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                    placeholder="Add any comment regarding preventive health checkup..."
+                                  />
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card 1B: PHC Booking & Centre Details */}
+                    {(watchPhcRequired ?? true) && (
+                      <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                         <div
-                          className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
-                          onClick={() => setIsPhcCollapsed(prev => !prev)}
+                          className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
+                          onClick={() => setIsPhcBookingCollapsed(prev => !prev)}
                         >
                           <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
-                            PHC Configuration & Eligibility
+                            <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                            PHC Booking & Centre Details
                           </h4>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] text-slate-700 font-bold">PHC Benefits & Eligibility</span>
+                            <span className="text-[10px] text-slate-700 font-bold">Appointment & Lab Information</span>
                             <ChevronDown
                               size={16}
-                              className={`text-slate-500 transition-transform duration-200 ${isPhcCollapsed ? 'rotate-180' : ''}`}
+                              className={`text-slate-500 transition-transform duration-200 ${isPhcBookingCollapsed ? 'rotate-180' : ''}`}
                             />
                           </div>
                         </div>
 
-                        {!isPhcCollapsed && (
-                          <div className="p-4 space-y-3.5 animate-fadeIn">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                                  Preventive Health Checkup?
+                        {!isPhcBookingCollapsed && (
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block">
+                                  Insured Person Name for PHC
                                 </label>
-                                <select
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                  value={watchPhcRequired ? 'yes' : 'no'}
-                                  onChange={e => setValue('phcRequired', e.target.value === 'yes')}
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCustomPhcPersonManual(prev => !prev)}
+                                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                                 >
-                                  <option value="no">No</option>
-                                  <option value="yes">Yes</option>
-                                </select>
+                                  {isCustomPhcPersonManual ? 'Select from list' : '+ Enter other name'}
+                                </button>
                               </div>
-
-                              {watchPhcRequired && (
-                                <>
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Amount (₹)</label>
-                                    <input
-                                      type="number"
-                                      {...register('phcAmount')}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                      placeholder="e.g. 5000"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Balance Amount (₹)</label>
-                                    <input
-                                      type="text"
-                                      value={phcExtraDetails.balanceAmount ? `₹${phcExtraDetails.balanceAmount}` : '₹1,500'}
-                                      onChange={e => setPhcExtraDetails(p => ({ ...p, balanceAmount: e.target.value.replace(/[^0-9]/g, '') }))}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
-                                      placeholder="₹1,500"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Eligibility Start Date</label>
-                                    <DatePicker
-                                      value={phcExtraDetails.eligibilityStartDate}
-                                      onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, eligibilityStartDate: val }))}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Frequency</label>
-                                    <select
-                                      value={phcExtraDetails.frequency || 'ANNUAL'}
-                                      onChange={e => setPhcExtraDetails(p => ({ ...p, frequency: e.target.value }))}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold"
-                                    >
-                                      <option value="ANNUAL">Annual</option>
-                                      <option value="BI_ANNUAL">Bi-Annual</option>
-                                      <option value="ONCE_TENURE">Once Per Tenure</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Status</label>
-                                    <select
-                                      {...register('phcStatus')}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    >
-                                      <option value="">Select Status</option>
-                                      <option value="NOT_INTERESTED">Not Interested</option>
-                                      <option value="INTERESTED">Interested</option>
-                                      <option value="REMIND_LATER">Remind Later</option>
-                                      <option value="FULLY_UTILISED">Fully Utilised</option>
-                                      <option value="PARTIAL_UTILISED">Partial Utilised</option>
-                                    </select>
-                                  </div>
-
-                                  <div>
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Follow-up Date</label>
-                                    <DatePicker
-                                      value={phcExtraDetails.followUpDate}
-                                      onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, followUpDate: val }))}
-                                      className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                    />
-                                  </div>
-
-                                  <div className="col-span-1 md:col-span-3">
-                                    <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Comment</label>
-                                    <textarea
-                                      rows={2}
-                                      className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                      placeholder="Add any comment regarding preventive health checkup..."
-                                    />
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Card 1B: PHC Booking & Centre Details */}
-                      {watchPhcRequired && (
-                        <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
-                            onClick={() => setIsPhcBookingCollapsed(prev => !prev)}
-                          >
-                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
-                              PHC Booking & Centre Details
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] text-slate-700 font-bold">Appointment & Lab Information</span>
-                              <ChevronDown
-                                size={16}
-                                className={`text-slate-500 transition-transform duration-200 ${isPhcBookingCollapsed ? 'rotate-180' : ''}`}
-                              />
-                            </div>
-                          </div>
-
-                          {!isPhcBookingCollapsed && (
-                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Insured Person Name</label>
+                              {isCustomPhcPersonManual ? (
                                 <input
                                   type="text"
                                   value={phcExtraDetails.insuredPersonName}
                                   onChange={e => setPhcExtraDetails(p => ({ ...p, insuredPersonName: e.target.value }))}
                                   className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                  placeholder="e.g. Ramesh Kumar"
+                                  placeholder="Type insured person name"
                                 />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Booking Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.bookingDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, bookingDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              ) : (
+                                <CustomSelect
+                                  value={phcExtraDetails.insuredPersonName}
+                                  onChange={val => setPhcExtraDetails(p => ({ ...p, insuredPersonName: val }))}
+                                  placeholder="Select Insured Person..."
+                                  options={phcInsuredPersonOptions.length > 0 ? phcInsuredPersonOptions : [{ value: '', label: 'No persons added yet' }]}
+                                  searchable
                                 />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Appointment Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.appointmentDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, appointmentDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab Name</label>
-                                <input
-                                  type="text"
-                                  value={phcExtraDetails.centreName}
-                                  onChange={e => setPhcExtraDetails(p => ({ ...p, centreName: e.target.value }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                  placeholder="e.g. Dr. Lal PathLabs / SRL Diagnostic"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab City</label>
-                                <input
-                                  type="text"
-                                  value={phcExtraDetails.centreCity}
-                                  onChange={e => setPhcExtraDetails(p => ({ ...p, centreCity: e.target.value }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                  placeholder="e.g. Mumbai / Delhi"
-                                />
-                              </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
 
-                      {/* Card 1C: PHC Claim & Settlement Details */}
-                      {watchPhcRequired && (
-                        <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
-                            onClick={() => setIsPhcSettlementCollapsed(prev => !prev)}
-                          >
-                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
-                              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
-                              PHC Claim & Settlement Details
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] text-slate-700 font-bold">Reports, Submissions & Stage</span>
-                              <ChevronDown
-                                size={16}
-                                className={`text-slate-500 transition-transform duration-200 ${isPhcSettlementCollapsed ? 'rotate-180' : ''}`}
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Booking Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.bookingDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, bookingDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Appointment Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.appointmentDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, appointmentDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab Name</label>
+                              <input
+                                type="text"
+                                value={phcExtraDetails.centreName}
+                                onChange={e => setPhcExtraDetails(p => ({ ...p, centreName: e.target.value }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                                placeholder="e.g. Dr. Lal PathLabs / SRL Diagnostic"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Centre / Lab City</label>
+                              <input
+                                type="text"
+                                value={phcExtraDetails.centreCity}
+                                onChange={e => setPhcExtraDetails(p => ({ ...p, centreCity: e.target.value }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                                placeholder="e.g. Mumbai / Delhi"
                               />
                             </div>
                           </div>
+                        )}
+                      </div>
+                    )}
 
-                          {!isPhcSettlementCollapsed && (
-                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Utilized Amount (₹)</label>
-                                <input
-                                  type="number"
-                                  value={phcExtraDetails.utilizedAmount}
-                                  onChange={e => setPhcExtraDetails(p => ({ ...p, utilizedAmount: e.target.value }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                  placeholder="Utilized Amount"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Reimbursement / Cashless</label>
-                                <select
-                                  value={phcExtraDetails.reimbursementCashless}
-                                  onChange={e => setPhcExtraDetails(p => ({ ...p, reimbursementCashless: e.target.value }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                >
-                                  <option value="CASHLESS">Cashless Checkup</option>
-                                  <option value="REIMBURSEMENT">Reimbursement Claim</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report Received Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.reportReceivedDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportReceivedDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Received Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.reportBillReceivedDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillReceivedDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Submitted Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.reportBillSubmittedDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillSubmittedDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Settlement Date</label>
-                                <DatePicker
-                                  value={phcExtraDetails.settlementDate}
-                                  onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, settlementDate: val }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Stage</label>
-                                <select
-                                  value={phcExtraDetails.phcStage}
-                                  onChange={e => setPhcExtraDetails(p => ({ ...p, phcStage: e.target.value }))}
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                >
-                                  <option value="INTIMATIONS">Intimations Issued</option>
-                                  <option value="APPOINTMENT_FIXED">Appointment Fixed</option>
-                                  <option value="CHECKUP_DONE">Checkup Done</option>
-                                  <option value="REPORT_UPLOADED">Report Uploaded</option>
-                                  <option value="BILL_SUBMITTED">Bill Submitted</option>
-                                  <option value="CLAIM_SETTLED">Claim Settled</option>
-                                  <option value="CLOSED">Closed</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
-                                <select
-                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                                  onChange={e => setValue('phcClaimSettled', e.target.value === 'yes')}
-                                >
-                                  <option value="no">No</option>
-                                  <option value="yes">Yes</option>
-                                </select>
-                              </div>
-                            </div>
-                          )}
+                    {/* Card 1C: PHC Claim & Settlement Details */}
+                    {(watchPhcRequired ?? true) && (
+                      <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
+                        <div
+                          className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
+                          onClick={() => setIsPhcSettlementCollapsed(prev => !prev)}
+                        >
+                          <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex flex-wrap items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+                            PHC Claim & Settlement Details
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] text-slate-700 font-bold">Reports, Submissions & Stage</span>
+                            <ChevronDown
+                              size={16}
+                              className={`text-slate-500 transition-transform duration-200 ${isPhcSettlementCollapsed ? 'rotate-180' : ''}`}
+                            />
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center space-y-1">
-                      <p className="text-xs font-bold text-slate-600">Preventive Health Checkup is applicable for Health Policies only.</p>
-                      <p className="text-[11px] text-slate-400">Select "Health" as the Policy Type in Tab 1 to enable PHC fields.</p>
-                    </div>
-                  )}
+
+                        {!isPhcSettlementCollapsed && (
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3.5 animate-fadeIn">
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Utilized Amount (₹)</label>
+                              <input
+                                type="number"
+                                value={phcExtraDetails.utilizedAmount}
+                                onChange={e => setPhcExtraDetails(p => ({ ...p, utilizedAmount: e.target.value }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                                placeholder="Utilized Amount"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Reimbursement / Cashless</label>
+                              <CustomSelect
+                                value={phcExtraDetails.reimbursementCashless || 'CASHLESS'}
+                                onChange={val => setPhcExtraDetails(p => ({ ...p, reimbursementCashless: val }))}
+                                placeholder="Select Reimbursement / Cashless"
+                                options={[
+                                  { value: 'CASHLESS', label: 'Cashless Checkup' },
+                                  { value: 'REIMBURSEMENT', label: 'Reimbursement Claim' },
+                                ]}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report Received Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.reportReceivedDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportReceivedDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Received Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.reportBillReceivedDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillReceivedDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Report & Bill Submitted Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.reportBillSubmittedDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, reportBillSubmittedDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Settlement Date</label>
+                              <DatePicker
+                                value={phcExtraDetails.settlementDate}
+                                onDateChange={(val: string) => setPhcExtraDetails(p => ({ ...p, settlementDate: val }))}
+                                className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Stage</label>
+                              <CustomSelect
+                                value={phcExtraDetails.phcStage || 'TO_CONTACT'}
+                                onChange={val => setPhcExtraDetails(p => ({ ...p, phcStage: val }))}
+                                placeholder="Select Stage"
+                                options={PHC_STAGE_OPTIONS}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Claim Settled?</label>
+                              <CustomSelect
+                                value={watch('phcClaimSettled') ? 'yes' : 'no'}
+                                onChange={val => setValue('phcClaimSettled', val === 'yes')}
+                                placeholder="Select Option"
+                                options={[
+                                  { value: 'no', label: 'No' },
+                                  { value: 'yes', label: 'Yes' },
+                                ]}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -4353,7 +5762,7 @@ export default function Policies() {
                         <FileText size={16} className="text-blue-600" />
                         Policy Documents Upload
                       </h4>
-                      <p className="text-[10px] text-slate-700 font-bold mt-1">Upload files related to this policy</p>
+                      <p className="text-[10px] text-slate-700 font-bold mt-1">Upload and view documents for this policy (Policy Document, Endorsements, etc.)</p>
                     </div>
                     <button
                       type="button"
@@ -4368,26 +5777,123 @@ export default function Policies() {
                     </button>
                   </div>
 
-                  {pendingDocs.length > 0 ? (
-                    <div className="space-y-3">
-                      {pendingDocs.map((doc, i) => (
-                        <div key={i} className="p-3 bg-white border border-slate-200/90 rounded-xl flex items-center justify-between shadow-2xs">
-                          <div>
-                            <p className="text-xs font-extrabold text-slate-800">{doc.title}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{doc.type} • {doc.file.name}</p>
-                            {doc.description && <p className="text-[10px] text-slate-400 mt-0.5">{doc.description}</p>}
-                          </div>
-                          <button type="button" onClick={() => setPendingDocs(p => p.filter((_, idx) => idx !== i))} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Remove Document">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
+                  {/* Existing Uploaded Policy Documents */}
+                  {existingPolicyDocs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Existing Uploaded Documents ({existingPolicyDocs.length})</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {existingPolicyDocs.map((doc: any) => {
+                          const isEndorsement = doc.tag === 'POLICY_DOCUMENT_ENDORSEMENT' || doc.type === 'POLICY_DOCUMENT_ENDORSEMENT' || (doc.title && doc.title.toLowerCase().includes('endorsement'));
+                          const isPolicyDoc = !isEndorsement && (doc.tag === 'POLICY_DOCUMENT' || doc.type === 'POLICY_DOCUMENT' || doc.tag === 'POLICY' || (doc.title && doc.title.toLowerCase().includes('policy')));
+
+                          return (
+                            <div key={doc.id} className="p-3 bg-white border border-slate-200/90 rounded-xl flex items-center justify-between shadow-2xs hover:border-slate-300 transition-all">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEndorsement ? 'bg-amber-50 text-amber-600 border border-amber-200' : isPolicyDoc ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-slate-100 text-slate-600'}`}>
+                                  <FileText size={18} />
+                                </div>
+                                <div className="truncate">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-black text-slate-800 truncate">{doc.title || doc.fileName || 'Untitled Document'}</p>
+                                    {isEndorsement ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                        Policy Document - Endorsement
+                                      </span>
+                                    ) : isPolicyDoc ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                        Policy Document
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                        {doc.tag || doc.type || 'Document'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                                    {doc.fileName ? `${doc.fileName} • ` : ''}{doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}
+                                    {doc.description ? ` • ${doc.description}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                                <button
+                                  type="button"
+                                  onClick={() => viewDoc(doc.id)}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="View / Download"
+                                >
+                                  <Download size={12} /> View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete document "${doc.title || doc.fileName}"?`)) {
+                                      deleteExistingDocMutation.mutate(doc.id);
+                                    }
+                                  }}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete Document"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Pending New Uploads */}
+                  {pendingDocs.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">New Documents To Be Uploaded ({pendingDocs.length})</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {pendingDocs.map((doc, i) => {
+                          const isEndorsement = doc.type === 'POLICY_DOCUMENT_ENDORSEMENT';
+                          const isPolicyDoc = doc.type === 'POLICY_DOCUMENT';
+                          const typeLabel = POLICY_DOCUMENT_TYPE_OPTIONS.find(o => o.value === doc.type)?.label || doc.type;
+
+                          return (
+                            <div key={i} className="p-3 bg-emerald-50/40 border border-emerald-200/80 rounded-xl flex items-center justify-between shadow-2xs">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEndorsement ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                  <FileText size={18} />
+                                </div>
+                                <div className="truncate">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-black text-slate-800 truncate">{doc.title}</p>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${isEndorsement ? 'bg-amber-50 text-amber-700 border-amber-200' : isPolicyDoc ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                                      {typeLabel}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.file.name}{doc.description ? ` • ${doc.description}` : ''}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setPendingDocs(p => p.filter((_, idx) => idx !== i))}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Remove Document"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {existingPolicyDocs.length === 0 && pendingDocs.length === 0 && (
                     <div className="p-8 bg-slate-50 border border-slate-200/90 rounded-2xl text-center space-y-2">
                       <FileText size={28} className="text-slate-400 mx-auto" />
                       <p className="text-xs font-bold text-slate-700">No documents added yet.</p>
-                      <p className="text-[11px] text-slate-400">Click the button above to add documents to this policy.</p>
+                      <p className="text-[11px] text-slate-400">Click "Upload Document" above to attach Policy Document, Endorsement, or other files.</p>
                     </div>
                   )}
                 </div>
@@ -4507,16 +6013,12 @@ export default function Policies() {
         <div className="space-y-4">
           <div>
             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
-            <select
+            <CustomSelect
               value={docUploadFields.type}
-              onChange={e => setDocUploadFields(p => ({ ...p, type: e.target.value }))}
-              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-            >
-              <option value="POLICY">Main Policy</option>
-              <option value="ENDORSEMENT">Endorsement</option>
-              <option value="KYC">KYC Document</option>
-              <option value="OTHER">Other</option>
-            </select>
+              onChange={val => setDocUploadFields(p => ({ ...p, type: val }))}
+              placeholder="Select Document Type"
+              options={POLICY_DOCUMENT_TYPE_OPTIONS}
+            />
           </div>
           <div>
             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Title <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>

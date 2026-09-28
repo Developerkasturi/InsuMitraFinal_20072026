@@ -6,6 +6,10 @@
     "dev": "npm run --prefix Frontend dev",
     "dev:frontend": "npm run --prefix Frontend dev",
     "dev:backend": "npm run --prefix Backend start:dev",
+    "start:backend": "npm run --prefix Backend start",
+    "prisma:generate": "npm run --prefix Backend prisma:generate",
+    "prisma:push": "npm run --prefix Backend prisma:push",
+    "prisma:seed": "npm run --prefix Backend prisma:seed",
     "start": "powershell -File start-project.ps1"
   },
   "dependencies": {

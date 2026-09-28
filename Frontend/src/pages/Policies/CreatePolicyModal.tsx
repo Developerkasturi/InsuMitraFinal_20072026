@@ -1,13 +1,15 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '@comps/common/Modal';
+import CustomSelect from '@comps/common/CustomSelect';
 import { DatePicker } from '@comps/common/DatePicker';
 import { insuranceService, policiesService, documentsService, contactsService } from '@api/index';
 import toast from 'react-hot-toast';
 import { Shield, CreditCard, Users, Activity, FileText, Plus, Trash2, ChevronDown, UserCircle2, Pencil, RotateCw } from 'lucide-react';
 import clsx from 'clsx';
 import { useLookupStore } from '@store/lookup.store';
-import { getPolicyStatusDisplay } from '../../utils/policyStatusUtils';
+import { getPolicyStatusDisplay, calculateLastInstallmentDate } from '../../utils/policyStatusUtils';
+import { INSTALLMENT_DATE_OPTIONS, PHC_STAGE_OPTIONS, POLICY_DOCUMENT_TYPE_OPTIONS } from './index';
 
 interface Props {
   open: boolean;
@@ -19,7 +21,14 @@ interface Props {
 }
 
 const CATEGORIES = ['HEALTH', 'LIFE', 'TERM', 'MOTOR', 'MUTUAL_FUNDS', 'PORTING', 'ACCIDENT', 'OTHER'];
-const STATUSES = ['ACTIVE', 'INFORCE', 'RENEWAL_DUE', 'GRACE_PERIOD', 'LAPSED', 'INACTIVE_OLD'];
+const STATUS_OPTIONS = [
+  { value: 'INFORCE', label: 'Inforce' },
+  { value: 'RENEWAL_DUE', label: 'Renewal Due' },
+  { value: 'GRACE_PERIOD', label: 'Grace Period' },
+  { value: 'LAPSED', label: 'Lapsed' },
+  { value: 'INACTIVE_OLD', label: 'Inactive(Old)' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
 
 export default function CreatePolicyModal({ open, onClose, contactId, contactName, policyToEdit, onSuccess }: Props) {
   const qc = useQueryClient();
@@ -58,7 +67,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         setSelectedPlanId(policyToEdit.planId || policyToEdit.plan?.id || '');
         setPolicyNumber(policyToEdit.policyNumber || '');
         setAgentCode(policyToEdit.agentCode || '');
-        setStatus(policyToEdit.status || 'ACTIVE');
+        setStatus((policyToEdit.status === 'ACTIVE' ? 'INFORCE' : policyToEdit.status) || 'INFORCE');
         setAssignedEmployeeId(policyToEdit.assignedEmployeeId || '');
         setSumAssured(policyToEdit.sumAssured != null ? String(policyToEdit.sumAssured) : '');
         setPremiumAmount(policyToEdit.premiumAmount != null ? String(policyToEdit.premiumAmount) : '');
@@ -68,11 +77,70 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         setNextDueDate(policyToEdit.nextDueDate ? String(policyToEdit.nextDueDate).split('T')[0] : '');
         setMaturityDate(policyToEdit.maturityDate ? String(policyToEdit.maturityDate).split('T')[0] : '');
         setNotes(policyToEdit.notes || '');
-        if (policyToEdit.members && Array.isArray(policyToEdit.members)) {
-          setMembers(policyToEdit.members);
+        const matchCity = (policyToEdit.notes || '').match(/Policy Zone(?: Location)? City:\s*(.*)/i);
+        setPolicyZoneCity(matchCity ? matchCity[1].trim() : '');
+        const matchDownpayment = (policyToEdit.notes || '').match(/Downpayment(?: Amount)?:\s*₹?\s*([0-9.]+)/i);
+        setDownpaymentAmount(matchDownpayment ? matchDownpayment[1].trim() : '');
+        const matchProcessing = (policyToEdit.notes || '').match(/Processing Fee(?:\s*\(incl\.\s*GST\))?:\s*₹?\s*([0-9.]+)/i);
+        setProcessingFee(matchProcessing ? matchProcessing[1].trim() : '');
+        const matchInstallment = (policyToEdit.notes || '').match(/Installment Amount:\s*₹?\s*([0-9.]+)/i) || (policyToEdit.notes || '').match(/Premium:\s*₹\s*([0-9.]+)/i);
+        setInstallmentAmount(matchInstallment ? matchInstallment[1].trim() : '');
+        if (matchInstallment && !emiPremium) setEmiPremium(matchInstallment[1].trim());
+        const matchNoOfInst = (policyToEdit.notes || '').match(/No\.\s*of Installments:\s*([0-9]+)/i);
+        setNoOfInstallments(matchNoOfInst ? matchNoOfInst[1].trim() : '');
+        const matchLastInst = (policyToEdit.notes || '').match(/Last Installment Date:\s*(.*)/i);
+        setLastInstallmentDate(matchLastInst ? matchLastInst[1].trim() : (policyToEdit.lastPremiumDate ? String(policyToEdit.lastPremiumDate).split('T')[0] : ''));
+        const matchInstDate = (policyToEdit.notes || '').match(/Installment Date:\s*(.*)/i);
+        if (matchInstDate) setEmiDate(matchInstDate[1].trim());
+        const matchInsured = (policyToEdit.notes || '').match(/Insured Person:\s*(.*)/i);
+        setInsuredPerson(matchInsured ? matchInsured[1].trim() : (policyToEdit.contact ? `${policyToEdit.contact.firstName || ''} ${policyToEdit.contact.lastName || ''}`.trim() : ''));
+        if (policyToEdit.members && Array.isArray(policyToEdit.members) && policyToEdit.members.length > 0) {
+          setMembers(policyToEdit.members.map((m: any) => ({
+            name: m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
+            relationship: m.relationship || 'Spouse',
+            dob: m.dateOfBirth ? m.dateOfBirth.slice(0, 10) : (m.dob || ''),
+          })));
+        } else if (policyToEdit.nominees && Array.isArray(policyToEdit.nominees) && policyToEdit.nominees.length > 0) {
+          setMembers(policyToEdit.nominees.map((n: any) => ({
+            name: n.name,
+            relationship: n.relationship || 'Nominee',
+            dob: n.dateOfBirth ? n.dateOfBirth.slice(0, 10) : (n.dob || ''),
+            isNominee: true,
+          })));
         } else {
-          setMembers([]);
+          const parsedMembers: any[] = [];
+          (policyToEdit.notes || '').split('\n').forEach((line: string) => {
+            if (line.startsWith('Nominee Details')) {
+              const nameM = line.match(/Name:\s*([^,]+)/);
+              const relM = line.match(/Relationship:\s*([^,]+)/);
+              const dobM = line.match(/DoB:\s*([^,]+)/);
+              if (nameM) {
+                parsedMembers.push({
+                  name: nameM[1].trim(),
+                  relationship: relM ? relM[1].trim() : 'Nominee',
+                  dob: dobM && dobM[1].trim() !== 'N/A' ? dobM[1].trim() : '',
+                  isNominee: true,
+                });
+              }
+            } else if (line.startsWith('Connected Person')) {
+              const nameM = line.match(/Name:\s*([^,]+)/);
+              const relM = line.match(/Relationship:\s*([^,]+)/);
+              const dobM = line.match(/DoB:\s*([^,]+)/);
+              if (nameM) {
+                parsedMembers.push({
+                  name: nameM[1].trim(),
+                  relationship: relM ? relM[1].trim() : 'Spouse',
+                  dob: dobM && dobM[1].trim() !== 'N/A' ? dobM[1].trim() : '',
+                });
+              }
+            }
+          });
+          setMembers(parsedMembers);
         }
+        const matchPhcPerson = (policyToEdit.notes || '').match(/PHC Insured Person:\s*(.*)/i) || (policyToEdit.notes || '').match(/Preventive Health Checkup:.*Insured Person:\s*([^,)\n]+)/i);
+        setPhcInsuredPerson(matchPhcPerson ? matchPhcPerson[1].trim() : '');
+        const matchPhcStage = (policyToEdit.notes || '').match(/PHC Stage:\s*(.*)/i);
+        setPhcStage(matchPhcStage ? matchPhcStage[1].trim() : 'TO_CONTACT');
       } else {
         setIsViewOnly(false);
         setSelectedContactId(contactId || '');
@@ -91,7 +159,19 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         setNextDueDate('');
         setMaturityDate('');
         setNotes('');
+        setPolicyZoneCity('');
+        setDownpaymentAmount('');
+        setProcessingFee('');
+        setInstallmentAmount('');
+        setNoOfInstallments('');
+        setLastInstallmentDate('');
+        setInsuredPerson('');
+        setPhcInsuredPerson('');
+        setPhcStage('TO_CONTACT');
+        setIsManualPhcPerson(false);
         setMembers([]);
+        setMemberName('');
+        setMemberDob('');
         setPendingDocs([]);
       }
     }
@@ -107,6 +187,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [isEmiDetailsCollapsed, setIsEmiDetailsCollapsed] = useState(false);
 
   // Tab 1: Policy & Plan Details
+  const [insuredPerson, setInsuredPerson] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('HEALTH');
   const [businessType, setBusinessType] = useState<'FRESH' | 'PORT' | 'RENEWAL'>('FRESH');
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
@@ -114,9 +195,10 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [policyPeriod, setPolicyPeriod] = useState('1 Yr');
   const [policyNumber, setPolicyNumber] = useState('');
   const [agentCode, setAgentCode] = useState('');
-  const [status, setStatus] = useState('ACTIVE');
+  const [status, setStatus] = useState('INFORCE');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState('');
-  const [customerCategory, setCustomerCategory] = useState('INDIVIDUAL');
+  const [customerCategory, setCustomerCategory] = useState('Fresh');
+  const [policyZoneCity, setPolicyZoneCity] = useState('');
   const [previousPolicyId, setPreviousPolicyId] = useState('');
   const [copyPreviousDetails, setCopyPreviousDetails] = useState(false);
   const [loadingCopy, setLoadingCopy] = useState(false);
@@ -149,9 +231,32 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         if (data.agentCode) setAgentCode(data.agentCode);
         if (data.assignedEmployeeId) setAssignedEmployeeId(data.assignedEmployeeId);
         if (data.customerCategory) setCustomerCategory(data.customerCategory);
-        if (data.notes) setNotes(data.notes);
+        if (data.notes) {
+          setNotes(data.notes);
+          const matchDownpayment = (data.notes || '').match(/Downpayment(?: Amount)?:\s*₹?\s*([0-9.]+)/i);
+          if (matchDownpayment) setDownpaymentAmount(matchDownpayment[1].trim());
+          const matchProcessing = (data.notes || '').match(/Processing Fee(?:\s*\(incl\.\s*GST\))?:\s*₹?\s*([0-9.]+)/i);
+          if (matchProcessing) setProcessingFee(matchProcessing[1].trim());
+          const matchInstallment = (data.notes || '').match(/Installment Amount:\s*₹?\s*([0-9.]+)/i) || (data.notes || '').match(/Premium:\s*₹\s*([0-9.]+)/i);
+          if (matchInstallment) {
+            setInstallmentAmount(matchInstallment[1].trim());
+            setEmiPremium(matchInstallment[1].trim());
+          }
+          const matchNoOfInst = (data.notes || '').match(/No\.\s*of Installments:\s*([0-9]+)/i);
+          if (matchNoOfInst) setNoOfInstallments(matchNoOfInst[1].trim());
+          const matchLastInst = (data.notes || '').match(/Last Installment Date:\s*(.*)/i);
+          if (matchLastInst) setLastInstallmentDate(matchLastInst[1].trim());
+          const matchInstDate = (data.notes || '').match(/Installment Date:\s*(.*)/i);
+          if (matchInstDate) setEmiDate(matchInstDate[1].trim());
+          const matchInsured = (data.notes || '').match(/Insured Person:\s*(.*)/i);
+          if (matchInsured) setInsuredPerson(matchInsured[1].trim());
+        }
         if (Array.isArray(data.members) && data.members.length > 0) {
-          setMembers(data.members);
+          setMembers(data.members.map((m: any) => ({
+            name: m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
+            relationship: m.relationship || 'Spouse',
+            dob: m.dateOfBirth ? m.dateOfBirth.slice(0, 10) : (m.dob || ''),
+          })));
         }
         toast.success('Pre-filled details from previous policy. All fields remain editable.');
       }
@@ -173,6 +278,8 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [firstPremiumDate, setFirstPremiumDate] = useState('');
   const [premiumPaymentPeriod, setPremiumPaymentPeriod] = useState('');
   const [lastPremiumDate, setLastPremiumDate] = useState('');
+  const [noOfInstallments, setNoOfInstallments] = useState('');
+  const [lastInstallmentDate, setLastInstallmentDate] = useState('');
 
   // Auto-calculate End Date and Maturity Date based on Start Date & Policy Period
   const autoCalculateDates = useCallback((startIso: string, periodStr: string) => {
@@ -242,6 +349,26 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [emiGateway, setEmiGateway] = useState('');
   const [emiDate, setEmiDate] = useState('');
   const [emiPremium, setEmiPremium] = useState('');
+  const [downpaymentAmount, setDownpaymentAmount] = useState('');
+  const [processingFee, setProcessingFee] = useState('');
+  const [installmentAmount, setInstallmentAmount] = useState('');
+
+  // Auto-calculate Last Installment Date based on First Premium / Start Date, No. of Installments, Frequency, and Day
+  useEffect(() => {
+    const baseDate = firstPremiumDate || startDate;
+    if (baseDate && noOfInstallments) {
+      const calculated = calculateLastInstallmentDate(
+        baseDate,
+        noOfInstallments,
+        paymentFrequency || 'MONTHLY',
+        emiDate
+      );
+      if (calculated) {
+        setLastPremiumDate(calculated);
+        setLastInstallmentDate(calculated);
+      }
+    }
+  }, [firstPremiumDate, startDate, noOfInstallments, paymentFrequency, emiDate]);
 
   // Card 4: Payment Mode & Loan Details
   const [paymentMode, setPaymentMode] = useState('ONLINE');
@@ -273,20 +400,62 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [members, setMembers] = useState<any[]>([]);
   const [memberName, setMemberName] = useState('');
   const [memberRel, setMemberRel] = useState('Spouse');
+  const [memberDob, setMemberDob] = useState('');
 
   // Tab 4: PHC Details
   const [phcRequired, setPhcRequired] = useState(false);
+  const [phcInsuredPerson, setPhcInsuredPerson] = useState('');
+  const [isManualPhcPerson, setIsManualPhcPerson] = useState(false);
   const [phcAmount, setPhcAmount] = useState('');
   const [phcStatus, setPhcStatus] = useState('PENDING');
+  const [phcStage, setPhcStage] = useState('TO_CONTACT');
   const [phcClaimSettled, setPhcClaimSettled] = useState(false);
   const [notes, setNotes] = useState('');
 
   // Tab 5: Documents
   const [pendingDocs, setPendingDocs] = useState<{ file: File; tag: string; title: string }[]>([]);
-  const [docTag, setDocTag] = useState('POLICY_BOND');
+  const [docTag, setDocTag] = useState('POLICY_DOCUMENT');
   const [docTitle, setDocTitle] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
+
+  const phcInsuredPersonOptions = useMemo(() => {
+    const list: { value: string; label: string; sublabel?: string }[] = [];
+    const seen = new Set<string>();
+
+    const primary = (insuredPerson || contactName || '').trim();
+    if (primary) {
+      list.push({
+        value: primary,
+        label: `${primary} (Self / Primary)`,
+        sublabel: 'Primary Insured Person',
+      });
+      seen.add(primary.toLowerCase());
+    }
+
+    members.forEach((m: any) => {
+      const name = (m.name || '').trim();
+      if (name && !seen.has(name.toLowerCase())) {
+        list.push({
+          value: name,
+          label: `${name} (${m.relationship || 'Member'})`,
+          sublabel: m.relationship ? `Relationship: ${m.relationship}` : 'Family Member',
+        });
+        seen.add(name.toLowerCase());
+      }
+    });
+
+    const current = (phcInsuredPerson || '').trim();
+    if (current && !seen.has(current.toLowerCase())) {
+      list.push({
+        value: current,
+        label: current,
+        sublabel: 'Custom Name',
+      });
+    }
+
+    return list;
+  }, [insuredPerson, contactName, members, phcInsuredPerson]);
 
   // Fetch All Plans via policiesService.plans()
   const { data: allPlansRes } = useQuery({
@@ -324,8 +493,14 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
   const handleAddMember = () => {
     if (!memberName.trim()) return;
-    setMembers(prev => [...prev, { name: memberName.trim(), relationship: memberRel }]);
+    setMembers(prev => [...prev, {
+      name: memberName.trim(),
+      relationship: memberRel,
+      dob: memberDob,
+      isNominee: memberRel === 'Nominee',
+    }]);
     setMemberName('');
+    setMemberDob('');
   };
 
   const handleRemoveMember = (idx: number) => {
@@ -397,18 +572,44 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
     try {
       // Build notes text combining extras if present
       let cleanNotes = notes.trim();
+      if (policyZoneCity) {
+        cleanNotes += `\nPolicy Zone City: ${policyZoneCity}`;
+        cleanNotes += `\nPolicy Zone Location City: ${policyZoneCity}`;
+      }
+      if (insuredPerson) cleanNotes += `\nInsured Person: ${insuredPerson}`;
       if (firstPremiumDate) cleanNotes += `\nFirst Premium Date: ${firstPremiumDate}`;
       if (premiumPaymentPeriod) cleanNotes += `\nPremium Payment Period: ${premiumPaymentPeriod} Years`;
       if (lastPremiumDate) cleanNotes += `\nLast Premium Date: ${lastPremiumDate}`;
+      if (downpaymentAmount) cleanNotes += `\nDownpayment Amount: ₹${downpaymentAmount}`;
+      if (processingFee) cleanNotes += `\nProcessing Fee (incl. GST): ₹${processingFee}`;
+      if (installmentAmount || emiPremium) {
+        cleanNotes += `\nInstallment Amount: ₹${installmentAmount || emiPremium}`;
+      }
+      if (noOfInstallments) cleanNotes += `\nNo. of Installments: ${noOfInstallments}`;
+      if (emiDate) cleanNotes += `\nInstallment Date: ${emiDate}`;
+      if (lastInstallmentDate || lastPremiumDate) {
+        cleanNotes += `\nLast Installment Date: ${lastInstallmentDate || lastPremiumDate}`;
+      }
       if (emiCase) {
-        cleanNotes += `\nEMI Case: Gateway: ${emiGateway || 'N/A'}, Date: ${emiDate || 'N/A'}, Premium: ₹${emiPremium || '0'}`;
+        cleanNotes += `\nEMI Case: Gateway: ${emiGateway || 'N/A'}, Date: ${emiDate || 'N/A'}, Premium: ₹${emiPremium || installmentAmount || '0'}, Downpayment: ₹${downpaymentAmount || '0'}, Processing Fee: ₹${processingFee || '0'}, No of Installments: ${noOfInstallments || 'N/A'}, Last Installment Date: ${lastInstallmentDate || lastPremiumDate || 'N/A'}`;
       }
       if (paymentMode) cleanNotes += `\nPayment Mode: ${paymentMode}, Date: ${paymentDate || 'N/A'}, Ref: ${transactionRef || 'N/A'}`;
       if (isLoanCase) cleanNotes += `\nLoan Case: Amount: ₹${loanAmount || '0'}, Provider: ${loanProvider || 'N/A'}, Sanction No: ${loanSanctionNo || 'N/A'}, EMI: ₹${loanEmi || '0'}`;
       if (bankName) cleanNotes += `\nBank Details: Bank: ${bankName}, IFSC: ${ifscCode || 'N/A'}, A/C: ${accountNumber || 'N/A'}, Holder: ${accountHolderName || 'N/A'}`;
       if (gstApplicable) cleanNotes += `\nGST Details: Applicable: Yes (${gstPercentage}%), GST Amount: ₹${gstAmount || '0'}`;
       if (phcRequired) {
-        cleanNotes += `\nPreventive Health Checkup: Amount: ₹${phcAmount || '0'}, Status: ${phcStatus}, Settled: ${phcClaimSettled ? 'Yes' : 'No'}`;
+        cleanNotes += `\nPreventive Health Checkup: Amount: ₹${phcAmount || '0'}, Status: ${phcStatus}, Settled: ${phcClaimSettled ? 'Yes' : 'No'}${phcInsuredPerson ? `, Insured Person: ${phcInsuredPerson}` : ''}`;
+        if (phcInsuredPerson) cleanNotes += `\nPHC Insured Person: ${phcInsuredPerson}`;
+        cleanNotes += `\nPHC Stage: ${phcStage || 'TO_CONTACT'}`;
+      }
+      if (members.length > 0) {
+        members.forEach((m, idx) => {
+          if (m.relationship === 'Nominee' || m.isNominee) {
+            cleanNotes += `\nNominee Details ${idx + 1}: Name: ${m.name}, Relationship: ${m.relationship}, DoB: ${m.dob || m.dateOfBirth || 'N/A'}`;
+          } else {
+            cleanNotes += `\nConnected Person ${idx + 1}: Name: ${m.name}, Relationship: ${m.relationship}, DoB: ${m.dob || m.dateOfBirth || 'N/A'}`;
+          }
+        });
       }
 
       const payload: any = {
@@ -450,6 +651,28 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
           } catch (uploadErr) {
             console.error('Document upload error:', uploadErr);
           }
+        }
+      }
+
+      const targetPolicyId = policyToEdit?.id || savedPolicy?.id;
+      if (targetPolicyId && members.length > 0) {
+        for (const m of members) {
+          try {
+            if (m.relationship === 'Nominee' || m.isNominee) {
+              await policiesService.addNominee(targetPolicyId, {
+                name: m.name,
+                relationship: 'Other',
+                sharePercent: 100,
+                dateOfBirth: (m.dob || m.dateOfBirth) ? new Date(m.dob || m.dateOfBirth).toISOString() : undefined,
+              });
+            } else {
+              await policiesService.addMember(targetPolicyId, {
+                name: m.name,
+                relationship: m.relationship || 'Spouse',
+                dateOfBirth: (m.dob || m.dateOfBirth) ? new Date(m.dob || m.dateOfBirth).toISOString() : undefined,
+              });
+            }
+          } catch { /* ignore */ }
         }
       }
 
@@ -503,12 +726,12 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
     >
       <form onSubmit={handleFormSubmit} className="space-y-3 py-1">
         {/* ── Sub-navigation 5 Tabs Header (Matches main Policies page) ────────────── */}
-        <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+        <div className="flex flex-wrap bg-slate-200/60 p-1.5 rounded-2xl mb-3 gap-1.5 sm:gap-2 border border-slate-200/80 shadow-2xs">
           <button
             type="button"
             onClick={() => setActiveTab('policyPlan')}
             className={clsx(
-              'px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+              'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
               activeTab === 'policyPlan'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -522,7 +745,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
             type="button"
             onClick={() => setActiveTab('premium')}
             className={clsx(
-              'px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+              'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
               activeTab === 'premium'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -536,7 +759,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
             type="button"
             onClick={() => setActiveTab('connectedPersons')}
             className={clsx(
-              'px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+              'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
               activeTab === 'connectedPersons'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -550,7 +773,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
             type="button"
             onClick={() => setActiveTab('phcDetails')}
             className={clsx(
-              'px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+              'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
               activeTab === 'phcDetails'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -564,7 +787,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
             type="button"
             onClick={() => setActiveTab('policyDocs')}
             className={clsx(
-              'px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+              'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
               activeTab === 'policyDocs'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
@@ -576,7 +799,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
         </div>
 
         {/* ── Form Content Container ───────────────────────────────────────── */}
-        <div className="max-h-[65vh] overflow-y-auto pr-1.5 custom-scrollbar space-y-4">
+        <div className="space-y-4">
           <fieldset disabled={isViewOnly} className="contents">
 
           {/* ════════ TAB 1: Policy & Plan Details ════════ */}
@@ -600,26 +823,32 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 </div>
 
                 <div>
-                  <select
-                    className="input text-xs w-full bg-white font-semibold text-slate-800 border-blue-200"
+                  <CustomSelect
                     value={selectedContactId}
-                    onChange={(e) => setSelectedContactId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Select Target Contact / Client Name --</option>
-                    {contactsList.map((c: any) => (
-                      <option key={c.id} value={c.id}>
-                        {c.firstName || c.name || ''} {c.lastName || ''} {c.phone ? `(${c.phone})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={val => {
+                      setSelectedContactId(val);
+                      if (!insuredPerson) {
+                        const c = contactsList.find((x: any) => x.id === val);
+                        if (c) setInsuredPerson(`${c.firstName || c.name || ''} ${c.lastName || ''}`.trim());
+                      }
+                    }}
+                    placeholder="-- Select Target Contact / Client Name --"
+                    searchable
+                    options={[
+                      { value: '', label: '-- Select Target Contact / Client Name --' },
+                      ...contactsList.map((c: any) => ({
+                        value: c.id,
+                        label: `${c.firstName || c.name || ''} ${c.lastName || ''} ${c.phone ? `(${c.phone})` : ''}`.trim()
+                      }))
+                    ]}
+                  />
                 </div>
               </div>
 
               {/* Section 1 Card: Policy Details */}
-              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                 <div
-                  className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                  className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                   onClick={() => setIsPolicyDetailsCollapsed(prev => !prev)}
                 >
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -639,34 +868,32 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {/* Product Category */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                         Product Category <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <CustomSelect
                         value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                      >
-                        {CATEGORIES.map(cat => (
-                          <option key={cat} value={cat}>{cat.replace('_', ' ')}</option>
-                        ))}
-                      </select>
+                        onChange={val => setSelectedCategory(val)}
+                        placeholder="Select Product Category"
+                        options={CATEGORIES.map(cat => ({ value: cat, label: cat.replace('_', ' ') }))}
+                      />
                     </div>
 
                     {/* Business Type */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                         Business Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1 font-semibold"
+                      <CustomSelect
                         value={businessType}
-                        onChange={(e) => setBusinessType(e.target.value as any)}
-                      >
-                        <option value="FRESH">Fresh</option>
-                        <option value="PORT">Port</option>
-                        <option value="RENEWAL">Renewal</option>
-                      </select>
+                        onChange={val => setBusinessType(val as any)}
+                        placeholder="Select Business Type"
+                        options={[
+                          { value: 'FRESH', label: 'Fresh' },
+                          { value: 'PORT', label: 'Port' },
+                          { value: 'RENEWAL', label: 'Renewal' },
+                        ]}
+                      />
                     </div>
 
                     {/* Renewal Selection & Copy Details */}
@@ -696,27 +923,27 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                           </label>
                         </div>
 
-                        <select
-                          className="input text-xs w-full bg-white font-semibold text-slate-800"
+                        <CustomSelect
                           value={previousPolicyId}
-                          onChange={(e) => {
-                            const val = e.target.value;
+                          onChange={val => {
                             setPreviousPolicyId(val);
                             if (copyPreviousDetails && val) {
                               handleCopyFromPreviousPolicy(val);
                             }
                           }}
-                        >
-                          <option value="">-- Select Previous Policy ({previousPolicies.length} available) --</option>
-                          {previousPolicies.map((pol: any) => {
-                            const stDisplay = getPolicyStatusDisplay(pol);
-                            return (
-                              <option key={pol.id} value={pol.id}>
-                                Policy #{pol.policyNumber} — {pol.plan?.name || 'Plan'} ({stDisplay.label}) — Ends: {pol.endDate ? String(pol.endDate).split('T')[0] : 'N/A'}
-                              </option>
-                            );
-                          })}
-                        </select>
+                          placeholder={`-- Select Previous Policy (${previousPolicies.length} available) --`}
+                          searchable
+                          options={[
+                            { value: '', label: `-- Select Previous Policy (${previousPolicies.length} available) --` },
+                            ...previousPolicies.map((pol: any) => {
+                              const stDisplay = getPolicyStatusDisplay(pol);
+                              return {
+                                value: pol.id,
+                                label: `Policy #${pol.policyNumber} — ${pol.plan?.name || 'Plan'} (${stDisplay.label}) — Ends: ${pol.endDate ? String(pol.endDate).split('T')[0] : 'N/A'}`
+                              };
+                            })
+                          ]}
+                        />
 
                         {loadingCopy && (
                           <p className="text-[10px] text-amber-800 font-medium italic animate-pulse">
@@ -728,78 +955,90 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Insurance Company */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                         Insurance Company <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <CustomSelect
                         value={selectedCompanyId}
-                        onChange={(e) => {
-                          setSelectedCompanyId(e.target.value);
+                        onChange={val => {
+                          setSelectedCompanyId(val);
                           setSelectedPlanId('');
                         }}
-                      >
-                        <option value="">All Insurance Companies</option>
-                        {availableCompanies.map((c: any) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                        placeholder="All Insurance Companies"
+                        searchable
+                        options={[
+                          { value: '', label: 'All Insurance Companies' },
+                          ...availableCompanies.map((c: any) => ({ value: c.id, label: c.name }))
+                        ]}
+                      />
                     </div>
 
                     {/* Insurance Plan */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
                         Insurance Plan <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <CustomSelect
                         value={selectedPlanId}
-                        onChange={(e) => setSelectedPlanId(e.target.value)}
-                        required
-                      >
-                        <option value="">Select Plan ({availablePlans.length} available)</option>
-                        {availablePlans.map((p: any) => (
-                          <option key={p.id} value={p.id}>{p.name} {p.company?.name ? `(${p.company.name})` : ''}</option>
-                        ))}
-                      </select>
+                        onChange={val => setSelectedPlanId(val)}
+                        placeholder={`Select Plan (${availablePlans.length} available)`}
+                        searchable
+                        options={[
+                          { value: '', label: `Select Plan (${availablePlans.length} available)` },
+                          ...availablePlans.map((p: any) => ({
+                            value: p.id,
+                            label: `${p.name} ${p.company?.name ? `(${p.company.name})` : ''}`.trim()
+                          }))
+                        ]}
+                      />
                     </div>
 
                     {/* Policy Period (Driven dynamically by backend scenario) */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1 mb-1">
                         Policy Period <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                         {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">✓ Dynamic</span>}
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1 font-semibold"
+                      <CustomSelect
                         value={policyPeriod}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                        onChange={val => {
                           setPolicyPeriod(val);
                           if (startDate) {
                             autoCalculateDates(startDate, val);
                           }
                         }}
-                      >
-                        {dynamicPolicyPeriods.map((period: string) => (
-                          <option key={period} value={period}>{period}</option>
-                        ))}
-                      </select>
+                        placeholder="Select Policy Period"
+                        options={dynamicPolicyPeriods.map((period: string) => ({ value: period, label: period }))}
+                      />
                     </div>
 
                     {/* Customer Category */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Customer Category</label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Customer Category</label>
+                      <CustomSelect
                         value={customerCategory}
-                        onChange={(e) => setCustomerCategory(e.target.value)}
-                      >
-                        <option value="INDIVIDUAL">Individual</option>
-                        <option value="FAMILY_FLOATER">Family Floater</option>
-                        <option value="CORPORATE_GROUP">Corporate / Group</option>
-                        <option value="SENIOR_CITIZEN">Senior Citizen</option>
-                      </select>
+                        onChange={val => setCustomerCategory(val)}
+                        placeholder="Select Customer Category"
+                        options={[
+                          { value: 'Fresh', label: 'Fresh' },
+                          { value: 'Port', label: 'Port' },
+                          { value: 'Renewal', label: 'Renewal' },
+                        ]}
+                      />
+                    </div>
+
+                    {/* Insured Person */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                        Insured Person
+                      </label>
+                      <input
+                        type="text"
+                        className="input text-xs w-full mt-1 font-bold text-slate-800"
+                        placeholder="e.g. Self / Name of Insured Person"
+                        value={insuredPerson}
+                        onChange={(e) => setInsuredPerson(e.target.value)}
+                      />
                     </div>
 
                     {/* Active Scenario Indicator Banner */}
@@ -871,6 +1110,20 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
+                    {/* Insured Person */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Insured Person
+                      </label>
+                      <input
+                        type="text"
+                        className="input text-xs w-full mt-1 font-bold text-slate-800"
+                        placeholder="e.g. Self / Name of Insured Person"
+                        value={insuredPerson}
+                        onChange={(e) => setInsuredPerson(e.target.value)}
+                      />
+                    </div>
+
                     {/* Agent Code */}
                     <div>
                       <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Agent Code</label>
@@ -883,33 +1136,44 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
+                    {/* Policy Zone City */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Policy Zone City</label>
+                      <input
+                        type="text"
+                        className="input text-xs w-full mt-1"
+                        placeholder="Type policy zone city manually..."
+                        value={policyZoneCity}
+                        onChange={(e) => setPolicyZoneCity(e.target.value)}
+                      />
+                    </div>
+
                     {/* Policy Status */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Policy Status</label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                      >
-                        {STATUSES.map(st => (
-                          <option key={st} value={st}>{st}</option>
-                        ))}
-                      </select>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Policy Status</label>
+                      <CustomSelect
+                        value={status === 'ACTIVE' ? 'INFORCE' : (status || 'INFORCE')}
+                        onChange={val => setStatus(val)}
+                        placeholder="Select Policy Status"
+                        options={STATUS_OPTIONS}
+                      />
                     </div>
 
                     {/* Assigned Employee */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Assigned Employee</label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Assigned Employee</label>
+                      <CustomSelect
                         value={assignedEmployeeId}
-                        onChange={(e) => setAssignedEmployeeId(e.target.value)}
-                      >
-                        <option value="">Unassigned</option>
-                        {(employees || []).map((emp: any) => (
-                          <option key={emp.id} value={emp.id}>{emp.firstName || emp.name} {emp.lastName || ''}</option>
-                        ))}
-                      </select>
+                        onChange={val => setAssignedEmployeeId(val)}
+                        placeholder="Unassigned"
+                        options={[
+                          { value: '', label: 'Unassigned' },
+                          ...(employees || []).map((emp: any) => ({
+                            value: emp.id,
+                            label: `${emp.firstName || emp.name} ${emp.lastName || ''}`.trim()
+                          }))
+                        ]}
+                      />
                     </div>
                   </div>
                 )}
@@ -921,9 +1185,9 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
           {activeTab === 'premium' && (
             <div className="space-y-4 animate-fadeIn">
               {/* Section 1 Card: Premium Breakdown & Coverage */}
-              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                 <div
-                  className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                  className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                   onClick={() => setIsPremiumBreakdownCollapsed(prev => !prev)}
                 >
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -972,31 +1236,73 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                     {/* Payment Option / Frequency (Driven dynamically by backend scenario) */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1 mb-1">
                         Premium Payment <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
                         {activeScenario && <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">✓ Dynamic</span>}
                       </label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1 font-semibold"
+                      <CustomSelect
                         value={paymentFrequency}
-                        onChange={(e) => setPaymentFrequency(e.target.value)}
-                      >
-                        {dynamicPaymentOptions.map((opt: string) => {
+                        onChange={val => setPaymentFrequency(val)}
+                        placeholder="Select Payment Frequency"
+                        options={dynamicPaymentOptions.map((opt: string) => {
                           const valKey = opt.toUpperCase().replace(/\s+/g, '_');
-                          return (
-                            <option key={opt} value={valKey}>{opt}</option>
-                          );
+                          return { value: valKey, label: opt };
                         })}
-                      </select>
+                      />
+                    </div>
+
+                    {/* Downpayment Amount */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Downpayment Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="input text-xs w-full mt-1"
+                        placeholder="e.g. 5000"
+                        value={downpaymentAmount}
+                        onChange={(e) => setDownpaymentAmount(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Processing Fee (incl. GST) */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Processing Fee (incl. GST) (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="input text-xs w-full mt-1"
+                        placeholder="e.g. 500"
+                        value={processingFee}
+                        onChange={(e) => setProcessingFee(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Installment Amount */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Installment Amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        className="input text-xs w-full mt-1"
+                        placeholder="e.g. 2500"
+                        value={installmentAmount}
+                        onChange={(e) => {
+                          setInstallmentAmount(e.target.value);
+                          setEmiPremium(e.target.value);
+                        }}
+                      />
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Section 2 Card: Tenure & Key Dates */}
-              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                 <div
-                  className="bg-gradient-to-r from-cyan-50/80 via-slate-50 to-blue-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                  className="bg-gradient-to-r from-cyan-50/80 via-slate-50 to-blue-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                   onClick={() => setIsTenureDatesCollapsed(prev => !prev)}
                 >
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -1064,13 +1370,65 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
-                    {/* First Premium Date */}
+                    {/* First Premium Date / Policy 1st Instalment Date */}
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">First Premium Date</label>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
+                        Policy 1st Instalment Date
+                      </label>
                       <DatePicker
                         value={firstPremiumDate}
                         onChange={(val: any) => setFirstPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
                         className="input text-xs w-full mt-1"
+                        placeholder="DD/MM/YYYY"
+                      />
+                    </div>
+
+                    {/* No. of Installments */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block">
+                        No. of Installments
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={120}
+                        className="input text-xs w-full mt-1 font-bold text-slate-800"
+                        placeholder="e.g. 12"
+                        value={noOfInstallments}
+                        onChange={(e) => setNoOfInstallments(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Installment Date (01 to 31st) */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                        Installment Date (01 to 31st)
+                      </label>
+                      <CustomSelect
+                        value={emiDate ? String(emiDate).padStart(2, '0') : ''}
+                        onChange={val => setEmiDate(val)}
+                        placeholder="Select Day (01 to 31st)"
+                        options={[
+                          { value: '', label: 'Select Day' },
+                          ...INSTALLMENT_DATE_OPTIONS
+                        ]}
+                      />
+                    </div>
+
+                    {/* Last Installment Date */}
+                    <div>
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
+                        Last Installment Date
+                      </label>
+                      <DatePicker
+                        value={lastInstallmentDate || lastPremiumDate}
+                        onChange={(val: any) => {
+                          const v = typeof val === 'string' ? val : (val?.target?.value || '');
+                          setLastInstallmentDate(v);
+                          setLastPremiumDate(v);
+                        }}
+                        className="input text-xs w-full mt-1 bg-white border border-slate-200 font-semibold"
+                        placeholder="Calculated automatically"
                       />
                     </div>
 
@@ -1082,16 +1440,15 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                           {activeScenario && <span className="text-[9px] text-teal-600 font-bold bg-teal-50 px-1 rounded">Applicable</span>}
                         </label>
                         {dynamicPaymentTerms.length > 0 ? (
-                          <select
-                            className="input text-xs w-full bg-white mt-1 font-semibold"
+                          <CustomSelect
                             value={premiumPaymentPeriod}
-                            onChange={(e) => setPremiumPaymentPeriod(e.target.value)}
-                          >
-                            <option value="">Select Payment Term</option>
-                            {dynamicPaymentTerms.map((term: string) => (
-                              <option key={term} value={term}>{term}</option>
-                            ))}
-                          </select>
+                            onChange={val => setPremiumPaymentPeriod(val)}
+                            placeholder="Select Payment Term"
+                            options={[
+                              { value: '', label: 'Select Payment Term' },
+                              ...dynamicPaymentTerms.map((term: string) => ({ value: term, label: term }))
+                            ]}
+                          />
                         ) : (
                           <input
                             type="text"
@@ -1109,7 +1466,11 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Last Premium Date</label>
                       <DatePicker
                         value={lastPremiumDate}
-                        onChange={(val: any) => setLastPremiumDate(typeof val === 'string' ? val : (val?.target?.value || ''))}
+                        onChange={(val: any) => {
+                          const v = typeof val === 'string' ? val : (val?.target?.value || '');
+                          setLastPremiumDate(v);
+                          if (!lastInstallmentDate) setLastInstallmentDate(v);
+                        }}
                         className="input text-xs w-full mt-1"
                       />
                     </div>
@@ -1161,21 +1522,75 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                           />
                         </div>
                         <div>
-                          <label className="label text-[10px] font-bold text-slate-500">EMI Date</label>
-                          <DatePicker
-                            value={emiDate}
+                          <label className="label text-[10px] font-bold text-slate-500">Installment Date (01 to 31st)</label>
+                          <CustomSelect
+                            value={emiDate ? String(emiDate).padStart(2, '0') : ''}
                             onChange={(val) => setEmiDate(val)}
-                            className="input text-xs w-full mt-0.5"
+                            placeholder="Select Day (01 to 31st)"
+                            options={[
+                              { value: '', label: 'Select Day' },
+                              ...INSTALLMENT_DATE_OPTIONS
+                            ]}
                           />
                         </div>
                         <div>
-                          <label className="label text-[10px] font-bold text-slate-500">EMI Monthly Premium (₹)</label>
+                          <label className="label text-[10px] font-bold text-slate-500">No. of Installments</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={120}
+                            className="input text-xs w-full mt-0.5 font-bold"
+                            placeholder="e.g. 12"
+                            value={noOfInstallments}
+                            onChange={(e) => setNoOfInstallments(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="label text-[10px] font-bold text-slate-500 block mb-1">
+                            Last Installment Date
+                          </label>
+                          <DatePicker
+                            value={lastInstallmentDate || lastPremiumDate}
+                            onChange={(val: any) => {
+                              const v = typeof val === 'string' ? val : (val?.target?.value || '');
+                              setLastInstallmentDate(v);
+                              setLastPremiumDate(v);
+                            }}
+                            className="input text-xs w-full mt-0.5 bg-white border border-slate-200 font-semibold"
+                            placeholder="Calculated automatically"
+                          />
+                        </div>
+                        <div>
+                          <label className="label text-[10px] font-bold text-slate-500">EMI Monthly Premium / Installment Amount (₹)</label>
                           <input
                             type="number"
                             className="input text-xs w-full mt-0.5"
                             placeholder="e.g. 1250"
-                            value={emiPremium}
-                            onChange={(e) => setEmiPremium(e.target.value)}
+                            value={installmentAmount || emiPremium}
+                            onChange={(e) => {
+                              setEmiPremium(e.target.value);
+                              setInstallmentAmount(e.target.value);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="label text-[10px] font-bold text-slate-500">Downpayment Amount (₹)</label>
+                          <input
+                            type="number"
+                            className="input text-xs w-full mt-0.5"
+                            placeholder="e.g. 5000"
+                            value={downpaymentAmount}
+                            onChange={(e) => setDownpaymentAmount(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="label text-[10px] font-bold text-slate-500">Processing Fee (incl. GST) (₹)</label>
+                          <input
+                            type="number"
+                            className="input text-xs w-full mt-0.5"
+                            placeholder="e.g. 500"
+                            value={processingFee}
+                            onChange={(e) => setProcessingFee(e.target.value)}
                           />
                         </div>
                       </div>
@@ -1185,9 +1600,9 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
               </div>
 
               {/* Section 4 Card: Payment Mode & Loan Details */}
-              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                 <div
-                  className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                  className="bg-gradient-to-r from-purple-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                   onClick={() => setIsPaymentModeLoanCollapsed(prev => !prev)}
                 >
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -1207,19 +1622,20 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <div className="p-4 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
-                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Payment Mode</label>
-                        <select
-                          className="input text-xs w-full bg-white mt-1"
+                        <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Payment Mode</label>
+                        <CustomSelect
                           value={paymentMode}
-                          onChange={(e) => setPaymentMode(e.target.value)}
-                        >
-                          <option value="ONLINE">UPI / NetBanking / Online</option>
-                          <option value="CHEQUE">Cheque</option>
-                          <option value="NEFT_RTGS">NEFT / RTGS</option>
-                          <option value="CREDIT_CARD">Credit Card</option>
-                          <option value="AUTO_DEBIT">Auto Debit / NACH</option>
-                          <option value="CASH">Cash</option>
-                        </select>
+                          onChange={val => setPaymentMode(val)}
+                          placeholder="Select Payment Mode"
+                          options={[
+                            { value: 'ONLINE', label: 'UPI / NetBanking / Online' },
+                            { value: 'CHEQUE', label: 'Cheque' },
+                            { value: 'NEFT_RTGS', label: 'NEFT / RTGS' },
+                            { value: 'CREDIT_CARD', label: 'Credit Card' },
+                            { value: 'AUTO_DEBIT', label: 'Auto Debit / NACH' },
+                            { value: 'CASH', label: 'Cash' },
+                          ]}
+                        />
                       </div>
 
                       <div>
@@ -1369,9 +1785,9 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
               </div>
 
               {/* Section 6 Card: GST & Tax Details */}
-              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+              <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                 <div
-                  className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                  className="bg-gradient-to-r from-teal-50/80 via-slate-50 to-emerald-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none rounded-t-2xl"
                   onClick={() => setIsGstDetailsCollapsed(prev => !prev)}
                 >
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -1390,15 +1806,16 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 {!isGstDetailsCollapsed && (
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
-                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">GST Applicable?</label>
-                      <select
-                        className="input text-xs w-full bg-white mt-1"
+                      <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">GST Applicable?</label>
+                      <CustomSelect
                         value={gstApplicable ? 'yes' : 'no'}
-                        onChange={(e) => setGstApplicable(e.target.value === 'yes')}
-                      >
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                      </select>
+                        onChange={val => setGstApplicable(val === 'yes')}
+                        placeholder="Select Option"
+                        options={[
+                          { value: 'yes', label: 'Yes' },
+                          { value: 'no', label: 'No' },
+                        ]}
+                      />
                     </div>
 
                     {gstApplicable && (
@@ -1440,31 +1857,43 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   Nominees & Family Members
                 </h4>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
                   <input
                     type="text"
                     placeholder="Full Name"
-                    className="input text-xs flex-1"
+                    className="input text-xs flex-1 min-w-[140px]"
                     value={memberName}
                     onChange={(e) => setMemberName(e.target.value)}
                   />
-                  <select
-                    className="input text-xs bg-white w-32"
-                    value={memberRel}
-                    onChange={(e) => setMemberRel(e.target.value)}
-                  >
-                    <option value="Spouse">Spouse</option>
-                    <option value="Child">Child</option>
-                    <option value="Father">Father</option>
-                    <option value="Mother">Mother</option>
-                    <option value="Nominee">Nominee</option>
-                  </select>
+                  <div className="w-36">
+                    <CustomSelect
+                      value={memberRel}
+                      onChange={val => setMemberRel(val)}
+                      placeholder="Relationship"
+                      options={[
+                        { value: 'Spouse', label: 'Spouse' },
+                        { value: 'Child', label: 'Child' },
+                        { value: 'Father', label: 'Father' },
+                        { value: 'Mother', label: 'Mother' },
+                        { value: 'Nominee', label: 'Nominee' },
+                        { value: 'Other', label: 'Other' },
+                      ]}
+                    />
+                  </div>
+                  <div className="w-36">
+                    <DatePicker
+                      value={memberDob}
+                      onDateChange={val => setMemberDob(val)}
+                      placeholder="DoB (DD/MM/YYYY)"
+                      className="input text-xs w-full"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={handleAddMember}
-                    className="px-3 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 cursor-pointer"
+                    className="px-3.5 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 cursor-pointer flex items-center gap-1 shrink-0"
                   >
-                    <Plus size={14} />
+                    <Plus size={14} /> Add
                   </button>
                 </div>
 
@@ -1472,9 +1901,14 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   {members.length === 0 && <p className="text-xs text-slate-400">No connected persons added yet.</p>}
                   {members.map((m, i) => (
                     <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
-                      <div>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-slate-800">{m.name}</span>
-                        <span className="text-slate-400 ml-2">({m.relationship})</span>
+                        <span className="text-slate-500 font-medium">({m.relationship})</span>
+                        {(m.dob || m.dateOfBirth) && (
+                          <span className="text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md text-[11px] font-semibold">
+                            DoB: {m.dob || m.dateOfBirth}
+                          </span>
+                        )}
                       </div>
                       <button type="button" onClick={() => handleRemoveMember(i)} className="text-red-500 hover:text-red-700">
                         <Trash2 size={14} />
@@ -1506,7 +1940,45 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                 </label>
 
                 {phcRequired && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="label text-[10px] font-bold text-slate-600">Insured Person Name for PHC</label>
+                        <button
+                          type="button"
+                          onClick={() => setIsManualPhcPerson(prev => !prev)}
+                          className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        >
+                          {isManualPhcPerson ? 'Select list' : '+ Other'}
+                        </button>
+                      </div>
+                      {isManualPhcPerson ? (
+                        <input
+                          type="text"
+                          className="input text-xs w-full mt-0.5"
+                          placeholder={insuredPerson ? `e.g. ${insuredPerson}` : 'e.g. Ramesh Kumar'}
+                          value={phcInsuredPerson}
+                          onChange={(e) => setPhcInsuredPerson(e.target.value)}
+                        />
+                      ) : (
+                        <CustomSelect
+                          value={phcInsuredPerson}
+                          onChange={(val) => setPhcInsuredPerson(val)}
+                          placeholder="Select Insured Person..."
+                          options={phcInsuredPersonOptions.length > 0 ? phcInsuredPersonOptions : [{ value: '', label: 'No persons added yet' }]}
+                          searchable
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <label className="label text-[10px] font-bold text-slate-600 mb-0.5 block">PHC Stage</label>
+                      <CustomSelect
+                        value={phcStage || 'TO_CONTACT'}
+                        onChange={val => setPhcStage(val)}
+                        placeholder="Select PHC Stage"
+                        options={PHC_STAGE_OPTIONS}
+                      />
+                    </div>
                     <div>
                       <label className="label text-[10px] font-bold text-slate-500">PHC Amount (₹)</label>
                       <input
@@ -1518,16 +1990,17 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-bold text-slate-500">Status</label>
-                      <select
-                        className="input text-xs w-full bg-white mt-0.5"
+                      <label className="label text-[10px] font-bold text-slate-500 mb-0.5 block">Status</label>
+                      <CustomSelect
                         value={phcStatus}
-                        onChange={(e) => setPhcStatus(e.target.value)}
-                      >
-                        <option value="PENDING">Pending</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="CLAIMED">Claimed</option>
-                      </select>
+                        onChange={val => setPhcStatus(val)}
+                        placeholder="Select Status"
+                        options={[
+                          { value: 'PENDING', label: 'Pending' },
+                          { value: 'COMPLETED', label: 'Completed' },
+                          { value: 'CLAIMED', label: 'Claimed' },
+                        ]}
+                      />
                     </div>
                     <div className="flex items-end pb-2">
                       <label className="flex items-center gap-2 cursor-pointer">
@@ -1567,19 +2040,13 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="label text-[10px] font-bold text-slate-500">Document Type</label>
-                    <select
-                      className="input text-xs w-full bg-white mt-1"
+                    <label className="label text-[10px] font-bold text-slate-500 mb-1 block">Document Type</label>
+                    <CustomSelect
                       value={docTag}
-                      onChange={(e) => setDocTag(e.target.value)}
-                    >
-                      <option value="POLICY_BOND">Policy Bond</option>
-                      <option value="PROPOSAL_FORM">Proposal Form</option>
-                      <option value="RENEWAL_RECEIPT">Renewal Receipt</option>
-                      <option value="MEDICAL_REPORT">Medical Report</option>
-                      <option value="ID_PROOF">ID Proof</option>
-                      <option value="OTHER">Other Document</option>
-                    </select>
+                      onChange={val => setDocTag(val)}
+                      placeholder="Select Document Type"
+                      options={POLICY_DOCUMENT_TYPE_OPTIONS}
+                    />
                   </div>
                   <div>
                     <label className="label text-[10px] font-bold text-slate-500">Document Title</label>
@@ -1610,7 +2077,9 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                     <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
                       <div>
                         <span className="font-bold text-slate-800">{doc.title}</span>
-                        <span className="text-blue-600 font-mono ml-2">[{doc.tag}]</span>
+                        <span className="text-blue-600 font-bold ml-2">
+                          [{POLICY_DOCUMENT_TYPE_OPTIONS.find(o => o.value === doc.tag)?.label || doc.tag}]
+                        </span>
                       </div>
                       <button type="button" onClick={() => handleRemoveDoc(i)} className="text-red-500 hover:text-red-700">
                         <Trash2 size={14} />
