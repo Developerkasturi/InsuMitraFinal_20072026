@@ -875,10 +875,18 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
             >
               <option value="All">Insurer: All</option>
-              <option value="HDFC Ergo">HDFC Ergo</option>
-              <option value="HDFC Life">HDFC Life</option>
               <option value="Star Health">Star Health</option>
+              <option value="Niva Bupa">Niva Bupa</option>
+              <option value="Care">Care</option>
+              <option value="Manipal Cigna">Manipal Cigna</option>
+              <option value="HDFC Ergo">HDFC Ergo</option>
               <option value="ICICI Lombard">ICICI Lombard</option>
+              <option value="Bajaj General">Bajaj General</option>
+              <option value="TATA AIG">TATA AIG</option>
+              <option value="HDFC Life">HDFC Life</option>
+              <option value="ICICI Pru Life">ICICI Pru Life</option>
+              <option value="Bajaj Life">Bajaj Life</option>
+              <option value="TATA AIA">TATA AIA</option>
             </select>
           </div>
 

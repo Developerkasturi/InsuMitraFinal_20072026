@@ -3014,7 +3014,6 @@ export default function Contacts() {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
-          title="Import Contact CSV"
         >
           <Upload size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
@@ -3027,7 +3026,6 @@ export default function Contacts() {
           type="button"
           onClick={() => setDirImportOpen(true)}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-purple-500/25 cursor-pointer group relative"
-          title="Import Phone Directory"
         >
           <Users size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
@@ -3040,7 +3038,6 @@ export default function Contacts() {
           type="button"
           onClick={openCreate}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
-          title="Add Contact"
         >
           <UserPlus size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">

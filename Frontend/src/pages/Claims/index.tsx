@@ -191,7 +191,7 @@ export function getClaimNotesData(notesField?: string | null) {
   const defaultNotes = { 
     diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: '', statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0, subClaimNo: '', uiClaimStatus: '', comment: '', insuranceCompanyCategory: '', insuranceCompany: '', insuranceProductName: '', agentName: '',
     deathAdmissionDate: '', causeOfDeath: '', dateOfOccurance: '', dateOfDeath: '', wasInComa: '', deathSumInsured: '', deathTotalClaimedAmount: '', deathComment: '', nominees: '[]',
-    hospitalName: '', hospitalState: '', hospitalCity: '', hospitalPincode: '', hospitalContactNo: '', hospitalRating: '', hospitalType: '', claimsPerson1Name: '', claimsPerson1Contact: '', claimsPerson2Name: '', claimsPerson2Contact: '', hospitalComment: '', hospitalDoctors: '[]',
+    hospitalName: '', hospitalState: '', hospitalCity: '', hospitalPincode: '', hospitalContactNo: '', hospitalEmail: '', hospitalRating: '', hospitalType: '', claimsPerson1Name: '', claimsPerson1Contact: '', claimsPerson2Name: '', claimsPerson2Contact: '', hospitalComment: '', hospitalDoctors: '[]',
     diagnosisSimple: '', roomCategory: '', typeOfManagement: '', typeOfAdmission: '', isMedicoLegalCase: '', hospitalisationComment: '', amtAnesthesia: 0, billingComment: '',
     amtFinalBill: 0, amtNonPayables: 0, amtCopay: 0, amtDeductible: 0, amtBalanceEMIs: 0, amtNcdRecovery: 0, amtExcessSumInsured: 0, amtExcessAilmentLimit: 0, amtHigherRoomRent: 0, amtReasonableCost: 0, amtOtherRecoveries: 0, amtPatientToPay: 0, amtExcessAgreedPackage: 0, amtNetworkDiscount: 0, amtNotCollected: 0, amtPayableToInsured: 0, approvalComment: '', fileUploadComment: ''
   };
@@ -237,6 +237,7 @@ export function getClaimNotesData(notesField?: string | null) {
         hospitalCity: parsed.hospitalCity || '',
         hospitalPincode: parsed.hospitalPincode || '',
         hospitalContactNo: parsed.hospitalContactNo || '',
+        hospitalEmail: parsed.hospitalEmail || '',
         hospitalRating: parsed.hospitalRating || '',
         hospitalType: parsed.hospitalType || '',
         claimsPerson1Name: parsed.claimsPerson1Name || '',
@@ -328,6 +329,7 @@ export const claimFormSchema = z.object({
   hospitalContactNo: z.string().refine((val) => !val || /^\d{10}$/.test(val.replace(/\D/g, '')), {
     message: 'Hospital contact number must be exactly 10 digits',
   }).optional(),
+  hospitalEmail: z.string().optional(),
   hospitalRating: z.string().optional(),
   hospitalType: z.string().optional(),
   claimsPerson1Name: z.string().optional(),
@@ -519,8 +521,13 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [hospitalCity, setHospitalCity] = useState(notesData.hospitalCity || '');
   const [hospitalPincode, setHospitalPincode] = useState(notesData.hospitalPincode || '');
   const [hospitalContactNo, setHospitalContactNo] = useState(notesData.hospitalContactNo || '');
+  const [hospitalEmail, setHospitalEmail] = useState(notesData.hospitalEmail || '');
+  const initialHospitalType = notesData.hospitalType || '';
+  const isInitialCustomHospitalType = Boolean(initialHospitalType && !['Network', 'Non-Network', 'Blacklisted'].includes(initialHospitalType));
   const [hospitalRating, setHospitalRating] = useState(notesData.hospitalRating || '');
-  const [hospitalType, setHospitalType] = useState(notesData.hospitalType || '');
+  const [hospitalType, setHospitalType] = useState(initialHospitalType);
+  const [isCustomHospitalType, setIsCustomHospitalType] = useState(isInitialCustomHospitalType);
+  const [customHospitalTypeText, setCustomHospitalTypeText] = useState(initialHospitalType === 'Other' ? '' : (isInitialCustomHospitalType ? initialHospitalType : ''));
   const [claimsPerson1Name, setClaimsPerson1Name] = useState(notesData.claimsPerson1Name || '');
   const [claimsPerson1Contact, setClaimsPerson1Contact] = useState(notesData.claimsPerson1Contact || '');
   const [claimsPerson2Name, setClaimsPerson2Name] = useState(notesData.claimsPerson2Name || '');
@@ -572,8 +579,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
     setAmtPatientToPay(totalPatientToPay);
     const totalNotCollected = Number(amtExcessAgreedPackage) + Number(amtNetworkDiscount);
     setAmtNotCollected(totalNotCollected);
-    const payable = Number(amtFinalBill) - totalPatientToPay - totalNotCollected;
-    setAmtPayableToInsured(payable);
+    if (Number(amtFinalBill) > 0) {
+      const payable = Number(amtFinalBill) - totalPatientToPay - totalNotCollected;
+      setAmtPayableToInsured(payable);
+    }
   }, [amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtExcessAgreedPackage, amtNetworkDiscount]);
 
 
@@ -707,7 +716,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
           patientName,
           nominees: JSON.stringify(nominees),
           hospitalName, hospitalAddress, hospitalState, hospitalCity, hospitalPincode,
-          hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name,
+          hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name,
           claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
           hospitalDoctors: JSON.stringify(doctors),
           diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
@@ -1076,7 +1085,18 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                           if (hosp.address || hosp.hospitalAddress) setHospitalAddress(hosp.address || hosp.hospitalAddress);
                           if (hosp.pincode || hosp.hospitalPincode) setHospitalPincode(hosp.pincode || hosp.hospitalPincode);
                           if (hosp.phone || hosp.hospitalContactNo) setHospitalContactNo(hosp.phone || hosp.hospitalContactNo);
-                          if (hosp.type || hosp.hospitalType) setHospitalType(hosp.type || hosp.hospitalType);
+                          if (hosp.email || hosp.hospitalEmail) setHospitalEmail(hosp.email || hosp.hospitalEmail);
+                          const hType = hosp.type || hosp.hospitalType || '';
+                          if (hType) {
+                            setHospitalType(hType);
+                            if (!['Network', 'Non-Network', 'Blacklisted'].includes(hType)) {
+                              setIsCustomHospitalType(true);
+                              setCustomHospitalTypeText(hType === 'Other' ? '' : hType);
+                            } else {
+                              setIsCustomHospitalType(false);
+                              setCustomHospitalTypeText('');
+                            }
+                          }
                           if (hosp.rating || hosp.hospitalRating) setHospitalRating(hosp.rating || hosp.hospitalRating);
                           if (hosp.claimsPerson1Name) setClaimsPerson1Name(hosp.claimsPerson1Name);
                           if (hosp.claimsPerson1Contact) setClaimsPerson1Contact(hosp.claimsPerson1Contact);
@@ -1142,6 +1162,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     />
                   </div>
                   <div>
+                    <label className="label text-[10px]">Hospital Email ID</label>
+                    <input type="email" className="input mt-1 py-1 text-xs" value={hospitalEmail} onChange={e => setHospitalEmail(e.target.value)} placeholder="hospital@email.com" />
+                  </div>
+                  <div>
                     <label className="label text-[10px]">Hospital Rating</label>
                     <CustomSelect
                       className="input mt-1 py-1 text-xs"
@@ -1153,13 +1177,53 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                   </div>
                   <div>
                     <label className="label text-[10px]">Hospital Type</label>
-                    <CustomSelect
-                      className="input mt-1 py-1 text-xs"
-                      value={hospitalType}
-                      onChange={val => setHospitalType(val)}
-                      placeholder="Select Type"
-                      options={['Network', 'Non-Network', 'Blacklisted', 'Other']}
-                    />
+                    {!isCustomHospitalType ? (
+                      <CustomSelect
+                        className="input mt-1 py-1 text-xs"
+                        value={['Network', 'Non-Network', 'Blacklisted'].includes(hospitalType) ? hospitalType : (hospitalType ? 'Other' : '')}
+                        onChange={val => {
+                          if (val === 'Other') {
+                            setIsCustomHospitalType(true);
+                            setCustomHospitalTypeText('');
+                            setHospitalType('Other');
+                          } else {
+                            setIsCustomHospitalType(false);
+                            setCustomHospitalTypeText('');
+                            setHospitalType(val);
+                          }
+                        }}
+                        placeholder="Select Type"
+                        options={['Network', 'Non-Network', 'Blacklisted', 'Other']}
+                      />
+                    ) : (
+                      <div className="relative mt-1">
+                        <input
+                          type="text"
+                          className="input py-1 pr-7 text-xs w-full"
+                          placeholder="Type hospital type..."
+                          value={customHospitalTypeText}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setCustomHospitalTypeText(val);
+                            setHospitalType(val.trim() ? val : 'Other');
+                          }}
+                          onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomHospitalType(false);
+                            setCustomHospitalTypeText('');
+                            setHospitalType('');
+                          }}
+                          title="Back to list options"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1198,7 +1262,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     )}
                   </div>
                   {doctors.map((doc, index) => (
-                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
                       <div>
                         <label className="label text-[10px]">Doctor Name</label>
                         <input value={doc.name} onChange={e => handleDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" />
@@ -1225,6 +1289,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                           onChange={e => handleDoctorChange(index, 'contactNo', e.target.value.replace(/\D/g, '').slice(0, 10))} 
                           className="input mt-1 py-1 text-xs" 
                         />
+                      </div>
+                      <div>
+                        <label className="label text-[10px]">Email ID</label>
+                        <input type="email" value={doc.email || ''} onChange={e => handleDoctorChange(index, 'email', e.target.value)} placeholder="doctor@email.com" className="input mt-1 py-1 text-xs" />
                       </div>
                       <div>
                         <label className="label text-[10px]">Doctor Speciality</label>
@@ -1312,6 +1380,10 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                           toast.error("Date of Admission cannot be a future date");
                           return;
                         }
+                        if (val && dischargeAt && val > formatDateForInput(dischargeAt)) {
+                          toast.error("Date of Admission cannot be after Date of Discharge");
+                          return;
+                        }
                         setAdmissionAt(val);
                       }}
                       className="input mt-1 py-1 text-xs"
@@ -1321,9 +1393,22 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     <label className="label text-[10px]">Date of Discharge</label>
                     <input
                       type="date"
+                      max={new Date().toISOString().substring(0, 10)}
+                      min={admissionAt ? formatDateForInput(admissionAt) : undefined}
                       className="input mt-1 py-1 text-xs"
                       value={formatDateForInput(dischargeAt)}
-                      onChange={e => setDischargeAt(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val && new Date(val) > new Date()) {
+                          toast.error("Date of Discharge cannot be a future date");
+                          return;
+                        }
+                        if (val && admissionAt && val < formatDateForInput(admissionAt)) {
+                          toast.error("Date of Discharge cannot be earlier than Date of Admission");
+                          return;
+                        }
+                        setDischargeAt(val);
+                      }}
                     />
                   </div>
                   <div>
@@ -1536,7 +1621,12 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="label text-[10px] font-bold text-indigo-700">Amount payable by Insurance Company to the Insured/Hospital</label>
-                        <input type="number" className="input mt-1 py-1 text-xs bg-indigo-50 border-indigo-200 cursor-not-allowed font-bold text-indigo-700" value={amtPayableToInsured} readOnly />
+                        <input
+                          type="number"
+                          className="input mt-1 py-1 text-xs bg-indigo-50/50 border-indigo-200 font-bold text-indigo-700 focus:bg-white"
+                          value={amtPayableToInsured}
+                          onChange={e => setAmtPayableToInsured(Number(e.target.value))}
+                        />
                       </div>
                       <div>
                         <label className="label text-[10px]">Comment</label>
@@ -1835,7 +1925,7 @@ export default function Claims() {
 
   // Doctor array state for new claim
   const [newDoctors, setNewDoctors] = useState<any[]>([]);
-  const addNewDoctorRow = () => setNewDoctors([...newDoctors, { name: '', degree: '', contactNo: '', speciality: '' }]);
+  const addNewDoctorRow = () => setNewDoctors([...newDoctors, { name: '', degree: '', contactNo: '', email: '', speciality: '' }]);
   const removeNewDoctor = (index: number) => setNewDoctors(newDoctors.filter((_, i) => i !== index));
   const handleNewDoctorChange = (index: number, field: string, val: string) => {
     const updated = [...newDoctors];
@@ -2699,6 +2789,9 @@ export default function Claims() {
   const watchClaimType = watch('claimType');
   const watchHospitalCity = watch('hospitalCity');
   const watchHospitalName = watch('hospitalName');
+  const watchHospitalType = watch('hospitalType');
+  const [isCustomHospitalType, setIsCustomHospitalType] = useState(false);
+  const [customHospitalTypeText, setCustomHospitalTypeText] = useState('');
 
   useEffect(() => {
     const tot = Number(amtHospital || 0) + Number(amtMedicine || 0) + Number(amtLab || 0) + Number(amtPreHosp || 0) + Number(amtPostHosp || 0) + Number(amtOthers || 0) + Number(amtAnesthesia || 0);
@@ -2710,8 +2803,10 @@ export default function Claims() {
     setValue('amtPatientToPay', totalPatientToPay);
     const totalNotCollected = Number(amtExcessAgreedPackage || 0) + Number(amtNetworkDiscount || 0);
     setValue('amtNotCollected', totalNotCollected);
-    const payable = Number(amtFinalBill || 0) - totalPatientToPay - totalNotCollected;
-    setValue('amtPayableToInsured', payable);
+    if (Number(amtFinalBill || 0) > 0) {
+      const payable = Number(amtFinalBill || 0) - totalPatientToPay - totalNotCollected;
+      setValue('amtPayableToInsured', payable);
+    }
   }, [amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtExcessAgreedPackage, amtNetworkDiscount]);
 
   // Auto-fill from existing claim entries with same claim number
@@ -2759,6 +2854,8 @@ export default function Claims() {
     setSettlementLetterFile(null);
     setRejectionLetterFile(null);
     setNewDocsList([]);
+    setIsCustomHospitalType(false);
+    setCustomHospitalTypeText('');
   };
 
   const onInvalid = (errors: any) => {
@@ -2827,14 +2924,14 @@ export default function Claims() {
         return;
       }
 
-      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName, deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment, hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment, diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment, amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, ...rest } = body;
+      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName, deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment, hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment, diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment, amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, ...rest } = body;
       const notesJson = serializeNotes({
         diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes,
         amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers,
         subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName,
         deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment,
         nominees: JSON.stringify(newNominees),
-        hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
+        hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
         hospitalDoctors: JSON.stringify(newDoctors),
         diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
         amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment
@@ -2971,7 +3068,6 @@ export default function Claims() {
           type="button"
           onClick={() => fileInputRef.current?.click()}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
-          title="Import Claims CSV"
         >
           <Upload size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
@@ -2984,7 +3080,6 @@ export default function Claims() {
           type="button"
           onClick={() => { setModalOpen(true); setValue('claimNumber', genClaimNumber()); }}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
-          title="New Claim"
         >
           <Plus size={18} strokeWidth={2.2} />
           <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
@@ -4766,26 +4861,9 @@ export default function Claims() {
                   </div>
                   {!collapsedSections['newHospital'] && (
                     <div className="p-4 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        <div>
-                          <label className="label text-[10px]">Hospital State</label>
-                          <input
-                            type="text"
-                            className="input mt-1 py-1 text-xs"
-                            {...register('hospitalState')}
-                            placeholder="e.g. Maharashtra"
-                          />
-                        </div>
-                        <div>
-                          <label className="label text-[10px]">Hospital City</label>
-                          <input
-                            type="text"
-                            className="input mt-1 py-1 text-xs"
-                            {...register('hospitalCity')}
-                            placeholder="e.g. Pune"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        {/* Row 1: Hospital Name (span-2) | State | City */}
+                        <div className="md:col-span-2">
                           <label className="label text-[10px]">Hospital Name</label>
                           <input
                             type="text"
@@ -4803,7 +4881,18 @@ export default function Claims() {
                                 setValue('hospitalAddress', hosp.address || hosp.hospitalAddress || '');
                                 setValue('hospitalPincode', hosp.pincode || hosp.hospitalPincode || '');
                                 setValue('hospitalContactNo', hosp.phone || hosp.hospitalContactNo || '');
-                                setValue('hospitalType', hosp.type || hosp.hospitalType || '');
+                                setValue('hospitalEmail', hosp.email || hosp.hospitalEmail || '');
+                                const hType = hosp.type || hosp.hospitalType || '';
+                                if (hType) {
+                                  setValue('hospitalType', hType);
+                                  if (!['Network', 'Non-Network', 'Blacklisted'].includes(hType)) {
+                                    setIsCustomHospitalType(true);
+                                    setCustomHospitalTypeText(hType === 'Other' ? '' : hType);
+                                  } else {
+                                    setIsCustomHospitalType(false);
+                                    setCustomHospitalTypeText('');
+                                  }
+                                }
                                 setValue('hospitalRating', hosp.rating || hosp.hospitalRating || '');
                                 setValue('claimsPerson1Name', hosp.claimsPerson1Name || '');
                                 setValue('claimsPerson1Contact', hosp.claimsPerson1Contact || '');
@@ -4833,6 +4922,20 @@ export default function Claims() {
                           </datalist>
                         </div>
                         <div>
+                          <label className="label text-[10px]">Hospital State</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalState')} placeholder="e.g. Maharashtra" />
+                        </div>
+                        <div>
+                          <label className="label text-[10px]">Hospital City</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalCity')} placeholder="e.g. Pune" />
+                        </div>
+
+                        {/* Row 2: Address (span-2) | Pincode | Contact No */}
+                        <div className="md:col-span-2">
+                          <label className="label text-[10px]">Hospital Address</label>
+                          <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalAddress')} placeholder="Full hospital address..." />
+                        </div>
+                        <div>
                           <label className="label text-[10px]">Hospital Pincode</label>
                           <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalPincode')} />
                         </div>
@@ -4850,6 +4953,11 @@ export default function Claims() {
                           />
                         </div>
 
+                        {/* Row 3: Email | Rating | Type */}
+                        <div>
+                          <label className="label text-[10px]">Hospital Email ID</label>
+                          <input type="email" className="input mt-1 py-1 text-xs" {...register('hospitalEmail')} placeholder="hospital@email.com" />
+                        </div>
                         <div>
                           <label className="label text-[10px]">Hospital Rating</label>
                           <CustomSelect
@@ -4860,16 +4968,55 @@ export default function Claims() {
                             options={['5 Star', '4 Star', '3 Star', '2 Star', '1 Star']}
                           />
                         </div>
-
                         <div>
                           <label className="label text-[10px]">Hospital Type</label>
-                          <CustomSelect
-                            className="input mt-1 py-1 text-xs"
-                            value={watch('hospitalType') || ''}
-                            onChange={val => setValue('hospitalType', val)}
-                            placeholder="Select Type"
-                            options={['Network', 'Non-Network', 'Blacklisted', 'Other']}
-                          />
+                          {!isCustomHospitalType ? (
+                            <CustomSelect
+                              className="input mt-1 py-1 text-xs"
+                              value={['Network', 'Non-Network', 'Blacklisted'].includes(watchHospitalType || '') ? watchHospitalType : (watchHospitalType ? 'Other' : '')}
+                              onChange={val => {
+                                if (val === 'Other') {
+                                  setIsCustomHospitalType(true);
+                                  setCustomHospitalTypeText('');
+                                  setValue('hospitalType', 'Other');
+                                } else {
+                                  setIsCustomHospitalType(false);
+                                  setCustomHospitalTypeText('');
+                                  setValue('hospitalType', val);
+                                }
+                              }}
+                              placeholder="Select Type"
+                              options={['Network', 'Non-Network', 'Blacklisted', 'Other']}
+                            />
+                          ) : (
+                            <div className="relative mt-1">
+                              <input
+                                type="text"
+                                className="input py-1 pr-7 text-xs w-full"
+                                placeholder="Type hospital type..."
+                                value={customHospitalTypeText}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setCustomHospitalTypeText(val);
+                                  setValue('hospitalType', val.trim() ? val : 'Other');
+                                }}
+                                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCustomHospitalType(false);
+                                  setCustomHospitalTypeText('');
+                                  setValue('hospitalType', '');
+                                }}
+                                title="Back to list options"
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -4910,7 +5057,7 @@ export default function Claims() {
                           )}
                         </div>
                         {newDoctors.map((doc, index) => (
-                          <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
+                          <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
                             <div>
                               <label className="label text-[10px]">Doctor Name</label>
                               <input value={doc.name} onChange={e => handleNewDoctorChange(index, 'name', e.target.value)} className="input mt-1 py-1 text-xs" list={`doc-list-${index}`} />
@@ -4942,6 +5089,10 @@ export default function Claims() {
                                 onChange={e => handleNewDoctorChange(index, 'contactNo', e.target.value.replace(/\D/g, '').slice(0, 10))} 
                                 className="input mt-1 py-1 text-xs" 
                               />
+                            </div>
+                            <div>
+                              <label className="label text-[10px]">Email ID</label>
+                              <input type="email" value={doc.email || ''} onChange={e => handleNewDoctorChange(index, 'email', e.target.value)} placeholder="doctor@email.com" className="input mt-1 py-1 text-xs" />
                             </div>
                             <div>
                               <label className="label text-[10px]">Doctor Speciality</label>
@@ -5033,6 +5184,12 @@ export default function Claims() {
                                 if (val && new Date(val) > new Date()) {
                                   toast.error("Date of Admission cannot be a future date");
                                   setValue('admissionAt', '');
+                                  return;
+                                }
+                                if (val && watchDischargeAt && val > watchDischargeAt) {
+                                  toast.error("Date of Admission cannot be after Date of Discharge");
+                                  setValue('admissionAt', '');
+                                  return;
                                 }
                               }
                             })}
@@ -5040,7 +5197,27 @@ export default function Claims() {
                         </div>
                         <div>
                           <label className="label text-[10px]">Date of Discharge</label>
-                          <input type="date" className="input mt-1 py-1 text-xs" {...register('dischargeAt')} />
+                          <input
+                            type="date"
+                            max={new Date().toISOString().substring(0, 10)}
+                            min={watchAdmissionAt || undefined}
+                            className="input mt-1 py-1 text-xs"
+                            {...register('dischargeAt', {
+                              onChange: (e: any) => {
+                                const val = e.target.value;
+                                if (val && new Date(val) > new Date()) {
+                                  toast.error("Date of Discharge cannot be a future date");
+                                  setValue('dischargeAt', '');
+                                  return;
+                                }
+                                if (val && watchAdmissionAt && val < watchAdmissionAt) {
+                                  toast.error("Date of Discharge cannot be earlier than Date of Admission");
+                                  setValue('dischargeAt', '');
+                                  return;
+                                }
+                              }
+                            })}
+                          />
                         </div>
                         <div>
                           <label className="label text-[10px]">Diagnosis / Ailment (Exact as written on DS)</label>
@@ -5252,7 +5429,11 @@ export default function Claims() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="label text-[10px] font-bold text-indigo-700">Amount payable by Insurance Company to the Insured/Hospital</label>
-                            <input type="number" className="input mt-1 py-1 text-xs bg-indigo-50 border-indigo-200 cursor-not-allowed font-bold text-indigo-700" {...register('amtPayableToInsured')} readOnly />
+                            <input
+                              type="number"
+                              className="input mt-1 py-1 text-xs bg-indigo-50/50 border-indigo-200 font-bold text-indigo-700 focus:bg-white"
+                              {...register('amtPayableToInsured')}
+                            />
                           </div>
                           <div>
                             <label className="label text-[10px]">Comment</label>

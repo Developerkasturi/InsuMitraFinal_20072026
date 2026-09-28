@@ -36,8 +36,17 @@ import { getPolicyStatusDisplay, calculateLastInstallmentDate } from '../../util
 
 const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
   HEALTH: [
+    'Star Health',
+    'Niva Bupa',
+    'Care',
+    'Manipal Cigna',
+    'HDFC Ergo',
+    'ICICI Lombard',
+    'Bajaj General',
+    'TATA AIG',
     'HDFC ERGO General Insurance',
     'Star Health and Allied Insurance',
+    'Star Health Insurance',
     'Care Health Insurance',
     'Niva Bupa Health Insurance',
     'ICICI Lombard General Insurance',
@@ -51,7 +60,12 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'United India Insurance',
   ],
   LIFE: [
+    'HDFC Life',
+    'ICICI Pru Life',
+    'Bajaj Life',
+    'TATA AIA',
     'Life Insurance Corporation of India (LIC)',
+    'LIC of India',
     'HDFC Life Insurance',
     'ICICI Prudential Life Insurance',
     'SBI Life Insurance',
@@ -63,7 +77,12 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'Aditya Birla Sun Life Insurance',
   ],
   TERM: [
+    'HDFC Life',
+    'ICICI Pru Life',
+    'Bajaj Life',
+    'TATA AIA',
     'Life Insurance Corporation of India (LIC)',
+    'LIC of India',
     'HDFC Life Insurance',
     'ICICI Prudential Life Insurance',
     'Tata AIA Life Insurance',
@@ -72,6 +91,10 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'Bajaj Allianz Life Insurance',
   ],
   MOTOR: [
+    'HDFC Ergo',
+    'ICICI Lombard',
+    'Bajaj General',
+    'TATA AIG',
     'HDFC ERGO General Insurance',
     'ICICI Lombard General Insurance',
     'Bajaj Allianz General Insurance',
@@ -83,6 +106,14 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'New India Assurance',
   ],
   TRAVEL: [
+    'Star Health',
+    'Niva Bupa',
+    'Care',
+    'Manipal Cigna',
+    'HDFC Ergo',
+    'ICICI Lombard',
+    'Bajaj General',
+    'TATA AIG',
     'HDFC ERGO General Insurance',
     'Star Health and Allied Insurance',
     'ICICI Lombard General Insurance',
@@ -92,6 +123,14 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'Reliance General Insurance',
   ],
   GENERAL: [
+    'HDFC Ergo',
+    'ICICI Lombard',
+    'Bajaj General',
+    'TATA AIG',
+    'Star Health',
+    'Niva Bupa',
+    'Care',
+    'Manipal Cigna',
     'HDFC ERGO General Insurance',
     'ICICI Lombard General Insurance',
     'Bajaj Allianz General Insurance',
@@ -102,12 +141,80 @@ const DEFAULT_COMPANIES_BY_TYPE: Record<string, string[]> = {
     'United India Insurance',
   ],
   'CRITICAL ILLNESS': [
+    'Star Health',
+    'Niva Bupa',
+    'Care',
+    'Manipal Cigna',
+    'HDFC Ergo',
+    'ICICI Lombard',
+    'HDFC Life',
+    'ICICI Pru Life',
     'Star Health and Allied Insurance',
     'HDFC ERGO General Insurance',
     'Care Health Insurance',
     'HDFC Life Insurance',
     'ICICI Prudential Life Insurance',
   ],
+};
+
+export const PRIMARY_DEFAULT_COMPANIES = [
+  'Star Health',
+  'Niva Bupa',
+  'Care',
+  'Manipal Cigna',
+  'HDFC Ergo',
+  'ICICI Lombard',
+  'Bajaj General',
+  'TATA AIG',
+  'HDFC Life',
+  'ICICI Pru Life',
+  'Bajaj Life',
+  'TATA AIA',
+];
+
+const COMPANY_PRIMARY_CATEGORY: Record<string, string> = {
+  'Star Health': 'Health',
+  'Niva Bupa': 'Health',
+  'Care': 'Health',
+  'Manipal Cigna': 'Health',
+  'HDFC Ergo': 'General',
+  'ICICI Lombard': 'General',
+  'Bajaj General': 'General',
+  'TATA AIG': 'General',
+  'HDFC Life': 'Life',
+  'ICICI Pru Life': 'Life',
+  'Bajaj Life': 'Life',
+  'TATA AIA': 'Life',
+};
+
+const isCompanyMatch = (dbName: string, selected: string) => {
+  if (!dbName || !selected) return false;
+  const a = dbName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const b = selected.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+
+  const aliases: Record<string, string[]> = {
+    'star health': ['star health', 'star health and allied insurance', 'star health insurance'],
+    'niva bupa': ['niva bupa', 'niva bupa health insurance', 'max bupa'],
+    'care': ['care', 'care health insurance', 'religare'],
+    'manipal cigna': ['manipal cigna', 'manipal cigna health insurance'],
+    'hdfc ergo': ['hdfc ergo', 'hdfc ergo general insurance'],
+    'icici lombard': ['icici lombard', 'icici lombard general insurance'],
+    'bajaj general': ['bajaj general', 'bajaj allianz general insurance', 'bajaj allianz general'],
+    'tata aig': ['tata aig', 'tata aig general insurance'],
+    'hdfc life': ['hdfc life', 'hdfc life insurance', 'hdfc standard life'],
+    'icici pru life': ['icici pru life', 'icici prudential life insurance', 'icici pru', 'icici prudential'],
+    'bajaj life': ['bajaj life', 'bajaj allianz life insurance', 'bajaj allianz life'],
+    'tata aia': ['tata aia', 'tata aia life insurance'],
+  };
+
+  const sLower = selected.toLowerCase().trim();
+  if (aliases[sLower]) {
+    const dbLower = dbName.toLowerCase().trim();
+    return aliases[sLower].some(alias => dbLower.includes(alias) || alias.includes(dbLower));
+  }
+  return false;
 };
 
 const formatTypeLabel = (t: string) => {
@@ -280,6 +387,7 @@ function parseExtraNotes(notesText?: string | null) {
     policyType: '',
     customerCategory: '',
     companyCategory: '',
+    companyName: '',
     planCategory: '',
     agentName: '',
     policyZoneLocationCity: '',
@@ -326,6 +434,10 @@ function parseExtraNotes(notesText?: string | null) {
       res.companyCategory = line.replace('Company Category: ', '').trim();
     } else if (line.startsWith('Insurance Company Category: ')) {
       res.companyCategory = line.replace('Insurance Company Category: ', '').trim();
+    } else if (line.startsWith('Insurance Company: ')) {
+      res.companyName = line.replace('Insurance Company: ', '').trim();
+    } else if (line.startsWith('Company Name: ')) {
+      res.companyName = line.replace('Company Name: ', '').trim();
     } else if (line.startsWith('Plan Category: ')) {
       res.planCategory = line.replace('Plan Category: ', '').trim();
     } else if (line.startsWith('Insurance Plan Category: ')) {
@@ -1053,24 +1165,26 @@ export default function Policies() {
 
     const defaultsForType = filterCat && DEFAULT_COMPANIES_BY_TYPE[filterCat]
       ? DEFAULT_COMPANIES_BY_TYPE[filterCat]
-      : Array.from(new Set(Object.values(DEFAULT_COMPANIES_BY_TYPE).flat()));
+      : PRIMARY_DEFAULT_COMPANIES;
 
     const allDbCompanies = Array.from(new Set(plansList.map((p: any) => p.company?.name).filter(Boolean)));
 
     return Array.from(
       new Set([
-        ...listFromPlans,
         ...defaultsForType,
+        ...listFromPlans,
         ...(!filterCat || filterCat === 'OTHER' ? allDbCompanies : []),
       ])
-    ).filter(Boolean).sort() as string[];
+    ).filter(Boolean) as string[];
   }, [plansList, selectedCompanyCategory, selectedType]);
 
   const availablePlans = useMemo(() => {
     if (!selectedCompany) return [];
     const directMatches = plansList.filter((p: any) => {
-      const coMatch = (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() ||
-                      (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase();
+      const coName = p.company?.name || '';
+      const coMatch = (coName || '').toLowerCase() === selectedCompany.toLowerCase() ||
+                      (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase() ||
+                      isCompanyMatch(coName, selectedCompany);
       const filterCat = (selectedPlanCategory || selectedCompanyCategory || selectedType || '').toUpperCase();
       const typeMatch = !filterCat || filterCat === 'OTHER' || (p.category || '').toUpperCase().includes(filterCat) || filterCat.includes((p.category || '').toUpperCase());
       return coMatch && typeMatch;
@@ -1078,10 +1192,12 @@ export default function Policies() {
 
     if (directMatches.length > 0) return directMatches;
 
-    const companyMatches = plansList.filter((p: any) => 
-      (p.company?.name || '').toLowerCase() === selectedCompany.toLowerCase() ||
-      (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase()
-    );
+    const companyMatches = plansList.filter((p: any) => {
+      const coName = p.company?.name || '';
+      return (coName || '').toLowerCase() === selectedCompany.toLowerCase() ||
+             (p.company?.shortCode || '').toLowerCase() === selectedCompany.toLowerCase() ||
+             isCompanyMatch(coName, selectedCompany);
+    });
     if (companyMatches.length > 0) return companyMatches;
 
     if (selectedPlanCategory || selectedType) {
@@ -1099,7 +1215,8 @@ export default function Policies() {
   }, [plansList]);
 
   const filterCompaniesOptions = useMemo(() => {
-    return Array.from(new Set(plansList.map((p: any) => p.company?.name))).filter(Boolean) as string[];
+    const fromPlans = plansList.map((p: any) => p.company?.name).filter(Boolean);
+    return Array.from(new Set([...PRIMARY_DEFAULT_COMPANIES, ...fromPlans])).filter(Boolean) as string[];
   }, [plansList]);
 
   const { data: claimsResults } = useQuery({
@@ -1682,23 +1799,29 @@ export default function Policies() {
     setValue('planId', '');
 
     if (compName && !selectedCompanyCategory) {
-      const plan = plansList.find((p: any) => (p.company?.name || '').toLowerCase() === compName.toLowerCase());
-      if (plan?.company?.category) {
-        const cat = plan.company.category;
-        const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toLowerCase() === cat.toLowerCase());
-        if (matchingCat) {
-          setSelectedCompanyCategory(matchingCat.value);
-          setSelectedType(matchingCat.value);
-        }
+      if (COMPANY_PRIMARY_CATEGORY[compName]) {
+        const cat = COMPANY_PRIMARY_CATEGORY[compName];
+        setSelectedCompanyCategory(cat);
+        setSelectedType(cat);
       } else {
-        for (const [type, companies] of Object.entries(DEFAULT_COMPANIES_BY_TYPE)) {
-          if (companies.some(c => c.toLowerCase() === compName.toLowerCase())) {
-            const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toUpperCase() === type.toUpperCase());
-            if (matchingCat) {
-              setSelectedCompanyCategory(matchingCat.value);
-              setSelectedType(matchingCat.value);
+        const plan = plansList.find((p: any) => (p.company?.name || '').toLowerCase() === compName.toLowerCase() || isCompanyMatch(p.company?.name || '', compName));
+        if (plan?.company?.category) {
+          const cat = plan.company.category;
+          const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toLowerCase() === cat.toLowerCase());
+          if (matchingCat) {
+            setSelectedCompanyCategory(matchingCat.value);
+            setSelectedType(matchingCat.value);
+          }
+        } else {
+          for (const [type, companies] of Object.entries(DEFAULT_COMPANIES_BY_TYPE)) {
+            if (companies.some(c => c.toLowerCase() === compName.toLowerCase() || isCompanyMatch(c, compName))) {
+              const matchingCat = INSURANCE_COMPANY_CATEGORY_OPTIONS.find(o => o.value.toUpperCase() === type.toUpperCase());
+              if (matchingCat) {
+                setSelectedCompanyCategory(matchingCat.value);
+                setSelectedType(matchingCat.value);
+              }
+              break;
             }
-            break;
           }
         }
       }
@@ -2015,11 +2138,14 @@ export default function Policies() {
       });
     }
 
+    if (extra.companyName) {
+      setSelectedCompany(extra.companyName);
+    } else if (p.plan?.company) {
+      setSelectedCompany(p.plan.company?.name || '');
+    }
+
     if (p.plan) {
       setSelectedPlan(p.plan);
-      if (p.plan.company) {
-        setSelectedCompany(p.plan.company?.name || '');
-      }
       if (p.plan.category) {
         setSelectedType(p.plan.category);
       }
@@ -2370,7 +2496,10 @@ export default function Policies() {
         key: 'plan.company.name',
         label: 'Insurance Company',
         sortable: true,
-        render: r => <span className="font-extrabold text-slate-900 text-xs">{r.plan?.company ? r.plan.company.name : '—'}</span>
+        render: r => {
+          const extra = parseExtraNotes(r.notes);
+          return <span className="font-extrabold text-slate-900 text-xs">{extra.companyName || (r.plan?.company ? r.plan.company.name : '—')}</span>;
+        }
       },
       {
         key: 'plan.category',
@@ -2786,6 +2915,7 @@ export default function Policies() {
       const custCat = customerCategory || watch('customerCategory' as any) || 'Fresh';
       if (custCat) extraNotes += `\nCustomer Category: ${custCat}`;
       if (selectedCompanyCategory) extraNotes += `\nInsurance Company Category: ${selectedCompanyCategory}`;
+      if (selectedCompany) extraNotes += `\nInsurance Company: ${selectedCompany}`;
       if (selectedPlanCategory) extraNotes += `\nInsurance Plan Category: ${selectedPlanCategory}`;
       if (selectedAgentName) extraNotes += `\nAgent Name: ${selectedAgentName}`;
       if (policyZoneLocationCity) {
@@ -3068,7 +3198,6 @@ export default function Policies() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
-              title="Import Policy CSV"
             >
               <Upload size={18} strokeWidth={2.2} />
               <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">
@@ -3081,7 +3210,6 @@ export default function Policies() {
               type="button"
               onClick={openCreatePolicy}
               className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center transition-all hover:scale-105 shadow-lg shadow-blue-500/30 cursor-pointer group relative"
-              title="Add New Policy"
             >
               <Plus size={18} strokeWidth={2.2} />
               <span className="absolute right-full mr-3 px-3 py-1.5 rounded-xl bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-xl border border-slate-800">

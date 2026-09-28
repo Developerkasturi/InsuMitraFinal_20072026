@@ -465,6 +465,18 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   });
   const plansList: any[] = Array.isArray(allPlansRes?.data) ? allPlansRes.data : Array.isArray(allPlansRes) ? allPlansRes : [];
 
+  const DEFAULT_COMPANIES_FOR_MODAL: Record<string, string[]> = {
+    HEALTH: ['Star Health', 'Niva Bupa', 'Care', 'Manipal Cigna', 'HDFC Ergo', 'ICICI Lombard', 'Bajaj General', 'TATA AIG'],
+    GENERAL: ['HDFC Ergo', 'ICICI Lombard', 'Bajaj General', 'TATA AIG', 'Star Health', 'Niva Bupa', 'Care', 'Manipal Cigna'],
+    LIFE: ['HDFC Life', 'ICICI Pru Life', 'Bajaj Life', 'TATA AIA'],
+    TERM: ['HDFC Life', 'ICICI Pru Life', 'Bajaj Life', 'TATA AIA'],
+  };
+  const ALL_DEFAULT_COMPANIES = [
+    'Star Health', 'Niva Bupa', 'Care', 'Manipal Cigna',
+    'HDFC Ergo', 'ICICI Lombard', 'Bajaj General', 'TATA AIG',
+    'HDFC Life', 'ICICI Pru Life', 'Bajaj Life', 'TATA AIA',
+  ];
+
   // Filter unique companies for selected Category
   const availableCompanies = useMemo(() => {
     const categoryPlans = selectedCategory
@@ -472,11 +484,25 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
       : plansList;
 
     const map = new Map<string, { id: string; name: string }>();
+
+    const catKey = (selectedCategory || '').toUpperCase();
+    const defaults = catKey && DEFAULT_COMPANIES_FOR_MODAL[catKey]
+      ? DEFAULT_COMPANIES_FOR_MODAL[catKey]
+      : ALL_DEFAULT_COMPANIES;
+
+    defaults.forEach(d => {
+      const matchingPlan = plansList.find((p: any) => (p.company?.name || '').toLowerCase() === d.toLowerCase());
+      const idKey = matchingPlan?.company?.id || d;
+      map.set(idKey, { id: idKey, name: d });
+    });
+
     categoryPlans.forEach((p: any) => {
       const co = p.company;
       if (co && (co.id || co.name)) {
         const idKey = co.id || co.name;
-        map.set(idKey, { id: idKey, name: co.name });
+        if (!map.has(idKey)) {
+          map.set(idKey, { id: idKey, name: co.name });
+        }
       }
     });
     return Array.from(map.values());
@@ -486,7 +512,13 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const availablePlans = useMemo(() => {
     return plansList.filter((p: any) => {
       const catMatch = !selectedCategory || (p.category || 'OTHER').toUpperCase() === selectedCategory.toUpperCase();
-      const coMatch = !selectedCompanyId || p.companyId === selectedCompanyId || p.company?.id === selectedCompanyId || p.company?.name === selectedCompanyId;
+      const coName = p.company?.name || '';
+      const coMatch = !selectedCompanyId ||
+        p.companyId === selectedCompanyId ||
+        p.company?.id === selectedCompanyId ||
+        coName.toLowerCase() === selectedCompanyId.toLowerCase() ||
+        coName.toLowerCase().includes(selectedCompanyId.toLowerCase()) ||
+        selectedCompanyId.toLowerCase().includes(coName.toLowerCase());
       return catMatch && coMatch;
     });
   }, [plansList, selectedCategory, selectedCompanyId]);
