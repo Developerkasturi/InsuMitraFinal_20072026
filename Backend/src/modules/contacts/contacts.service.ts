@@ -195,6 +195,43 @@ export class ContactsService implements OnModuleInit {
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
 
     const targetId = existing.id;
+    const fieldLabels: Record<string, string> = {
+      firstName: 'First Name',
+      middleName: 'Middle Name',
+      lastName: 'Last Name',
+      phone: 'WhatsApp Number',
+      alternatePhone: 'Calling Number',
+      email: 'Email',
+      gender: 'Gender',
+      dateOfBirth: 'Date of Birth',
+      maritalStatus: 'Marital Status',
+      weddingAnniversaryDate: 'Wedding Anniversary',
+      education: 'Education',
+      annualIncome: 'Annual Income',
+      panNumber: 'PAN Number',
+      aadhaarNumber: 'Aadhaar Number',
+      occupation: 'Occupation',
+      city: 'Address',
+      state: 'State',
+      district: 'District',
+      pincode: 'Pincode',
+      notes: 'Notes',
+      isActive: 'Contact Status',
+      isDependent: 'Dependent Status',
+      dependentNo: 'Guardian WhatsApp Number',
+      medicalHistory: 'Medical History',
+      declaredMedicalHistory: 'Declared Medical History',
+      notDeclaredMedicalHistory: 'Undeclared Medical History',
+      medicalHistoryDetails: 'Medical History Details',
+      surgeryDetails: 'Surgery Details',
+      prescriptionDetails: 'Prescription Details',
+    };
+    const changedFields = Object.keys(dto).filter((key) => {
+      if (!(key in fieldLabels)) return false;
+      const oldValue = (existing as any)[key];
+      const newValue = (dto as any)[key];
+      return JSON.stringify(oldValue ?? null) !== JSON.stringify(newValue ?? null);
+    });
     await this.repo.update(tenantId, targetId, dto);
 
     // Create/update primary Address if city is provided
@@ -220,7 +257,9 @@ export class ContactsService implements OnModuleInit {
           entityType: 'Contact',
           entityId:   targetId,
           action:     'UPDATE',
-          description: 'Contact profile updated',
+          description: changedFields.length
+            ? `Personal details updated: ${changedFields.map((key) => fieldLabels[key]).join(', ')}`
+            : 'Contact profile updated',
         },
       });
     } catch (err: any) {
@@ -253,7 +292,7 @@ export class ContactsService implements OnModuleInit {
     return { data: updated, message: 'Contact updated successfully' };
   }
 
-  async remove(tenantId: string, id: string) {
+  async remove(tenantId: string, id: string, userId?: string) {
     const existing = await this.repo.findOne(tenantId, id);
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
     await this.repo.remove(tenantId, id);
@@ -261,6 +300,7 @@ export class ContactsService implements OnModuleInit {
       await this.prisma.activityLog.create({
         data: {
           tenantId,
+          userId,
           entityType: 'Contact',
           entityId: id,
           action: 'DELETE',
@@ -275,31 +315,93 @@ export class ContactsService implements OnModuleInit {
 
   // ── Addresses ────────────────────────────────────────────────────────────
 
-  async addAddress(tenantId: string, contactId: string, dto: CreateAddressDto) {
+  async addAddress(tenantId: string, contactId: string, dto: CreateAddressDto, userId?: string) {
     const address = await this.repo.addAddress(contactId, tenantId, dto);
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId,
+          entityType: 'Contact',
+          entityId: address.id,
+          action: 'UPDATE',
+          description: `Address details updated: ${[dto.line1, dto.city, dto.state, dto.pincode].filter(Boolean).join(', ')}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for address: ${err.message}`);
+    }
     return { data: address, message: 'Address added' };
   }
 
-  async removeAddress(tenantId: string, contactId: string, addressId: string) {
+  async removeAddress(tenantId: string, contactId: string, addressId: string, userId?: string) {
+    const address = await this.prisma.address.findFirst({ where: { id: addressId, contactId } });
     await this.repo.removeAddress(contactId, addressId, tenantId);
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId,
+          entityType: 'Contact',
+          entityId: contactId,
+          action: 'UPDATE',
+          description: `Contact address removed${address ? `: ${[address.line1, address.city, address.state, address.pincode].filter(Boolean).join(', ')}` : ''}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for address remove: ${err.message}`);
+    }
     return { data: null, message: 'Address removed' };
   }
 
   // ── Occupations ──────────────────────────────────────────────────────────
 
-  async addOccupation(tenantId: string, contactId: string, dto: CreateOccupationDto) {
+  async addOccupation(tenantId: string, contactId: string, dto: CreateOccupationDto, userId?: string) {
     const occ = await this.repo.addOccupation(contactId, tenantId, dto);
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId,
+          entityType: 'Contact',
+          entityId: occ.id,
+          action: 'UPDATE',
+          description: `Occupation details updated: ${dto.companyName ? `${dto.companyName} (${dto.type || 'SALARIED'})` : (dto.type || 'SALARIED')}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for occupation: ${err.message}`);
+    }
     return { data: occ, message: 'Occupation added' };
   }
 
-  async removeOccupation(tenantId: string, contactId: string, occupationId: string) {
+  async removeOccupation(tenantId: string, contactId: string, occupationId: string, userId?: string) {
+    const occupation = await this.prisma.occupation.findFirst({ where: { id: occupationId, contactId } });
     await this.repo.removeOccupation(contactId, occupationId, tenantId);
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId,
+          entityType: 'Contact',
+          entityId: contactId,
+          action: 'UPDATE',
+          description: `Contact occupation removed${occupation ? `: ${occupation.companyName ? `${occupation.companyName} (${occupation.type})` : occupation.type}` : ''}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for occupation remove: ${err.message}`);
+    }
     return { data: null, message: 'Occupation removed' };
   }
 
   // ── Relationships ─────────────────────────────────────────────────────────
 
-  async addRelationship(tenantId: string, contactId: string, dto: CreateRelationshipDto) {
+  async addRelationship(tenantId: string, contactId: string, dto: CreateRelationshipDto, userId?: string) {
     if (dto.relatedContactId === contactId) {
       throw new BadRequestException('A contact cannot be related to itself');
     }
@@ -324,8 +426,9 @@ export class ContactsService implements OnModuleInit {
       const phone = (dto.phone || '').trim();
 
       const nameParts = rawName.split(' ').filter(Boolean);
-      const firstName = nameParts[0] || 'Family Member';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const firstName = dto.firstName?.trim() || nameParts[0] || 'Family Member';
+      const middleName = dto.middleName?.trim() || '';
+      const lastName = dto.lastName?.trim() || nameParts.slice(1).join(' ') || '';
 
       let existing: any = null;
       if (phone && phone !== '0000000000' && !phone.startsWith('00')) {
@@ -366,10 +469,23 @@ export class ContactsService implements OnModuleInit {
         const nextContactId = await this.getNextContactId();
         const newContact = await this.repo.create(tenantId, {
           firstName,
+          middleName,
           lastName,
           phone: phone || `00${Date.now().toString().slice(-8)}`,
+          alternatePhone: dto.alternatePhone,
           dateOfBirth: dto.dateOfBirth,
           gender: inferredGender,
+          maritalStatus: dto.maritalStatus,
+          weddingAnniversaryDate: dto.weddingAnniversaryDate,
+          education: dto.education,
+          height: dto.height,
+          weight: dto.weight,
+          medicalHistory: dto.medicalHistory,
+          declaredMedicalHistory: dto.declaredMedicalHistory,
+          notDeclaredMedicalHistory: dto.notDeclaredMedicalHistory,
+          medicalHistoryDetails: dto.medicalHistoryDetails,
+          surgeryDetails: dto.surgeryDetails,
+          prescriptionDetails: dto.prescriptionDetails,
           isDependent: true,
           assignedEmployeeId: primaryContact.assignedEmployeeId,
           contactId: nextContactId,
@@ -385,6 +501,7 @@ export class ContactsService implements OnModuleInit {
             line1: primaryAddr.line1,
             line2: primaryAddr.line2 || undefined,
             city: primaryAddr.city,
+            district: primaryAddr.district || undefined,
             state: primaryAddr.state,
             pincode: primaryAddr.pincode,
             country: primaryAddr.country,
@@ -407,17 +524,133 @@ export class ContactsService implements OnModuleInit {
       throw new NotFoundException(`Related contact ${targetRelatedContactId} not found`);
     }
 
+    const familyDetails: Record<string, unknown> = {};
+    for (const field of [
+      'firstName',
+      'middleName',
+      'lastName',
+      'maritalStatus',
+      'weddingAnniversaryDate',
+      'education',
+      'height',
+      'weight',
+      'medicalHistory',
+      'declaredMedicalHistory',
+      'notDeclaredMedicalHistory',
+      'medicalHistoryDetails',
+      'surgeryDetails',
+      'prescriptionDetails',
+    ] as const) {
+      if (dto[field] !== undefined) familyDetails[field] = dto[field];
+    }
+    if (dto.dateOfBirth !== undefined) {
+      familyDetails.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
+    }
+    if (dto.phone && dto.phone.trim() && !dto.phone.startsWith('00')) {
+      familyDetails.phone = dto.phone.trim();
+    }
+    if (dto.alternatePhone !== undefined) {
+      familyDetails.alternatePhone = dto.alternatePhone || null;
+    }
+    if (dto.gender && ['MALE', 'FEMALE', 'OTHER'].includes(dto.gender.toUpperCase())) {
+      familyDetails.gender = dto.gender.toUpperCase();
+    }
+    if (Object.keys(familyDetails).length > 0) {
+      await this.prisma.contact.update({
+        where: { id: relatedContact.id },
+        data: familyDetails,
+      });
+    }
+    if (dto.occupation !== undefined) {
+      const existingOccupation = await this.prisma.occupation.findFirst({
+        where: { contactId: relatedContact.id, isPrimary: true },
+      });
+      if (dto.occupation.trim() && existingOccupation) {
+        await this.prisma.occupation.update({
+          where: { id: existingOccupation.id },
+          data: { type: dto.occupation.trim() },
+        });
+      } else if (dto.occupation.trim()) {
+        await this.repo.addOccupation(relatedContact.id, tenantId, {
+          type: dto.occupation.trim(),
+          isPrimary: true,
+        });
+      } else if (existingOccupation) {
+        await this.prisma.occupation.deleteMany({
+          where: { contactId: relatedContact.id, isPrimary: true },
+        });
+      }
+    }
+
     const rel = await this.repo.addBidirectionalRelationship(
       primaryContact,
       relatedContact,
       relType,
     );
 
+    try {
+      const memberName = [relatedContact.firstName, relatedContact.middleName, relatedContact.lastName]
+        .filter(Boolean)
+        .join(' ');
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId: primaryContact.id,
+          entityType: 'Contact',
+          entityId: primaryContact.id,
+          action: 'CREATE',
+          description: `Family member added: ${memberName} (${relType})`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for addRelationship: ${err.message}`);
+    }
+
+    try {
+      await this.repo.interconnectFamilyCluster(tenantId, primaryContact.id);
+    } catch (e: any) {
+      this.logger.warn(`Interconnecting cluster failed: ${e.message}`);
+    }
+
     return { data: rel, message: 'Relationship added successfully' };
   }
 
-  async removeRelationship(tenantId: string, contactId: string, relationshipId: string) {
-    await this.repo.removeRelationship(contactId, relationshipId, tenantId);
+  async removeRelationship(tenantId: string, contactId: string, relationshipId: string, userId?: string) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(contactId);
+    const primaryContact = await this.prisma.contact.findFirst({
+      where: {
+        tenantId,
+        ...(isObjectId ? { OR: [{ id: contactId }, { contactId }] } : { contactId }),
+      },
+    });
+    if (!primaryContact) {
+      throw new NotFoundException(`Contact ${contactId} not found`);
+    }
+
+    const existingRelationship = await this.prisma.contactRelationship.findFirst({
+      where: { id: relationshipId, primaryContactId: primaryContact.id },
+      include: { relatedContact: { select: { firstName: true, lastName: true } } },
+    });
+
+    await this.repo.removeRelationship(primaryContact.id, relationshipId, tenantId);
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId: primaryContact.id,
+          entityType: 'Contact',
+          entityId: primaryContact.id,
+          action: 'UPDATE',
+          description: `Family relationship removed${existingRelationship?.relatedContact ? ` (${existingRelationship.relatedContact.firstName} ${existingRelationship.relatedContact.lastName || ''})` : ''}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for removeRelationship: ${err.message}`);
+    }
+
     return { data: null, message: 'Relationship removed' };
   }
 
@@ -426,22 +659,31 @@ export class ContactsService implements OnModuleInit {
     contactId: string,
     relationshipId: string,
     dto: CreateRelationshipDto,
+    userId?: string,
   ) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(contactId);
     const primaryContact = await this.prisma.contact.findFirst({
-      where: { id: contactId, tenantId },
+      where: {
+        tenantId,
+        ...(isObjectId ? { OR: [{ id: contactId }, { contactId }] } : { contactId }),
+      },
     });
     if (!primaryContact) {
       throw new NotFoundException(`Contact ${contactId} not found`);
     }
 
     const existingRel = await this.prisma.contactRelationship.findFirst({
-      where: { id: relationshipId, primaryContactId: contactId },
+      where: { id: relationshipId, primaryContactId: primaryContact.id },
     });
     if (!existingRel) {
       throw new NotFoundException(`Relationship record not found`);
     }
 
     const relatedContactId = existingRel.relatedContactId;
+
+    const previousRelatedContact = await this.prisma.contact.findUnique({
+      where: { id: relatedContactId },
+    });
 
     const updateData: any = {};
     if (dto.name && dto.name.trim()) {
@@ -482,7 +724,47 @@ export class ContactsService implements OnModuleInit {
       relType,
     );
 
+    try {
+      await this.repo.interconnectFamilyCluster(tenantId, primaryContact.id);
+    } catch (e: any) {
+      this.logger.warn(`Interconnecting cluster failed: ${e.message}`);
+    }
+
+    const changedFields = [
+      ...(previousRelatedContact?.firstName !== updatedRelatedContact?.firstName || previousRelatedContact?.lastName !== updatedRelatedContact?.lastName ? ['name'] : []),
+      ...(previousRelatedContact?.phone !== updatedRelatedContact?.phone ? ['phone'] : []),
+      ...(String(previousRelatedContact?.dateOfBirth || '') !== String(updatedRelatedContact?.dateOfBirth || '') ? ['date of birth'] : []),
+      ...(previousRelatedContact?.gender !== updatedRelatedContact?.gender ? ['gender'] : []),
+      ...(existingRel.relationshipType !== relType ? ['relationship'] : []),
+    ];
+
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          tenantId,
+          userId,
+          contactId: primaryContact.id,
+          entityType: 'Contact',
+          entityId: primaryContact.id,
+          action: 'UPDATE',
+          description: `Family relationship updated (${relType})${changedFields.length > 0 ? `: modified ${changedFields.join(', ')}` : ''}`,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`ActivityLog write failed for updateRelationship: ${err.message}`);
+    }
+
     return { data: rel, message: 'Relationship and contact profile updated successfully' };
+  }
+
+  async syncFamilyCluster(contactId: string, tenantId: string) {
+    const contact = await this.repo.findOne(tenantId, contactId);
+    if (!contact) {
+      throw new NotFoundException(`Contact ${contactId} not found`);
+    }
+    await this.repo.interconnectFamilyCluster(tenantId, contact.id);
+    const resolved = await this.repo.resolveFullFamilyRelationships(tenantId, contact);
+    return { data: resolved, message: 'Family cluster synchronized successfully' };
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -789,7 +1071,7 @@ export class ContactsService implements OnModuleInit {
 
     const nextContactId = await this.getNextContactId();
     const result = await this.prisma.$transaction(async (tx) => {
-      const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto.contact as any;
+      const { dateOfBirth, city, followUpDate, ...rest } = dto.contact as any;
       const dob = parseSafeDate(dateOfBirth);
       const fuDate = parseSafeDate(followUpDate);
       const contact = await tx.contact.create({
@@ -973,4 +1255,3 @@ export class ContactsService implements OnModuleInit {
     };
   }
 }
-

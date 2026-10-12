@@ -341,7 +341,19 @@ model Contact {
   birthPlace        String?   @map("birth_place")
   gender            Gender?
   maritalStatus     String?   @map("marital_status")
+  weddingAnniversaryDate String? @map("wedding_anniversary_date")
   education         String?   @map("education")
+  height            String?
+  weight            String?
+  medicalHistory    String[]  @default([]) @map("medical_history")
+  declaredMedicalHistory    String[]  @default([]) @map("declared_medical_history")
+  notDeclaredMedicalHistory String[]  @default([]) @map("not_declared_medical_history")
+  medicalHistoryDetails String? @map("medical_history_details")
+  surgeryDetails    String?   @map("surgery_details")
+  prescriptionDetails String? @map("prescription_details")
+  chewTobacco       Boolean?  @default(false) @map("chew_tobacco")
+  smoke             Boolean?  @default(false)
+  consumeAlcohol    Boolean?  @default(false) @map("consume_alcohol")
   avatarUrl         String?   @map("avatar_url")
   panNumber         String?   @map("pan_number")
   aadhaarNumber     String?   @map("aadhaar_number")
@@ -392,6 +404,7 @@ model Address {
   line1       String   @map("line_1")
   line2       String?  @map("line_2")
   city        String
+  district    String?
   state       String
   pincode     String
   country     String   @default("India")
@@ -1176,6 +1189,8 @@ model Document {
   claimId String?      @map("claim_id") @db.ObjectId
   type        DocumentType @default(OTHER)
   name        String
+  originalName String?     @map("original_name")
+  description String?
   storageKey  String?      @map("storage_key")  // S3 key or Supabase path
   url         String        // S3 / Supabase URL
   mimeType    String?      @map("mime_type")
@@ -1393,4 +1408,3 @@ model TableColumnVisibility {
   @@unique([tenantId, pageId, colName])
   @@map("table_column_visibility")
 }
-

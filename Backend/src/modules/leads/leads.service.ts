@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Leads Service — manages product interests / sales pipeline
 // ─────────────────────────────────────────────────────────────────────────────
-import { Injectable, NotFoundException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateLeadDto, UpdateLeadDto, MoveLeadStageDto,
@@ -161,7 +161,10 @@ export class LeadsService implements OnModuleInit {
     await this.initializeLeadIds();
     await this.autoCreateRenewalLeads(tenantId);
 
-    const where: any = { tenantId };
+    const where: any = {
+      tenantId,
+      interests: { isEmpty: false },
+    };
 
     // Employees see assigned leads and unassigned leads
     if (role === UserRole.EMPLOYEE) {
@@ -200,6 +203,10 @@ export class LeadsService implements OnModuleInit {
     };
 
     leads.forEach((lead) => {
+      // Exclusively selected interests check
+      if (!lead.interests || lead.interests.length === 0 || lead.interests.every(i => !i || !i.trim())) {
+        return;
+      }
       if (board[lead.stage]) {
         board[lead.stage].push(lead);
       } else {
@@ -219,7 +226,10 @@ export class LeadsService implements OnModuleInit {
     const { stage, search, assignedEmployeeId, contactId, followUpDateFrom, followUpDateTo } = query as any;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
+    const where: any = {
+      tenantId,
+      interests: { isEmpty: false },
+    };
     if (role === UserRole.EMPLOYEE) {
       const empProfile = await this.prisma.employeeProfile.findFirst({
         where: { userId, tenantId },
@@ -242,13 +252,30 @@ export class LeadsService implements OnModuleInit {
       if (followUpDateTo)   where.followUpDate.lte = new Date(followUpDateTo);
     }
     if (search) {
-      where.contact = {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName:  { contains: search, mode: 'insensitive' } },
-          { phone:     { contains: search } },
-        ],
-      };
+      const cleanSearch = search.trim();
+      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+      const contactOr: any[] = [
+        { firstName: { contains: cleanSearch, mode: 'insensitive' } },
+        { lastName:  { contains: cleanSearch, mode: 'insensitive' } },
+        { phone:     { contains: cleanSearch } },
+      ];
+      if (tokens.length >= 2) {
+        contactOr.push(
+          {
+            firstName: { contains: tokens[0], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+          },
+          {
+            firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+          },
+          {
+            firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[0], mode: 'insensitive' },
+          }
+        );
+      }
+      where.contact = { OR: contactOr };
     }
 
     const [data, total] = await Promise.all([
@@ -319,6 +346,10 @@ export class LeadsService implements OnModuleInit {
   // ── Create lead ──────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateLeadDto, createdById: string, role?: UserRole) {
+    if (!dto.interests || !Array.isArray(dto.interests) || dto.interests.length === 0 || dto.interests.every(i => !i || !i.trim())) {
+      throw new BadRequestException('Product interest must be exclusively selected to create a lead');
+    }
+
     // Validate if any of the incoming interests already exist in database for this contact
     if (dto.contactId && dto.interests && dto.interests.length > 0) {
       const existingLeads = await this.prisma.productInterest.findMany({

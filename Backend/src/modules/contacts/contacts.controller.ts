@@ -302,6 +302,16 @@ export class ContactsController {
     return this.svc.removeRelationship(user.tenantId, contactId, relationshipId);
   }
 
+  @Post(':id/sync-family')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Synchronize transitive family relationships for a contact' })
+  syncFamily(
+    @CurrentUser() user: any,
+    @Param('id') contactId: string,
+  ) {
+    return this.svc.syncFamilyCluster(contactId, user.tenantId);
+  }
+
   // ── Activity log ──────────────────────────────────────────────────────────
 
   @Get(':id/activity')

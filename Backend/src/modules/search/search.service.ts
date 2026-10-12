@@ -130,20 +130,34 @@ export class SearchService {
     const safeLimit = (limit && !isNaN(limit) && limit > 0) ? Math.min(limit, 10) : 5;
 
     const term = q.trim();
+    const tokens = term.split(/\s+/).filter(Boolean);
+    const suggestionOr: any[] = [
+      { firstName: { contains: term, mode: 'insensitive' } },
+      { lastName: { contains: term, mode: 'insensitive' } },
+      { phone: { contains: term } },
+      { alternatePhone: { contains: term } },
+      { email: { contains: term, mode: 'insensitive' } },
+      { aadhaarNumber: { contains: term } },
+    ];
+    if (tokens.length >= 2) {
+      suggestionOr.push(
+        {
+          firstName: { contains: tokens[0], mode: 'insensitive' },
+          lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+          lastName: { contains: tokens[0], mode: 'insensitive' },
+        }
+      );
+    }
     const rows = await this.prisma.contact.findMany({
       where: {
         tenantId,
         isActive: true,
         deletedAt: null,
         relatedTo: { none: {} },
-        OR: [
-          { firstName: { contains: term, mode: 'insensitive' } },
-          { lastName: { contains: term, mode: 'insensitive' } },
-          { phone: { contains: term } },
-          { alternatePhone: { contains: term } },
-          { email: { contains: term, mode: 'insensitive' } },
-          { aadhaarNumber: { contains: term } },
-        ],
+        OR: suggestionOr,
       },
       take: safeLimit,
       select: { id: true, firstName: true, lastName: true, phone: true },
@@ -178,14 +192,32 @@ export class SearchService {
     ];
 
     if (tokens.length >= 2) {
-      OR.push({
-        AND: tokens.map(tok => ({
-          OR: [
-            { firstName: { contains: tok, mode: 'insensitive' } },
-            { lastName: { contains: tok, mode: 'insensitive' } },
-          ],
-        })),
-      });
+      OR.push(
+        {
+          AND: tokens.map((token) => ({
+            OR: [
+              { firstName: { contains: token, mode: 'insensitive' } },
+              { lastName: { contains: token, mode: 'insensitive' } },
+            ],
+          })),
+        },
+        {
+          firstName: { contains: tokens[0], mode: 'insensitive' },
+          lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+          lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+          lastName: { contains: tokens[0], mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+          lastName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+        }
+      );
     }
 
     const where: any = {
@@ -259,18 +291,44 @@ export class SearchService {
     ];
 
     if (tokens.length >= 2) {
-      OR.push({
-        contact: {
-          is: {
-            AND: tokens.map(tok => ({
-              OR: [
-                { firstName: { contains: tok, mode: 'insensitive' } },
-                { lastName: { contains: tok, mode: 'insensitive' } },
-              ],
-            })),
+      OR.push(
+        {
+          contact: {
+            is: {
+              AND: tokens.map((token) => ({
+                OR: [
+                  { firstName: { contains: token, mode: 'insensitive' } },
+                  { lastName: { contains: token, mode: 'insensitive' } },
+                ],
+              })),
+            },
           },
         },
-      });
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens[0], mode: 'insensitive' },
+              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[0], mode: 'insensitive' },
+            },
+          },
+        }
+      );
     }
 
     return this.prisma.policy.findMany({
@@ -320,18 +378,32 @@ export class SearchService {
     ];
 
     if (tokens.length >= 2) {
-      OR.push({
-        contact: {
-          is: {
-            AND: tokens.map(tok => ({
-              OR: [
-                { firstName: { contains: tok, mode: 'insensitive' } },
-                { lastName: { contains: tok, mode: 'insensitive' } },
-              ],
-            })),
+      OR.push(
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens[0], mode: 'insensitive' },
+              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            },
           },
         },
-      });
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[0], mode: 'insensitive' },
+            },
+          },
+        }
+      );
     }
 
     return this.prisma.claim.findMany({
@@ -382,18 +454,32 @@ export class SearchService {
     ];
 
     if (tokens.length >= 2) {
-      OR.push({
-        contact: {
-          is: {
-            AND: tokens.map(tok => ({
-              OR: [
-                { firstName: { contains: tok, mode: 'insensitive' } },
-                { lastName: { contains: tok, mode: 'insensitive' } },
-              ],
-            })),
+      OR.push(
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens[0], mode: 'insensitive' },
+              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            },
           },
         },
-      });
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            },
+          },
+        },
+        {
+          contact: {
+            is: {
+              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[0], mode: 'insensitive' },
+            },
+          },
+        }
+      );
     }
 
     return this.prisma.productInterest.findMany({
@@ -435,14 +521,20 @@ export class SearchService {
     ];
 
     if (tokens.length >= 2) {
-      OR.push({
-        AND: tokens.map(tok => ({
-          OR: [
-            { firstName: { contains: tok, mode: 'insensitive' } },
-            { lastName: { contains: tok, mode: 'insensitive' } },
-          ],
-        })),
-      });
+      OR.push(
+        {
+          firstName: { contains: tokens[0], mode: 'insensitive' },
+          lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+          lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+        },
+        {
+          firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+          lastName: { contains: tokens[0], mode: 'insensitive' },
+        }
+      );
     }
 
     return this.prisma.employeeProfile.findMany({

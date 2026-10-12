@@ -52,6 +52,7 @@ async function bootstrap() {
     'https://www.insumitr.exportshub.in',
     'https://insumitr.exportshub.in/',
     'https://www.insumitr.exportshub.in/',
+    'https://swara.exportshub.in',
     'https://insumitra-testing.onrender.com',
     'http://localhost:5173',
     'http://localhost:5174',

@@ -32,7 +32,15 @@ export class DocumentsController {
   ) {
     const docTitle = title || req?.query?.title || req?.body?.title;
     const docDescription = description || req?.query?.description || req?.body?.description;
-    return this.svc.upload(req.tenantId, file, { contactId, policyId, claimId, type, title: docTitle, description: docDescription });
+    return this.svc.upload(req.tenantId, file, {
+      contactId,
+      policyId,
+      claimId,
+      type,
+      title: docTitle,
+      description: docDescription,
+      userId: req.user?.userId || req.user?.id,
+    });
   }
 
   @Get()
@@ -46,13 +54,13 @@ export class DocumentsController {
   }
 
   @Get(':id/url')
-  getUrl(@Req() req: any, @Param('id') id: string) {
-    return this.svc.getPresignedUrl(req.tenantId, id);
+  getUrl(@Req() req: any, @Param('id') id: string, @Query('download') download?: string) {
+    return this.svc.getPresignedUrl(req.tenantId, id, download === 'true');
   }
 
   @Delete(':id')
   @Roles(UserRole.OWNER)
   remove(@Req() req: any, @Param('id') id: string) {
-    return this.svc.remove(req.tenantId, id);
+    return this.svc.remove(req.tenantId, id, req.user?.userId || req.user?.id);
   }
 }

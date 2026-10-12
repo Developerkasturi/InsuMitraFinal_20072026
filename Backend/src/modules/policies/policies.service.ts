@@ -57,14 +57,37 @@ export class PoliciesService {
     }
 
     if (search) {
-      andConditions.push({
-        OR: [
-          { policyNumber: { contains: search, mode: 'insensitive' } },
-          { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-          { contact: { lastName:  { contains: search, mode: 'insensitive' } } },
-          { contact: { phone:     { contains: search } } },
-        ],
-      });
+      const cleanSearch = search.trim();
+      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+      const searchOr: any[] = [
+        { policyNumber: { contains: cleanSearch, mode: 'insensitive' } },
+        { contact: { firstName: { contains: cleanSearch, mode: 'insensitive' } } },
+        { contact: { lastName:  { contains: cleanSearch, mode: 'insensitive' } } },
+        { contact: { phone:     { contains: cleanSearch } } },
+      ];
+      if (tokens.length >= 2) {
+        searchOr.push(
+          {
+            contact: {
+              firstName: { contains: tokens[0], mode: 'insensitive' },
+              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            },
+          },
+          {
+            contact: {
+              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            },
+          },
+          {
+            contact: {
+              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[0], mode: 'insensitive' },
+            },
+          }
+        );
+      }
+      andConditions.push({ OR: searchOr });
     }
 
     const where: any = { tenantId, AND: andConditions };
@@ -434,6 +457,31 @@ export class PoliciesService {
       throw new ForbiddenException('Access denied');
     }
 
+    const fieldLabels: Record<string, string> = {
+      policyNumber: 'Policy Number',
+      planId: 'Plan',
+      premiumAmount: 'Premium Amount',
+      sumAssured: 'Sum Assured',
+      status: 'Policy Status',
+      startDate: 'Start Date',
+      endDate: 'End Date',
+      maturityDate: 'Maturity Date',
+      paymentFrequency: 'Payment Frequency',
+      nextDueDate: 'Next Due Date',
+      insuredPerson: 'Insured Person',
+      agentCode: 'Agent Code',
+      notes: 'Notes',
+      phcRequired: 'PHC Status',
+      phcAmount: 'PHC Amount',
+      assignedEmployeeId: 'Assigned Employee',
+    };
+    const changedFields = Object.keys(dto).filter((key) => {
+      if (!(key in fieldLabels)) return false;
+      const oldValue = (policy as any)[key];
+      const newValue = (dto as any)[key];
+      const normalize = (value: any) => value instanceof Date ? value.toISOString() : value;
+      return JSON.stringify(normalize(oldValue) ?? null) !== JSON.stringify(normalize(newValue) ?? null);
+    });
     const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
     const updated = await this.prisma.policy.update({
       where: { id },
@@ -445,7 +493,16 @@ export class PoliciesService {
         ...(nextDueDate  ? { nextDueDate:  new Date(nextDueDate)  } : {}),
       } as any,
     });
-    await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Policy updated');
+    await this.logActivity(
+      tenantId,
+      userId,
+      updated.contactId,
+      id,
+      'UPDATE',
+      changedFields.length
+        ? `Policy details updated: ${changedFields.map((key) => fieldLabels[key]).join(', ')}`
+        : 'Policy updated',
+    );
 
     // Auto-create renewal leads immediately for expiring policies
     this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
@@ -487,6 +544,7 @@ export class PoliciesService {
     const member = await this.prisma.policyMember.create({
       data: { ...dto, policyId },
     });
+    await this.logActivity(tenantId, userId, policy.contactId, policy.id, 'CREATE', `Insured member added: ${dto.name} (${dto.relationship})`);
     return { data: member, message: 'Member added' };
   }
 
@@ -510,6 +568,14 @@ export class PoliciesService {
       await this.prisma.policy.update({ where: { id: policyId }, data: { nextDueDate: nextDue } });
     }
 
+    await this.logActivity(
+      tenantId,
+      userId,
+      policy.contactId,
+      policy.id,
+      'CREATE',
+      `Policy payment recorded: ₹${Number(dto.amount || 0).toLocaleString('en-IN')}`,
+    );
     return { data: payment, message: 'Payment recorded' };
   }
 
@@ -518,7 +584,11 @@ export class PoliciesService {
   async removeMember(tenantId: string, policyId: string, memberId: string) {
     const policy = await this.prisma.policy.findFirst({ where: { id: policyId, tenantId } });
     if (!policy) throw new NotFoundException('Policy not found');
+    const member = await this.prisma.policyMember.findFirst({ where: { id: memberId, policyId } });
     await this.prisma.policyMember.deleteMany({ where: { id: memberId, policyId } });
+    if (member) {
+      await this.logActivity(tenantId, undefined, policy.contactId, policy.id, 'DELETE', `Insured member removed: ${member.name} (${member.relationship})`);
+    }
     return { data: null, message: 'Member removed' };
   }
 
@@ -529,13 +599,18 @@ export class PoliciesService {
       throw new ForbiddenException('Access denied');
     }
     const nominee = await this.prisma.policyNominee.create({ data: { ...dto, policyId } });
+    await this.logActivity(tenantId, userId, policy.contactId, policy.id, 'CREATE', `Nominee added: ${dto.name}`);
     return { data: nominee, message: 'Nominee added' };
   }
 
   async removeNominee(tenantId: string, policyId: string, nomineeId: string) {
     const policy = await this.prisma.policy.findFirst({ where: { id: policyId, tenantId } });
     if (!policy) throw new NotFoundException('Policy not found');
+    const nominee = await this.prisma.policyNominee.findFirst({ where: { id: nomineeId, policyId } });
     await this.prisma.policyNominee.deleteMany({ where: { id: nomineeId, policyId } });
+    if (nominee) {
+      await this.logActivity(tenantId, undefined, policy.contactId, policy.id, 'DELETE', `Nominee removed: ${nominee.name} (${nominee.relationship})`);
+    }
     return { data: null, message: 'Nominee removed' };
   }
 
@@ -637,7 +712,10 @@ export class PoliciesService {
       where: {
         tenantId,
         status: { notIn: ['INACTIVE_OLD' as any, 'CANCELLED', 'SURRENDERED'] },
-        plan: { hasPhcBenefit: true }
+        OR: [
+          { plan: { hasPhcBenefit: true } },
+          { notes: { contains: 'Preventive Health Checkup:' } },
+        ],
       },
       include: {
         plan: { include: { company: true } },
@@ -653,7 +731,10 @@ export class PoliciesService {
       const companyInfo = p.plan?.company;
       const tY = (p.endDate.getTime() - p.startDate.getTime()) / (1000 * 3600 * 24 * 365.25);
       const totalYears = Math.max(1, Math.ceil(tY));
-      const baseEligibleAmount = (p.plan as any)?.phcAmount || 10000;
+      const notesPhcAmount = p.notes?.match(/Preventive Health Checkup:[^\n]*?Amount:\s*₹?([\d,.]+)/i)?.[1];
+      const baseEligibleAmount = (notesPhcAmount ? Number(notesPhcAmount.replace(/,/g, '')) : undefined)
+        ?? (p.plan as any)?.phcAmount
+        ?? 10000;
       const basePhcCount = (p.plan as any)?.phcCount || 1;
       
       const years: any[] = [];
@@ -678,7 +759,10 @@ export class PoliciesService {
         
         const actualEnd = yearEnd > p.endDate ? p.endDate : yearEnd;
         
-        const yearCheckups = (p as any).healthCheckups.filter((h: any) => h.createdAt >= yearStart && h.createdAt <= actualEnd);
+        const yearCheckups = (p as any).healthCheckups.filter((h: any) => {
+          const checkupDate = h.completedAt || h.scheduledAt || h.bookingDate || h.createdAt;
+          return checkupDate >= yearStart && checkupDate <= actualEnd;
+        });
         const yearUtilized = yearCheckups.reduce((sum: number, h: any) => sum + (h.utilizedAmount || 0), 0);
         
         // "applicable only after 1 full year from each policy's own start date." -> year 1 (i=0) has 0 eligible.
@@ -770,6 +854,7 @@ export class PoliciesService {
         daysRemaining: p_daysRemaining,
         totalYears,
         years,
+        allCheckups: years.flatMap(year => year.allCheckups),
       };
     });
 
@@ -814,12 +899,12 @@ export class PoliciesService {
   }
 
   private async logActivity(
-    tenantId: string, userId: string, contactId: string,
+    tenantId: string, userId: string | undefined, contactId: string,
     entityId: string, action: string, description: string,
   ) {
     try {
       await this.prisma.activityLog.create({
-        data: { tenantId, userId, contactId, entityType: 'Policy', entityId, action, description },
+        data: { tenantId, ...(userId ? { userId } : {}), contactId, entityType: 'Policy', entityId, action, description },
       });
     } catch (err: any) {
       console.error('[logActivity ERROR]', err);
@@ -883,6 +968,26 @@ export class PoliciesService {
 
     if (result.contactId) {
       await this.logActivity(tenantId, createdById, result.contactId, result.id, 'CREATE', `Policy ${result.policyNumber} created with full profile`);
+      for (const member of dto.members || []) {
+        await this.logActivity(
+          tenantId,
+          createdById,
+          result.contactId,
+          result.id,
+          'CREATE',
+          `Insured member added: ${member.name} (${member.relationship})`,
+        );
+      }
+      for (const nominee of dto.nominees || []) {
+        await this.logActivity(
+          tenantId,
+          createdById,
+          result.contactId,
+          result.id,
+          'CREATE',
+          `Nominee added: ${nominee.name} (${nominee.relationship})`,
+        );
+      }
     }
 
     return { data: result, message: 'Policy profile created successfully' };

@@ -67,11 +67,9 @@ export class ContactFilterDto extends PaginationDto {
   @IsDateString()
   dobTo?: string;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
-  isActive?: boolean = true;
+  isActive?: any;
 
   @ApiPropertyOptional({ description: 'Occupation type: SALARIED | SELF_EMPLOYED | BUSINESS | RETIRED | STUDENT' })
   @IsOptional()
@@ -161,13 +159,68 @@ export class CreateContactDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  height?: number;
+  @Transform(({ value }) => value === null || value === undefined ? value : String(value))
+  @IsString()
+  height?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  weight?: number;
+  @Transform(({ value }) => value === null || value === undefined ? value : String(value))
+  @IsString()
+  weight?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  weddingAnniversaryDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  medicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  declaredMedicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  notDeclaredMedicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  medicalHistoryDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  surgeryDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  prescriptionDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  chewTobacco?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  smoke?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  consumeAlcohol?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -285,6 +338,11 @@ export class CreateAddressDto {
   @IsString()
   city: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  district?: string;
+
   @ApiProperty()
   @IsString()
   state: string;
@@ -359,10 +417,30 @@ export class CreateRelationshipDto {
   @IsString()
   name?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  middleName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
   @ApiPropertyOptional({ description: 'Phone number for manual entry' })
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  alternatePhone?: string;
 
   @ApiPropertyOptional({ description: 'Date of birth for manual entry' })
   @IsOptional()
@@ -373,6 +451,69 @@ export class CreateRelationshipDto {
   @IsOptional()
   @IsString()
   gender?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  maritalStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  weddingAnniversaryDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  education?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  height?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  weight?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  medicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  declaredMedicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  notDeclaredMedicalHistory?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  medicalHistoryDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  surgeryDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  prescriptionDetails?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  occupation?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 // Claims Service — manages the full claim lifecycle
 // INTIMATED → FILED → IN_REVIEW → APPROVED/REJECTED → SETTLED
 // ─────────────────────────────────────────────────────────────────────────────
-import { Injectable, NotFoundException, ConflictException, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationEngineService } from '../notifications/notification-engine.service';
 import {
@@ -10,6 +10,17 @@ import {
   AddExpenseDto, ClaimQueryDto,
 } from './dto/claim.dto';
 import { UserRole } from '@prisma/client';
+
+function rejectFutureIntimationDate(value?: string) {
+  if (!value) return;
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  const intimationDate = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (intimationDate > today) {
+    throw new BadRequestException('Intimation Date cannot be in the future');
+  }
+}
 
 @Injectable()
 export class ClaimsService {
@@ -59,12 +70,55 @@ export class ClaimsService {
     if (status)    where.status    = status;
     if (claimType) where.claimType = claimType;
     if (search) {
-      where.OR = [
-        { claimNumber: { contains: search, mode: 'insensitive' } },
-        { contact: { firstName: { contains: search, mode: 'insensitive' } } },
-        { contact: { phone: { contains: search } } },
-        { policy: { policyNumber: { contains: search, mode: 'insensitive' } } },
+      const cleanSearch = search.trim();
+      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+      const searchOr: any[] = [
+        { claimNumber: { contains: cleanSearch, mode: 'insensitive' } },
+        { contact: { firstName: { contains: cleanSearch, mode: 'insensitive' } } },
+        { contact: { lastName:  { contains: cleanSearch, mode: 'insensitive' } } },
+        { contact: { phone: { contains: cleanSearch } } },
+        { policy: { policyNumber: { contains: cleanSearch, mode: 'insensitive' } } },
       ];
+      if (tokens.length >= 2) {
+        searchOr.push(
+          {
+            contact: {
+              is: {
+                AND: tokens.map((token: string) => ({
+                  OR: [
+                    { firstName: { contains: token, mode: 'insensitive' } },
+                    { lastName: { contains: token, mode: 'insensitive' } },
+                  ],
+                })),
+              },
+            },
+          },
+          {
+            contact: {
+              firstName: { contains: tokens[0], mode: 'insensitive' },
+              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            },
+          },
+          {
+            contact: {
+              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            },
+          },
+          {
+            contact: {
+              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+              lastName: { contains: tokens[0], mode: 'insensitive' },
+            },
+          }
+        );
+      }
+      if (where.OR) {
+        where.AND = [...(where.AND ?? []), { OR: where.OR }, { OR: searchOr }];
+        delete where.OR;
+      } else {
+        where.OR = searchOr;
+      }
     }
 
     const orderDir = sortOrder === 'asc' ? 'asc' : 'desc';
@@ -110,7 +164,7 @@ export class ClaimsService {
       where:   { id, tenantId },
       include: {
         contact:  true,
-        policy:   { include: { plan: { include: { company: true } } } },
+        policy:   { include: { plan: { include: { company: true } }, members: true, nominees: true } },
         expenses: { orderBy: { date: 'desc' } },
         documents: true,
       },
@@ -123,6 +177,8 @@ export class ClaimsService {
   }
 
   async create(tenantId: string, dto: CreateClaimDto, createdById: string, role?: UserRole) {
+    rejectFutureIntimationDate(dto.intimatedAt);
+
     // Ensure claim number is unique
     const exists = await this.prisma.claim.findFirst({
       where: { tenantId, claimNumber: dto.claimNumber },
@@ -162,14 +218,79 @@ export class ClaimsService {
   }
 
   async update(tenantId: string, id: string, dto: UpdateClaimDto, userId: string, role?: UserRole) {
+    rejectFutureIntimationDate(dto.intimatedAt);
+
     const claim = await this.prisma.claim.findFirst({ where: { id, tenantId } });
     if (!claim) throw new NotFoundException('Claim not found');
     if (role === UserRole.EMPLOYEE && claim.assignedEmployeeId !== userId) {
       throw new ForbiddenException('Access denied');
     }
 
+    const fieldLabels: Record<string, string> = {
+      claimNumber: 'Claim Number',
+      claimType: 'Claim Type',
+      claimAmount: 'Claim Amount',
+      approvedAmount: 'Approved Amount',
+      rejectionReason: 'Rejection Reason',
+      diagnosis: 'Diagnosis',
+      status: 'Claim Status',
+      policyId: 'Policy',
+      contactId: 'Contact',
+      assignedEmployeeId: 'Assigned Employee',
+      hospitalId: 'Hospital',
+      settlementType: 'Settlement Type',
+      notes: 'Claim Details',
+      patientName: 'Patient Name',
+      patientRelation: 'Patient Relationship',
+      hospitalName: 'Hospital Name',
+      hospitalAddress: 'Hospital Address',
+      hospitalCity: 'Hospital City',
+      hospitalState: 'Hospital State',
+      hospitalContactNo: 'Hospital Contact Number',
+      admissionDate: 'Admission Date',
+      dischargeDate: 'Discharge Date',
+      nomineeName: 'Nominee Name',
+      nomineePhone: 'Nominee Phone',
+      doctors: 'Consulting Doctors',
+      expenses: 'Claim Expenses',
+      documents: 'Documents',
+    };
+    const changedFieldNames = Object.keys(dto).flatMap((key) => {
+      const oldValue = (claim as any)[key];
+      const newValue = (dto as any)[key];
+      const normalize = (value: any) => value instanceof Date ? value.toISOString() : value;
+      if (JSON.stringify(normalize(oldValue) ?? null) === JSON.stringify(normalize(newValue) ?? null)) return [];
+
+      if (key === 'notes') {
+        try {
+          const oldNotes = JSON.parse(oldValue || '{}');
+          const newNotes = JSON.parse(newValue || '{}');
+          if (oldNotes && newNotes && typeof oldNotes === 'object' && typeof newNotes === 'object') {
+            const changedNotes = Object.keys(newNotes).filter(
+              (noteKey) => JSON.stringify(oldNotes[noteKey] ?? null) !== JSON.stringify(newNotes[noteKey] ?? null),
+            );
+            if (changedNotes.length) {
+              return changedNotes.map((noteKey) => fieldLabels[noteKey] || noteKey.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()));
+            }
+          }
+        } catch {
+          // Plain-text notes are reported as a single field below.
+        }
+      }
+
+      return [fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase())];
+    });
     const updated = await this.prisma.claim.update({ where: { id }, data: dto as any });
-    await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Claim details updated');
+    await this.logActivity(
+      tenantId,
+      userId,
+      updated.contactId,
+      id,
+      'UPDATE',
+      changedFieldNames.length
+        ? `Claim details updated: ${[...new Set(changedFieldNames)].join(', ')}`
+        : 'Claim details updated',
+    );
 
     if (dto.assignedEmployeeId && dto.assignedEmployeeId !== claim.assignedEmployeeId) {
       await this.notifEngine.notifyAssignment({
@@ -225,6 +346,14 @@ export class ClaimsService {
     const expense = await this.prisma.claimExpense.create({
       data: { ...dto, claimId, date: new Date(dto.date) },
     });
+    await this.logActivity(
+      tenantId,
+      userId,
+      claim.contactId,
+      claim.id,
+      'CREATE',
+      `Claim expense added: ${dto.description} (₹${Number(dto.amount || 0).toLocaleString('en-IN')})`,
+    );
     return { data: expense, message: 'Expense added' };
   }
 
@@ -269,12 +398,12 @@ export class ClaimsService {
   }
 
   private async logActivity(
-    tenantId: string, userId: string, contactId: string,
+    tenantId: string, userId: string | undefined, contactId: string,
     entityId: string, action: string, description: string,
   ) {
     try {
       await this.prisma.activityLog.create({
-        data: { tenantId, userId, contactId, entityType: 'Claim', entityId, action, description },
+        data: { tenantId, ...(userId ? { userId } : {}), contactId, entityType: 'Claim', entityId, action, description },
       });
     } catch (err: any) {
       this.logger.warn(`ActivityLog write failed: ${err.message}`);
@@ -290,6 +419,8 @@ export class ClaimsService {
     createdById: string,
     role?: UserRole,
   ) {
+    rejectFutureIntimationDate(dto.claim.intimatedAt);
+
     const exists = await this.prisma.claim.findFirst({
       where: { tenantId, claimNumber: dto.claim.claimNumber },
     });

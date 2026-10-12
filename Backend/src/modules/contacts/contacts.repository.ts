@@ -62,28 +62,62 @@ export class ContactsRepository {
   async findAll(tenantId: string, query: ContactFilterDto, userId?: string, role?: UserRole) {
     const {
       page = 1, limit = 20,
-      search, sortBy = 'createdAt', sortOrder = 'asc',
-      gender, tags, dobFrom, dobTo, isActive = true, occupationType,
+      search, sortBy = 'createdAt', sortOrder = 'desc',
+      gender, tags, dobFrom, dobTo, isActive, occupationType,
     } = query;
 
     const pageNum = Number(page) || 1;
     const limitNum = Number(limit) || 20;
     const skip = (pageNum - 1) * limitNum;
 
-    const isActiveBool = isActive === false || (isActive as any) === 'false' ? false : true;
-    const where: any = { tenantId, isActive: isActiveBool };
+    const where: any = { tenantId };
+    if (isActive === false || (isActive as any) === 'false') {
+      where.isActive = false;
+    } else if (isActive === true || (isActive as any) === 'true') {
+      where.isActive = true;
+    }
 
     if (search) {
+      const cleanSearch = search.trim();
+      const tokens = cleanSearch.split(/\s+/).filter(Boolean);
       where.OR = [
-        { contactId:      { contains: search, mode: 'insensitive' } },
-        { firstName:      { contains: search, mode: 'insensitive' } },
-        { lastName:       { contains: search, mode: 'insensitive' } },
-        { email:          { contains: search, mode: 'insensitive' } },
-        { phone:          { contains: search } },
-        { alternatePhone: { contains: search } },
-        { aadhaarNumber:  { contains: search } },
-        { panNumber:      { contains: search, mode: 'insensitive' } },
+        { contactId:      { contains: cleanSearch, mode: 'insensitive' } },
+        { firstName:      { contains: cleanSearch, mode: 'insensitive' } },
+        { lastName:       { contains: cleanSearch, mode: 'insensitive' } },
+        { email:          { contains: cleanSearch, mode: 'insensitive' } },
+        { phone:          { contains: cleanSearch } },
+        { alternatePhone: { contains: cleanSearch } },
+        { aadhaarNumber:  { contains: cleanSearch } },
+        { panNumber:      { contains: cleanSearch, mode: 'insensitive' } },
       ];
+      if (tokens.length >= 2) {
+        where.OR.push(
+          {
+            AND: tokens.map((token) => ({
+              OR: [
+                { firstName: { contains: token, mode: 'insensitive' } },
+                { lastName: { contains: token, mode: 'insensitive' } },
+              ],
+            })),
+          },
+          {
+            firstName: { contains: tokens[0], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+          },
+          {
+            firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+          },
+          {
+            firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[0], mode: 'insensitive' },
+          },
+          {
+            firstName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+          }
+        );
+      }
     }
 
     if (role === UserRole.EMPLOYEE && userId) {
@@ -147,7 +181,7 @@ export class ContactsRepository {
       ...(isObjectId ? { OR: [{ id }, { contactId: id }] } : { contactId: id }),
     };
 
-    return this.prisma.contact.findFirst({
+    const contact: any = await this.prisma.contact.findFirst({
       where: whereCondition,
       include: {
         addresses:     true,
@@ -171,7 +205,11 @@ export class ContactsRepository {
         activityLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
         policies: {
           where:   { deletedAt: null },
-          include: { plan: { include: { company: true } } },
+          include: {
+            plan: { include: { company: true } },
+            members: true,
+            nominees: true,
+          },
         },
         productInterests: {
           include: {
@@ -181,6 +219,16 @@ export class ContactsRepository {
         _count: { select: { policies: true, claims: true, documents: true } },
       },
     });
+
+    if (contact && contact.id) {
+      try {
+        contact.relationships = await this.resolveFullFamilyRelationships(tenantId, contact);
+      } catch (err: any) {
+        // Fallback to existing relationships if cluster resolution fails
+      }
+    }
+
+    return contact;
   }
   // ── Lookup by phone (dedup check) ──────────────────────────────
 
@@ -194,7 +242,7 @@ export class ContactsRepository {
   // ── Create ──────────────────────────────────────────────────────────────
 
   async create(tenantId: string, dto: CreateContactDto) {
-    const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
+    const { dateOfBirth, city, followUpDate, ...rest } = dto as any;
     const dob = parseSafeDate(dateOfBirth);
     const fuDate = parseSafeDate(followUpDate);
     return this.prisma.contact.create({
@@ -210,7 +258,7 @@ export class ContactsRepository {
   // ── Update ──────────────────────────────────────────────────────────────
 
   async update(tenantId: string, id: string, dto: UpdateContactDto) {
-    const { dateOfBirth, city, followUpDate, height, weight, ...rest } = dto as any;
+    const { dateOfBirth, city, followUpDate, ...rest } = dto as any;
     const dob = parseSafeDate(dateOfBirth);
     const fuDate = parseSafeDate(followUpDate);
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
@@ -305,6 +353,62 @@ export class ContactsRepository {
 
   // ── Relationships (Bidirectional) ──────────────────────────────────────────
 
+  resolveMemberGender(
+    member: any,
+    clusterContacts: any[] = [],
+    clusterRels: any[] = [],
+  ): 'MALE' | 'FEMALE' | null {
+    if (!member) return null;
+    const g = (member.gender || '').toUpperCase();
+    if (g === 'MALE' || g === 'FEMALE') return g;
+
+    if (Array.isArray(member.tags)) {
+      if (member.tags.includes('gender:male')) return 'MALE';
+      if (member.tags.includes('gender:female')) return 'FEMALE';
+    }
+
+    for (const r of clusterRels) {
+      if (r.relatedContactId === member.id) {
+        const t = (r.relationshipType || '').toUpperCase();
+        if (['BROTHER', 'SON', 'FATHER'].includes(t)) return 'MALE';
+        if (['SISTER', 'DAUGHTER', 'MOTHER'].includes(t)) return 'FEMALE';
+      }
+      if (r.primaryContactId === member.id && (r.relationshipType || '').toUpperCase() === 'SPOUSE') {
+        const other = clusterContacts.find(c => c.id === r.relatedContactId);
+        if (other) {
+          const og = (other.gender || '').toUpperCase();
+          if (og === 'MALE') return 'FEMALE';
+          if (og === 'FEMALE') return 'MALE';
+        }
+      }
+    }
+
+    const fn = (member.firstName || '').toLowerCase().trim();
+    const FEMALE_NAMES = new Set([
+      'shivani', 'bhagyashree', 'pooja', 'swara', 'sumitra', 'rutuja', 'savita', 'neelima', 
+      'alka', 'anita', 'anjali', 'archana', 'arti', 'aarti', 'ashwini', 'chhaya', 'deepa', 
+      'deepika', 'geeta', 'jyoti', 'kamal', 'kavita', 'kiran', 'komal', 'lata', 'madhuri', 
+      'mangala', 'manisha', 'meena', 'mohini', 'monika', 'neha', 'nirmala', 'pallavi', 
+      'payal', 'poornima', 'pranita', 'pratibha', 'priti', 'preeti', 'priya', 'priyanka', 
+      'radha', 'rekha', 'renuka', 'rohini', 'rupali', 'sangeeta', 'sangita', 'sarita', 
+      'sayali', 'seema', 'sharda', 'sheetal', 'shital', 'shobha', 'shubhangi', 'smita', 
+      'sneha', 'sonali', 'sujata', 'sunita', 'swati', 'tanuja', 'tejaswini', 'usha', 
+      'vaishali', 'vandana', 'varsha', 'vidya', 'yogita', 'lakha', 'akka'
+    ]);
+    const MALE_NAMES = new Set([
+      'shriram', 'ram', 'prajwal', 'shubham', 'amit', 'rahul', 'sachin', 'ajay', 'vijay', 
+      'suresh', 'ramesh', 'mahesh', 'ganesh', 'rajesh', 'vikas', 'sandeep', 'santosh', 
+      'deepak', 'pradeep', 'pravin', 'nitin', 'vishal', 'rohan', 'rohit', 'akshay', 
+      'swapnil', 'amol', 'sagar', 'nilesh', 'chetan', 'mayur', 'tushar', 'saurabh', 
+      'suraj', 'omkar', 'rushikesh', 'harshal', 'abhishek', 'aditya', 'prathamesh', 
+      'sanket', 'gaurav', 'vaibhav', 'nikhil', 'aniket', 'kunal', 'sumit', 'mayuresh',
+      'lalit', 'raju', 'rajnish', 'subhash', 'sushil', 'sampat', 'nishant', 'om'
+    ]);
+    if (FEMALE_NAMES.has(fn)) return 'FEMALE';
+    if (MALE_NAMES.has(fn)) return 'MALE';
+    return null;
+  }
+
   getInverseRelationshipType(
     type: RelationshipType | string,
     primaryGender?: string | null,
@@ -313,6 +417,8 @@ export class ContactsRepository {
     const upperType = (type || '').toUpperCase();
     const primaryIsMale = primaryGender?.toUpperCase() === 'MALE';
     const primaryIsFemale = primaryGender?.toUpperCase() === 'FEMALE';
+    const relatedIsMale = relatedGender?.toUpperCase() === 'MALE';
+    const relatedIsFemale = relatedGender?.toUpperCase() === 'FEMALE';
 
     switch (upperType) {
       case 'SPOUSE':
@@ -321,6 +427,7 @@ export class ContactsRepository {
       case 'SON':
       case 'DAUGHTER':
       case 'CHILD':
+        // Primary is child, related is parent. In reverse, related is child, primary is parent.
         if (primaryIsMale) return RelationshipType.FATHER;
         if (primaryIsFemale) return RelationshipType.MOTHER;
         return RelationshipType.PARENT;
@@ -328,10 +435,9 @@ export class ContactsRepository {
       case 'FATHER':
       case 'MOTHER':
       case 'PARENT':
-        const relatedIsMale = relatedGender?.toUpperCase() === 'MALE';
-        const relatedIsFemale = relatedGender?.toUpperCase() === 'FEMALE';
-        if (relatedIsMale) return RelationshipType.SON;
-        if (relatedIsFemale) return RelationshipType.DAUGHTER;
+        // Primary is parent, related is child. In reverse, related is parent, primary is child.
+        if (primaryIsMale) return RelationshipType.SON;
+        if (primaryIsFemale) return RelationshipType.DAUGHTER;
         return RelationshipType.CHILD;
 
       case 'BROTHER':
@@ -357,10 +463,17 @@ export class ContactsRepository {
     const primaryContactId = primaryContact.id;
     const relatedContactId = relatedContact.id;
 
+    const pGen = primaryContact.gender || this.resolveMemberGender(primaryContact, [primaryContact, relatedContact], []);
+    const rGen = relatedContact.gender || this.resolveMemberGender(relatedContact, [primaryContact, relatedContact], []);
+
+    let targetRelType = relationshipType;
+    if (relationshipType === RelationshipType.SIBLING && rGen === 'MALE') targetRelType = RelationshipType.BROTHER;
+    if (relationshipType === RelationshipType.SIBLING && rGen === 'FEMALE') targetRelType = RelationshipType.SISTER;
+
     const inverseType = this.getInverseRelationshipType(
-      relationshipType,
-      primaryContact.gender,
-      relatedContact.gender,
+      targetRelType,
+      pGen,
+      rGen,
     );
 
     return this.prisma.$transaction(async (tx) => {
@@ -423,32 +536,427 @@ export class ContactsRepository {
     });
   }
 
+  deduceRelationship(
+    memberA: any,
+    memberB: any,
+    clusterContacts: any[],
+    clusterRels: any[],
+  ): RelationshipType {
+    const aId = memberA.id;
+    const bId = memberB.id;
+    const genA = this.resolveMemberGender(memberA, clusterContacts, clusterRels);
+    const genB = this.resolveMemberGender(memberB, clusterContacts, clusterRels);
+
+    // 1. Direct relationship
+    const direct = clusterRels.find(r => r.primaryContactId === aId && r.relatedContactId === bId);
+    if (direct) {
+      if (direct.relationshipType === RelationshipType.SIBLING && genB === 'MALE') return RelationshipType.BROTHER;
+      if (direct.relationshipType === RelationshipType.SIBLING && genB === 'FEMALE') return RelationshipType.SISTER;
+      if (direct.relationshipType === RelationshipType.PARENT && genB === 'MALE') return RelationshipType.FATHER;
+      if (direct.relationshipType === RelationshipType.PARENT && genB === 'FEMALE') return RelationshipType.MOTHER;
+      if (direct.relationshipType === RelationshipType.CHILD && genB === 'MALE') return RelationshipType.SON;
+      if (direct.relationshipType === RelationshipType.CHILD && genB === 'FEMALE') return RelationshipType.DAUGHTER;
+      if (direct.relationshipType !== RelationshipType.OTHER) return direct.relationshipType;
+    }
+
+    const reverse = clusterRels.find(r => r.primaryContactId === bId && r.relatedContactId === aId);
+    if (reverse && reverse.relationshipType !== RelationshipType.OTHER) {
+      const inv = this.getInverseRelationshipType(reverse.relationshipType, genB, genA);
+      if (inv !== RelationshipType.OTHER) return inv;
+    }
+
+    const isParentRel = (t: string) => ['FATHER', 'MOTHER', 'PARENT'].includes((t || '').toUpperCase());
+    const isChildRel = (t: string) => ['SON', 'DAUGHTER', 'CHILD'].includes((t || '').toUpperCase());
+    const isSpouseRel = (t: string) => (t || '').toUpperCase() === 'SPOUSE';
+    const isSiblingRel = (t: string) => ['BROTHER', 'SISTER', 'SIBLING'].includes((t || '').toUpperCase());
+
+    const getParents = (id: string) => {
+      const parents = new Set<string>();
+      clusterRels.forEach(r => {
+        if (r.primaryContactId === id && isParentRel(r.relationshipType)) parents.add(r.relatedContactId);
+        if (r.relatedContactId === id && isChildRel(r.relationshipType)) parents.add(r.primaryContactId);
+      });
+      return Array.from(parents);
+    };
+
+    const getChildren = (id: string) => {
+      const children = new Set<string>();
+      clusterRels.forEach(r => {
+        if (r.primaryContactId === id && isChildRel(r.relationshipType)) children.add(r.relatedContactId);
+        if (r.relatedContactId === id && isParentRel(r.relationshipType)) children.add(r.primaryContactId);
+      });
+      return Array.from(children);
+    };
+
+    const getSpouses = (id: string) => {
+      const spouses = new Set<string>();
+      clusterRels.forEach(r => {
+        if (r.primaryContactId === id && isSpouseRel(r.relationshipType)) spouses.add(r.relatedContactId);
+        if (r.relatedContactId === id && isSpouseRel(r.relationshipType)) spouses.add(r.primaryContactId);
+      });
+      return Array.from(spouses);
+    };
+
+    const getFullSiblingGroup = (startId: string) => {
+      const group = new Set<string>([startId]);
+      const queue = [startId];
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        clusterRels.forEach(r => {
+          if (r.primaryContactId === curr && isSiblingRel(r.relationshipType) && !group.has(r.relatedContactId)) {
+            group.add(r.relatedContactId);
+            queue.push(r.relatedContactId);
+          }
+          if (r.relatedContactId === curr && isSiblingRel(r.relationshipType) && !group.has(r.primaryContactId)) {
+            group.add(r.primaryContactId);
+            queue.push(r.primaryContactId);
+          }
+        });
+      }
+      return group;
+    };
+
+    const parentsA = getParents(aId);
+    const parentsB = getParents(bId);
+    const childrenA = getChildren(aId);
+    const childrenB = getChildren(bId);
+    const spousesA = getSpouses(aId);
+
+    // 1. Is B spouse of A?
+    if (spousesA.includes(bId)) return RelationshipType.SPOUSE;
+
+    // 2. Common child => spouse
+    const commonChildren = childrenA.filter(c => childrenB.includes(c));
+    if (commonChildren.length > 0) return RelationshipType.SPOUSE;
+
+    // 3. Is B parent of A?
+    if (parentsA.includes(bId)) {
+      if (genB === 'MALE') return RelationshipType.FATHER;
+      if (genB === 'FEMALE') return RelationshipType.MOTHER;
+      return RelationshipType.PARENT;
+    }
+
+    // 4. Is B spouse of any of A's parents?
+    for (const p of parentsA) {
+      if (getSpouses(p).includes(bId)) {
+        if (genB === 'MALE') return RelationshipType.FATHER;
+        if (genB === 'FEMALE') return RelationshipType.MOTHER;
+        return RelationshipType.PARENT;
+      }
+    }
+
+    // 5. Parent-Child transitivity through Siblings:
+    // If A's sibling S has B as parent -> B is parent of A!
+    const sibsA = Array.from(getFullSiblingGroup(aId));
+    for (const s of sibsA) {
+      if (s === aId) continue;
+      if (getParents(s).includes(bId)) {
+        if (genB === 'MALE') return RelationshipType.FATHER;
+        if (genB === 'FEMALE') return RelationshipType.MOTHER;
+        return RelationshipType.PARENT;
+      }
+    }
+
+    // 6. Is B child of A?
+    if (childrenA.includes(bId)) {
+      if (genB === 'MALE') return RelationshipType.SON;
+      if (genB === 'FEMALE') return RelationshipType.DAUGHTER;
+      return RelationshipType.CHILD;
+    }
+
+    // 7. Is B child of A's spouse?
+    for (const sp of spousesA) {
+      if (getChildren(sp).includes(bId)) {
+        if (genB === 'MALE') return RelationshipType.SON;
+        if (genB === 'FEMALE') return RelationshipType.DAUGHTER;
+        return RelationshipType.CHILD;
+      }
+    }
+
+    // 8. If B is sibling of any of A's children -> B is child of A!
+    for (const ch of childrenA) {
+      if (getFullSiblingGroup(ch).has(bId)) {
+        if (genB === 'MALE') return RelationshipType.SON;
+        if (genB === 'FEMALE') return RelationshipType.DAUGHTER;
+        return RelationshipType.CHILD;
+      }
+    }
+
+    // 9. Sibling Transitivity:
+    // If A and B are in the same sibling group (directly or transitively connected via brother/sister/sibling)
+    if (getFullSiblingGroup(aId).has(bId)) {
+      if (genB === 'MALE') return RelationshipType.BROTHER;
+      if (genB === 'FEMALE') return RelationshipType.SISTER;
+      return RelationshipType.SIBLING;
+    }
+
+    // 10. Do A and B share a parent? (Siblings)
+    const commonParents = parentsA.filter(p => parentsB.includes(p));
+    if (commonParents.length > 0) {
+      if (genB === 'MALE') return RelationshipType.BROTHER;
+      if (genB === 'FEMALE') return RelationshipType.SISTER;
+      return RelationshipType.SIBLING;
+    }
+
+    // 11. Half-siblings through parent's spouse
+    for (const p of parentsA) {
+      for (const sp of getSpouses(p)) {
+        if (getChildren(sp).includes(bId)) {
+          if (genB === 'MALE') return RelationshipType.BROTHER;
+          if (genB === 'FEMALE') return RelationshipType.SISTER;
+          return RelationshipType.SIBLING;
+        }
+      }
+    }
+
+    return RelationshipType.OTHER;
+  }
+
+  async interconnectFamilyCluster(tenantId: string, seedContactId: string): Promise<void> {
+    if (!seedContactId) return;
+
+    // 1. BFS to discover all connected contact IDs in this family network
+    const visited = new Set<string>([seedContactId]);
+    const queue = [seedContactId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      const rels = await this.prisma.contactRelationship.findMany({
+        where: {
+          OR: [
+            { primaryContactId: currentId },
+            { relatedContactId: currentId },
+          ],
+        },
+        select: { primaryContactId: true, relatedContactId: true },
+      });
+
+      for (const r of rels) {
+        if (!visited.has(r.primaryContactId)) {
+          visited.add(r.primaryContactId);
+          queue.push(r.primaryContactId);
+        }
+        if (!visited.has(r.relatedContactId)) {
+          visited.add(r.relatedContactId);
+          queue.push(r.relatedContactId);
+        }
+      }
+    }
+
+    if (visited.size <= 1) return;
+
+    const allClusterIds = Array.from(visited);
+
+    // 2. Fetch all members and all existing relationship edges between them
+    const [clusterContacts, clusterRels] = await Promise.all([
+      this.prisma.contact.findMany({
+        where: { id: { in: allClusterIds }, tenantId },
+        select: {
+          id: true,
+          gender: true,
+          firstName: true,
+          lastName: true,
+          tags: true,
+        },
+      }),
+      this.prisma.contactRelationship.findMany({
+        where: {
+          primaryContactId: { in: allClusterIds },
+          relatedContactId: { in: allClusterIds },
+        },
+      }),
+    ]);
+
+    const contactMap = new Map(clusterContacts.map(c => [c.id, c]));
+
+    // 3. For every pair of members (A, B) in the cluster, check if direct edge exists or needs updating
+    for (let i = 0; i < allClusterIds.length; i++) {
+      for (let j = 0; j < allClusterIds.length; j++) {
+        if (i === j) continue;
+        const idA = allClusterIds[i];
+        const idB = allClusterIds[j];
+        const memberA = contactMap.get(idA);
+        const memberB = contactMap.get(idB);
+        if (!memberA || !memberB) continue;
+
+        // Auto-heal missing gender on members in DB
+        const genA = this.resolveMemberGender(memberA, clusterContacts, clusterRels);
+        const genB = this.resolveMemberGender(memberB, clusterContacts, clusterRels);
+        if (!memberA.gender && genA) {
+          memberA.gender = genA;
+          await this.prisma.contact.update({ where: { id: idA }, data: { gender: genA as any } }).catch(() => {});
+        }
+        if (!memberB.gender && genB) {
+          memberB.gender = genB;
+          await this.prisma.contact.update({ where: { id: idB }, data: { gender: genB as any } }).catch(() => {});
+        }
+
+        const directEdge = clusterRels.find(
+          r => r.primaryContactId === idA && r.relatedContactId === idB,
+        );
+
+        const deducedType = this.deduceRelationship(memberA, memberB, clusterContacts, clusterRels);
+        const inverseType = this.getInverseRelationshipType(deducedType, genA, genB);
+
+        // If no edge exists OR edge is generic/incorrect (e.g. OTHER or SIBLING when specific BROTHER/SISTER is known)
+        const needsUpdate = !directEdge ||
+          (directEdge.relationshipType === RelationshipType.OTHER && deducedType !== RelationshipType.OTHER) ||
+          (directEdge.relationshipType === RelationshipType.SIBLING && (deducedType === RelationshipType.BROTHER || deducedType === RelationshipType.SISTER)) ||
+          (directEdge.relationshipType === RelationshipType.PARENT && (deducedType === RelationshipType.FATHER || deducedType === RelationshipType.MOTHER)) ||
+          (directEdge.relationshipType === RelationshipType.CHILD && (deducedType === RelationshipType.SON || deducedType === RelationshipType.DAUGHTER));
+
+        if (needsUpdate && deducedType !== RelationshipType.OTHER) {
+          try {
+            await this.prisma.contactRelationship.upsert({
+              where: {
+                primaryContactId_relatedContactId: {
+                  primaryContactId: idA,
+                  relatedContactId: idB,
+                },
+              },
+              update: { relationshipType: deducedType },
+              create: {
+                primaryContactId: idA,
+                relatedContactId: idB,
+                relationshipType: deducedType,
+              },
+            });
+
+            // Also ensure reverse edge exists
+            await this.prisma.contactRelationship.upsert({
+              where: {
+                primaryContactId_relatedContactId: {
+                  primaryContactId: idB,
+                  relatedContactId: idA,
+                },
+              },
+              update: { relationshipType: inverseType },
+              create: {
+                primaryContactId: idB,
+                relatedContactId: idA,
+                relationshipType: inverseType,
+              },
+            });
+
+            // Keep local cache updated for subsequent pairwise deductions
+            const existingFwd = clusterRels.find(r => r.primaryContactId === idA && r.relatedContactId === idB);
+            if (existingFwd) {
+              existingFwd.relationshipType = deducedType;
+            } else {
+              clusterRels.push({
+                id: `synced_${idA}_${idB}`,
+                primaryContactId: idA,
+                relatedContactId: idB,
+                relationshipType: deducedType,
+                createdAt: new Date(),
+              } as any);
+            }
+
+            const existingRev = clusterRels.find(r => r.primaryContactId === idB && r.relatedContactId === idA);
+            if (existingRev) {
+              existingRev.relationshipType = inverseType;
+            } else {
+              clusterRels.push({
+                id: `synced_${idB}_${idA}`,
+                primaryContactId: idB,
+                relatedContactId: idA,
+                relationshipType: inverseType,
+                createdAt: new Date(),
+              } as any);
+            }
+          } catch (e: any) {
+            // Ignore unique constraint race conditions
+          }
+        }
+      }
+    }
+  }
+
+  async resolveFullFamilyRelationships(tenantId: string, contact: any) {
+    if (!contact || !contact.id) return contact?.relationships || [];
+
+    // First auto-heal and persist all interconnected cluster edges
+    try {
+      await this.interconnectFamilyCluster(tenantId, contact.id);
+    } catch (err: any) {
+      // Continue even if cluster interconnection encounters an issue
+    }
+
+    // Now reload all direct relationships from DB
+    const freshRelationships = await this.prisma.contactRelationship.findMany({
+      where: { primaryContactId: contact.id },
+      include: {
+        relatedContact: {
+          select: {
+            id: true,
+            contactId: true,
+            firstName: true,
+            middleName: true,
+            lastName: true,
+            phone: true,
+            alternatePhone: true,
+            dateOfBirth: true,
+            gender: true,
+            maritalStatus: true,
+            education: true,
+            weddingAnniversaryDate: true,
+            height: true,
+            weight: true,
+            medicalHistory: true,
+            declaredMedicalHistory: true,
+            notDeclaredMedicalHistory: true,
+            medicalHistoryDetails: true,
+            surgeryDetails: true,
+            prescriptionDetails: true,
+            avatarUrl: true,
+            tags: true,
+            notes: true,
+            occupations: true,
+            addresses: true,
+            assignedEmployeeId: true,
+            assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
+          },
+        },
+      },
+    });
+
+    return freshRelationships;
+  }
+
   async removeBidirectionalRelationship(primaryContactId: string, relationshipId: string, tenantId: string) {
     await this.prisma.contact.findFirstOrThrow({ where: { id: primaryContactId, tenantId } });
+
+    let pId: string | undefined;
+    let rId: string | undefined;
 
     const existing = await this.prisma.contactRelationship.findUnique({
       where: { id: relationshipId },
     });
 
-    if (!existing) return;
+    if (existing) {
+      pId = existing.primaryContactId;
+      rId = existing.relatedContactId;
+    } else if (relationshipId && relationshipId.startsWith('cluster_')) {
+      const parts = relationshipId.split('_');
+      pId = parts[1];
+      rId = parts[2];
+    } else if (relationshipId && /^[0-9a-fA-F]{24}$/.test(relationshipId)) {
+      pId = primaryContactId;
+      rId = relationshipId;
+    }
 
-    const { primaryContactId: pId, relatedContactId: rId } = existing;
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.contactRelationship.deleteMany({
-        where: {
-          primaryContactId: pId,
-          relatedContactId: rId,
-        },
+    if (pId && rId) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.contactRelationship.deleteMany({
+          where: {
+            OR: [
+              { primaryContactId: pId, relatedContactId: rId },
+              { primaryContactId: rId, relatedContactId: pId },
+            ],
+          },
+        });
       });
-
-      await tx.contactRelationship.deleteMany({
-        where: {
-          primaryContactId: rId,
-          relatedContactId: pId,
-        },
-      });
-    });
+    }
   }
 
   async addRelationship(primaryContactId: string, tenantId: string, dto: CreateRelationshipDto) {
