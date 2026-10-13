@@ -50,19 +50,32 @@ async function bootstrap() {
     frontendUrl,
     'https://insumitr.exportshub.in',
     'https://www.insumitr.exportshub.in',
-    'https://insumitr.exportshub.in/',
-    'https://www.insumitr.exportshub.in/',
+    'https://swara.exportshub.in',
+    'https://www.swara.exportshub.in',
     'https://swara.exportshub.in/',
-     'https://swara.exportshub.in',
-    'https://www.swara.exportshub.in/',
     'https://insumitra-testing.onrender.com',
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
-  ].filter((v, i, a) => v && a.indexOf(v) === i); // deduplicate & remove falsy
+  ].filter(Boolean).map(url => url.replace(/\/+$/, ''));
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      const isAllowed =
+        allowedOrigins.includes(normalizedOrigin) ||
+        /^https?:\/\/([a-zA-Z0-9-]+\.)?exportshub\.in$/.test(normalizedOrigin) ||
+        /^https?:\/\/([a-zA-Z0-9-]+\.)?onrender\.com$/.test(normalizedOrigin) ||
+        /^https?:\/\/localhost(:\d+)?$/.test(normalizedOrigin);
+
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
