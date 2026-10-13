@@ -50,6 +50,8 @@ async function bootstrap() {
     frontendUrl,
     'https://insumitr.exportshub.in',
     'https://www.insumitr.exportshub.in',
+    'https://swara.exportshub.in',
+    'https://www.swara.exportshub.in',
     'https://insumitr.exportshub.in/',
     'https://www.insumitr.exportshub.in/',
     'https://insumitra-testing.onrender.com',
