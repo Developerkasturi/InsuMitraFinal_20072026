@@ -407,6 +407,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
   const [phcInsuredPerson, setPhcInsuredPerson] = useState('');
   const [isManualPhcPerson, setIsManualPhcPerson] = useState(false);
   const [phcAmount, setPhcAmount] = useState('');
+  const [phcAmountError, setPhcAmountError] = useState('');
   const [phcStatus, setPhcStatus] = useState('PENDING');
   const [phcStage, setPhcStage] = useState('TO_CONTACT');
   const [phcClaimSettled, setPhcClaimSettled] = useState(false);
@@ -551,6 +552,14 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (phcRequired && !phcAmount.trim()) {
+      setPhcAmountError('PHC Amount is required');
+      setActiveTab('phcDetails');
+      toast.error('PHC Amount is required');
+      return;
+    }
+    setPhcAmountError('');
+
     const finalContactId = selectedContactId || contactId || policyToEdit?.contactId;
     if (!finalContactId) {
       toast.error('Target Contact / Client Name is required');
@@ -728,6 +737,7 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
     <Modal
       open={open}
       onClose={onClose}
+      closeOnEscapeAndBackdrop={false}
       title={policyToEdit ? (isViewOnly ? 'Policy Details' : 'Edit Policy') : 'Add New Policy'}
       subtitle={contactName ? (policyToEdit ? (isViewOnly ? `Policy details for ${contactName}` : `Update policy profile for ${contactName}`) : `Attach policy profile for ${contactName}`) : (policyToEdit ? (isViewOnly ? 'View policy details matching client standards.' : 'Update policy details matching client standards.') : 'Enter policy details matching client standards.')}
       size="2xl"
@@ -1059,15 +1069,15 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
-                    {/* Insured Person */}
+                    {/* Proposer Name */}
                     <div>
                       <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                        Insured Person
+                        Proposer Name
                       </label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1 font-bold text-slate-800"
-                        placeholder="e.g. Self / Name of Insured Person"
+                        placeholder="Enter proposer name"
                         value={insuredPerson}
                         onChange={(e) => setInsuredPerson(e.target.value)}
                       />
@@ -1142,15 +1152,15 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                       />
                     </div>
 
-                    {/* Insured Person */}
+                    {/* Proposer Name */}
                     <div>
                       <label className="label text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">
-                        Insured Person
+                        Proposer Name
                       </label>
                       <input
                         type="text"
                         className="input text-xs w-full mt-1 font-bold text-slate-800"
-                        placeholder="e.g. Self / Name of Insured Person"
+                        placeholder="Enter proposer name"
                         value={insuredPerson}
                         onChange={(e) => setInsuredPerson(e.target.value)}
                       />
@@ -1965,7 +1975,10 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                   <input
                     type="checkbox"
                     checked={phcRequired}
-                    onChange={(e) => setPhcRequired(e.target.checked)}
+                    onChange={(e) => {
+                      setPhcRequired(e.target.checked);
+                      if (!e.target.checked) setPhcAmountError('');
+                    }}
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-xs font-bold text-slate-700">Preventive Health Checkup Required</span>
@@ -2013,13 +2026,26 @@ export default function CreatePolicyModal({ open, onClose, contactId, contactNam
                     </div>
                     <div>
                       <label className="label text-[10px] font-bold text-slate-500">PHC Amount (₹)</label>
+                      {phcRequired && <span className="text-red-600 ml-1">*</span>}
                       <input
                         type="number"
-                        className="input text-xs w-full mt-0.5"
+                        min="0"
+                        step="0.01"
+                        aria-invalid={!!phcAmountError}
+                        aria-describedby={phcAmountError ? 'phc-amount-error' : undefined}
+                        className={`input text-xs w-full mt-0.5 ${phcAmountError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                         placeholder="e.g. 2500"
                         value={phcAmount}
-                        onChange={(e) => setPhcAmount(e.target.value)}
+                        onChange={(e) => {
+                          setPhcAmount(e.target.value);
+                          if (e.target.value.trim()) setPhcAmountError('');
+                        }}
                       />
+                      {phcAmountError && (
+                        <p id="phc-amount-error" className="mt-1 text-[10px] font-semibold text-red-600">
+                          {phcAmountError}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="label text-[10px] font-bold text-slate-500 mb-0.5 block">Status</label>

@@ -1,9 +1,13 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { claimsService, documentsService } from '@api/index';
-import { ArrowLeft, Upload, FileText, Trash2, X, Plus, DollarSign, MessageCircle, Download, Eye, Building2, MapPin } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Trash2, Plus, DollarSign, MessageCircle, Building2, MapPin, Shield, CreditCard } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import { useState } from 'react';
+import DocumentUploadModal, { DocumentUploadMeta } from '@comps/common/DocumentUploadModal';
+import DocumentsTable from '@comps/common/DocumentsTable';
+import clsx from 'clsx';
+import ClaimPolicyDetailsTab from './components/ClaimPolicyDetailsTab';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useLookupStore } from '@store/lookup.store';
@@ -46,15 +50,13 @@ export default function ClaimDetail() {
   const employees = useLookupStore(s => s.employees);
 
   const [uploadModal, setUploadModal] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadTag, setUploadTag] = useState('CLAIM');
-  const [uploading, setUploading] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [expenseModal, setExpenseModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [approvedAmount, setApprovedAmount] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [deleteDocTarget, setDeleteDocTarget] = useState<any | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'claim' | 'policy' | 'hospital' | 'expenses'>('claim');
 
   const { data: claim, isLoading } = useQuery({
     queryKey: ['claim', id],
@@ -96,26 +98,25 @@ export default function ClaimDetail() {
     onError: () => toast.error('Failed to remove document'),
   });
 
-  const handleUpload = async () => {
-    if (!uploadFile) return;
-    setUploading(true);
+  const handleUpload = async (file: File, meta: DocumentUploadMeta) => {
     try {
-      await documentsService.upload(uploadFile, { claimId: id!, tag: uploadTag });
-      refetchDocs();
+      await documentsService.upload(file, { claimId: id!, ...meta });
+      await refetchDocs();
       setUploadModal(false);
-      setUploadFile(null);
       toast.success('Document uploaded');
+      return true;
     } catch {
       toast.error('Upload failed');
-    } finally {
-      setUploading(false);
+      return false;
     }
   };
 
   const viewDoc = async (docId: string) => {
     try {
       const res = await documentsService.url(docId);
-      window.open(res.url, '_blank');
+      const url = res?.url || res?.data?.url || res?.data?.data?.url;
+      if (!url) throw new Error('No document URL was returned');
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
       toast.error('Could not load document URL');
     }
@@ -144,7 +145,13 @@ export default function ClaimDetail() {
   const cl = claim?.data ?? claim;
   if (!cl) return <div className="text-gray-500 p-8">Claim not found.</div>;
 
-  const docList: any[] = documents?.data ?? documents ?? [];
+  const docList: any[] = Array.isArray(documents?.data?.data)
+    ? documents.data.data
+    : Array.isArray(documents?.data)
+      ? documents.data
+      : Array.isArray(documents)
+        ? documents
+        : [];
   const notesData = getClaimNotesData(cl.notes);
   const displayStatus = cl.status;
 
@@ -191,6 +198,44 @@ export default function ClaimDetail() {
         <button onClick={openStatusModal} className="btn-primary">Update Status</button>
       </div>
 
+      {/* Sub-navigation tabs */}
+      <div className="flex bg-slate-200/60 p-1.5 rounded-2xl gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
+        {[
+          { id: 'claim', label: 'Claim Details', icon: FileText },
+          { id: 'policy', label: 'Policy Details', icon: Shield },
+          { id: 'hospital', label: 'Hospital & Medical', icon: Building2 },
+          { id: 'expenses', label: 'Expenses & Documents', icon: CreditCard },
+        ].map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveDetailTab(t.id as any)}
+              className={clsx(
+                'px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-2',
+                activeDetailTab === t.id
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+              )}
+            >
+              <Icon size={14} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeDetailTab === 'policy' && (
+        <ClaimPolicyDetailsTab
+          policy={cl.policy}
+          policyId={cl.policy?.id || cl.policyId}
+          contact={cl.contact}
+          onGoToClaimTab={() => setActiveDetailTab('claim')}
+        />
+      )}
+
+      {activeDetailTab !== 'policy' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Claim Details */}
         <div className="lg:col-span-1 space-y-4">
@@ -229,11 +274,21 @@ export default function ClaimDetail() {
               </Link>
             )}
             {cl.policy && (
-              <Link to={`/policies/${cl.policy.id ?? cl.policyId}`}
-                className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-55 text-sm">
-                <span className="font-medium text-gray-900">{cl.policy.policyNumber}</span>
-                <span className="text-primary-600 text-xs">View Policy →</span>
-              </Link>
+              <div className="space-y-1.5 pt-1">
+                <Link to={`/policies/${cl.policy.id ?? cl.policyId}`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-55 text-sm">
+                  <span className="font-medium text-gray-900">{cl.policy.policyNumber}</span>
+                  <span className="text-primary-600 text-xs">View Policy Page →</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('policy')}
+                  className="w-full py-1.5 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5"><Shield size={12} /> Open Policy Details Tab</span>
+                  <span>→</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -399,99 +454,25 @@ export default function ClaimDetail() {
               <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5">
                 <FileText size={14} /> Documents
               </h3>
-              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1">
-                <Upload size={12} /> Upload
+              <button type="button" onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1">
+                <Upload size={12} /> Upload Document
               </button>
             </div>
-            {docList.length === 0 ? (
-              <p className="text-sm text-gray-400">No documents uploaded.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                      <th className="py-2.5 px-3">File Name</th>
-                      <th className="py-2.5 px-3">Document Title</th>
-                      <th className="py-2.5 px-3">Description</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {docList.map((doc: any) => {
-                      const fileName = doc.name || doc.fileName || doc.originalName || 'Document';
-                      const docTitle = doc.title || fileName;
-                      const docTypeLabel = doc.type || doc.tag || 'Claim Doc';
-                      const desc = doc.description || doc.comment || '-';
-                      const phone = cl.proposerPhone || cl.patientPhone || cl.contact?.phone || '';
-                      const waText = `Document Title: ${docTitle}\nType: ${docTypeLabel}`;
-                      const waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(waText)}`;
-
-                      return (
-                        <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 font-semibold text-slate-800">
-                            <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
-                              <FileText size={15} className="text-blue-600 shrink-0" />
-                              <span className="truncate" title={fileName}>{fileName}</span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 font-medium text-slate-700">
-                            <div>
-                              <div className="font-bold text-slate-900">{docTitle}</div>
-                              <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
-                                {docTypeLabel}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 max-w-[220px]">
-                            <p className="truncate text-xs" title={desc}>{desc}</p>
-                          </td>
-                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <a
-                                href={waUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors cursor-pointer"
-                                title="Send on WhatsApp"
-                              >
-                                <MessageCircle size={14} />
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => viewDoc(doc.id)}
-                                className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer"
-                                title="Preview Document"
-                              >
-                                <Eye size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => viewDoc(doc.id)}
-                                className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
-                                title="Download Document"
-                              >
-                                <Download size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteDocTarget(doc)}
-                                className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
-                                title="Remove Document"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DocumentsTable
+              documents={docList}
+              onView={doc => viewDoc(doc.id)}
+              onDelete={setDeleteDocTarget}
+              onShare={async doc => {
+                const phone = cl.proposerPhone || cl.patientPhone || cl.contact?.phone || '';
+                const message = `Hi, here is the document: ${doc.name || doc.originalName || 'Document'}`;
+                const phoneParam = phone ? `phone=${encodeURIComponent(phone)}&` : '';
+                window.open(`https://api.whatsapp.com/send?${phoneParam}text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+              }}
+            />
           </div>
         </div>
       </div>
+      )}
 
       {/* Record Expense Modal */}
       <Modal open={expenseModal} onClose={() => setExpenseModal(false)} title="Record Claim Expense">
@@ -567,38 +548,21 @@ export default function ClaimDetail() {
         </div>
       </Modal>
 
-      {/* Upload Document Modal */}
-      <Modal open={uploadModal} onClose={() => { setUploadModal(false); setUploadFile(null); }} title="Upload Document">
-        <div className="space-y-4">
-          <div>
-            <label className="label">Document Tag</label>
-            <select className="input" value={uploadTag} onChange={e => setUploadTag(e.target.value)}>
-              <option value="CLAIM">Claim Document</option>
-              <option value="DISCHARGE_VOUCHER">Discharge Voucher</option>
-              <option value="MEDICAL_REPORT">Medical Report</option>
-              <option value="ID_PROOF">ID Proof</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Select File</label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="input" onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
-          </div>
-          {uploadFile && (
-            <div className="flex flex-wrap items-center gap-2 text-sm bg-gray-50 rounded p-2">
-              <FileText size={14} className="text-gray-400" />
-              <span className="truncate">{uploadFile.name}</span>
-              <button onClick={() => setUploadFile(null)} className="ml-auto text-red-400"><X size={13} /></button>
-            </div>
-          )}
-          <div className="flex flex-wrap justify-end gap-2">
-            <button className="btn-secondary" onClick={() => { setUploadModal(false); setUploadFile(null); }}>Cancel</button>
-            <button className="btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
-              {uploading ? 'Uploading…' : 'Upload'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <DocumentUploadModal
+        open={uploadModal}
+        onClose={() => setUploadModal(false)}
+        onUpload={handleUpload}
+        title="Upload Claim Document"
+        subtitle="Attach supporting documents to this claim."
+        defaultType="CLAIM"
+        types={[
+          { value: 'CLAIM', label: 'Claim Document' },
+          { value: 'DISCHARGE_VOUCHER', label: 'Discharge Voucher' },
+          { value: 'MEDICAL_REPORT', label: 'Medical Report' },
+          { value: 'ID_PROOF', label: 'ID Proof' },
+          { value: 'OTHER', label: 'Other' },
+        ]}
+      />
 
       <Modal open={!!deleteDocTarget} onClose={() => setDeleteDocTarget(null)} title="Delete Document" size="sm">
         <p className="text-sm text-gray-600 mb-4">

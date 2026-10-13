@@ -1,14 +1,13 @@
 import axios from 'axios';
 import { useSuperAdminStore } from '@store/superadmin.store';
-
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
+import { BASE_URL, applyProxyIfNeeded } from './api';
 
 export const superApi = axios.create({ baseURL: BASE_URL });
 
 superApi.interceptors.request.use((config) => {
   const token = useSuperAdminStore.getState().accessToken;
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  return applyProxyIfNeeded(config);
 });
 
 superApi.interceptors.response.use(

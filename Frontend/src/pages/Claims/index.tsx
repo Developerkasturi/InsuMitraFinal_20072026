@@ -3,13 +3,17 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, X, User, FileText, Pencil, Trash2, Upload, Search, Filter, Download,
   MessageCircle, Calendar, Shield, Heart, MapPin, Briefcase, UserCircle2,
-  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List, Eye
+  FileCheck2, ShieldCheck, Clock, ChevronDown, LayoutGrid, List, Eye, History
 } from 'lucide-react';
 import { useClaims, useCreateClaim, useUpdateClaimStatus, useDeleteClaim } from '@hooks/useClaims';
 import { usePolicies } from '@hooks/usePolicies';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, claimsService, documentsService } from '@api/index';
 import DataTable, { Column } from '@comps/common/DataTable';
+import ActivityTimeline from '@comps/common/ActivityTimeline';
+import ImportFormatModal from '@comps/common/ImportFormatModal';
+import * as XLSX from 'xlsx';
+import ClaimPolicyDetailsTab from './components/ClaimPolicyDetailsTab';
 
 export function getPolicyYearString(p: any): string {
   if (!p) return '';
@@ -192,7 +196,7 @@ export function getClaimNotesData(notesField?: string | null) {
     diagnosis: '', hospital: '', hospitalAddress: '', patientName: '', deductionsNotes: '', admissionAt: '', dischargeAt: '', notes: '', statusOverride: '', amtHospital: 0, amtMedicine: 0, amtLab: 0, amtPreHosp: 0, amtPostHosp: 0, amtOthers: 0, subClaimNo: '', uiClaimStatus: '', comment: '', insuranceCompanyCategory: '', insuranceCompany: '', insuranceProductName: '', agentName: '',
     deathAdmissionDate: '', causeOfDeath: '', dateOfOccurance: '', dateOfDeath: '', wasInComa: '', deathSumInsured: '', deathTotalClaimedAmount: '', deathComment: '', nominees: '[]',
     hospitalName: '', hospitalState: '', hospitalCity: '', hospitalPincode: '', hospitalContactNo: '', hospitalEmail: '', hospitalRating: '', hospitalType: '', claimsPerson1Name: '', claimsPerson1Contact: '', claimsPerson2Name: '', claimsPerson2Contact: '', hospitalComment: '', hospitalDoctors: '[]',
-    diagnosisSimple: '', roomCategory: '', typeOfManagement: '', typeOfAdmission: '', isMedicoLegalCase: '', hospitalisationComment: '', amtAnesthesia: 0, billingComment: '',
+    diagnosisSimple: '', roomCategory: '', typeOfManagement: '', typeOfAdmission: '', isMedicoLegalCase: '', isFirLegalDocAvailable: '', hospitalisationComment: '', amtAnesthesia: 0, billingComment: '',
     amtFinalBill: 0, amtNonPayables: 0, amtCopay: 0, amtDeductible: 0, amtBalanceEMIs: 0, amtNcdRecovery: 0, amtExcessSumInsured: 0, amtExcessAilmentLimit: 0, amtHigherRoomRent: 0, amtReasonableCost: 0, amtOtherRecoveries: 0, amtPatientToPay: 0, amtExcessAgreedPackage: 0, amtNetworkDiscount: 0, amtNotCollected: 0, amtPayableToInsured: 0, approvalComment: '', fileUploadComment: ''
   };
   if (!notesField) return defaultNotes;
@@ -251,6 +255,7 @@ export function getClaimNotesData(notesField?: string | null) {
         typeOfManagement: parsed.typeOfManagement || '',
         typeOfAdmission: parsed.typeOfAdmission || '',
         isMedicoLegalCase: parsed.isMedicoLegalCase || '',
+        isFirLegalDocAvailable: parsed.isFirLegalDocAvailable || '',
         hospitalisationComment: parsed.hospitalisationComment || '',
         amtAnesthesia: Number(parsed.amtAnesthesia || 0),
         billingComment: parsed.billingComment || '',
@@ -284,13 +289,21 @@ export function serializeNotes(data: any) {
   return JSON.stringify(data);
 }
 
+const getTodayDateInputValue = () => {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+};
+
 export const claimFormSchema = z.object({
   policyId: z.string().min(1, 'Please select a Policy from Claim Details'),
   contactId: z.string().min(1, 'Please select a Customer / Proposer from Claim Details'),
   claimNumber: z.string().min(1, 'Claim Number is required in Claim Details'),
   claimType: z.string().min(1, 'Please select a Claim Type'),
   claimAmount: z.coerce.number().min(0),
-  intimatedAt: z.string().min(1, 'Intimation Date is required'),
+  intimatedAt: z.string()
+    .min(1, 'Intimation Date is required')
+    .refine(value => !value || value <= getTodayDateInputValue(), 'Intimation Date cannot be in the future'),
   assignedEmployeeId: z.string().optional().or(z.literal('')),
   diagnosis: z.string().optional(),
   hospital: z.string().optional(),
@@ -326,26 +339,21 @@ export const claimFormSchema = z.object({
   hospitalState: z.string().optional(),
   hospitalCity: z.string().optional(),
   hospitalPincode: z.string().optional(),
-  hospitalContactNo: z.string().refine((val) => !val || /^\d{10}$/.test(val.replace(/\D/g, '')), {
-    message: 'Hospital contact number must be exactly 10 digits',
-  }).optional(),
+  hospitalContactNo: z.string().optional(),
   hospitalEmail: z.string().optional(),
   hospitalRating: z.string().optional(),
   hospitalType: z.string().optional(),
   claimsPerson1Name: z.string().optional(),
-  claimsPerson1Contact: z.string().refine((val) => !val || /^\d{10}$/.test(val.replace(/\D/g, '')), {
-    message: 'Person 1 contact number must be exactly 10 digits',
-  }).optional(),
+  claimsPerson1Contact: z.string().optional(),
   claimsPerson2Name: z.string().optional(),
-  claimsPerson2Contact: z.string().refine((val) => !val || /^\d{10}$/.test(val.replace(/\D/g, '')), {
-    message: 'Person 2 contact number must be exactly 10 digits',
-  }).optional(),
+  claimsPerson2Contact: z.string().optional(),
   hospitalComment: z.string().optional(),
   diagnosisSimple: z.string().optional(),
   roomCategory: z.string().optional(),
   typeOfManagement: z.string().optional(),
   typeOfAdmission: z.string().optional(),
   isMedicoLegalCase: z.string().optional(),
+  isFirLegalDocAvailable: z.string().optional(),
   hospitalisationComment: z.string().optional(),
   amtAnesthesia: z.coerce.number().default(0),
   billingComment: z.string().optional(),
@@ -416,6 +424,16 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [rejectionReason, setRejectionReason] = useState((initial as any).rejectionReason ?? '');
   const [assignedEmployeeId, setAssignedEmployeeId] = useState((initial as any).assignedEmployeeId ?? '');
   const [activeClaimTab, setActiveClaimTab] = useState('Claim Details');
+  const claimHistoryContactId = initial.contact?.id || (initial as any).contactId;
+  const {
+    data: claimHistoryRes,
+    isLoading: claimHistoryLoading,
+    isError: claimHistoryError,
+  } = useQuery({
+    queryKey: ['contact-activity', claimHistoryContactId],
+    queryFn: () => contactsService.activity(claimHistoryContactId!, { page: 1, limit: 100 }),
+    enabled: !!claimHistoryContactId && activeClaimTab === 'History',
+  });
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     proposer: false,
     claim: false,
@@ -540,6 +558,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
   const [typeOfManagement, setTypeOfManagement] = useState(notesData.typeOfManagement || '');
   const [typeOfAdmission, setTypeOfAdmission] = useState(notesData.typeOfAdmission || '');
   const [isMedicoLegalCase, setIsMedicoLegalCase] = useState(notesData.isMedicoLegalCase || '');
+  const [isFirLegalDocAvailable, setIsFirLegalDocAvailable] = useState(notesData.isFirLegalDocAvailable || '');
   const [hospitalisationComment, setHospitalisationComment] = useState(notesData.hospitalisationComment || '');
 
   // Billing Details (Anesthesia and Comment)
@@ -657,18 +676,6 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         toast.success('Attached documents uploaded');
       }
 
-      if (hospitalContactNo && !/^\d{10}$/.test(hospitalContactNo.replace(/\D/g, ''))) {
-        toast.error('Hospital Contact No must be exactly 10 digits');
-        return;
-      }
-      if (claimsPerson1Contact && !/^\d{10}$/.test(claimsPerson1Contact.replace(/\D/g, ''))) {
-        toast.error('Claims Person 1 Contact must be exactly 10 digits');
-        return;
-      }
-      if (claimsPerson2Contact && !/^\d{10}$/.test(claimsPerson2Contact.replace(/\D/g, ''))) {
-        toast.error('Claims Person 2 Contact must be exactly 10 digits');
-        return;
-      }
       const invalidNom = nominees.find(n => n.phone && !/^\d{10}$/.test(n.phone.replace(/\D/g, '')));
       if (invalidNom) {
         toast.error(`Nominee ${invalidNom.name || ''} contact number must be exactly 10 digits`);
@@ -719,7 +726,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
           hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name,
           claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
           hospitalDoctors: JSON.stringify(doctors),
-          diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
+          diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, isFirLegalDocAvailable, hospitalisationComment, amtAnesthesia, billingComment,
           amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, fileUploadComment
 
         })
@@ -751,7 +758,7 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
       <div className="space-y-3">
       {/* Modal sub-navigation tabs */}
       <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
-        {['Claim Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads'].map(tab => (
+        {['Claim Details', 'Policy Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads', 'History'].map(tab => (
           <button
             key={tab}
             type="button"
@@ -772,80 +779,82 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         {activeClaimTab === 'Claim Details' && (
           <div className="space-y-4 animate-fadeIn">
             {/* Proposer Details Collapsible */}
-            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+            <div className="border border-slate-200/90 rounded-xl bg-white shadow-2xs overflow-hidden">
               <div
-                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                className="min-h-8 px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                 onClick={() => toggleCollapse('proposer')}
               >
-                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">1</span>
+                <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center">1</span>
                   Proposer & Policy Details
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400 font-semibold">Policy Data</span>
-                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['proposer'] ? 'rotate-180' : ''}`} />
+                  <span className="text-[9px] text-slate-500 font-semibold">Policy Data</span>
+                  <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['proposer'] ? 'rotate-180' : ''}`} />
                 </div>
               </div>
               {!collapsedSections['proposer'] && (
-                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                   <div>
-                    <label className="label text-slate-700 font-bold">Insurance Company Category</label>
-                    <input value={insuranceCompanyCategory} onChange={e => setInsuranceCompanyCategory(e.target.value)} placeholder="e.g. Health" className="input mt-1 bg-white text-slate-800" />
+                    <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Insurance Company Category</label>
+                    <input value={insuranceCompanyCategory} onChange={e => setInsuranceCompanyCategory(e.target.value)} placeholder="e.g. Health" className="input mt-1 h-8 bg-slate-50/80 text-[11px] text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-slate-700 font-bold">Insurance Company</label>
-                    <input value={insuranceCompany} onChange={e => setInsuranceCompany(e.target.value)} placeholder="e.g. Star Health" className="input mt-1 bg-white text-slate-800" />
+                    <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Insurance Company</label>
+                    <input value={insuranceCompany} onChange={e => setInsuranceCompany(e.target.value)} placeholder="e.g. Star Health" className="input mt-1 h-8 bg-slate-50/80 text-[11px] text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-slate-700 font-bold">Product Name</label>
-                    <input value={insuranceProductName} onChange={e => setInsuranceProductName(e.target.value)} placeholder="Product Name..." className="input mt-1 bg-white text-slate-800" />
+                    <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Product Name</label>
+                    <input value={insuranceProductName} onChange={e => setInsuranceProductName(e.target.value)} placeholder="Product Name..." className="input mt-1 h-8 bg-slate-50/80 text-[11px] text-slate-800" />
                   </div>
                   <div>
-                    <label className="label text-slate-700 font-bold">Agent Name</label>
-                    <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="Agent Name..." className="input mt-1 bg-white text-slate-800" />
+                    <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Agent Name</label>
+                    <input value={agentName} onChange={e => setAgentName(e.target.value)} placeholder="Agent Name..." className="input mt-1 h-8 bg-slate-50/80 text-[11px] text-slate-800" />
                   </div>
                   <div className="md:col-span-4">
-                    <label className="label text-slate-700 font-bold">Insured Person Name / Patient Name</label>
-                    <input value={patientName} onChange={e => setPatientName(e.target.value)} placeholder="Enter Insured Person Name / Patient Name..." className="input mt-1 bg-white text-slate-800" />
+                    <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Insured Person Name / Patient Name</label>
+                    <input value={patientName} onChange={e => setPatientName(e.target.value)} placeholder="Enter Insured Person Name / Patient Name..." className="input mt-1 h-8 bg-slate-50/80 text-[11px] text-slate-800" />
                   </div>
                 </div>
               )}
             </div>
 
             {/* Claim Details Collapsible */}
-            <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+            <div className="border border-slate-200/90 rounded-xl bg-white shadow-2xs overflow-hidden">
               <div
-                className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+                className="min-h-8 px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                 onClick={() => toggleCollapse('claim')}
               >
-                <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">2</span>
+                <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center">2</span>
                   Claim Details
                 </h4>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400 font-semibold">Diagnosis & Status</span>
-                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['claim'] ? 'rotate-180' : ''}`} />
+                  <span className="text-[9px] text-slate-500 font-semibold">Diagnosis & Status</span>
+                  <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['claim'] ? 'rotate-180' : ''}`} />
                 </div>
               </div>
               {!collapsedSections['claim'] && (
-                <div className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-2.5 space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         <div>
-          <label className="label">Claim Type</label>
+          <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Claim Type</label>
           <CustomSelect
+            className="input mt-1 h-8 text-[11px]"
             value={claimType}
             onChange={val => setClaimType(val)}
             options={CLAIM_TYPES_OPTIONS}
           />
         </div>
         <div>
-          <label className="label">Sub Claim No</label>
-          <input className="input" value={subClaimNo} onChange={e => setSubClaimNo(e.target.value)} placeholder="Optional" />
+          <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Sub Claim No</label>
+          <input className="input mt-1 h-8 text-[11px]" value={subClaimNo} onChange={e => setSubClaimNo(e.target.value)} placeholder="Optional" />
         </div>
         {user?.role !== 'EMPLOYEE' && (
           <div>
-            <label className="label">Assignee</label>
+            <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Assignee</label>
             <CustomSelect
+              className="input mt-1 h-8 text-[11px]"
               value={assignedEmployeeId}
               onChange={val => setAssignedEmployeeId(val)}
               placeholder="Unassigned"
@@ -861,14 +870,15 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <div>
-          <label className="label">Diagnosis</label>
-          <input className="input" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+          <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Diagnosis</label>
+          <input className="input mt-1 h-8 text-[11px]" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
         </div>
         <div>
-          <label className="label">Claim Status</label>
+          <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Claim Status</label>
           <CustomSelect
+            className="input mt-1 h-8 text-[11px]"
             value={uiClaimStatus}
             onChange={val => setUiClaimStatus(val)}
             placeholder="Select Status"
@@ -877,32 +887,32 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-2.5">
         <div>
-          <label className="label">Comment / Notes</label>
-          <textarea className="input" rows={1} value={comment} onChange={e => setComment(e.target.value)} />
+          <label className="label text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Comment / Notes</label>
+          <textarea className="input mt-1 text-[11px]" rows={1} value={comment} onChange={e => setComment(e.target.value)} />
         </div>
       </div>
                 </div>
               )}
             </div>
 
-        <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-3">
+        <div className="border border-slate-200/90 rounded-xl bg-white shadow-2xs overflow-hidden">
           <div
-            className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+            className="min-h-8 px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
             onClick={() => toggleCollapse('death')}
           >
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center shadow-2xs">3</span>
+            <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-black flex items-center justify-center">3</span>
               Incident &amp; Death Details <span className="text-[10px] lowercase text-slate-400 font-normal">(optional)</span>
             </h4>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400 font-semibold">Only for Death claims</span>
-              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['death'] ? 'rotate-180' : ''}`} />
+              <span className="text-[9px] text-slate-500 font-semibold">Only for Death claims</span>
+              <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['death'] ? 'rotate-180' : ''}`} />
             </div>
           </div>
           {!collapsedSections['death'] && (
-            <div className="p-4 bg-slate-50/40 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-2.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                       <div>
                         <label className="label text-gray-500">Date of Admission <br/><span className="text-[10px] font-normal">(In case of hosp.)</span></label>
                         <input
@@ -991,22 +1001,22 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
       </div>
 
         {/* Nominee Details Collapsible */}
-        <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden mt-4">
+        <div className="border border-slate-200/90 rounded-xl bg-white shadow-2xs overflow-hidden">
           <div
-            className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
+            className="min-h-8 px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
             onClick={() => toggleCollapse('nominee')}
           >
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-2xs">3</span>
+            <h4 className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-fuchsia-500 text-white text-[9px] font-black flex items-center justify-center">4</span>
               Nominee Details
             </h4>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400 font-semibold">Multiple allowed</span>
-              <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['nominee'] ? 'rotate-180' : ''}`} />
+              <span className="text-[9px] text-slate-500 font-semibold">Multiple allowed</span>
+              <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${collapsedSections['nominee'] ? 'rotate-180' : ''}`} />
             </div>
           </div>
           {!collapsedSections['nominee'] && (
-            <div className="p-4 space-y-4">
+            <div className="p-2.5 space-y-3">
               {nominees.map((nom, index) => (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end border-b border-gray-100 pb-4 mb-2">
                   <div>
@@ -1049,6 +1059,15 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
         </div>
       </div>
     )}
+
+      {activeClaimTab === 'Policy Details' && (
+        <ClaimPolicyDetailsTab
+          policy={(initial as any).policy}
+          policyId={(initial as any).policy?.id || (initial as any).policyId}
+          contact={(initial as any).contact}
+          onGoToClaimTab={() => setActiveClaimTab('Claim Details')}
+        />
+      )}
 
       {activeClaimTab === 'Hospital Details' && (
         <div className="space-y-4 animate-fadeIn">
@@ -1155,10 +1174,9 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     <input 
                       type="text" 
                       className="input mt-1 py-1 text-xs" 
-                      maxLength={10}
-                      placeholder="10 digits"
+                      placeholder="Enter contact number"
                       value={hospitalContactNo} 
-                      onChange={e => setHospitalContactNo(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                      onChange={e => setHospitalContactNo(e.target.value)} 
                     />
                   </div>
                   <div>
@@ -1320,10 +1338,9 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                       <input 
                         type="text" 
                         className="input mt-1 py-1 text-xs" 
-                        maxLength={10}
-                        placeholder="10 digits"
+                        placeholder="Enter contact number"
                         value={claimsPerson1Contact} 
-                        onChange={e => setClaimsPerson1Contact(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                        onChange={e => setClaimsPerson1Contact(e.target.value)} 
                       />
                     </div>
                     <div>
@@ -1335,10 +1352,9 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                       <input 
                         type="text" 
                         className="input mt-1 py-1 text-xs" 
-                        maxLength={10}
-                        placeholder="10 digits"
+                        placeholder="Enter contact number"
                         value={claimsPerson2Contact} 
-                        onChange={e => setClaimsPerson2Contact(e.target.value.replace(/\D/g, '').slice(0, 10))} 
+                        onChange={e => setClaimsPerson2Contact(e.target.value)} 
                       />
                     </div>
                     <div className="md:col-span-4">
@@ -1448,11 +1464,28 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                     <CustomSelect
                       className="input mt-1 py-1 text-xs"
                       value={isMedicoLegalCase}
-                      onChange={val => setIsMedicoLegalCase(val)}
+                      onChange={val => {
+                        setIsMedicoLegalCase(val);
+                        if (val !== 'Yes') {
+                          setIsFirLegalDocAvailable('');
+                        }
+                      }}
                       placeholder="Select Option"
                       options={['Yes', 'No']}
                     />
                   </div>
+                  {isMedicoLegalCase === 'Yes' && (
+                    <div>
+                      <label className="label text-[10px]">"FIR" / "Legal Doc" Available?</label>
+                      <CustomSelect
+                        className="input mt-1 py-1 text-xs"
+                        value={isFirLegalDocAvailable}
+                        onChange={val => setIsFirLegalDocAvailable(val)}
+                        placeholder="Select Option"
+                        options={['Yes', 'No']}
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="label text-[10px]">Comment</label>
                     <input type="text" className="input mt-1 py-1 text-xs" value={hospitalisationComment} onChange={e => setHospitalisationComment(e.target.value)} />
@@ -1829,7 +1862,14 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
                     <input
                       type="file"
-                      onChange={e => setDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                      onChange={e => setDocUploadFields(p => {
+                        const file = e.target.files?.[0] || null;
+                        return {
+                          ...p,
+                          file,
+                          title: file ? file.name.replace(/\.[^.]+$/, '') : '',
+                        };
+                      })}
                       className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
                     />
                   </div>
@@ -1877,6 +1917,36 @@ function ClaimEditForm({ initial, isPending, onSave, onCancel, employees }: {
               </div>
             </Modal>
           </div>
+        )}
+
+        {/* ════════════════ TAB 6: Claim History & Activity Log ════════════════ */}
+        {activeClaimTab === 'History' && (
+          <ActivityTimeline
+            events={[claimHistoryRes, (initial as any).contact?.activityLogs]}
+            fallbackEvents={[
+              ...((initial as any).createdAt ? [{
+                id: `claim-created-${initial.id}`,
+                entityType: 'Claim',
+                entityId: initial.id,
+                action: 'CREATE',
+                description: `Claim ${initial.claimNumber} created`,
+                createdAt: (initial as any).createdAt,
+              }] : []),
+              ...((initial as any).updatedAt && (initial as any).updatedAt !== (initial as any).createdAt ? [{
+                id: `claim-updated-${initial.id}`,
+                entityType: 'Claim',
+                entityId: initial.id,
+                action: 'UPDATE',
+                description: 'Claim details updated',
+                createdAt: (initial as any).updatedAt,
+              }] : []),
+            ]}
+            entityType="Claim"
+            entityId={initial.id}
+            isLoading={claimHistoryLoading}
+            isError={claimHistoryError}
+            subtitle="Latest activity for this claim."
+          />
         )}
   </div>
 
@@ -1944,6 +2014,7 @@ export default function Claims() {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importFormatOpen, setImportFormatOpen] = useState(false);
   const employees = useLookupStore(s => s.employees);
 
   // Fetch all claims for client side filtering matching reference app
@@ -1951,8 +2022,18 @@ export default function Claims() {
   const rawClaims = claimsRes?.data ?? [];
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('search') || searchParams.get('q') || '');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'In Progress' | 'Approved' | 'Rejected' | 'Settled'>('All');
+
+  useEffect(() => {
+    const q = searchParams.get('search') ?? searchParams.get('q');
+    if (q !== null && q !== undefined) {
+      setSearch(q);
+      setPage(1);
+    } else if (!searchParams.has('search') && !searchParams.has('q')) {
+      setSearch('');
+    }
+  }, [searchParams]);
 
   // Advanced Filters
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -2064,14 +2145,19 @@ export default function Claims() {
 
   // Unified Filtered Claims Selector
   const filteredClaims = useMemo(() => {
-    const sTerm = search.toLowerCase();
+    const sTerm = search.trim().toLowerCase();
+    const searchTokens = sTerm.split(/\s+/).filter(Boolean);
     return rawClaims.filter((c: any) => {
       const notes = getClaimNotesData(c.notes);
 
-      // 1. Text Search (Client Name or Claim Number)
-      const clientName = `${c.contact?.firstName || ''} ${c.contact?.lastName || ''}`.toLowerCase();
+      // 1. Text Search (Client Full Name, Patient Name, Claim Number, Phone)
+      const clientName = `${c.contact?.firstName || ''} ${c.contact?.lastName || ''}`.trim().toLowerCase();
+      const patientName = `${notes.patientName || c.patientName || ''}`.trim().toLowerCase();
       const claimNo = (c.claimNumber || '').toLowerCase();
-      if (search && !clientName.includes(sTerm) && !claimNo.includes(sTerm)) return false;
+      const phone = (c.contact?.phone || '').toLowerCase();
+      const matchesPersonName = [clientName, patientName]
+        .some(name => searchTokens.every(token => name.includes(token)));
+      if (sTerm && !matchesPersonName && !claimNo.includes(sTerm) && !phone.includes(sTerm)) return false;
 
       // 2. Status Filter (Analytics Top Bar)
       if (filterStatus !== 'All') {
@@ -2319,6 +2405,10 @@ export default function Claims() {
       return val !== undefined ? val : row[key];
     });
   }, [filteredClaims, sortKey, sortDir]);
+  const paginatedClaims = useMemo(
+    () => sortedClaims.slice((page - 1) * 20, page * 20),
+    [sortedClaims, page],
+  );
 
   const exportClaimsToExcel = () => {
     const headers = ['Claim Number', 'Client Name', 'Policy Number', 'Company', 'Claim Type', 'Hospital', 'Amount', 'Intimated At', 'Status'];
@@ -2737,7 +2827,7 @@ export default function Claims() {
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<Form>({
     resolver: zodResolver(activeSchema),
-    defaultValues: { claimType: 'Cashless', intimatedAt: new Date().toISOString().split('T')[0] },
+    defaultValues: { claimType: 'Cashless', intimatedAt: getTodayDateInputValue() },
   });
 
   useEffect(() => {
@@ -2924,7 +3014,7 @@ export default function Claims() {
         return;
       }
 
-      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName, deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment, hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment, diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment, amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, ...rest } = body;
+      const { diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes, assignedEmployeeId, amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers, subClaimNo, uiClaimStatus, comment, insuranceCompanyCategory, insuranceCompany, insuranceProductName, agentName, deathAdmissionDate, causeOfDeath, dateOfOccurance, dateOfDeath, wasInComa, deathSumInsured, deathTotalClaimedAmount, deathComment, hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment, diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, isFirLegalDocAvailable, hospitalisationComment, amtAnesthesia, billingComment, amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment, ...rest } = body;
       const notesJson = serializeNotes({
         diagnosis, hospital, hospitalAddress, patientName, deductionsNotes, admissionAt, dischargeAt, notes,
         amtHospital, amtMedicine, amtLab, amtPreHosp, amtPostHosp, amtOthers,
@@ -2933,7 +3023,7 @@ export default function Claims() {
         nominees: JSON.stringify(newNominees),
         hospitalName, hospitalState, hospitalCity, hospitalPincode, hospitalContactNo, hospitalEmail, hospitalRating, hospitalType, claimsPerson1Name, claimsPerson1Contact, claimsPerson2Name, claimsPerson2Contact, hospitalComment,
         hospitalDoctors: JSON.stringify(newDoctors),
-        diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, hospitalisationComment, amtAnesthesia, billingComment,
+        diagnosisSimple, roomCategory, typeOfManagement, typeOfAdmission, isMedicoLegalCase, isFirLegalDocAvailable, hospitalisationComment, amtAnesthesia, billingComment,
         amtFinalBill, amtNonPayables, amtCopay, amtDeductible, amtBalanceEMIs, amtNcdRecovery, amtExcessSumInsured, amtExcessAilmentLimit, amtHigherRoomRent, amtReasonableCost, amtOtherRecoveries, amtPatientToPay, amtExcessAgreedPackage, amtNetworkDiscount, amtNotCollected, amtPayableToInsured, approvalComment
       });
       const res = await createClaim.mutateAsync({
@@ -2975,14 +3065,25 @@ export default function Claims() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportFormatOpen(false);
     const toastId = toast.loading('Importing claims...');
     try {
-      const res = await claimsService.importCsv(file);
+      let fileToUpload = file;
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!firstSheet) throw new Error('The Excel file does not contain a worksheet');
+        const csvContent = XLSX.utils.sheet_to_csv(firstSheet);
+        fileToUpload = new File([csvContent], file.name.replace(/\.[^/.]+$/, '.csv'), { type: 'text/csv' });
+      }
+      const res = await claimsService.importCsv(fileToUpload);
       toast.success(res.message || `Successfully imported claims!`, { id: toastId });
       qc.invalidateQueries({ queryKey: ['claims'] });
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Failed to import claims', { id: toastId });
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to import claims', { id: toastId });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -3023,11 +3124,22 @@ export default function Claims() {
       key: 'status',
       label: 'Status',
       render: r => {
+        const notes = getClaimNotesData(r.notes);
         const display = BACKEND_TO_UI[r.status] || 'Pending';
         return (
-          <span className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border uppercase tracking-wider', STATUS_BADGE[r.status] || 'bg-gray-100 text-gray-600')}>
-            {display}
-          </span>
+          <div className="flex flex-col items-start gap-0.5">
+            <span
+              title={display}
+              className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border uppercase tracking-wider', STATUS_BADGE[r.status] || 'bg-gray-100 text-gray-600')}
+            >
+              {display}
+            </span>
+            {notes.uiClaimStatus && (
+              <span className="text-[10px] leading-tight text-slate-700" title={notes.uiClaimStatus}>
+                {notes.uiClaimStatus}
+              </span>
+            )}
+          </div>
         );
       }
     },
@@ -3061,12 +3173,12 @@ export default function Claims() {
     <>
     <div className="space-y-4 text-sm sm:text-base">
       {/* Floating Right Action Panel */}
-      <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
+      <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv,.xlsx,.xls" className="hidden" />
       <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
         {/* Import CSV */}
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setImportFormatOpen(true)}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
         >
           <Upload size={18} strokeWidth={2.2} />
@@ -3123,7 +3235,8 @@ export default function Claims() {
                 <button
                   key={q.key}
                   type="button"
-                  onClick={() => setFilterStatus(q.key as any)}
+                  onClick={() => { setFilterStatus(q.key as any); setPage(1); }}
+                  onMouseEnter={() => { setFilterStatus(q.key as any); setPage(1); }}
                   className={clsx(
                     'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
                     isSelected
@@ -4160,10 +4273,13 @@ export default function Claims() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <DataTable
             columns={COLS.map(c => ({ ...c, sortable: c.key !== 'actions' }))}
-            data={sortedClaims}
+            data={paginatedClaims}
             total={sortedClaims.length}
             page={page}
             pageSize={20}
+            scrollAreaHeight="420px"
+            showPagination
+            horizontalScroll
             loading={isLoading}
             rowKey={r => r.id}
             onPageChange={setPage}
@@ -4271,6 +4387,9 @@ export default function Claims() {
                             {c.contact?.firstName} {c.contact?.lastName}
                           </h4>
                           <p className="text-[10px] text-slate-500 font-medium mt-0.5">Filed {c.intimatedAt ? format(new Date(c.intimatedAt), 'dd/MMM/yyyy') : ''}</p>
+                          {notes.uiClaimStatus && (
+                            <p className="text-[10px] text-blue-700 font-semibold mt-1">{notes.uiClaimStatus}</p>
+                          )}
                         </div>
 
                         <div className="border-t border-slate-100/80 my-0.5" />
@@ -4341,7 +4460,7 @@ export default function Claims() {
             
             {/* Modal sub-navigation tabs */}
           <div className="flex bg-slate-200/60 p-1.5 rounded-2xl mt-0 mb-3 gap-2 border border-slate-200/80 overflow-x-auto shadow-2xs">
-            {['Claim Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads'].map(tab => (
+            {['Claim Details', 'Policy Details', 'Hospital Details', 'Claim Approval Details', 'File Uploads', 'History'].map(tab => (
               <button
                 key={tab}
                 type="button"
@@ -4641,7 +4760,7 @@ export default function Claims() {
                     </div>
                     <div>
                       <label className="label">Intimation Date <span className="text-red-500">*</span></label>
-                      <input type="date" {...register('intimatedAt')} className="input mt-1 py-1 text-xs" />
+                      <input type="date" max={getTodayDateInputValue()} {...register('intimatedAt')} className="input mt-1 py-1 text-xs" />
                     </div>
                   </div>
 
@@ -4843,6 +4962,15 @@ export default function Claims() {
               </div>
             )}
 
+            {activeClaimTab === 'Policy Details' && (
+              <ClaimPolicyDetailsTab
+                policy={selectedPolicy}
+                policyId={selectedPolicy?.id}
+                contact={selectedContact}
+                onGoToClaimTab={() => setActiveClaimTab('Claim Details')}
+              />
+            )}
+
             {activeClaimTab === 'Hospital Details' && (
               <div className="space-y-4 animate-fadeIn">
                 <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
@@ -4944,12 +5072,8 @@ export default function Claims() {
                           <input 
                             type="text" 
                             className="input mt-1 py-1 text-xs" 
-                            maxLength={10}
-                            placeholder="10 digits"
+                            placeholder="Enter contact number"
                             {...register('hospitalContactNo')} 
-                            onInput={(e) => {
-                              e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
-                            }}
                           />
                         </div>
 
@@ -5120,12 +5244,8 @@ export default function Claims() {
                             <input 
                               type="text" 
                               className="input mt-1 py-1 text-xs" 
-                              maxLength={10}
-                              placeholder="10 digits"
+                              placeholder="Enter contact number"
                               {...register('claimsPerson1Contact')} 
-                              onInput={(e) => {
-                                e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
-                              }}
                             />
                           </div>
                           <div>
@@ -5137,12 +5257,8 @@ export default function Claims() {
                             <input 
                               type="text" 
                               className="input mt-1 py-1 text-xs" 
-                              maxLength={10}
-                              placeholder="10 digits"
+                              placeholder="Enter contact number"
                               {...register('claimsPerson2Contact')} 
-                              onInput={(e) => {
-                                e.currentTarget.value = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
-                              }}
                             />
                           </div>
                           <div className="md:col-span-4">
@@ -5256,11 +5372,28 @@ export default function Claims() {
                           <CustomSelect
                             className="input mt-1 py-1 text-xs"
                             value={watch('isMedicoLegalCase') || ''}
-                            onChange={val => setValue('isMedicoLegalCase', val)}
+                            onChange={val => {
+                              setValue('isMedicoLegalCase', val);
+                              if (val !== 'Yes') {
+                                setValue('isFirLegalDocAvailable', '');
+                              }
+                            }}
                             placeholder="Select Option"
                             options={['Yes', 'No']}
                           />
                         </div>
+                        {watch('isMedicoLegalCase') === 'Yes' && (
+                          <div>
+                            <label className="label text-[10px]">"FIR" / "Legal Doc" Available?</label>
+                            <CustomSelect
+                              className="input mt-1 py-1 text-xs"
+                              value={watch('isFirLegalDocAvailable') || ''}
+                              onChange={val => setValue('isFirLegalDocAvailable', val)}
+                              placeholder="Select Option"
+                              options={['Yes', 'No']}
+                            />
+                          </div>
+                        )}
                         <div>
                           <label className="label text-[10px]">Comment</label>
                           <input type="text" className="input mt-1 py-1 text-xs" {...register('hospitalisationComment')} />
@@ -5713,7 +5846,14 @@ export default function Claims() {
                   <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
                     <input
                       type="file"
-                      onChange={e => setDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                      onChange={e => setDocUploadFields(p => {
+                        const file = e.target.files?.[0] || null;
+                        return {
+                          ...p,
+                          file,
+                          title: file ? file.name.replace(/\.[^.]+$/, '') : '',
+                        };
+                      })}
                       className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
                     />
                   </div>
@@ -5762,6 +5902,14 @@ export default function Claims() {
               </div>
             </Modal>
           </div>
+        )}
+
+        {/* ════════════════ TAB 6: New Claim History & Activity Log ════════════════ */}
+        {activeClaimTab === 'History' && (
+          <ActivityTimeline
+            events={[]}
+            subtitle="Activity tracking starts after the claim is saved."
+          />
         )}
           </div>
 
@@ -5855,6 +6003,27 @@ export default function Claims() {
         </div>
       </Modal>
 
+      <ImportFormatModal
+        open={importFormatOpen}
+        onClose={() => setImportFormatOpen(false)}
+        onChooseFile={() => fileInputRef.current?.click()}
+        title="Import Claims from CSV or Excel"
+        description="Download the sample file and keep the column headers unchanged."
+        warning="Claim Number, Policy Number, and Contact Phone are required. Contact Phone and Policy Number must match existing records."
+        columns={[
+          { name: 'Claim Number', requirement: 'Required. Must be unique.' },
+          { name: 'Status', requirement: 'Optional. Use INTIMATED, DOC_COLLECTION, FILED, IN_REVIEW, APPROVED, REJECTED, or SETTLED.' },
+          { name: 'Claim Type', requirement: 'Optional. Example: HEALTH, LIFE, or MOTOR; defaults to HEALTH.' },
+          { name: 'Claim Amount', requirement: 'Optional. Use a number; defaults to 0.' },
+          { name: 'Intimated At', requirement: 'Optional. Recommended format: YYYY-MM-DD; defaults to today.' },
+          { name: 'Policy Number', requirement: 'Required. Must match an existing policy.' },
+          { name: 'Contact Phone', requirement: 'Required. Must match an existing contact phone.' },
+        ]}
+        sampleRow={['CLM-SAMPLE-001', 'INTIMATED', 'HEALTH', '50000', '2026-01-15', 'POL-SAMPLE-001', '9000000001']}
+        fileFormats="CSV, XLS, and XLSX"
+        sampleFileName="claims-sample.csv"
+      />
+
     </div>
     </>
   );
@@ -5898,12 +6067,12 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
             {statusIcons[displayStatus] || <Clock/>}
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">₹{Number(claim.claimAmount).toLocaleString('en-IN')}</h2>
+            <h2 className="text-lg font-bold text-gray-900">₹{Number(claim?.claimAmount || 0).toLocaleString('en-IN')}</h2>
             <div className="flex gap-2 items-center mt-1">
               <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border', statusColors[displayStatus])}>
                 {displayStatus}
               </span>
-              <span className="text-xs text-gray-500">• {claim.claimType}</span>
+              <span className="text-xs text-gray-500">• {claim?.claimType || 'General'}</span>
             </div>
           </div>
         </div>
@@ -5920,7 +6089,7 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
           <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Patient / Client</label>
           <div className="flex flex-wrap items-center gap-1.5 font-semibold text-gray-800">
             <UserCircle2 size={14} className="text-gray-400" />
-            <span>{claim.contact ? `${claim.contact.firstName} ${claim.contact.lastName}` : 'Unknown'}</span>
+            <span>{claim?.contact ? `${claim.contact.firstName || ''} ${claim.contact.lastName || ''}`.trim() || 'Unknown' : 'Unknown'}</span>
           </div>
         </div>
         <div>
@@ -5976,7 +6145,7 @@ export function ClaimDetailView({ claim, onEdit }: { claim: any; onEdit?: () => 
           </div>
           <div className="flex justify-between col-span-2 pt-2 border-t font-semibold text-sm text-blue-800">
             <span>Total Claim Amount:</span>
-            <span>₹{Number(claim.claimAmount).toLocaleString('en-IN')}</span>
+            <span>₹{Number(claim?.claimAmount || 0).toLocaleString('en-IN')}</span>
           </div>
         </div>
       </div>

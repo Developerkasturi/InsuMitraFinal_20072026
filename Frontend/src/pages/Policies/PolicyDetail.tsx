@@ -5,6 +5,8 @@ import { ArrowLeft, Plus, Download, FileText, Trash2, Users, CreditCard, Award, 
 import clsx from 'clsx';
 import Modal from '@comps/common/Modal';
 import { useState } from 'react';
+import DocumentUploadModal, { DocumentUploadMeta } from '@comps/common/DocumentUploadModal';
+import DocumentsTable from '@comps/common/DocumentsTable';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,9 +72,6 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
   const [memberModal, setMemberModal]   = useState(false);
   const [nomineeModal, setNomineeModal] = useState(false);
   const [uploadModal, setUploadModal]   = useState(false);
-  const [uploadFile, setUploadFile]     = useState<File | null>(null);
-  const [uploadTag, setUploadTag]       = useState('');
-  const [uploadUploading, setUploadUploading] = useState(false);
   const [deleteDocTarget, setDeleteDocTarget] = useState<any | null>(null);
 
   const { data: policy, isLoading } = useQuery({
@@ -214,21 +213,17 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
     },
   });
 
-  const handleUpload = async () => {
-    if (!uploadFile) return;
-    setUploadUploading(true);
+  const handleUpload = async (file: File, meta: DocumentUploadMeta) => {
     try {
-      await documentsService.upload(uploadFile, { policyId: id!, type: uploadTag || 'POLICY' });
-      refetchDocs();
+      await documentsService.upload(file, { policyId: id!, ...meta });
+      await refetchDocs();
       setUploadModal(false);
-      setUploadFile(null);
-      setUploadTag('');
       toast.success('Document uploaded');
+      return true;
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? 'Upload failed';
       toast.error(msg);
-    } finally {
-      setUploadUploading(false);
+      return false;
     }
   };
 
@@ -247,7 +242,13 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
   if (!p) return <div className="text-gray-500 p-8">Policy not found.</div>;
 
   const payList: any[] = p.payments ?? [];
-  const docList: any[] = documents?.data ?? documents ?? [];
+  const docList: any[] = Array.isArray(documents?.data?.data)
+    ? documents.data.data
+    : Array.isArray(documents?.data)
+      ? documents.data
+      : Array.isArray(documents)
+        ? documents
+        : [];
   const memberList: any[] = p.members ?? [];
 
   return (
@@ -412,28 +413,13 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
           <div className="card space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-700 flex flex-wrap items-center gap-1.5"><FileText size={14}/>Documents</h3>
-              <button onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Upload size={12}/>Upload</button>
+              <button type="button" onClick={() => setUploadModal(true)} className="btn-sm btn-primary flex flex-wrap items-center gap-1"><Upload size={12}/>Upload Document</button>
             </div>
-            {docList.length === 0 && <p className="text-sm text-gray-400">No documents uploaded.</p>}
-            <div className="space-y-2">
-              {docList.map((doc: any) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 group">
-                  <div className="flex flex-wrap items-center gap-2 min-w-0">
-                    <FileText size={14} className="text-gray-400 shrink-0"/>
-                    <div className="min-w-0">
-                      <p className="text-sm text-gray-900 truncate">{doc.fileName ?? doc.originalName ?? 'Document'}</p>
-                      <p className="text-xs text-gray-400">
-                        {doc.tag === 'POLICY_DOCUMENT_ENDORSEMENT' ? 'Policy Document - Endorsement' : doc.tag === 'POLICY' || doc.tag === 'POLICY_DOCUMENT' ? 'Policy Document' : doc.tag} · {doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    <button onClick={() => viewDoc(doc.id)} className="p-1.5 rounded hover:bg-gray-100 text-primary-600 text-xs">View</button>
-                    <button onClick={() => setDeleteDocTarget(doc)} className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-red-400"><Trash2 size={13}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DocumentsTable
+              documents={docList}
+              onView={doc => viewDoc(doc.id)}
+              onDelete={setDeleteDocTarget}
+            />
           </div>
         </div>
       </div>
@@ -573,41 +559,23 @@ export default function PolicyDetail({ policyId: propPolicyId, onClose, isModal 
         </form>
       </Modal>
 
-      {/* Upload Document Modal */}
-      <Modal open={uploadModal} onClose={() => { setUploadModal(false); setUploadFile(null); setUploadTag(''); }} title="Upload Document" size="xl">
-        <div className="space-y-4">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="label">Document Tag</label>
-            <select className="input" value={uploadTag} onChange={e => setUploadTag(e.target.value)}>
-              <option value="POLICY">Policy Document</option>
-              <option value="POLICY_DOCUMENT_ENDORSEMENT">Policy Document - Endorsement</option>
-              <option value="PREMIUM_RECEIPT">Premium Receipt</option>
-              <option value="CLAIM">Claim Document</option>
-              <option value="ID_PROOF">ID Proof</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label className="label">Select File</label>
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="input"
-              onChange={e => setUploadFile(e.target.files?.[0] ?? null)} />
-          </div>
-          {uploadFile && (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded p-2">
-              <FileText size={14} className="text-gray-400"/>
-              <span className="truncate">{uploadFile.name}</span>
-              <span className="text-xs text-gray-400 ml-auto">{(uploadFile.size / 1024).toFixed(1)} KB</span>
-              <button onClick={() => setUploadFile(null)} className="text-red-400 hover:text-red-600"><X size={13}/></button>
-            </div>
-          )}
-          <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100 mt-6">
-            <button className="btn-secondary" onClick={() => { setUploadModal(false); setUploadFile(null); setUploadTag(''); }}>Cancel</button>
-            <button className="btn-primary" disabled={!uploadFile || uploadUploading} onClick={handleUpload}>
-              {uploadUploading ? 'Uploading…' : 'Upload'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <DocumentUploadModal
+        open={uploadModal}
+        onClose={() => setUploadModal(false)}
+        onUpload={handleUpload}
+        title="Upload Policy Document"
+        subtitle="Attach a document to this policy."
+        defaultType="POLICY"
+        zIndexClass="z-[80]"
+        types={[
+          { value: 'POLICY', label: 'Policy Document' },
+          { value: 'POLICY_DOCUMENT_ENDORSEMENT', label: 'Policy Document - Endorsement' },
+          { value: 'PREMIUM_RECEIPT', label: 'Premium Receipt' },
+          { value: 'CLAIM', label: 'Claim Document' },
+          { value: 'ID_PROOF', label: 'ID Proof' },
+          { value: 'OTHER', label: 'Other' },
+        ]}
+      />
 
       <Modal open={!!deleteDocTarget} onClose={() => setDeleteDocTarget(null)} title="Delete Document" size="sm">
         <p className="text-sm text-gray-600 mb-4">

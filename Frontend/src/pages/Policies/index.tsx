@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Save, ChevronDown, Settings, CreditCard, Building, CheckCircle2, AlertTriangle, Users, Activity, FileText, FileCheck2, Clock, Download, MessageCircle, History } from 'lucide-react';
+import { Plus, X, User, Shield, Pencil, Trash2, Upload, Filter, Search, Info, Save, ChevronDown, Settings, CreditCard, Building, CheckCircle2, AlertTriangle, Users, Activity, FileText, FileCheck2, Clock, Download, MessageCircle, History, Eye } from 'lucide-react';
 import EmiTrackingView, { MonthPickerDropdown } from './EmiTrackingView';
 import PhcTrackingView from './PhcTrackingView';
 import { usePolicies, useCreatePolicy, useUpdatePolicy, useDeletePolicy, useBulkAssignPolicies } from '@hooks/usePolicies';
@@ -11,13 +11,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactsService, policiesService, employeesService, claimsService, documentsService, agencyDetailsService, insuranceService } from '@api/index';
 import { deletionRequestsService } from '@api/deletionRequestsService';
 import DataTable, { Column } from '@comps/common/DataTable';
+import ActivityTimeline from '@comps/common/ActivityTimeline';
+import ImportFormatModal from '@comps/common/ImportFormatModal';
 import Modal from '@comps/common/Modal';
+import DocumentUploadModal, { DocumentUploadMeta } from '@comps/common/DocumentUploadModal';
+import DocumentsTable from '@comps/common/DocumentsTable';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, addYears } from 'date-fns';
 import { DatePicker } from '@comps/common/DatePicker';
 import CustomSelect from '@comps/common/CustomSelect';
+import * as XLSX from 'xlsx';
 
 const formatPreview = (dateStr?: string) => {
   if (!dateStr) return '';
@@ -305,6 +310,7 @@ export const POLICY_DOCUMENT_TYPE_OPTIONS = [
 interface Policy {
   id: string; policyNumber: string; status: string;
   premiumAmount: number; sumAssured?: number; startDate?: string; endDate: string;
+  createdAt?: string; updatedAt?: string;
   paymentFrequency?: string; agentCode?: string; notes?: string;
   nextDueDate?: string; maturityDate?: string;
   lastPremiumDate?: string; lastInstallmentDate?: string; noOfInstallments?: number;
@@ -608,18 +614,69 @@ type Form = z.infer<typeof schema>;
 type EditForm = z.infer<typeof editSchema>;
 
 const SUM_INSURED_OPTIONS = [
+  { value: '25000', label: '₹25,000' },
   { value: '50000', label: '₹50,000' },
-  { value: '100000', label: '₹1,000,000 (1 Lakh)' },
-  { value: '200000', label: '₹2,000,000 (2 Lakh)' },
-  { value: '300000', label: '₹3,000,000 (3 Lakh)' },
-  { value: '500000', label: '₹5,000,000 (5 Lakh)' },
+  { value: '75000', label: '₹75,000' },
+  { value: '100000', label: '₹1,00,000 (1 Lakh)' },
+  { value: '125000', label: '₹1,25,000 (1.25 Lakh)' },
+  { value: '150000', label: '₹1,50,000 (1.5 Lakh)' },
+  { value: '175000', label: '₹1,75,000 (1.75 Lakh)' },
+  { value: '200000', label: '₹2,00,000 (2 Lakh)' },
+  { value: '225000', label: '₹2,25,000 (2.25 Lakh)' },
+  { value: '250000', label: '₹2,50,000 (2.5 Lakh)' },
+  { value: '275000', label: '₹2,75,000 (2.75 Lakh)' },
+  { value: '300000', label: '₹3,00,000 (3 Lakh)' },
+  { value: '325000', label: '₹3,25,000 (3.25 Lakh)' },
+  { value: '350000', label: '₹3,50,000 (3.5 Lakh)' },
+  { value: '375000', label: '₹3,75,000 (3.75 Lakh)' },
+  { value: '400000', label: '₹4,00,000 (4 Lakh)' },
+  { value: '425000', label: '₹4,25,000 (4.25 Lakh)' },
+  { value: '450000', label: '₹4,50,000 (4.5 Lakh)' },
+  { value: '475000', label: '₹4,75,000 (4.75 Lakh)' },
+  { value: '500000', label: '₹5,00,000 (5 Lakh)' },
+  { value: '550000', label: '₹5,50,000 (5.5 Lakh)' },
+  { value: '600000', label: '₹6,00,000 (6 Lakh)' },
+  { value: '650000', label: '₹6,50,000 (6.5 Lakh)' },
+  { value: '700000', label: '₹7,00,000 (7 Lakh)' },
   { value: '750000', label: '₹7,50,000 (7.5 Lakh)' },
-  { value: '1000000', label: '₹10,000,000 (10 Lakh)' },
-  { value: '1500000', label: '₹15,000,000 (15 Lakh)' },
-  { value: '2000000', label: '₹20,000,000 (20 Lakh)' },
-  { value: '2500000', label: '₹25,000,000 (25 Lakh)' },
-  { value: '5000000', label: '₹50,000,000 (50 Lakh)' },
-  { value: '10000000', label: '₹100,000,000 (1 Crore)' },
+  { value: '800000', label: '₹8,00,000 (8 Lakh)' },
+  { value: '850000', label: '₹8,50,000 (8.5 Lakh)' },
+  { value: '900000', label: '₹9,00,000 (9 Lakh)' },
+  { value: '950000', label: '₹9,50,000 (9.5 Lakh)' },
+  { value: '1000000', label: '₹10,00,000 (10 Lakh)' },
+  { value: '1100000', label: '₹11,00,000 (11 Lakh)' },
+  { value: '1200000', label: '₹12,00,000 (12 Lakh)' },
+  { value: '1250000', label: '₹12,50,000 (12.5 Lakh)' },
+  { value: '1300000', label: '₹13,00,000 (13 Lakh)' },
+  { value: '1400000', label: '₹14,00,000 (14 Lakh)' },
+  { value: '1500000', label: '₹15,00,000 (15 Lakh)' },
+  { value: '1600000', label: '₹16,00,000 (16 Lakh)' },
+  { value: '1700000', label: '₹17,00,000 (17 Lakh)' },
+  { value: '1800000', label: '₹18,00,000 (18 Lakh)' },
+  { value: '1900000', label: '₹19,00,000 (19 Lakh)' },
+  { value: '2000000', label: '₹20,00,000 (20 Lakh)' },
+  { value: '2200000', label: '₹22,00,000 (22 Lakh)' },
+  { value: '2500000', label: '₹25,00,000 (25 Lakh)' },
+  { value: '3000000', label: '₹30,00,000 (30 Lakh)' },
+  { value: '3500000', label: '₹35,00,000 (35 Lakh)' },
+  { value: '4000000', label: '₹40,00,000 (40 Lakh)' },
+  { value: '4500000', label: '₹45,00,000 (45 Lakh)' },
+  { value: '5000000', label: '₹50,00,000 (50 Lakh)' },
+  { value: '6000000', label: '₹60,00,000 (60 Lakh)' },
+  { value: '7000000', label: '₹70,00,000 (70 Lakh)' },
+  { value: '7500000', label: '₹75,00,000 (75 Lakh)' },
+  { value: '8000000', label: '₹80,00,000 (80 Lakh)' },
+  { value: '9000000', label: '₹90,00,000 (90 Lakh)' },
+  { value: '10000000', label: '₹1,00,00,000 (1 Crore)' },
+  { value: '12500000', label: '₹1,25,00,000 (1.25 Crore)' },
+  { value: '15000000', label: '₹1,50,00,000 (1.5 Crore)' },
+  { value: '17500000', label: '₹1,75,00,000 (1.75 Crore)' },
+  { value: '20000000', label: '₹2,00,00,000 (2 Crore)' },
+  { value: '25000000', label: '₹2,50,00,000 (2.5 Crore)' },
+  { value: '30000000', label: '₹3,00,00,000 (3 Crore)' },
+  { value: '40000000', label: '₹4,00,00,000 (4 Crore)' },
+  { value: '50000000', label: '₹5,00,00,000 (5 Crore)' },
+  { value: '100000000', label: '₹10,00,00,000 (10 Crore)' },
 ];
 
 
@@ -629,12 +686,15 @@ export default function Policies() {
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const user = useAuthStore(s => s.user);
-  const [emiSelectedMonth, setEmiSelectedMonth] = useState('August 2026');
+  const [emiSelectedMonth, setEmiSelectedMonth] = useState(() =>
+    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  );
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importFormatOpen, setImportFormatOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [keepCreateOpen, setKeepCreateOpen] = useState(false);
-  const [activePolicyTab, setActivePolicyTab] = useState<'policyPlan' | 'premium' | 'paymentGst' | 'connectedPersons' | 'phcDetails' | 'policyDocs' | 'policyClaims'>('policyPlan');
+  const [activePolicyTab, setActivePolicyTab] = useState<'policyPlan' | 'premium' | 'paymentGst' | 'connectedPersons' | 'phcDetails' | 'policyDocs' | 'policyClaims' | 'history'>('policyPlan');
   const [isPolicyDetailsCollapsed, setIsPolicyDetailsCollapsed] = useState(false);
   const [isPlanDetailsCollapsed, setIsPlanDetailsCollapsed] = useState(false);
   const [isPremiumBreakdownCollapsed, setIsPremiumBreakdownCollapsed] = useState(false);
@@ -662,10 +722,10 @@ export default function Policies() {
   const createClaimMutation = useCreateClaim();
   const { data: allClaimsData } = useClaims({ page: 1, limit: 500 });
   const allClaimsList = allClaimsData?.data ?? [];
+  const [isManualSumAssured, setIsManualSumAssured] = useState(false);
 
   // Tab 5: Preventive Health Checkup Extra Details State
   const [phcExtraDetails, setPhcExtraDetails] = useState({
-    balanceAmount: '1500',
     eligibilityStartDate: '',
     frequency: 'ANNUAL',
     followUpDate: '',
@@ -685,22 +745,31 @@ export default function Policies() {
   const [isCustomPhcPersonManual, setIsCustomPhcPersonManual] = useState(false);
 
   const [isDocUploadModalOpen, setIsDocUploadModalOpen] = useState(false);
-  const [docUploadFields, setDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
-    type: 'POLICY_DOCUMENT',
-    title: '',
-    description: '',
-    file: null,
-  });
   const [pendingDocs, setPendingDocs] = useState<{ type: string; title: string; description: string; file: File }[]>([]);
 
+  const handlePolicyDocumentUpload = async (file: File, meta: DocumentUploadMeta) => {
+    if (editTarget?.id) {
+      try {
+        await documentsService.upload(file, {
+          policyId: editTarget.id,
+          tag: meta.type,
+          title: meta.title,
+          description: meta.description,
+        });
+        await qc.invalidateQueries({ queryKey: ['policy-docs', editTarget.id] });
+        setIsDocUploadModalOpen(false);
+        toast.success('Document uploaded successfully');
+        return true;
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message ?? 'Failed to upload policy document');
+        return false;
+      }
+    }
 
-
-  const handleDocUploadAdd = () => {
-    if (!docUploadFields.file) return toast.error('Please select a file to upload.');
-    if (!docUploadFields.title) return toast.error('Please provide a document title.');
-    setPendingDocs(prev => [...prev, docUploadFields as any]);
+    setPendingDocs(prev => [...prev, { ...meta, file }]);
     setIsDocUploadModalOpen(false);
-    setDocUploadFields({ type: 'POLICY_DOCUMENT', title: '', description: '', file: null });
+    toast.success('Document added. It will upload when the policy is saved.');
+    return true;
   };
 
   const viewDoc = async (docId: string) => {
@@ -768,6 +837,7 @@ export default function Policies() {
     nomineeContact: string;
     nomineeDob: string;
     nomineePercentage: number;
+    addedAt?: string;
   }
 
   const [connectedPersons, setConnectedPersons] = useState<ConnectedPersonItem[]>([]);
@@ -777,6 +847,7 @@ export default function Policies() {
       ...prev,
       {
         id: Math.random().toString(36).substring(2, 9),
+        addedAt: new Date().toISOString(),
         name: '',
         relationship: 'Spouse',
         contactNo: '',
@@ -839,8 +910,18 @@ export default function Policies() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Search & Filter States
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('search') || searchParams.get('q') || '');
   const [selectedQuickFilter, setSelectedQuickFilter] = useState('ALL');
+
+  useEffect(() => {
+    const q = searchParams.get('search') ?? searchParams.get('q');
+    if (q !== null && q !== undefined) {
+      setSearch(q);
+      setPage(1);
+    } else if (!searchParams.has('search') && !searchParams.has('q')) {
+      setSearch('');
+    }
+  }, [searchParams]);
 
   const defaultFilters = {
     companyCategory: '',
@@ -1106,14 +1187,25 @@ export default function Policies() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportFormatOpen(false);
     const toastId = toast.loading('Importing policies...');
     try {
-      const res = await policiesService.importCsv(file);
+      let fileToUpload = file;
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!firstSheet) throw new Error('The Excel file does not contain a worksheet');
+        const csvContent = XLSX.utils.sheet_to_csv(firstSheet);
+        fileToUpload = new File([csvContent], file.name.replace(/\.[^/.]+$/, '.csv'), { type: 'text/csv' });
+      }
+      const res = await policiesService.importCsv(fileToUpload);
       toast.success(res.message || `Successfully imported policies!`, { id: toastId });
       qc.invalidateQueries({ queryKey: ['policies'] });
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Failed to import policies', { id: toastId });
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to import policies', { id: toastId });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -1270,14 +1362,16 @@ export default function Policies() {
       }
     }
 
-    // Local Search: Name, Mobile, Policy No
+    // Local Search: Full Name, Proposer, Insured, Mobile, Policy No
     if (search.trim()) {
       const term = search.toLowerCase();
       list = list.filter((p: any) => {
-        const clientName = `${p.contact?.firstName || ''} ${p.contact?.lastName || ''}`.toLowerCase();
+        const clientName = `${p.contact?.firstName || ''} ${p.contact?.lastName || ''}`.trim().toLowerCase();
+        const proposerName = (p.proposerName || '').toLowerCase();
+        const insuredName = (p.insuredName || '').toLowerCase();
         const clientPhone = (p.contact?.phone || '').toLowerCase();
         const policyNo = (p.policyNumber || '').toLowerCase();
-        return clientName.includes(term) || clientPhone.includes(term) || policyNo.includes(term);
+        return clientName.includes(term) || proposerName.includes(term) || insuredName.includes(term) || clientPhone.includes(term) || policyNo.includes(term);
       });
     }
 
@@ -1681,7 +1775,10 @@ export default function Policies() {
       emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcRequired: z.boolean().optional(),
-      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      phcAmount: z.preprocess(
+        value => value === '' || value == null ? undefined : Number(value),
+        z.number().optional(),
+      ),
       phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
       phcClaimSettled: z.boolean().optional(),
       firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
@@ -1692,6 +1789,18 @@ export default function Policies() {
       noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       lastInstallmentDate: isFieldRequired('lastInstallmentDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
+    }).superRefine((values, context) => {
+      if (
+        values.phcRequired
+        && isFieldRequired('phcAmount', false)
+        && (!values.phcAmount || values.phcAmount <= 0)
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['phcAmount'],
+          message: 'Required',
+        });
+      }
     });
   }, [compulsoryRules]);
 
@@ -1721,7 +1830,10 @@ export default function Policies() {
       emiDate: isFieldRequired('emiDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       emiPremium: isFieldRequired('emiPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       phcRequired: z.boolean().optional(),
-      phcAmount: isFieldRequired('phcAmount', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
+      phcAmount: z.preprocess(
+        value => value === '' || value == null ? undefined : Number(value),
+        z.number().optional(),
+      ),
       phcStatus: isFieldRequired('phcStatus', false) ? z.string().min(1, 'Required') : z.string().optional(),
       phcClaimSettled: z.boolean().optional(),
       firstYearPremium: isFieldRequired('firstYearPremium', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
@@ -1732,6 +1844,18 @@ export default function Policies() {
       noOfInstallments: isFieldRequired('noOfInstallments', false) ? z.coerce.number().min(1, 'Required') : z.coerce.number().optional().or(z.literal('')),
       lastInstallmentDate: isFieldRequired('lastInstallmentDate', false) ? z.string().min(1, 'Required') : z.string().optional(),
       insuredPerson: isFieldRequired('insuredPerson', false) ? z.string().min(1, 'Required') : z.string().optional(),
+    }).superRefine((values, context) => {
+      if (
+        values.phcRequired
+        && isFieldRequired('phcAmount', false)
+        && (!values.phcAmount || values.phcAmount <= 0)
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['phcAmount'],
+          message: 'Required',
+        });
+      }
     });
   }, [compulsoryRules]);
 
@@ -1976,7 +2100,21 @@ export default function Policies() {
     queryFn: () => documentsService.list({ policyId: editTarget!.id }),
     enabled: !!editTarget?.id && modalOpen,
   });
-  const existingPolicyDocs: any[] = existingPolicyDocsRes?.data ?? [];
+  const policyHistoryContactId = editTarget?.contactId || editTarget?.contact?.id;
+  const {
+    data: policyHistoryRes,
+    isLoading: policyHistoryLoading,
+    isError: policyHistoryError,
+  } = useQuery({
+    queryKey: ['contact-activity', policyHistoryContactId],
+    queryFn: () => contactsService.activity(policyHistoryContactId!, { page: 1, limit: 100 }),
+    enabled: !!policyHistoryContactId && !!editTarget?.id && modalOpen && activePolicyTab === 'history',
+  });
+  const existingPolicyDocs: any[] = Array.isArray(existingPolicyDocsRes?.data?.data)
+    ? existingPolicyDocsRes.data.data
+    : Array.isArray(existingPolicyDocsRes?.data)
+      ? existingPolicyDocsRes.data
+      : [];
 
   const phcInsuredPersonOptions = useMemo(() => {
     const list: { value: string; label: string; sublabel?: string }[] = [];
@@ -2042,7 +2180,6 @@ export default function Policies() {
     setPendingDocs([]);
     setConnectedPersons([]);
     setPhcExtraDetails({
-      balanceAmount: '1500',
       eligibilityStartDate: '',
       frequency: 'ANNUAL',
       followUpDate: '',
@@ -2188,7 +2325,6 @@ export default function Policies() {
     if (extra.phcAmount || extra.phcStatus || extra.phcInsuredPerson || extra.phcStage) {
       setPhcExtraDetails(prev => ({
         ...prev,
-        balanceAmount: '1500',
         frequency: 'ANNUAL',
         insuredPersonName: extra.phcInsuredPerson || prev.insuredPersonName || '',
         phcStage: extra.phcStage || prev.phcStage || 'TO_CONTACT',
@@ -2211,6 +2347,7 @@ export default function Policies() {
     if ((p as any).members && (p as any).members.length > 0) {
       initialPersons = (p as any).members.map((m: any) => ({
         id: m.id || String(Math.random()),
+        addedAt: m.createdAt || m.addedAt || p.createdAt || new Date().toISOString(),
         name: m.name || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
         relationship: m.relationship || 'Spouse',
         contactNo: m.contactNo || m.phone || '',
@@ -2227,6 +2364,7 @@ export default function Policies() {
     } else if (extra.connectedPersons && extra.connectedPersons.length > 0) {
       initialPersons = extra.connectedPersons.map((cp: any) => ({
         id: String(Math.random()),
+        addedAt: cp.addedAt || cp.createdAt || p.createdAt || new Date().toISOString(),
         name: cp.name,
         relationship: cp.relationship || 'Spouse',
         contactNo: cp.contact || '',
@@ -2830,6 +2968,7 @@ export default function Policies() {
       noOfInstallments: 'No. of Installments',
       lastInstallmentDate: 'Last Installment Date',
       insuredPerson: 'Insured Person',
+      phcAmount: 'PHC Amount',
     };
     const fieldName = fieldLabelMap[firstKey] || firstKey;
     const rawMsg = errors[firstKey]?.message;
@@ -2838,6 +2977,8 @@ export default function Policies() {
 
     if (['contactId', 'planId', 'policyNumber', 'sumAssured', 'notes'].includes(firstKey)) {
       setActivePolicyTab('policyPlan');
+    } else if (['phcAmount', 'phcStatus'].includes(firstKey)) {
+      setActivePolicyTab('phcDetails');
     } else if (['premiumAmount', 'startDate', 'endDate', 'paymentFrequency', 'noOfInstallments', 'installmentAmount', 'firstYearPremium', 'secondYearPremium'].includes(firstKey)) {
       setActivePolicyTab('premium');
     }
@@ -2991,6 +3132,7 @@ export default function Policies() {
 
       if (editTarget?.id) {
         await updatePolicy.mutateAsync({ id: editTarget.id, body: cleanedBody as any });
+        const failedDocumentUploads: string[] = [];
         for (const doc of pendingDocs) {
           try {
             await documentsService.upload(doc.file, {
@@ -3001,6 +3143,7 @@ export default function Policies() {
             });
           } catch (uploadErr) {
             console.error(`[Document Upload Error] ${doc.title}`, uploadErr);
+            failedDocumentUploads.push(doc.title);
           }
         }
         for (const person of connectedPersons) {
@@ -3030,12 +3173,15 @@ export default function Policies() {
         qc.invalidateQueries({ queryKey: ['policies'] });
         qc.invalidateQueries({ queryKey: ['policy', editTarget.id] });
         toast.success('Policy updated successfully');
-        closeModal();
+        if (failedDocumentUploads.length > 0) {
+          toast.error(`Policy saved, but these documents failed to upload: ${failedDocumentUploads.join(', ')}`);
+        }
         return;
       }
 
       const res = await createPolicy.mutateAsync(cleanedBody as any);
       const createdPolicy = res?.data ?? res;
+      const failedDocumentUploads: string[] = [];
       for (const doc of pendingDocs) {
         if (createdPolicy?.id) {
           try {
@@ -3047,6 +3193,7 @@ export default function Policies() {
             });
           } catch (uploadErr) {
             console.error(`[Document Upload Error] ${doc.title}`, uploadErr);
+            failedDocumentUploads.push(doc.title);
           }
         }
       }
@@ -3084,6 +3231,11 @@ export default function Policies() {
       setSortOrder('desc');
       setPage(1);
       toast.success('Policy created successfully');
+      if (pendingDocs.length > 0 && !createdPolicy?.id) {
+        toast.error('Policy created, but its documents could not be attached because no policy ID was returned.');
+      } else if (failedDocumentUploads.length > 0) {
+        toast.error(`Policy created, but these documents failed to upload: ${failedDocumentUploads.join(', ')}`);
+      }
       if (createdPolicy?.id) {
         if (keepCreateOpen) {
           reset({
@@ -3139,6 +3291,7 @@ export default function Policies() {
           <button
             type="button"
             onClick={() => navigate('/policies?tab=list')}
+            onMouseEnter={() => navigate('/policies?tab=list')}
             className={clsx(
               'px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
               currentTab !== 'emi' && currentTab !== 'phc' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -3150,6 +3303,7 @@ export default function Policies() {
           <button
             type="button"
             onClick={() => navigate('/policies?tab=emi')}
+            onMouseEnter={() => navigate('/policies?tab=emi')}
             className={clsx(
               'px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
               currentTab === 'emi' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -3161,6 +3315,7 @@ export default function Policies() {
           <button
             type="button"
             onClick={() => navigate('/policies?tab=phc')}
+            onMouseEnter={() => navigate('/policies?tab=phc')}
             className={clsx(
               'px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2',
               currentTab === 'phc' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -3191,12 +3346,12 @@ export default function Policies() {
       ) : (
         <>
           {/* Floating Right Action Panel */}
-          <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv" className="hidden" />
+          <input type="file" ref={fileInputRef} onChange={handleImport} accept=".csv,.xlsx,.xls" className="hidden" />
           <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 bg-white/90 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-200/80 animate-fadeIn">
             {/* Import CSV */}
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setImportFormatOpen(true)}
               className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
             >
               <Upload size={18} strokeWidth={2.2} />
@@ -3257,6 +3412,7 @@ export default function Policies() {
                       <button
                         key={q.key}
                         onClick={() => { setSelectedQuickFilter(q.key); setPage(1); }}
+                        onMouseEnter={() => { setSelectedQuickFilter(q.key); setPage(1); }}
                         className={clsx(
                           'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
                           isSel
@@ -3868,6 +4024,9 @@ export default function Policies() {
               total={filteredPolicies.length}
               page={page}
               pageSize={20}
+              scrollAreaHeight="420px"
+              showPagination
+              horizontalScroll
               loading={isLoading}
               rowKey={r => r.id}
               onPageChange={setPage}
@@ -3884,6 +4043,7 @@ export default function Policies() {
           if (isDocUploadModalOpen) return;
           closeModal();
         }}
+        closeOnEscapeAndBackdrop={false}
         title={isViewMode ? "View Policy Profile" : (editTarget ? "Edit Policy Profile" : "Add New Policy")}
         subtitle={isViewMode ? "View policy details and plan information." : (editTarget ? "Update policy details and plan information." : "Enter policy details matching client profile standards.")}
         size="2xl"
@@ -3998,6 +4158,19 @@ export default function Policies() {
               <FileCheck2 size={14} />
               Claims
             </button>
+            <button
+              type="button"
+              onClick={() => setActivePolicyTab('history')}
+              className={clsx(
+                'px-3 sm:px-4 py-2 rounded-xl text-xs font-extrabold tracking-wide transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 sm:gap-2',
+                activePolicyTab === 'history'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+              )}
+            >
+              <History size={14} />
+              History
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -4074,17 +4247,17 @@ export default function Policies() {
                           )}
                         </div>
 
-                        {/* Insured Person */}
+                        {/* Proposer Name */}
                         <div>
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                            Insured Person
+                            Proposer Name
                           </label>
                           <input
                             type="text"
                             value={insuredPerson}
                             onChange={e => setInsuredPerson(e.target.value)}
                             className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
-                            placeholder="e.g. Self / Name of Insured Person"
+                            placeholder="Enter proposer name"
                           />
                         </div>
 
@@ -4219,12 +4392,11 @@ export default function Policies() {
                         {/* Comment */}
                         <div className="col-span-1 md:col-span-2">
                           <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                            Comment <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>
+                            Comment
                           </label>
                           <textarea
                             rows={2}
-                            {...register('notes', { required: true })}
-                            required
+                            {...register('notes')}
                             className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                             placeholder="Add any internal comments or notes regarding this policy..."
                           />
@@ -4267,17 +4439,17 @@ export default function Policies() {
                             />
                           </div>
 
-                          {/* Insured Person */}
+                          {/* Proposer Name */}
                           <div>
                             <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                              Insured Person
+                              Proposer Name
                             </label>
                             <input
                               type="text"
                               value={insuredPerson}
                               onChange={e => setInsuredPerson(e.target.value)}
                               className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
-                              placeholder="e.g. Self / Name of Insured Person"
+                              placeholder="Enter proposer name"
                             />
                           </div>
 
@@ -4348,21 +4520,53 @@ export default function Policies() {
 
                           {/* Sum Insured */}
                           <div>
-                            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                              Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>}
-                            </label>
-                            <CustomSelect
-                              value={watchSumAssured ? String(watchSumAssured) : ''}
-                              onChange={val => {
-                                const num = val ? Number(val) : undefined;
-                                setValue('sumAssured', num as any, { shouldValidate: true, shouldDirty: true });
-                              }}
-                              placeholder={`Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}`}
-                              options={[
-                                { value: '', label: `Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}` },
-                                ...SUM_INSURED_OPTIONS.map(opt => ({ value: String(opt.value), label: opt.label }))
-                              ]}
-                            />
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block">
+                                Sum Insured (₹) {isFieldRequired('sumAssured', true) && <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span>}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setIsManualSumAssured(prev => !prev)}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                              >
+                                {isManualSumAssured ? '← Select from list' : '+ Enter manually'}
+                              </button>
+                            </div>
+                            {isManualSumAssured ? (
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={watchSumAssured ?? ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setValue('sumAssured', val ? Number(val) : ('' as any), { shouldValidate: true, shouldDirty: true });
+                                  }}
+                                  placeholder="Enter sum insured (e.g. 250000)"
+                                  className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 pr-16"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 pointer-events-none">
+                                  INR (₹)
+                                </span>
+                              </div>
+                            ) : (
+                              <CustomSelect
+                                value={watchSumAssured ? String(watchSumAssured) : ''}
+                                onChange={val => {
+                                  const num = val ? Number(val) : undefined;
+                                  setValue('sumAssured', num as any, { shouldValidate: true, shouldDirty: true });
+                                }}
+                                placeholder={`Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}`}
+                                options={[
+                                  { value: '', label: `Select Sum Insured ${isFieldRequired('sumAssured', true) ? '*' : '(Optional)'}` },
+                                  ...SUM_INSURED_OPTIONS.map(opt => ({ value: String(opt.value), label: opt.label })),
+                                  ...(watchSumAssured && !SUM_INSURED_OPTIONS.some(opt => String(opt.value) === String(watchSumAssured))
+                                    ? [{ value: String(watchSumAssured), label: `₹${Number(watchSumAssured).toLocaleString('en-IN')} (Custom)` }]
+                                    : [])
+                                ]}
+                              />
+                            )}
                           </div>
 
                           {/* Deductible */}
@@ -5860,10 +6064,9 @@ export default function Policies() {
                                   <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">PHC Balance Amount (₹)</label>
                                   <input
                                     type="text"
-                                    value={phcExtraDetails.balanceAmount ? `₹${phcExtraDetails.balanceAmount}` : '₹1,500'}
-                                    onChange={e => setPhcExtraDetails(p => ({ ...p, balanceAmount: e.target.value.replace(/[^0-9]/g, '') }))}
+                                    value={`₹${Number(watch('phcAmount')) || 0}`}
+                                    readOnly
                                     className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-slate-800"
-                                    placeholder="₹1,500"
                                   />
                                 </div>
 
@@ -6171,66 +6374,15 @@ export default function Policies() {
                       <div className="flex items-center justify-between px-1">
                         <span className="text-[11px] font-black uppercase tracking-wider text-slate-700">Existing Uploaded Documents ({existingPolicyDocs.length})</span>
                       </div>
-                      <div className="space-y-2.5">
-                        {existingPolicyDocs.map((doc: any) => {
-                          const isEndorsement = doc.tag === 'POLICY_DOCUMENT_ENDORSEMENT' || doc.type === 'POLICY_DOCUMENT_ENDORSEMENT' || (doc.title && doc.title.toLowerCase().includes('endorsement'));
-                          const isPolicyDoc = !isEndorsement && (doc.tag === 'POLICY_DOCUMENT' || doc.type === 'POLICY_DOCUMENT' || doc.tag === 'POLICY' || (doc.title && doc.title.toLowerCase().includes('policy')));
-
-                          return (
-                            <div key={doc.id} className="p-3 bg-white border border-slate-200/90 rounded-xl flex items-center justify-between shadow-2xs hover:border-slate-300 transition-all">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEndorsement ? 'bg-amber-50 text-amber-600 border border-amber-200' : isPolicyDoc ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-slate-100 text-slate-600'}`}>
-                                  <FileText size={18} />
-                                </div>
-                                <div className="truncate">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-xs font-black text-slate-800 truncate">{doc.title || doc.fileName || 'Untitled Document'}</p>
-                                    {isEndorsement ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                        Policy Document - Endorsement
-                                      </span>
-                                    ) : isPolicyDoc ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                                        Policy Document
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                                        {doc.tag || doc.type || 'Document'}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                                    {doc.fileName ? `${doc.fileName} • ` : ''}{doc.createdAt ? format(new Date(doc.createdAt), 'dd/MMM/yyyy') : ''}
-                                    {doc.description ? ` • ${doc.description}` : ''}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                                <button
-                                  type="button"
-                                  onClick={() => viewDoc(doc.id)}
-                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                                  title="View / Download"
-                                >
-                                  <Download size={12} /> View
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (window.confirm(`Delete document "${doc.title || doc.fileName}"?`)) {
-                                      deleteExistingDocMutation.mutate(doc.id);
-                                    }
-                                  }}
-                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Document"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <DocumentsTable
+                        documents={existingPolicyDocs}
+                        onView={doc => viewDoc(doc.id)}
+                        onDelete={doc => {
+                          if (window.confirm(`Delete document "${doc.title || doc.fileName}"?`)) {
+                            deleteExistingDocMutation.mutate(doc.id);
+                          }
+                        }}
+                      />
                     </div>
                   )}
 
@@ -6240,39 +6392,86 @@ export default function Policies() {
                       <div className="flex items-center justify-between px-1">
                         <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700">New Documents To Be Uploaded ({pendingDocs.length})</span>
                       </div>
-                      <div className="space-y-2.5">
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                        <table className="w-full border-collapse text-left">
+                          <thead>
+                            <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                              <th className="px-3 py-2.5">Uploaded Date</th>
+                              <th className="px-3 py-2.5">Document Name</th>
+                              <th className="px-3 py-2.5 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-xs">
                         {pendingDocs.map((doc, i) => {
-                          const isEndorsement = doc.type === 'POLICY_DOCUMENT_ENDORSEMENT';
-                          const isPolicyDoc = doc.type === 'POLICY_DOCUMENT';
                           const typeLabel = POLICY_DOCUMENT_TYPE_OPTIONS.find(o => o.value === doc.type)?.label || doc.type;
 
                           return (
-                            <div key={i} className="p-3 bg-emerald-50/40 border border-emerald-200/80 rounded-xl flex items-center justify-between shadow-2xs">
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEndorsement ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                  <FileText size={18} />
-                                </div>
-                                <div className="truncate">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-xs font-black text-slate-800 truncate">{doc.title}</p>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${isEndorsement ? 'bg-amber-50 text-amber-700 border-amber-200' : isPolicyDoc ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                                      {typeLabel}
-                                    </span>
+                            <tr key={`${doc.file.name}-${i}`} className="hover:bg-slate-50/80">
+                              <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-slate-600">
+                                {format(new Date(), 'dd MMM yyyy')}
+                              </td>
+                              <td className="min-w-[220px] px-3 py-2.5">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 px-1 font-mono text-[9px] font-bold text-blue-600">
+                                    {doc.file.name.split('.').pop()?.slice(0, 4).toUpperCase() || 'FILE'}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="truncate font-extrabold text-slate-800" title={doc.file.name}>{doc.file.name}</p>
+                                    <div className="mt-0.5 flex items-center gap-1.5">
+                                      <span className="truncate font-semibold text-slate-600" title={doc.title}>{doc.title}</span>
+                                      <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-700">{typeLabel}</span>
+                                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Pending save</span>
+                                    </div>
+                                    {doc.description && <p className="mt-0.5 truncate text-[10px] text-slate-500">{doc.description}</p>}
                                   </div>
-                                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">{doc.file.name}{doc.description ? ` • ${doc.description}` : ''}</p>
                                 </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setPendingDocs(p => p.filter((_, idx) => idx !== i))}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                title="Remove Document"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const url = URL.createObjectURL(doc.file);
+                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                                    }}
+                                    className="rounded-lg border border-blue-100 bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100"
+                                    title="View document"
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const url = URL.createObjectURL(doc.file);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = doc.file.name;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      link.remove();
+                                      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+                                    }}
+                                    className="rounded-lg border border-slate-200 bg-slate-100 p-1.5 text-slate-700 hover:bg-slate-200"
+                                    title="Download document"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDocs(p => p.filter((_, idx) => idx !== i))}
+                                    className="rounded-lg border border-rose-100 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100"
+                                    title="Remove document"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
                           );
                         })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
@@ -6375,6 +6574,36 @@ export default function Policies() {
                   })()}
                 </div>
               )}
+
+              {/* ════════════════ TAB 7: History & Activity Tracking Log ════════════════ */}
+              {activePolicyTab === 'history' && (
+                <ActivityTimeline
+                  events={[policyHistoryRes, (editTarget as any)?.contact?.activityLogs]}
+                  fallbackEvents={[
+                    ...(editTarget?.createdAt ? [{
+                      id: `policy-created-${editTarget.id}`,
+                      entityType: 'Policy',
+                      entityId: editTarget.id,
+                      action: 'CREATE',
+                      description: `Policy ${editTarget.policyNumber} created`,
+                      createdAt: editTarget.createdAt,
+                    }] : []),
+                    ...(editTarget?.updatedAt && editTarget.updatedAt !== editTarget.createdAt ? [{
+                      id: `policy-updated-${editTarget.id}`,
+                      entityType: 'Policy',
+                      entityId: editTarget.id,
+                      action: 'UPDATE',
+                      description: 'Policy updated',
+                      createdAt: editTarget.updatedAt,
+                    }] : []),
+                  ]}
+                  entityType="Policy"
+                  entityId={editTarget?.id}
+                  isLoading={policyHistoryLoading}
+                  isError={policyHistoryError}
+                  subtitle="Latest activity for this policy."
+                />
+              )}
             </fieldset>
           </div>
 
@@ -6389,82 +6618,16 @@ export default function Policies() {
 
 
       {/* Document Upload Modal */}
-      <Modal
+      <DocumentUploadModal
         open={isDocUploadModalOpen}
-        onClose={() => {
-          setIsDocUploadModalOpen(false);
-          setDocUploadFields({ type: 'POLICY', title: '', description: '', file: null });
-        }}
+        onClose={() => setIsDocUploadModalOpen(false)}
+        onUpload={handlePolicyDocumentUpload}
         title="Upload Document"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Type <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
-            <CustomSelect
-              value={docUploadFields.type}
-              onChange={val => setDocUploadFields(p => ({ ...p, type: val }))}
-              placeholder="Select Document Type"
-              options={POLICY_DOCUMENT_TYPE_OPTIONS}
-            />
-          </div>
-          <div>
-            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Document Title <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
-            <input
-              type="text"
-              value={docUploadFields.title}
-              onChange={e => setDocUploadFields(p => ({ ...p, title: e.target.value }))}
-              className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-              placeholder="e.g. Policy Schedule 2024"
-            />
-          </div>
-          <div>
-            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Description</label>
-            <textarea
-              rows={2}
-              value={docUploadFields.description}
-              onChange={e => setDocUploadFields(p => ({ ...p, description: e.target.value }))}
-              className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200"
-              placeholder="Optional notes about this document"
-            />
-          </div>
-          <div>
-            <label className="label text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block mb-1">Choose File <span className="text-red-600 font-black text-sm ml-0.5" style={{ color: '#dc2626' }}>*</span></label>
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
-              <input
-                type="file"
-                onChange={e => setDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
-                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
-            <button
-              type="button"
-              className="btn-secondary px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsDocUploadModalOpen(false);
-                setDocUploadFields({ type: 'POLICY', title: '', description: '', file: null });
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn-primary px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleDocUploadAdd();
-              }}
-            >
-              Upload
-            </button>
-          </div>
-        </div>
-      </Modal>
+        types={POLICY_DOCUMENT_TYPE_OPTIONS}
+        defaultType="POLICY_DOCUMENT"
+        zIndexClass="z-[60]"
+        explicitFilePicker
+      />
 
       {/* Delete Confirm Modal */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Policy" size="sm">
@@ -6478,6 +6641,28 @@ export default function Policies() {
           </button>
         </div>
       </Modal>
+      <ImportFormatModal
+        open={importFormatOpen}
+        onClose={() => setImportFormatOpen(false)}
+        onChooseFile={() => fileInputRef.current?.click()}
+        title="Import Policies from CSV or Excel"
+        description="Download the sample file and keep the column headers unchanged."
+        warning="Policy Number and Contact Phone are required. The contact phone must match an existing contact. Plan Code is optional; an active plan is used when it is blank or not found."
+        columns={[
+          { name: 'Policy Number', requirement: 'Required. Must be unique.' },
+          { name: 'Status', requirement: 'Optional. Use ACTIVE, INFORCE, RENEWAL_DUE, GRACE_PERIOD, LAPSED, EXPIRED, CANCELLED, SURRENDERED, or INACTIVE_OLD.' },
+          { name: 'Sum Assured', requirement: 'Optional. Use a number; defaults to 100000.' },
+          { name: 'Premium Amount', requirement: 'Optional. Use a number; defaults to 5000.' },
+          { name: 'Payment Frequency', requirement: 'Optional. Use MONTHLY, QUARTERLY, HALF_YEARLY, YEARLY, or SINGLE.' },
+          { name: 'Start Date', requirement: 'Optional. Recommended format: YYYY-MM-DD.' },
+          { name: 'End Date', requirement: 'Optional. Recommended format: YYYY-MM-DD.' },
+          { name: 'Contact Phone', requirement: 'Required. Must match an existing contact phone.' },
+          { name: 'Plan Code', requirement: 'Optional. Must match an active insurance plan code to select that plan.' },
+        ]}
+        sampleRow={['POL-SAMPLE-001', 'ACTIVE', '500000', '25000', 'YEARLY', '2026-01-01', '2027-01-01', '9000000001', '']}
+        fileFormats="CSV, XLS, and XLSX"
+        sampleFileName="policies-sample.csv"
+      />
     </div>
   );
 }

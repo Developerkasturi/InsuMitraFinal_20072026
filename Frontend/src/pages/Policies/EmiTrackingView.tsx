@@ -6,7 +6,8 @@ import {
   Search, Filter, Plus, Phone, MessageSquare, ExternalLink,
   ChevronLeft, ChevronRight, Eye, MoreHorizontal, User, Shield,
   CreditCard, Check, Clock, X, Send, ArrowRight, Info, Award,
-  Sparkles, SlidersHorizontal, Bell, RefreshCw, Layers, LayoutGrid, List, ChevronDown, MessageCircle, ChevronUp
+  Sparkles, SlidersHorizontal, Bell, RefreshCw, Layers, LayoutGrid, List, ChevronDown, MessageCircle, ChevronUp,
+  RotateCcw
 } from 'lucide-react';
 import Modal from '@comps/common/Modal';
 import toast from 'react-hot-toast';
@@ -167,7 +168,7 @@ export interface MonthPickerDropdownProps {
 // ── Redesigned Interactive 12-Month Calendar Selector Dropdown Component ──────────────
 export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDropdownProps) {
   const [open, setOpen] = useState(false);
-  const [pickerYear, setPickerYear] = useState(2026);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -188,7 +189,12 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
   };
 
   return (
-    <div className="relative" ref={popoverRef}>
+    <div
+      className="relative"
+      ref={popoverRef}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -205,7 +211,8 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2.5 w-72 bg-white rounded-2xl border border-slate-200/90 shadow-2xl p-4 z-50 animate-fadeIn space-y-3.5">
+        <div className="absolute right-0 top-full pt-2.5 z-50">
+        <div className="w-72 bg-white rounded-2xl border border-slate-200/90 shadow-2xl p-4 animate-fadeIn space-y-3.5">
           {/* Year Header with prev/next arrows */}
           <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-1.5 flex items-center justify-between">
             <button
@@ -240,6 +247,7 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
                   key={m}
                   type="button"
                   onClick={() => handleSelectMonth(m)}
+                  onMouseEnter={() => onChange(fullMonthStr)}
                   className={clsx(
                     'py-2 px-1 rounded-xl text-xs font-bold transition-all text-center cursor-pointer',
                     isSelected
@@ -253,20 +261,44 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
             })}
           </div>
 
-          {/* Quick Select Current Month */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                onChange('August 2026');
-                setPickerYear(2026);
-                setOpen(false);
-              }}
-              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex flex-wrap items-center gap-1 cursor-pointer bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100"
-            >
-              <Sparkles size={11} className="text-blue-600" />
-              <span>Current Month</span>
-            </button>
+          {/* Quick Select Current Month / All Months */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const curMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  onChange(curMonth);
+                  setPickerYear(new Date().getFullYear());
+                  setOpen(false);
+                }}
+                onMouseEnter={() => {
+                  const curMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  onChange(curMonth);
+                  setPickerYear(new Date().getFullYear());
+                }}
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex flex-wrap items-center gap-1 cursor-pointer bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-100"
+              >
+                <Sparkles size={11} className="text-blue-600" />
+                <span>Current Month</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('All Months');
+                  setOpen(false);
+                }}
+                onMouseEnter={() => onChange('All Months')}
+                className={clsx(
+                  'text-[11px] font-bold px-2 py-1 rounded-lg border cursor-pointer transition-colors',
+                  selectedMonth === 'All Months'
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'text-slate-600 hover:text-blue-600 bg-slate-50 border-slate-200'
+                )}
+              >
+                All Months
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -275,6 +307,7 @@ export function MonthPickerDropdown({ selectedMonth, onChange }: MonthPickerDrop
               Close
             </button>
           </div>
+        </div>
         </div>
       )}
     </div>
@@ -372,6 +405,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
   const [newNoteInput, setNewNoteInput] = useState('');
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -393,9 +427,67 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Month-wise filter logic
+  const monthFilteredData = useMemo(() => {
+    if (!selectedMonth || selectedMonth === 'All Months') return data;
+    const MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const MONTH_MAP: Record<string, number> = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, sept: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
+    };
+    const parts = selectedMonth.trim().split(/\s+/);
+    if (parts.length < 2) return data;
+    const targetMonthIdx = MONTHS_FULL.indexOf(parts[0].toLowerCase());
+    const targetYear = parseInt(parts[1], 10);
+    if (targetMonthIdx === -1 || isNaN(targetYear)) return data;
+
+    const isMatch = (dateStr?: string) => {
+      if (!dateStr || dateStr === 'N/A') return false;
+      const tokens = dateStr.trim().split(/[\s/\-]+/);
+      if (tokens.length === 3) {
+        const mIdx = MONTH_MAP[tokens[1].toLowerCase()];
+        const yr = parseInt(tokens[2], 10);
+        if (mIdx !== undefined && !isNaN(yr)) {
+          return mIdx === targetMonthIdx && yr === targetYear;
+        }
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return d.getMonth() === targetMonthIdx && d.getFullYear() === targetYear;
+      }
+      return false;
+    };
+
+    return data
+      .map(item => {
+        if (isMatch(item.dueDate)) return item;
+        const matchedSchedule = item.schedule.find(sc => isMatch(sc.dueDate));
+        if (matchedSchedule) {
+          return {
+            ...item,
+            dueDate: matchedSchedule.dueDate,
+            amount: matchedSchedule.amount,
+            currentEmiNo: matchedSchedule.emiNo,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as EmiRecord[];
+  }, [data, selectedMonth]);
+
   // Filter logic
   const filteredData = useMemo(() => {
-    return data.filter(item => {
+    return monthFilteredData.filter(item => {
       if (statusFilter !== 'All') {
         if (statusFilter === 'Due' && item.status === 'PAID') return false;
         if (statusFilter === 'Paid' && item.status !== 'PAID') return false;
@@ -413,7 +505,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
       }
       return true;
     });
-  }, [data, statusFilter, employeeFilter, insurerFilter, productFilter, searchQuery]);
+  }, [monthFilteredData, statusFilter, employeeFilter, insurerFilter, productFilter, searchQuery]);
 
   const sortedFilteredData = useMemo(() => {
     let result = [...filteredData];
@@ -453,6 +545,20 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
     }
     return result;
   }, [filteredData, sortKey, sortDir]);
+  const rowsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(sortedFilteredData.length / rowsPerPage));
+  const paginatedData = useMemo(
+    () => sortedFilteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage),
+    [sortedFilteredData, currentPage],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, employeeFilter, insurerFilter, productFilter, searchQuery, selectedMonth]);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const exportEmiToExcel = () => {
     const headers = ['Customer Name', 'Policy Number', 'Tag', 'Product', 'Insurer', 'Due Date', 'Amount', 'Paid EMIs', 'Total EMIs', 'Status', 'Assigned To'];
@@ -656,24 +762,24 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
     toast.success('Note added');
   };
 
-  // Dynamic KPIs Computed from data
-  const kpiTotalDueList = data.filter(r => r.status !== 'PAID');
+  // Dynamic KPIs Computed from monthFilteredData
+  const kpiTotalDueList = monthFilteredData.filter(r => r.status !== 'PAID');
   const kpiTotalDueCount = kpiTotalDueList.length;
   const kpiTotalDueAmount = kpiTotalDueList.reduce((acc, r) => acc + r.amount, 0);
 
-  const kpiDueTodayList = data.filter(r => r.status === 'DUE');
+  const kpiDueTodayList = monthFilteredData.filter(r => r.status === 'DUE');
   const kpiDueTodayCount = kpiDueTodayList.length;
   const kpiDueTodayAmount = kpiDueTodayList.reduce((acc, r) => acc + r.amount, 0);
 
-  const kpiOverdueList = data.filter(r => r.status === 'OVERDUE');
+  const kpiOverdueList = monthFilteredData.filter(r => r.status === 'OVERDUE');
   const kpiOverdueCount = kpiOverdueList.length;
   const kpiOverdueAmount = kpiOverdueList.reduce((acc, r) => acc + r.amount, 0);
 
-  const kpiPaidList = data.filter(r => r.status === 'PAID');
+  const kpiPaidList = monthFilteredData.filter(r => r.status === 'PAID');
   const kpiPaidCount = kpiPaidList.length;
   const kpiPaidAmount = kpiPaidList.reduce((acc, r) => acc + r.amount, 0);
   
-  const paymentTargetStr = data.length > 0 ? Math.round((kpiPaidCount / data.length) * 100) : 0;
+  const paymentTargetStr = monthFilteredData.length > 0 ? Math.round((kpiPaidCount / monthFilteredData.length) * 100) : 0;
 
   return (
     <div className="space-y-5 animate-fadeIn font-sans pb-10">
@@ -779,6 +885,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                     key={q.key}
                     type="button"
                     onClick={() => setStatusFilter(q.key)}
+                    onMouseEnter={() => setStatusFilter(q.key)}
                     className={clsx(
                       'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
                       isSelected
@@ -948,12 +1055,14 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
           <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">EMI Due List – {selectedMonth}</h3>
-          <span className="text-xs text-slate-400 font-bold">Showing {filteredData.length} records</span>
+          <span className="text-xs text-slate-400 font-bold">
+            Showing {sortedFilteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, sortedFilteredData.length)} of {sortedFilteredData.length} records
+          </span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="max-h-[420px] overflow-auto custom-scrollbar overscroll-contain">
           <table className="w-full text-left text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 {[
                   { key: 'select', label: '' },
@@ -1007,7 +1116,7 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
                   </td>
                 </tr>
               ) : (
-                sortedFilteredData.map((r, idx) => (
+                paginatedData.map((r, idx) => (
                   <tr
                     key={r.id}
                     onClick={() => setDrawerRecord(r)}
@@ -1078,16 +1187,41 @@ export default function EmiTrackingView({ selectedMonth }: { selectedMonth: stri
           </div>
 
           {/* Table Pagination */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/30">
-            <span className="text-xs text-slate-400 font-semibold">Showing 1 to {filteredData.length} of 84 entries</span>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+            <span className="text-sm text-slate-500 font-medium">
+              Showing <strong className="font-extrabold text-slate-800">{sortedFilteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, sortedFilteredData.length)}</strong>
+              {' '}of <strong className="font-extrabold text-slate-800">{sortedFilteredData.length}</strong> records
+            </span>
             <div className="flex flex-wrap items-center gap-1">
-              <button className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-100 disabled:opacity-40"><ChevronLeft size={14}/></button>
-              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold bg-blue-600 text-white">1</button>
-              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">2</button>
-              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">3</button>
-              <span className="text-xs text-slate-400 px-1">...</span>
-              <button className="px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold hover:bg-slate-100 text-slate-600">17</button>
-              <button className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><ChevronRight size={14}/></button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              ><ChevronLeft size={15} /></button>
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => {
+                const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+                const page = firstPage + index;
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={clsx(
+                      'min-w-[30px] h-7 px-2 rounded-lg text-sm font-extrabold transition-all border',
+                      currentPage === page
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                    )}
+                  >{page}</button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              ><ChevronRight size={15} /></button>
             </div>
           </div>
         </div>

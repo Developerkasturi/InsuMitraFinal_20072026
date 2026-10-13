@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { policiesService } from '../../services';
 import {
   Activity, Calendar, CheckCircle2, Clock, Search, Download, FileText,
@@ -12,7 +13,7 @@ import { sortData } from '../../utils/sortUtils';
 import Modal from '@comps/common/Modal';
 
 // ── Types ───────────────────────────────────────────────────────────────────────
-type PhcStatus = 'Interested' | 'Partial Utilized' | 'Fully Utilized' | 'Not Interested' | 'Upcoming' | 'Completed';
+type PhcStatus = 'Interested' | 'Partial Utilized' | 'Fully Utilized' | 'Not Interested' | 'Upcoming' | 'Completed' | 'Due This Month' | 'Overdue' | 'Not Applicable Yet';
 
 interface InsuredPerson {
   name: string;
@@ -77,6 +78,9 @@ const STATUS_CFG: Record<PhcStatus, { bg: string; text: string; border: string; 
   'Not Interested':   { bg: 'bg-slate-100',  text: 'text-slate-600',   border: 'border-slate-200',   dot: 'bg-slate-400' },
   'Upcoming':         { bg: 'bg-sky-50',     text: 'text-sky-700',     border: 'border-sky-200',     dot: 'bg-sky-500' },
   'Completed':        { bg: 'bg-violet-50',  text: 'text-violet-700',  border: 'border-violet-200',  dot: 'bg-violet-500' },
+  'Due This Month':   { bg: 'bg-orange-50',   text: 'text-orange-700',  border: 'border-orange-200',  dot: 'bg-orange-500' },
+  'Overdue':          { bg: 'bg-rose-50',     text: 'text-rose-700',    border: 'border-rose-200',    dot: 'bg-rose-500' },
+  'Not Applicable Yet': { bg: 'bg-slate-100', text: 'text-slate-500',   border: 'border-slate-200',   dot: 'bg-slate-400' },
 };
 
 function StatusBadge({ status }: { status: PhcStatus }) {
@@ -417,24 +421,25 @@ export default function PhcTrackingView() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const rowsPerPage = 10;
   const [drawerRecord, setDrawerRecord] = useState<PhcPolicyRecord | null>(null);
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const activePhcFilterCount = (policyTypeFilter !== 'All' ? 1 : 0) + (phcStatusFilter !== 'All' ? 1 : 0) + (phcYearFilter !== 'All' ? 1 : 0) + (companyFilter !== 'All' ? 1 : 0) + (fromDate || toDate ? 1 : 0);
 
   const [sortKey, setSortKey] = useState<string>('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const [phcData, setPhcData] = useState<PhcPolicyRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    setIsLoading(true);
-    policiesService.getPhcTracking()
-      .then(res => setPhcData(res?.data || []))
-      .catch(err => console.error('Error fetching PHC data:', err))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const {
+    data: phcResponse,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['policies', 'phc-tracking'],
+    queryFn: policiesService.getPhcTracking,
+  });
+  const phcData: PhcPolicyRecord[] = phcResponse?.data ?? [];
 
   const filteredData = useMemo(() => {
     let list = [...phcData];
@@ -456,21 +461,27 @@ export default function PhcTrackingView() {
     const fDate = parseInputDate(fromDate);
     const tDate = parseInputDate(toDate);
 
-    if (fDate && tDate) {
+    if (fDate || tDate) {
       list = list.filter(p => {
         let dateStr = p.phcYearEndDate;
         if (dateFilterType === 'PHC Start Date') dateStr = p.phcYearStartDate;
         else if (dateFilterType === 'Policy End Date') dateStr = p.policyEndDate;
         
         const filterDate = parseDateStr(dateStr);
-        return filterDate >= fDate && filterDate <= tDate;
+        return (!fDate || filterDate >= fDate) && (!tDate || filterDate <= tDate);
       });
     }
 
-    if (activeTab === 'due-this-month') list = list.filter(p => p.daysRemaining <= 30 && p.daysRemaining > 0);
+    if (activeTab === 'due-this-month') list = list.filter(p => p.phcStatus === 'Due This Month' || (p.daysRemaining <= 30 && p.daysRemaining > 0));
     else if (activeTab === 'upcoming') list = list.filter(p => p.phcStatus === 'Upcoming' || p.daysRemaining > 30);
     else if (activeTab === 'completed') list = list.filter(p => p.phcStatus === 'Completed' || p.phcStatus === 'Fully Utilized');
     
+    if (policyTypeFilter !== 'All') {
+      list = list.filter(p => p.companyType.toUpperCase() === policyTypeFilter.toUpperCase());
+    }
+    if (phcYearFilter !== 'All') {
+      list = list.filter(p => p.currentPhcYear.startsWith(phcYearFilter));
+    }
     if (phcStatusFilter !== 'All') list = list.filter(p => p.phcStatus === phcStatusFilter);
     if (companyFilter !== 'All') list = list.filter(p => p.companyName === companyFilter || p.companyInitials === companyFilter);
     
@@ -479,7 +490,10 @@ export default function PhcTrackingView() {
       list = list.filter(p => p.policyNo.toLowerCase().includes(q) || p.customerName.toLowerCase().includes(q) || p.planName.toLowerCase().includes(q) || p.customerPhone.includes(q));
     }
     return list;
-  }, [activeTab, phcStatusFilter, searchQuery, fromDate, toDate]);
+  }, [
+    activeTab, companyFilter, dateFilterType, fromDate, phcData, phcStatusFilter,
+    phcYearFilter, policyTypeFilter, searchQuery, toDate,
+  ]);
 
   const sortedFilteredData = useMemo(() => {
     return sortData(filteredData, sortKey, sortDir, (row: any, key: string) => {
@@ -676,7 +690,16 @@ export default function PhcTrackingView() {
     return dependenciesData.slice(start, start + rowsPerPage);
   }, [dependenciesData, currentPage, rowsPerPage]);
 
-  const totalPages = Math.max(1, Math.ceil((activeTab === 'dependencies' ? dependenciesData.length : filteredData.length) / rowsPerPage));
+  const totalRows = activeTab === 'dependencies' ? dependenciesData.length : sortedFilteredData.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, companyFilter, fromDate, phcStatusFilter, phcYearFilter, policyTypeFilter, searchQuery, toDate]);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const handleQuickFilter = (key: string) => {
     setQuickFilter(key);
@@ -723,11 +746,12 @@ export default function PhcTrackingView() {
       </div>
 
       {/* ── Main Table Card ───────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs">
         {/* Tabs */}
         <div className="flex items-center border-b border-slate-100 px-4 pt-2">
           {TABS.map(tab => (
             <button key={tab.key} type="button" onClick={() => { setActiveTab(tab.key); setCurrentPage(1); }}
+              onMouseEnter={() => { setActiveTab(tab.key); setCurrentPage(1); }}
               className={clsx('px-5 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap mr-1',
                 activeTab === tab.key ? 'border-blue-600 text-blue-600 font-extrabold' : 'border-transparent text-slate-500 hover:text-slate-700')}>
               {tab.label}
@@ -751,22 +775,73 @@ export default function PhcTrackingView() {
           <div className="flex flex-wrap items-center gap-2 flex-wrap">
             {[
               { val: policyTypeFilter, setter: setPolicyTypeFilter, label: 'Policy Type', opts: [['All', 'Policy Type'], ['HEALTH', 'Health'], ['LIFE', 'Life'], ['TERM', 'Term']] },
-              { val: phcStatusFilter, setter: setPhcStatusFilter, label: 'PHC Status', opts: [['All', 'PHC Status'], ['Interested', 'Interested'], ['Partial Utilized', 'Partial Utilized'], ['Fully Utilized', 'Fully Utilized'], ['Not Interested', 'Not Interested'], ['Upcoming', 'Upcoming'], ['Completed', 'Completed']] },
+              { val: phcStatusFilter, setter: setPhcStatusFilter, label: 'PHC Status', opts: [['All', 'PHC Status'], ['Interested', 'Interested'], ['Partial Utilized', 'Partial Utilized'], ['Fully Utilized', 'Fully Utilized'], ['Not Interested', 'Not Interested'], ['Upcoming', 'Upcoming'], ['Due This Month', 'Due This Month'], ['Overdue', 'Overdue'], ['Not Applicable Yet', 'Not Applicable Yet'], ['Completed', 'Completed']] },
               { val: phcYearFilter, setter: setPhcYearFilter, label: 'PHC Year', opts: [['All', 'PHC Year'], ['Year 1', 'Year 1'], ['Year 2', 'Year 2'], ['Year 3', 'Year 3']] },
               { val: companyFilter, setter: setCompanyFilter, label: 'Company', opts: [['All', 'Company'], ...Array.from(new Set(phcData.map((p: any) => p.companyName))).map(c => [c as string, c as string] as [string, string])] },
-            ].map(({ val, setter, opts }) => (
-              <div key={opts[0][1]} className="relative">
-                <select value={val} onChange={e => setter(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none">
-                  {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-                <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              </div>
-            ))}
+            ].map(({ val, setter, label, opts }) => {
+              const isOpen = openDropdown === label;
+              const selectedLabel = opts.find(([v]) => v === val)?.[1] || label;
+              return (
+                <div
+                  key={label}
+                  className="relative"
+                  onMouseEnter={() => setOpenDropdown(label)}
+                  onMouseLeave={() => setOpenDropdown(null)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown(prev => prev === label ? null : label)}
+                    className={clsx(
+                      'bg-white border rounded-xl pl-3 pr-7 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer flex items-center transition-all select-none',
+                      val !== 'All'
+                        ? 'border-blue-300 bg-blue-50/70 text-blue-700 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <span className="truncate">{selectedLabel}</span>
+                    <ChevronDown size={11} className={clsx('absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-transform duration-150', isOpen && 'rotate-180')} />
+                  </button>
+
+                  {isOpen && (
+                    <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[170px]">
+                      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-1.5 max-h-64 overflow-y-auto custom-scrollbar animate-fadeIn space-y-0.5">
+                        {opts.map(([v, l]) => {
+                          const isSelected = val === v;
+                          return (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => {
+                                setter(v);
+                                setCurrentPage(1);
+                                setOpenDropdown(null);
+                              }}
+                              onMouseEnter={() => {
+                                setter(v);
+                                setCurrentPage(1);
+                              }}
+                              className={clsx(
+                                'w-full text-left px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between gap-2',
+                                isSelected
+                                  ? 'bg-blue-50 text-blue-700 font-extrabold'
+                                  : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-blue-600'
+                              )}
+                            >
+                              <span className="truncate">{v === 'All' ? `All (${l})` : l}</span>
+                              {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 ml-auto">
-            <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setFromDate(''); setToDate(''); setActiveTab('all'); setCurrentPage(1); }}
+            <button type="button" onClick={() => { setSearchQuery(''); setPolicyTypeFilter('All'); setPhcStatusFilter('All'); setPhcYearFilter('All'); setCompanyFilter('All'); setFromDate(''); setToDate(''); setActiveTab('all'); setCurrentPage(1); }}
               className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
               <RotateCcw size={12} /> Reset
             </button>
@@ -824,12 +899,45 @@ export default function PhcTrackingView() {
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Filter By</label>
-                <div className="relative">
-                  <select value={dateFilterType} onChange={e => setDateFilterType(e.target.value)}
-                    className="bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer appearance-none">
-                    {['PHC Year End Date', 'PHC Start Date', 'Policy End Date'].map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                  <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <div
+                  className="relative"
+                  onMouseEnter={() => setOpenDropdown('Filter By')}
+                  onMouseLeave={() => setOpenDropdown(null)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown(prev => prev === 'Filter By' ? null : 'Filter By')}
+                    className="bg-white border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer flex items-center transition-all select-none hover:border-slate-300"
+                  >
+                    <span>{dateFilterType}</span>
+                    <ChevronDown size={11} className={clsx('absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-transform duration-150', openDropdown === 'Filter By' && 'rotate-180')} />
+                  </button>
+                  {openDropdown === 'Filter By' && (
+                    <div className="absolute left-0 top-full pt-1.5 z-50 min-w-[180px]">
+                      <div className="bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-1.5 animate-fadeIn space-y-0.5">
+                        {['PHC Year End Date', 'PHC Start Date', 'Policy End Date'].map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              setDateFilterType(t);
+                              setOpenDropdown(null);
+                            }}
+                            onMouseEnter={() => setDateFilterType(t)}
+                            className={clsx(
+                              'w-full text-left px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between gap-2',
+                              dateFilterType === t
+                                ? 'bg-blue-50 text-blue-700 font-extrabold'
+                                : 'text-slate-700 font-semibold hover:bg-slate-50 hover:text-blue-600'
+                            )}
+                          >
+                            <span>{t}</span>
+                            {dateFilterType === t && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-1">
@@ -850,7 +958,7 @@ export default function PhcTrackingView() {
               </div>
               <div className="flex flex-wrap items-center gap-1.5 flex-wrap">
                 {[{ key: 'this-month', label: 'This Month' }, { key: 'last-month', label: 'Last Month' }, { key: 'this-quarter', label: 'This Quarter' }, { key: 'this-year', label: 'This Year' }].map(qf => (
-                  <button key={qf.key} type="button" onClick={() => handleQuickFilter(qf.key)}
+                  <button key={qf.key} type="button" onClick={() => handleQuickFilter(qf.key)} onMouseEnter={() => handleQuickFilter(qf.key)}
                     className={clsx('px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all border', quickFilter === qf.key ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50')}>
                     {qf.label}
                   </button>
@@ -868,7 +976,7 @@ export default function PhcTrackingView() {
         )}
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="max-h-[420px] overflow-auto custom-scrollbar overscroll-contain">
           {activeTab === 'dependencies' ? (
             <table className="w-full text-left text-xs">
               <thead>
@@ -984,7 +1092,16 @@ export default function PhcTrackingView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/80 font-medium">
-              {paginatedData.length === 0 ? (
+              {isLoading ? (
+                <tr><td colSpan={18} className="px-5 py-12 text-center text-slate-400 font-semibold">Loading PHC records…</td></tr>
+              ) : isError ? (
+                <tr>
+                  <td colSpan={18} className="px-5 py-12 text-center text-rose-600 font-semibold">
+                    <span>Unable to load PHC records.</span>
+                    <button type="button" onClick={() => refetch()} className="ml-2 text-blue-600 underline">Retry</button>
+                  </td>
+                </tr>
+              ) : paginatedData.length === 0 ? (
                 <tr><td colSpan={18} className="px-5 py-12 text-center text-slate-400 font-semibold">No PHC policies match the selected filters.</td></tr>
               ) : paginatedData.map((r, idx) => (
                 <tr key={r.id} onClick={() => setDrawerRecord(r)} className={clsx("transition-colors cursor-pointer", idx % 2 === 1 ? 'bg-slate-50/80' : 'bg-white', selectedRows.has(r.id) && 'bg-blue-50/50')}>
@@ -1049,30 +1166,30 @@ export default function PhcTrackingView() {
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/30 flex-wrap gap-2">
-          <span className="text-xs text-slate-400 font-semibold">
-            Showing {Math.min(1, activeTab === 'dependencies' ? dependenciesData.length : filteredData.length)} to {Math.min(currentPage * rowsPerPage, activeTab === 'dependencies' ? dependenciesData.length : filteredData.length)} of {activeTab === 'dependencies' ? dependenciesData.length : filteredData.length} entries
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+          <span className="text-sm text-slate-500 font-medium">
+            Showing <strong className="font-extrabold text-slate-800">{totalRows === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}–{Math.min(currentPage * rowsPerPage, totalRows)}</strong>
+            {' '}of <strong className="font-extrabold text-slate-800">{totalRows}</strong> records
           </span>
           <div className="flex flex-wrap items-center gap-1">
             <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"><ChevronLeft size={13} /></button>
-            {Array.from({ length: Math.min(4, totalPages) }, (_, i) => i + 1).map(p => (
-              <button key={p} type="button" onClick={() => setCurrentPage(p)}
-                className={clsx('px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all', currentPage === p ? 'bg-blue-600 text-white' : 'hover:bg-slate-100 text-slate-600')}>{p}</button>
-            ))}
-            {totalPages > 4 && <span className="text-xs text-slate-400 px-1">...</span>}
+              className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronLeft size={15} /></button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+              const page = firstPage + i;
+              return (
+                <button key={page} type="button" onClick={() => setCurrentPage(page)}
+                  className={clsx(
+                    'min-w-[30px] h-7 px-2 rounded-lg text-sm font-extrabold transition-all border',
+                    currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                  )}>{page}</button>
+              );
+            })}
             <button type="button" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-40"><ChevronRight size={13} /></button>
+              className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"><ChevronRight size={15} /></button>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <span className="font-semibold">Rows per page</span>
-            <div className="relative">
-              <select value={rowsPerPage} onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-white border border-slate-200 rounded-lg pl-2 pr-6 py-1 text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none">
-                {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
+            <span className="font-semibold">10 rows per page</span>
           </div>
         </div>
       </div>

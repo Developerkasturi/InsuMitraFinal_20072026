@@ -24,6 +24,9 @@ interface Props<T> {
   rowKey: (row: T) => string;
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
+  scrollAreaHeight?: string;
+  showPagination?: boolean;
+  horizontalScroll?: boolean;
 }
 
 export default function DataTable<T>({
@@ -38,6 +41,9 @@ export default function DataTable<T>({
   rowKey,
   onRowClick,
   emptyMessage = 'No records found',
+  scrollAreaHeight,
+  showPagination = false,
+  horizontalScroll = false,
 }: Props<T>) {
   const [sortKey, setSortKey] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -54,11 +60,14 @@ export default function DataTable<T>({
 
   return (
     <div className="overflow-hidden bg-white rounded-2xl border border-slate-200/70 shadow-sm">
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="min-w-full text-sm border-collapse">
+      <div
+        className={`overflow-auto custom-scrollbar ${scrollAreaHeight ? 'overscroll-contain' : ''}`}
+        style={scrollAreaHeight ? { maxHeight: scrollAreaHeight } : undefined}
+      >
+        <table className={clsx('min-w-full text-sm border-collapse', horizontalScroll && 'w-max')}>
 
           {/* ── Header ────────────────────────────────────────────────── */}
-          <thead>
+          <thead className={scrollAreaHeight ? 'sticky top-0 z-10' : undefined}>
             <tr className="bg-gradient-to-r from-slate-100/90 via-slate-50 to-slate-100/90 border-b border-slate-200/80">
               {columns.map(col => (
                 <th
@@ -147,11 +156,11 @@ export default function DataTable<T>({
       </div>
 
       {/* ── Pagination ────────────────────────────────────────────────── */}
-      {total > pageSize && (
+      {(showPagination || total > pageSize) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3 border-t border-slate-100 bg-slate-50/50">
           <p className="text-sm font-medium text-slate-500">
             Showing{' '}
-            <span className="font-extrabold text-slate-800">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span>
+            <span className="font-extrabold text-slate-800">{total === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}</span>
             {' '}of{' '}
             <span className="font-extrabold text-slate-800">{total}</span> records
           </p>
@@ -166,12 +175,8 @@ export default function DataTable<T>({
 
             {/* Page numbers */}
             {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
-              const pg = page <= 3
-                ? i + 1
-                : page >= totalPages - 2
-                ? totalPages - 4 + i
-                : page - 2 + i;
-              if (pg < 1 || pg > totalPages) return null;
+              const firstPage = Math.max(1, Math.min(page - 2, totalPages - 4));
+              const pg = firstPage + i;
               return (
                 <button
                   key={pg}

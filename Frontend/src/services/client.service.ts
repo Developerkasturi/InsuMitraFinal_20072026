@@ -1,8 +1,7 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 import { useClientStore } from '@store/client.store';
 import { useAuthStore } from '@store/auth.store';
-
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
+import { BASE_URL, applyProxyIfNeeded } from './api';
 
 // Axios instance for client portal — uses client JWT or CRM user JWT
 export const clientApi = axios.create({ baseURL: BASE_URL });
@@ -10,7 +9,7 @@ export const clientApi = axios.create({ baseURL: BASE_URL });
 clientApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useClientStore.getState().accessToken || useAuthStore.getState().accessToken;
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  return applyProxyIfNeeded(config);
 });
 
 clientApi.interceptors.response.use(
@@ -24,7 +23,7 @@ clientApi.interceptors.response.use(
 export const clientService = {
   // Auth (reuse main /auth/login endpoint)
   login: (email: string, password: string) =>
-    axios.post(`${BASE_URL}/auth/login`, { email, password }).then(r => r.data),
+    clientApi.post('/auth/login', { email, password }).then(r => r.data),
 
   // Profile
   getMe: () =>

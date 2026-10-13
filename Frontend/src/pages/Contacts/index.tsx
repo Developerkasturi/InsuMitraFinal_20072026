@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Pencil, Trash2, Flame, Heart, Shield, Phone, MessageCircle, Upload, Star, Users,
-  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download, ExternalLink, X
+  Calendar, Award, TrendingUp, Filter, Settings, UserPlus, UserCircle2, ChevronDown, ChevronUp, Send, Save, FileText, History, UserCheck, Eye, Download, ExternalLink, X, Clock
 } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useUpcomingBirthdays } from '@hooks/useContacts';
 import { useClaims } from '@hooks/useClaims';
@@ -11,7 +11,11 @@ import { useLookupStore } from '@store/lookup.store';
 import { contactsService, policiesService, claimsService, leadsService, insuranceService, documentsService } from '@api/index';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import DataTable, { Column } from '@comps/common/DataTable';
+import ActivityTimeline from '@comps/common/ActivityTimeline';
+import ImportFormatModal, { ImportFormatColumn } from '@comps/common/ImportFormatModal';
 import Modal from '@comps/common/Modal';
+import DocumentUploadModal, { DocumentUploadMeta } from '@comps/common/DocumentUploadModal';
+import DocumentsTable from '@comps/common/DocumentsTable';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,9 +29,12 @@ import { sortData } from '../../utils/sortUtils';
 import ContactDetailModal from './ContactDetailModal';
 import PolicyDetailModal from '../Policies/PolicyDetailModal';
 import CreatePolicyModal from '../Policies/CreatePolicyModal';
+import { ClaimDetailView } from '../Claims';
+import ClaimDetailModal from '../Claims/ClaimDetailModal';
 import * as XLSX from 'xlsx';
 import { CountryPhoneInput } from '@comps/common/CountryPhoneInput';
 import { DatalistInput } from '@comps/common/DatalistInput';
+import INDIA_STATE_DISTRICTS from '@/constants/india-state-districts.json';
 
 const EDUCATION_OPTIONS = [
   'Metric',
@@ -59,6 +66,16 @@ const OCCUPATION_TYPE_OPTIONS = [
   'Homemaker',
   'Other',
 ];
+
+const INDIAN_STATES_AND_UTS = INDIA_STATE_DISTRICTS
+  .map(({ state }) => state)
+  .sort((a, b) => a.localeCompare(b));
+const INDIAN_DISTRICTS_BY_STATE = Object.fromEntries(
+  INDIA_STATE_DISTRICTS.map(({ state, districts }) => [
+    state,
+    [...districts].sort((a, b) => a.localeCompare(b)),
+  ]),
+);
 
 export const contactFormSchema = z.object({
   // System fields mapping
@@ -241,14 +258,27 @@ export default function Contacts() {
   const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const openedPolicyRef = useRef<string | null>(null);
+  const isDirectPolicyModalRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'contacts' | 'customers' | 'birthdays'>('contacts');
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('search') || searchParams.get('q') || '');
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importFormatOpen, setImportFormatOpen] = useState(false);
+
+  useEffect(() => {
+    const q = searchParams.get('search') ?? searchParams.get('q');
+    if (q !== null && q !== undefined) {
+      setSearch(q);
+      setPage(1);
+    } else if (!searchParams.has('search') && !searchParams.has('q')) {
+      setSearch('');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (searchParams.get('action') === 'add') {
@@ -292,17 +322,11 @@ export default function Contacts() {
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedPolicyModalId, setSelectedPolicyModalId] = useState<string | null>(null);
+  const [selectedClaimDetail, setSelectedClaimDetail] = useState<any | null>(null);
   const [createPolicyModalOpen, setCreatePolicyModalOpen] = useState(false);
   const [expandedPolicyIds, setExpandedPolicyIds] = useState<Record<string, boolean>>({});
   const [policyToEdit, setPolicyToEdit] = useState<any | null>(null);
   const [contactDocUploadOpen, setContactDocUploadOpen] = useState(false);
-  const [contactDocUploadFields, setContactDocUploadFields] = useState<{ type: string; title: string; description: string; file: File | null }>({
-    type: 'IDENTITY_PROOF',
-    title: '',
-    description: '',
-    file: null,
-  });
-  const [isUploadingContactDoc, setIsUploadingContactDoc] = useState(false);
   const [docPreviewModal, setDocPreviewModal] = useState<{ open: boolean; title: string; url: string }>({ open: false, title: '', url: '' });
   const { user: authUser } = useAuthStore();
   const isAdminOrSuperadmin = authUser?.role === 'OWNER' || authUser?.role === 'SUPERADMIN' || authUser?.role === 'ADMIN';
@@ -647,7 +671,7 @@ export default function Contacts() {
   }
 
   const newProductInterestCard = (): ProductInterestCard => ({
-    id: Math.random().toString(36).slice(2),
+    id: 'temp-' + Math.random().toString(36).slice(2),
     collapsed: false,
     interestedIn: [],
     otherProduct: '',
@@ -808,6 +832,7 @@ export default function Contacts() {
   // Family members state
   const [familyMembers, setFamilyMembers] = useState<Array<{
     contactId?: string;
+    addedAt?: string;
     name: string; firstName: string; middleName: string; lastName: string;
     dob: string; relation: string;
     whatsapp: string; callingNumber?: string; occupation: string; education: string;
@@ -820,10 +845,13 @@ export default function Contacts() {
     declaredMedicalHistory?: string[];
     notDeclaredMedicalHistory?: string[];
     medicalHistoryDetails?: string;
+    surgeryDetails?: string;
+    prescriptionDetails?: string;
   }>>([]);
 
   const addFamilyMember = () =>
     setFamilyMembers(prev => [...prev, {
+      addedAt: new Date().toISOString(),
       name: '', firstName: '', middleName: '', lastName: '',
       dob: '', relation: '',
       whatsapp: '', callingNumber: '', occupation: '', education: '',
@@ -835,7 +863,9 @@ export default function Contacts() {
       medicalHistory: [],
       declaredMedicalHistory: [],
       notDeclaredMedicalHistory: [],
-      medicalHistoryDetails: ''
+      medicalHistoryDetails: '',
+      surgeryDetails: '',
+      prescriptionDetails: ''
     }]);
 
   const updateFamilyMember = (idx: number, field: string, value: any) =>
@@ -907,15 +937,15 @@ export default function Contacts() {
 
   // Personal Info Collapsed Sub-Sections State
   const INITIAL_PERSONAL_COLLAPSED: Record<string, boolean> = {
-    personalDetails: true,
+    personalDetails: false,
     contactDetails: true,
     educationOccupation: true,
     addressDetails: true,
     bankDetails: true,
     lifestyleHabits: true,
-    healthHistory: true,
-    surgeryDetails: true,
-    prescriptionDetails: true,
+    healthHistory: false,
+    surgeryDetails: false,
+    prescriptionDetails: false,
   };
 
   const [personalCollapsed, setPersonalCollapsed] = useState<Record<string, boolean>>(INITIAL_PERSONAL_COLLAPSED);
@@ -962,11 +992,10 @@ export default function Contacts() {
   }, [employees]);
 
   const { data: contactsRes, isLoading: contactsLoading, refetch: refetchContacts } = useContacts({
-    page,
-    limit: 20,
+    limit: 2000,
     search: search || undefined,
     sortBy: 'createdAt',
-    sortOrder: 'asc',
+    sortOrder: 'desc',
   });
 
   const contactsListArray = useMemo(() => {
@@ -983,11 +1012,11 @@ export default function Contacts() {
   // Query plans for Lead creation Policy tab (using empty/mock variables to satisfy compilation)
   const leadPlansList: any[] = [];
 
-  // Fetch policies & claims for customer tab enrichment
+  // Fetch policies & claims for customer tab and product filtering enrichment
   const { data: policiesRes } = useQuery({
     queryKey: ['contacts-policies-list'],
-    queryFn: () => policiesService.list({ limit: 200, sortBy: 'createdAt', sortOrder: 'desc' }),
-    enabled: activeTab === 'customers' || leadModalOpen || createPolicyModalOpen,
+    queryFn: () => policiesService.list({ limit: 2000, sortBy: 'createdAt', sortOrder: 'desc' }),
+    enabled: true,
     staleTime: 0,
   });
 
@@ -1099,6 +1128,17 @@ export default function Contacts() {
     enabled: !!interactionTarget?.id,
   });
 
+  const historyContactId = loadedContact?.id || editContactId;
+  const {
+    data: contactHistoryRes,
+    isLoading: contactHistoryLoading,
+    isError: contactHistoryError,
+  } = useQuery({
+    queryKey: ['contact-activity', historyContactId],
+    queryFn: () => contactsService.activity(historyContactId!, { page: 1, limit: 100 }),
+    enabled: !!historyContactId && modalOpen && activeLeadTab === 'History',
+  });
+
   const logInteractionMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: any }) => contactsService.logInteraction(id, body),
     onSuccess: () => {
@@ -1194,7 +1234,7 @@ export default function Contacts() {
     setLeadInfoFields({
       profileType: 'Client Profile',
       leadStatus: 'OPEN',
-      interestedIn: ['Health'],
+      interestedIn: [],
       leadSource: 'Walkin',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
@@ -1234,14 +1274,16 @@ export default function Contacts() {
   };
 
   const openLeadEdit = async (leadOrContact: any) => {
-    const contactId = leadOrContact.contactId || leadOrContact.id;
+    const isMongoId = (id: unknown): id is string =>
+      typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+    const contactId = isMongoId(leadOrContact.contactId) ? leadOrContact.contactId : leadOrContact.id;
     if (!contactId) {
       toast.error('Invalid contact selected');
       return;
     }
 
     setEditContactId(contactId);
-    setEditLeadId(leadOrContact.contactId ? leadOrContact.id : (leadOrContact.productInterests?.[0]?.id || null));
+    setEditLeadId(isMongoId(leadOrContact.contactId) ? leadOrContact.id : (leadOrContact.productInterests?.[0]?.id || null));
 
     // Fallback initial values from leadOrContact row
     const fallbackContact = leadOrContact;
@@ -1258,16 +1300,23 @@ export default function Contacts() {
       lastName: initialNames.lastName,
       gender: fallbackContact.gender || fallbackContact.contact?.gender || '',
       maritalStatus: fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
+      weddingAnniversaryDate: fallbackContact.weddingAnniversaryDate || '',
       dateOfBirth: fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : (fallbackContact.contact?.dateOfBirth ? fallbackContact.contact.dateOfBirth.split('T')[0] : ''),
       birthPlace: fallbackContact.birthPlace || fallbackContact.contact?.birthPlace || '',
       age: (fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth) ? String(calculateAge(fallbackContact.dateOfBirth || fallbackContact.contact?.dateOfBirth)) : '',
       height: fallbackContact.height ? String(fallbackContact.height) : '',
       weight: fallbackContact.weight ? String(fallbackContact.weight) : '',
+      medicalHistory: fallbackContact.medicalHistory || [],
+      declaredMedicalHistory: fallbackContact.declaredMedicalHistory || [],
+      notDeclaredMedicalHistory: fallbackContact.notDeclaredMedicalHistory || [],
+      medicalHistoryDetails: fallbackContact.medicalHistoryDetails || '',
+      surgeryDetails: fallbackContact.surgeryDetails || '',
+      prescriptionDetails: fallbackContact.prescriptionDetails || '',
+      chewTobacco: !!fallbackContact.chewTobacco,
+      smoke: !!fallbackContact.smoke,
+      consumeAlcohol: !!fallbackContact.consumeAlcohol,
       pan: fallbackContact.panNumber || fallbackContact.pan || '',
       panNumber: fallbackContact.panNumber || fallbackContact.pan || '',
-      declaredMedicalHistory: [],
-      notDeclaredMedicalHistory: [],
-      medicalHistoryDetails: '',
       email: fallbackContact.email || fallbackContact.contact?.email || '',
       aadhaarNumber: fallbackContact.aadhaarNumber || fallbackContact.contact?.aadhaarNumber || '',
       whatsappNumber: fallbackContact.phone || fallbackContact.whatsappNumber || fallbackContact.contact?.phone || '',
@@ -1311,6 +1360,7 @@ export default function Contacts() {
           lastName: updatedNames.lastName,
           gender: contact.gender || fallbackContact.gender || fallbackContact.contact?.gender || '',
           maritalStatus: contact.maritalStatus || fallbackContact.maritalStatus || fallbackContact.contact?.maritalStatus || '',
+          weddingAnniversaryDate: contact.weddingAnniversaryDate || fallbackContact.weddingAnniversaryDate || '',
           dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : (fallbackContact.dateOfBirth ? fallbackContact.dateOfBirth.split('T')[0] : ''),
           birthPlace: contact.birthPlace || fallbackContact.birthPlace || fallbackContact.contact?.birthPlace || '',
           age: contact.dateOfBirth ? String(calculateAge(contact.dateOfBirth)) : (fallbackContact.dateOfBirth ? String(calculateAge(fallbackContact.dateOfBirth)) : ''),
@@ -1318,9 +1368,15 @@ export default function Contacts() {
           weight: contact.weight ? String(contact.weight) : (fallbackContact.weight ? String(fallbackContact.weight) : ''),
           pan: contact.panNumber || fallbackContact.panNumber || fallbackContact.pan || '',
           panNumber: contact.panNumber || fallbackContact.panNumber || fallbackContact.pan || '',
-          declaredMedicalHistory: [],
-          notDeclaredMedicalHistory: [],
-          medicalHistoryDetails: '',
+          medicalHistory: contact.medicalHistory || fallbackContact.medicalHistory || [],
+          declaredMedicalHistory: contact.declaredMedicalHistory || fallbackContact.declaredMedicalHistory || [],
+          notDeclaredMedicalHistory: contact.notDeclaredMedicalHistory || fallbackContact.notDeclaredMedicalHistory || [],
+          medicalHistoryDetails: contact.medicalHistoryDetails || fallbackContact.medicalHistoryDetails || '',
+          surgeryDetails: contact.surgeryDetails || fallbackContact.surgeryDetails || '',
+          prescriptionDetails: contact.prescriptionDetails || fallbackContact.prescriptionDetails || '',
+          chewTobacco: !!(contact.chewTobacco ?? fallbackContact.chewTobacco),
+          smoke: !!(contact.smoke ?? fallbackContact.smoke),
+          consumeAlcohol: !!(contact.consumeAlcohol ?? fallbackContact.consumeAlcohol),
           email: contact.email || fallbackContact.email || fallbackContact.contact?.email || '',
           aadhaarNumber: contact.aadhaarNumber || fallbackContact.aadhaarNumber || fallbackContact.contact?.aadhaarNumber || '',
           whatsappNumber: contact.phone || fallbackContact.phone || fallbackContact.contact?.phone || '',
@@ -1364,6 +1420,7 @@ export default function Contacts() {
           return {
             id: r.id,
             contactId: c.id,
+            addedAt: r.createdAt || c.createdAt || contact.createdAt || new Date().toISOString(),
             name: `${parsedNames.firstName} ${parsedNames.middleName} ${parsedNames.lastName}`.replace(/\s+/g, ' ').trim(),
             firstName: parsedNames.firstName,
             middleName: parsedNames.middleName,
@@ -1371,9 +1428,19 @@ export default function Contacts() {
             dob: c?.dateOfBirth ? c.dateOfBirth.split('T')[0] : '',
             relation: r.relationshipType || 'OTHER',
             whatsapp: c?.phone || '',
-            occupation: '',
-            education: '',
-            medicalHistory: []
+            callingNumber: c?.alternatePhone || '',
+            occupation: c.occupations?.find((o: any) => o.isPrimary)?.type || c.occupations?.[0]?.type || '',
+            education: c.education || '',
+            maritalStatus: c.maritalStatus || '',
+            weddingAnniversary: c.weddingAnniversaryDate || '',
+            height: c.height == null ? '' : String(c.height),
+            weight: c.weight == null ? '' : String(c.weight),
+            medicalHistory: c.medicalHistory || [],
+            declaredMedicalHistory: c.declaredMedicalHistory || [],
+            notDeclaredMedicalHistory: c.notDeclaredMedicalHistory || [],
+            medicalHistoryDetails: c.medicalHistoryDetails || '',
+            surgeryDetails: c.surgeryDetails || '',
+            prescriptionDetails: c.prescriptionDetails || ''
           };
         });
         setFamilyMembers(rels1);
@@ -1490,6 +1557,80 @@ export default function Contacts() {
     }
   };
 
+  useEffect(() => {
+    const policyId = searchParams.get('openPolicyId');
+    const contactId = searchParams.get('openPolicyContact');
+    if (!policyId || !contactId) return;
+
+    const requestKey = `${contactId}:${policyId}`;
+    if (openedPolicyRef.current === requestKey) return;
+    openedPolicyRef.current = requestKey;
+
+    const loadPolicyModal = async () => {
+      try {
+        const [contactRes, policyRes] = await Promise.all([
+          contactsService.get(contactId),
+          policiesService.get(policyId),
+        ]);
+        const contact = contactRes?.data?.data || contactRes?.data || contactRes;
+        const policy = policyRes?.data?.data || policyRes?.data || policyRes;
+        if (!contact?.id || !policy?.id) {
+          throw new Error('Contact or policy details were not found');
+        }
+
+        isDirectPolicyModalRef.current = true;
+        setEditContactId(contact.id);
+        setLoadedContact(contact);
+        setPolicyToEdit(policy);
+        setActiveLeadTab('Policy');
+        setCreatePolicyModalOpen(true);
+        navigate('/contacts', { replace: true });
+      } catch (error: any) {
+        openedPolicyRef.current = null;
+        toast.error(error.response?.data?.message || error.message || 'Failed to open policy details');
+      }
+    };
+
+    void loadPolicyModal();
+  }, [navigate, searchParams]);
+
+  useEffect(() => {
+    if (!leadModalOpen || activeLeadTab !== 'Policy' || !editContactId || createPolicyModalOpen) return;
+
+    const contactPolicies = [
+      ...(loadedContact?.policies || []),
+      ...(loadedContact?.id ? policyMap[loadedContact.id] || [] : []),
+      ...(loadedContact?.contactId ? policyMap[loadedContact.contactId] || [] : []),
+      ...(policyMap[editContactId] || []),
+    ];
+    const hasActivePolicy = contactPolicies.some((policy: any) => {
+      const status = (policy.status || 'ACTIVE').toUpperCase();
+      return !['EXPIRED', 'LAPSED', 'CANCELLED', 'INACTIVE'].includes(status)
+        && (!policy.endDate || new Date(policy.endDate) >= new Date());
+    });
+    if (!hasActivePolicy) return;
+
+    const openPolicyTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) return;
+
+      event.preventDefault();
+      const activePolicy = contactPolicies.find((policy: any) => {
+        const status = (policy.status || 'ACTIVE').toUpperCase();
+        return !['EXPIRED', 'LAPSED', 'CANCELLED', 'INACTIVE'].includes(status)
+          && (!policy.endDate || new Date(policy.endDate) >= new Date());
+      });
+      if (!activePolicy?.id) return;
+
+      const url = new URL('/contacts', window.location.origin);
+      url.searchParams.set('openPolicyContact', editContactId);
+      url.searchParams.set('openPolicyId', activePolicy.id);
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    };
+
+    window.addEventListener('keydown', openPolicyTab);
+    return () => window.removeEventListener('keydown', openPolicyTab);
+  }, [activeLeadTab, createPolicyModalOpen, editContactId, leadModalOpen, loadedContact, policyMap]);
+
   const openLeadView = (leadOrContact: any) => {
     setIsViewMode(true);
     openLeadEdit(leadOrContact);
@@ -1585,13 +1726,15 @@ export default function Contacts() {
     }
 
     if (isDep) {
-      const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','1','7'];
-      const rawGDigits = (guardianNo || '').replace(/\D/g, '');
-      const matchedGCode = [...KNOWN_CODES].sort((a, b) => b.length - a.length).find(c => rawGDigits.startsWith(c));
-      const localGDigits = matchedGCode ? rawGDigits.slice(matchedGCode.length) : rawGDigits;
-      if (!guardianNo || (!/^\d{10}$/.test(localGDigits) && !/^\d{10}$/.test(rawGDigits))) {
-        toast.error('Guardian WhatsApp Number must be exactly 10 digits');
-        return;
+      if (guardianNo) {
+        const KNOWN_CODES = ['971','966','974','968','965','973','880','977','234','254','353','91','44','49','33','81','86','94','60','62','63','66','84','27','55','52','39','34','31','41','46','47','45','64','65','61','1','7'];
+        const rawGDigits = guardianNo.replace(/\D/g, '');
+        const matchedGCode = [...KNOWN_CODES].sort((a, b) => b.length - a.length).find(c => rawGDigits.startsWith(c));
+        const localGDigits = matchedGCode ? rawGDigits.slice(matchedGCode.length) : rawGDigits;
+        if (!/^\d{10}$/.test(localGDigits) && !/^\d{10}$/.test(rawGDigits)) {
+          toast.error('Guardian WhatsApp Number must be exactly 10 digits');
+          return;
+        }
       }
     } else {
       if (!whatsappNumber) {
@@ -1646,23 +1789,31 @@ export default function Contacts() {
       setActiveLeadTab('Personal');
       return;
     }
-    if (!personalFields?.district?.trim()) {
-      toast.error('District is required');
-      setActiveLeadTab('Personal');
-      return;
-    }
     if (!personalFields?.city?.trim()) {
       toast.error('City is required');
       setActiveLeadTab('Personal');
       return;
     }
 
-    // Validate all product interest cards for missing required fields
+    // Validate product interest cards only if product interest is explicitly/exclusively selected or has content
     for (let i = 0; i < productInterests.length; i++) {
       const card = productInterests[i];
       const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
       if (!isExisting) {
-        if (!card.interestedIn || card.interestedIn.length === 0) {
+        const hasSelectedInterests = Array.isArray(card.interestedIn) && card.interestedIn.length > 0;
+        const hasContent = hasSelectedInterests ||
+          Boolean(card.otherProduct?.trim()) ||
+          Boolean(card.expectedPremium && Number(card.expectedPremium) > 0) ||
+          Boolean(card.followUpDate?.trim()) ||
+          Boolean(card.descriptionDetails?.trim());
+
+        // Completely unselected / untouched card — ignore so contact creation is not blocked
+        if (!hasContent) {
+          continue;
+        }
+
+        // If card was initiated with content or details, require an exclusively selected product category
+        if (!hasSelectedInterests) {
           toast.error(`Product Interest #${i + 1}: Please select a Product Category`);
           setActiveLeadTab('Product Interest');
           return;
@@ -1732,7 +1883,8 @@ export default function Contacts() {
       let contactId = editContactId;
       if (editContactId) {
         const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
-        const chosenEmpId = validEmpId(leadInfoFields.assignedEmployeeId) || validEmpId(productInterests[0]?.assignedEmployeeId);
+        const interestEmpId = productInterests.find(c => validEmpId(c.assignedEmployeeId))?.assignedEmployeeId;
+        const chosenEmpId = validEmpId(leadInfoFields.assignedEmployeeId) || validEmpId(interestEmpId);
 
         const updateBody: any = {
           firstName,
@@ -1749,10 +1901,20 @@ export default function Contacts() {
         if (personalFields.email?.trim()) updateBody.email = personalFields.email.trim();
         if (personalFields.gender) updateBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) updateBody.maritalStatus = personalFields.maritalStatus;
+        updateBody.weddingAnniversaryDate = personalFields.weddingAnniversaryDate || null;
         if (personalFields.dateOfBirth?.trim()) updateBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
         if (personalFields.birthPlace?.trim()) updateBody.birthPlace = personalFields.birthPlace.trim();
-        if (personalFields.height) updateBody.height = Number(personalFields.height);
-        if (personalFields.weight) updateBody.weight = Number(personalFields.weight);
+        updateBody.height = personalFields.height ? String(personalFields.height) : null;
+        updateBody.weight = personalFields.weight ? String(personalFields.weight) : null;
+        updateBody.medicalHistory = personalFields.medicalHistory || [];
+        updateBody.declaredMedicalHistory = personalFields.declaredMedicalHistory || [];
+        updateBody.notDeclaredMedicalHistory = personalFields.notDeclaredMedicalHistory || [];
+        updateBody.medicalHistoryDetails = personalFields.medicalHistoryDetails || '';
+        updateBody.surgeryDetails = personalFields.surgeryDetails || '';
+        updateBody.prescriptionDetails = personalFields.prescriptionDetails || '';
+        updateBody.chewTobacco = !!personalFields.chewTobacco;
+        updateBody.smoke = !!personalFields.smoke;
+        updateBody.consumeAlcohol = !!personalFields.consumeAlcohol;
         if (personalFields.panNumber || personalFields.pan) updateBody.panNumber = personalFields.panNumber || personalFields.pan;
         if (cleanAadhaar) updateBody.aadhaarNumber = cleanAadhaar;
         if (personalFields.education) updateBody.education = personalFields.education;
@@ -1769,11 +1931,12 @@ export default function Contacts() {
             await contactsService.removeAddress(editContactId, addr.id).catch(err => console.error('Failed to remove old address:', err));
           }
         }
-        if (personalFields.state || personalFields.city || personalFields.pincode || personalFields.streetAddress) {
+        if (personalFields.state || personalFields.district || personalFields.city || personalFields.pincode || personalFields.streetAddress) {
           await contactsService.addAddress(editContactId, {
             type: 'HOME',
             line1: personalFields.streetAddress || 'N/A',
             city: personalFields.city || 'N/A',
+            district: personalFields.district || undefined,
             state: personalFields.state || 'N/A',
             pincode: personalFields.pincode || 'N/A',
             country: 'India',
@@ -1810,10 +1973,20 @@ export default function Contacts() {
         if (personalFields.email?.trim()) contactBody.email = personalFields.email.trim();
         if (personalFields.gender) contactBody.gender = personalFields.gender;
         if (personalFields.maritalStatus) contactBody.maritalStatus = personalFields.maritalStatus;
+        contactBody.weddingAnniversaryDate = personalFields.weddingAnniversaryDate || null;
         if (personalFields.dateOfBirth?.trim()) contactBody.dateOfBirth = toSafeIsoString(personalFields.dateOfBirth);
         if (personalFields.birthPlace?.trim()) contactBody.birthPlace = personalFields.birthPlace.trim();
-        if (personalFields.height) contactBody.height = Number(personalFields.height);
-        if (personalFields.weight) contactBody.weight = Number(personalFields.weight);
+        contactBody.height = personalFields.height ? String(personalFields.height) : null;
+        contactBody.weight = personalFields.weight ? String(personalFields.weight) : null;
+        contactBody.medicalHistory = personalFields.medicalHistory || [];
+        contactBody.declaredMedicalHistory = personalFields.declaredMedicalHistory || [];
+        contactBody.notDeclaredMedicalHistory = personalFields.notDeclaredMedicalHistory || [];
+        contactBody.medicalHistoryDetails = personalFields.medicalHistoryDetails || '';
+        contactBody.surgeryDetails = personalFields.surgeryDetails || '';
+        contactBody.prescriptionDetails = personalFields.prescriptionDetails || '';
+        contactBody.chewTobacco = !!personalFields.chewTobacco;
+        contactBody.smoke = !!personalFields.smoke;
+        contactBody.consumeAlcohol = !!personalFields.consumeAlcohol;
         if (personalFields.panNumber || personalFields.pan) contactBody.panNumber = personalFields.panNumber || personalFields.pan;
         if (cleanAadhaar) contactBody.aadhaarNumber = cleanAadhaar;
         if (personalFields.education) contactBody.education = personalFields.education;
@@ -1823,10 +1996,11 @@ export default function Contacts() {
 
         const contactRes = await contactsService.createFull({
           contact: contactBody,
-          address: (personalFields.state || personalFields.city || personalFields.pincode || personalFields.streetAddress) ? {
+          address: (personalFields.state || personalFields.district || personalFields.city || personalFields.pincode || personalFields.streetAddress) ? {
             type: 'HOME',
             line1: personalFields.streetAddress || 'N/A',
             city: personalFields.city || 'N/A',
+            district: personalFields.district || undefined,
             state: personalFields.state || 'N/A',
             pincode: personalFields.pincode || 'N/A',
             country: 'India',
@@ -1877,20 +2051,66 @@ export default function Contacts() {
                 middleName: famMiddle || undefined,
                 lastName: famLast,
                 phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
+                alternatePhone: fam.callingNumber || undefined,
                 dateOfBirth: famIsoDob,
+                maritalStatus: fam.maritalStatus || '',
+                weddingAnniversaryDate: fam.weddingAnniversary || '',
+                education: fam.education || '',
+                height: fam.height || '',
+                weight: fam.weight || '',
+                medicalHistory: fam.medicalHistory || [],
+                declaredMedicalHistory: fam.declaredMedicalHistory || [],
+                notDeclaredMedicalHistory: fam.notDeclaredMedicalHistory || [],
+                medicalHistoryDetails: fam.medicalHistoryDetails || '',
+                surgeryDetails: fam.surgeryDetails || '',
+                prescriptionDetails: fam.prescriptionDetails || '',
                 assignedEmployeeId: curEmpId || undefined,
               });
               await contactsService.addRelationship(contactId!, {
                 relatedContactId: targetFamContactId,
                 relationshipType: relType,
-              });
-            } else {
-              await contactsService.addRelationship(contactId!, {
-                name: fullFamName,
+                firstName: famFirst,
+                middleName: famMiddle,
+                lastName: famLast,
                 phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
+                alternatePhone: fam.callingNumber || undefined,
                 dateOfBirth: famIsoDob,
-                relationshipType: relType,
+                maritalStatus: fam.maritalStatus || '',
+                weddingAnniversaryDate: fam.weddingAnniversary || '',
+                education: fam.education || '',
+                occupation: fam.occupation || '',
+                height: fam.height || '',
+                weight: fam.weight || '',
+                medicalHistory: fam.medicalHistory || [],
+                declaredMedicalHistory: fam.declaredMedicalHistory || [],
+                notDeclaredMedicalHistory: fam.notDeclaredMedicalHistory || [],
+                medicalHistoryDetails: fam.medicalHistoryDetails || '',
+                surgeryDetails: fam.surgeryDetails || '',
+                prescriptionDetails: fam.prescriptionDetails || '',
               });
+              } else {
+                await contactsService.addRelationship(contactId!, {
+                  name: fullFamName,
+                  firstName: famFirst,
+                  middleName: famMiddle,
+                  lastName: famLast,
+                  phone: rawFamPhone.length === 10 ? rawFamPhone : undefined,
+                  alternatePhone: fam.callingNumber || undefined,
+                  dateOfBirth: famIsoDob,
+                  relationshipType: relType,
+                  maritalStatus: fam.maritalStatus || '',
+                  weddingAnniversaryDate: fam.weddingAnniversary || '',
+                  education: fam.education || '',
+                  occupation: fam.occupation || '',
+                  height: fam.height || '',
+                  weight: fam.weight || '',
+                  medicalHistory: fam.medicalHistory || [],
+                  declaredMedicalHistory: fam.declaredMedicalHistory || [],
+                  notDeclaredMedicalHistory: fam.notDeclaredMedicalHistory || [],
+                  medicalHistoryDetails: fam.medicalHistoryDetails || '',
+                  surgeryDetails: fam.surgeryDetails || '',
+                  prescriptionDetails: fam.prescriptionDetails || '',
+                });
             }
           } catch (famErr) {
             console.error('Failed to save family member:', famErr);
@@ -1927,24 +2147,18 @@ export default function Contacts() {
         }
       }
 
-      // Save Product Interests (Leads)
+      // Save Product Interests (Leads) — only if exclusively selected
       for (const card of productInterests) {
-        const isUntouchedDefaultPlaceholder = card.id.startsWith('temp-') &&
-          (card.interestedIn.length === 1 && card.interestedIn[0] === 'Health') &&
-          !card.expectedPremium &&
-          !card.followUpDate &&
-          !card.descriptionDetails &&
-          !card.otherProduct;
+        const rawInterests = (card.interestedIn || [])
+          .map((p: string) => (p === 'Other' && card.otherProduct ? card.otherProduct.trim() : p.trim()))
+          .filter(Boolean);
 
-        if (isUntouchedDefaultPlaceholder) {
+        // If product interest was not exclusively selected, do not reflect in Leads
+        if (rawInterests.length === 0) {
           continue;
         }
 
-        const rawInterests = (card.interestedIn || [])
-          .map((p: string) => (p === 'Other' && card.otherProduct ? card.otherProduct : p))
-          .filter(Boolean);
-
-        const interests = rawInterests.length > 0 ? rawInterests : ['Health'];
+        const interests = rawInterests;
 
         let stage = card.leadStage && card.leadStage !== 'OPEN' ? card.leadStage : 'TO_CONTACT';
 
@@ -2003,6 +2217,7 @@ export default function Contacts() {
       qc.refetchQueries({ queryKey: ['contacts'] });
       setPage(1);
       refetchContacts();
+      qc.invalidateQueries({ queryKey: ['leads'] });
       qc.invalidateQueries({ queryKey: ['policies'] });
       qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
 
@@ -2076,19 +2291,42 @@ export default function Contacts() {
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Form>({ resolver: zodResolver(activeSchema) });
 
   const getEmployeeName = (id?: string | null, assignedEmpObj?: any, contactItem?: any) => {
-    const targetObj = assignedEmpObj || contactItem?.assignedEmployee;
-    if (targetObj) {
-      const prof = targetObj.employeeProfile;
-      const name = prof ? `${prof.firstName || ''} ${prof.lastName || ''}`.trim() : (targetObj.email || '');
-      if (name) return name;
-    }
+    const formatEmployee = (employee?: any, employeeId?: string | null) => {
+      if (employee) {
+        const profile = employee.employeeProfile;
+        const name = profile
+          ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim()
+          : (employee.name || employee.email || '');
+        if (name) return name;
+      }
 
-    const targetId = id || contactItem?.assignedEmployeeId;
-    if (!targetId) return 'Unassigned';
+      if (!employeeId) return '';
+      const matchedEmployee = employeesList.find((item: any) =>
+        item.id === employeeId || item.userId === employeeId || item.user?.id === employeeId
+      );
+      return matchedEmployee
+        ? `${matchedEmployee.firstName ?? matchedEmployee.user?.firstName ?? ''} ${matchedEmployee.lastName ?? matchedEmployee.user?.lastName ?? ''}`.trim()
+          || matchedEmployee.name
+          || matchedEmployee.email
+          || ''
+        : '';
+    };
 
-    const emp = employeesList.find((e: any) => e.id === targetId || e.userId === targetId || e.user?.id === targetId);
-    if (!emp) return 'Unassigned';
-    return `${emp.firstName ?? emp.user?.firstName ?? ''} ${emp.lastName ?? emp.user?.lastName ?? ''}`.trim() || emp.name || emp.email || 'Unassigned';
+    const productInterest = contactItem?.productInterests?.find((item: any) =>
+      item.assignedEmployee || item.assignedEmployeeId
+    );
+    const productInterestEmployee = formatEmployee(
+      productInterest?.assignedEmployee,
+      productInterest?.assignedEmployeeId,
+    );
+    if (productInterestEmployee) return productInterestEmployee;
+
+    const directEmployee = formatEmployee(assignedEmpObj || contactItem?.assignedEmployee, id || contactItem?.assignedEmployeeId);
+    if (directEmployee) return directEmployee;
+
+    const policy = contactItem?.policies?.find((item: any) => item.assignedEmployee || item.assignedEmployeeId);
+    const policyEmployee = formatEmployee(policy?.assignedEmployee, policy?.assignedEmployeeId);
+    return policyEmployee || 'Unassigned';
   };
 
   const handlePickContact = async (contact: any) => {
@@ -2109,12 +2347,6 @@ export default function Contacts() {
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Failed to pick contact', { id: toastId });
     }
-  };
-
-  const toggleFilter = (filter: string) => {
-    setSelectedFilters(prev =>
-      prev.includes(filter) ? prev.filter(f => f !== filter) : [...prev, filter]
-    );
   };
 
   const openCreate = () => {
@@ -2152,7 +2384,7 @@ export default function Contacts() {
     setLeadInfoFields({
       profileType: 'Contact Profile',
       leadStatus: 'OPEN',
-      interestedIn: ['Health'],
+      interestedIn: [],
       leadSource: 'Walkin',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
@@ -2224,18 +2456,75 @@ export default function Contacts() {
         }
       }
 
+      // Text Search: Full Name, Phone, Alternate Phone, Email, Contact ID, Aadhaar, PAN
+      if (search && search.trim()) {
+        const sTerm = search.trim().toLowerCase();
+        const searchTokens = sTerm.split(/\s+/).filter(Boolean);
+        const fullName = `${item.firstName || item.contact?.firstName || ''} ${item.lastName || item.contact?.lastName || ''}`.trim().toLowerCase();
+        const phone = (item.phone || item.contact?.phone || '').toLowerCase();
+        const altPhone = (item.alternatePhone || item.contact?.alternatePhone || '').toLowerCase();
+        const email = (item.email || item.contact?.email || '').toLowerCase();
+        const cid = (item.contactId || item.id || '').toLowerCase();
+        const aadh = (item.aadhaarNumber || item.contact?.aadhaarNumber || '').toLowerCase();
+        const pan = (item.panNumber || item.contact?.panNumber || '').toLowerCase();
+        const matchesFullName = searchTokens.every(token => fullName.includes(token));
+        if (!matchesFullName && !phone.includes(sTerm) && !altPhone.includes(sTerm) && !email.includes(sTerm) && !cid.includes(sTerm) && !aadh.includes(sTerm) && !pan.includes(sTerm)) {
+          return false;
+        }
+      }
+
       // Date range filtering
-      if (dateFrom && item.createdAt) {
-        const itemDate = new Date(item.createdAt);
-        const fromDate = new Date(dateFrom);
-        if (itemDate < fromDate) return false;
+      if (dateFrom) {
+        const parseSafe = (dStr: any) => {
+          if (!dStr) return null;
+          if (dStr instanceof Date) return isNaN(dStr.getTime()) ? null : dStr;
+          const s = String(dStr).trim();
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+            const [d, m, y] = s.split('/').map(Number);
+            return new Date(y, m - 1, d);
+          }
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+            return new Date(y, m - 1, d);
+          }
+          const parsed = new Date(s);
+          return isNaN(parsed.getTime()) ? null : parsed;
+        };
+        const itemDate = parseSafe(item.createdAt || item.contact?.createdAt);
+        const fromDate = parseSafe(dateFrom);
+        if (fromDate && itemDate) {
+          fromDate.setHours(0, 0, 0, 0);
+          if (itemDate.getTime() < fromDate.getTime()) return false;
+        } else if (!itemDate) {
+          return false;
+        }
       }
-      if (dateTo && item.createdAt) {
-        const itemDate = new Date(item.createdAt);
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        if (itemDate > toDate) return false;
+      if (dateTo) {
+        const parseSafe = (dStr: any) => {
+          if (!dStr) return null;
+          if (dStr instanceof Date) return isNaN(dStr.getTime()) ? null : dStr;
+          const s = String(dStr).trim();
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+            const [d, m, y] = s.split('/').map(Number);
+            return new Date(y, m - 1, d);
+          }
+          if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const [y, m, d] = s.slice(0, 10).split('-').map(Number);
+            return new Date(y, m - 1, d);
+          }
+          const parsed = new Date(s);
+          return isNaN(parsed.getTime()) ? null : parsed;
+        };
+        const itemDate = parseSafe(item.createdAt || item.contact?.createdAt);
+        const toDate = parseSafe(dateTo);
+        if (toDate && itemDate) {
+          toDate.setHours(23, 59, 59, 999);
+          if (itemDate.getTime() > toDate.getTime()) return false;
+        } else if (!itemDate) {
+          return false;
+        }
       }
+
       const medicalOptions = [
         "BP",
         "Sugar",
@@ -2252,18 +2541,49 @@ export default function Contacts() {
         const itemTags: string[] = item.tags || item.contact?.tags || [];
 
         const matchesProduct = filterProducts.some(fp => {
+          const filterUpper = fp.toUpperCase();
           const filterLower = fp.toLowerCase();
+
           const hasProductPolicy = contactPolicies.some((p: any) => {
-            const cat = (p.plan?.category || p.category || p.plan?.type || '').toUpperCase();
+            const cat = (p.plan?.category || p.category || p.plan?.type || p.plan?.company?.category || '').toUpperCase();
             const name = (p.plan?.name || p.policyNumber || '').toLowerCase();
-            return cat === fp || cat.includes(fp) || name.includes(filterLower);
+            if (filterUpper === 'HEALTH' && (cat.includes('HEALTH') || cat.includes('MEDICLAIM') || name.includes('health') || name.includes('mediclaim'))) return true;
+            if (filterUpper === 'LIFE' && (cat.includes('LIFE') || cat.includes('TERM') || name.includes('life') || name.includes('term'))) return true;
+            if (filterUpper === 'MF' && (cat.includes('MF') || cat.includes('MUTUAL') || cat.includes('FUND') || name.includes('mutual'))) return true;
+            if (filterUpper === 'ACCIDENT' && (cat.includes('ACCIDENT') || cat.includes('PA') || name.includes('accident'))) return true;
+            if (filterUpper === 'OTHER' && (cat.includes('OTHER') || cat.includes('GENERAL') || cat.includes('SME') || cat.includes('TRAVEL'))) return true;
+            return cat === filterUpper || cat.includes(filterUpper) || name.includes(filterLower);
           });
 
           const hasProductInterest =
-            (item.interests && item.interests.some((i: string) => i.toUpperCase() === fp || i.toLowerCase().includes(filterLower))) ||
-            (item.productInterests && item.productInterests.some((pi: any) => (pi.interests || []).some((i: string) => i.toUpperCase() === fp))) ||
-            item.plan?.category === fp ||
-            itemTags.some((t: string) => t.toLowerCase() === filterLower || t.toLowerCase().includes(filterLower));
+            (item.interests && item.interests.some((i: string) => {
+              const iUp = i.toUpperCase();
+              if (filterUpper === 'HEALTH' && (iUp.includes('HEALTH') || iUp.includes('MEDICLAIM'))) return true;
+              if (filterUpper === 'LIFE' && (iUp.includes('LIFE') || iUp.includes('TERM'))) return true;
+              if (filterUpper === 'MF' && (iUp.includes('MF') || iUp.includes('MUTUAL'))) return true;
+              if (filterUpper === 'ACCIDENT' && iUp.includes('ACCIDENT')) return true;
+              if (filterUpper === 'OTHER' && (iUp.includes('OTHER') || iUp.includes('GENERAL'))) return true;
+              return iUp === filterUpper || iUp.includes(filterUpper);
+            })) ||
+            (item.productInterests && item.productInterests.some((pi: any) =>
+              (pi.interests || []).some((i: string) => {
+                const iUp = i.toUpperCase();
+                if (filterUpper === 'HEALTH' && (iUp.includes('HEALTH') || iUp.includes('MEDICLAIM'))) return true;
+                if (filterUpper === 'LIFE' && (iUp.includes('LIFE') || iUp.includes('TERM'))) return true;
+                if (filterUpper === 'MF' && (iUp.includes('MF') || iUp.includes('MUTUAL'))) return true;
+                if (filterUpper === 'ACCIDENT' && iUp.includes('ACCIDENT')) return true;
+                if (filterUpper === 'OTHER' && (iUp.includes('OTHER') || iUp.includes('GENERAL'))) return true;
+                return iUp === filterUpper || iUp.includes(filterUpper);
+              })
+            )) ||
+            (item.leadInfo?.interestedIn && item.leadInfo.interestedIn.some((i: string) => {
+              const iUp = i.toUpperCase();
+              if (filterUpper === 'HEALTH' && iUp.includes('HEALTH')) return true;
+              if (filterUpper === 'LIFE' && iUp.includes('LIFE')) return true;
+              if (filterUpper === 'MF' && iUp.includes('MF')) return true;
+              return iUp.includes(filterUpper);
+            })) ||
+            itemTags.some((t: string) => t.toUpperCase().includes(filterUpper) || t.toLowerCase().includes(filterLower));
 
           return hasProductPolicy || hasProductInterest;
         });
@@ -2278,13 +2598,8 @@ export default function Contacts() {
       const isCustomer = (item.policies && item.policies.length > 0) || hasTag('customer') || (policyMap[item.id]?.length > 0);
 
       if (activeTab === 'contacts') {
-        if (hasTag('contact')) {
-          // Keep in contacts tab if explicitly tagged as contact
-        } else if (isCustomer) {
-          return false;
-        }
-        if (selectedFilters.includes('Active') && !item.isActive) return false;
-        if (selectedFilters.includes('Inactive') && item.isActive) return false;
+        if (selectedFilters.includes('Active') && item.isActive === false) return false;
+        if (selectedFilters.includes('Inactive') && item.isActive !== false) return false;
       } else if (activeTab === 'customers') {
         // Customer tab filters
         if (!isCustomer && !hasTag('customer')) return false;
@@ -2443,7 +2758,7 @@ export default function Contacts() {
       return true;
     });
   }, [
-    activeTab, contactsRes, birthdayRes, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProducts, excludeProduct,
+    activeTab, contactsRes, birthdayRes, search, selectedFilters, policyMap, claimMap, dateFrom, dateTo, filterProducts, excludeProduct,
     filterFollowUpFrom, filterFollowUpTo, filterGender, filterMaritalStatus, filterAgeRange, filterIncomeRange,
     filterEducation, filterOccupation, filterResidency, filterState, filterCity, filterBank, filterMedicalHistory,
     filterActiveStatus, filterPolicyCombo, filterRole
@@ -2451,6 +2766,13 @@ export default function Contacts() {
 
   // Client-side Sorting Memo
   const sortedAndFilteredData = useMemo(() => {
+    if (!sortKey) {
+      return [...filteredData].sort((a: any, b: any) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+    }
     return sortData(filteredData, sortKey, sortDir as 'asc' | 'desc', (row: any, key: string) => {
       if (key === 'contactId' || key === 'id') {
         const cid = row.contactId || row.id || '';
@@ -2463,7 +2785,7 @@ export default function Contacts() {
         const p = policyMap[row.id] ?? [];
         return p.map((x: any) => x.plan?.category || x.plan?.name).join(', ');
       }
-      if (key === 'assignedTo') return getEmployeeName(row.assignedEmployeeId);
+      if (key === 'assignedTo') return getEmployeeName(row.assignedEmployeeId, row.assignedEmployee, row);
       
       // Attempt to resolve nested paths generically if standard row[key] is undefined
       const parts = key.split('.');
@@ -2479,34 +2801,22 @@ export default function Contacts() {
   // Contact Table Columns
   const CONTACT_COLS: Column<any>[] = [
     {
-      key: 'contactId',
-      label: 'CONTACT ID',
-      sortable: true,
-      render: r => {
-        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openLeadView(r);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
-          >
-            {displayId}
-          </button>
-        );
-      }
-    },
-    {
       key: 'name',
       label: 'NAME',
       sortable: true,
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openLeadView(r);
+            }}
+            className="text-left font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors cursor-pointer"
+          >
             {fullName}
-          </span>
+          </button>
         );
       }
     },
@@ -2679,34 +2989,22 @@ export default function Contacts() {
   // Customer Columns
   const CUSTOMER_COLS: Column<any>[] = [
     {
-      key: 'contactId',
-      label: 'CONTACT ID',
-      sortable: true,
-      render: r => {
-        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openLeadView(r);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
-          >
-            {displayId}
-          </button>
-        );
-      }
-    },
-    {
       key: 'name',
       label: 'NAME',
       sortable: true,
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openLeadView(r);
+            }}
+            className="text-left font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors cursor-pointer"
+          >
             {fullName}
-          </span>
+          </button>
         );
       }
     },
@@ -2865,34 +3163,22 @@ export default function Contacts() {
   // Birthday Columns
   const BIRTHDAY_COLS: Column<any>[] = [
     {
-      key: 'contactId',
-      label: 'CONTACT ID',
-      sortable: true,
-      render: r => {
-        const displayId = r.contactId || (r.id ? `#${r.id.substring(r.id.length - 4).toUpperCase()}` : '—');
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openLeadView(r);
-            }}
-            className="px-2.5 py-1 rounded-lg bg-slate-100/90 text-blue-600 hover:bg-blue-600 hover:text-white font-mono font-extrabold text-sm transition-all shadow-2xs border border-slate-200/80 cursor-pointer"
-          >
-            {displayId}
-          </button>
-        );
-      }
-    },
-    {
       key: 'name',
       label: 'NAME',
       sortable: true,
       render: r => {
         const fullName = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.name || '—';
         return (
-          <span className="font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openLeadView(r);
+            }}
+            className="text-left font-extrabold text-slate-900 text-sm hover:text-blue-600 transition-colors cursor-pointer"
+          >
             {fullName}
-          </span>
+          </button>
         );
       }
     },
@@ -2960,6 +3246,7 @@ export default function Contacts() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setImportFormatOpen(false);
     const toastId = toast.loading('Importing contacts…');
     try {
       let fileToUpload: File = file;
@@ -2977,7 +3264,7 @@ export default function Contacts() {
       toast.success(res.message || 'Contacts imported successfully!', { id: toastId });
       qc.invalidateQueries({ queryKey: ['contacts'] });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Failed to import contacts', { id: toastId });
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to import contacts', { id: toastId });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -2991,7 +3278,7 @@ export default function Contacts() {
         : CONTACT_COLS;
     return cols.filter(c => {
       // Primary identifiers and actions must ALWAYS be visible
-      if (c.key === 'contactId' || c.key === 'name' || c.key === 'phone' || c.key === 'actions') return true;
+      if (c.key === 'name' || c.key === 'phone' || c.key === 'actions') return true;
       return visibleColumns[String(c.key)] !== false;
     });
   }, [activeTab, visibleColumns, CUSTOMER_COLS, CONTACT_COLS, BIRTHDAY_COLS]);
@@ -3012,7 +3299,7 @@ export default function Contacts() {
         {/* Import CSV */}
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setImportFormatOpen(true)}
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white flex items-center justify-center transition-all hover:scale-105 shadow-md shadow-emerald-500/25 cursor-pointer group relative"
         >
           <Upload size={18} strokeWidth={2.2} />
@@ -3070,7 +3357,14 @@ export default function Contacts() {
             {/* Active / Inactive Status Badges */}
             <button
               type="button"
-              onClick={() => toggleFilter('Active')}
+              onClick={() => {
+                setSelectedFilters(prev => prev.includes('Active') ? [] : ['Active']);
+                setPage(1);
+              }}
+              onMouseEnter={() => {
+                setSelectedFilters(['Active']);
+                setPage(1);
+              }}
               className={clsx(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
                 selectedFilters.includes('Active')
@@ -3082,7 +3376,14 @@ export default function Contacts() {
             </button>
             <button
               type="button"
-              onClick={() => toggleFilter('Inactive')}
+              onClick={() => {
+                setSelectedFilters(prev => prev.includes('Inactive') ? [] : ['Inactive']);
+                setPage(1);
+              }}
+              onMouseEnter={() => {
+                setSelectedFilters(['Inactive']);
+                setPage(1);
+              }}
               className={clsx(
                 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs',
                 selectedFilters.includes('Inactive')
@@ -3094,10 +3395,14 @@ export default function Contacts() {
             </button>
 
             {/* Product Category Multi-Select Dropdown */}
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => setShowProductDropdown(true)}
+              onMouseLeave={() => setShowProductDropdown(false)}
+            >
               <button
                 type="button"
-                onClick={() => setShowProductDropdown(!showProductDropdown)}
+                onClick={() => setShowProductDropdown(prev => !prev)}
                 className={clsx(
                   "flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200/90 text-xs font-extrabold cursor-pointer transition-all shadow-2xs select-none",
                   filterProducts.length > 0
@@ -3118,7 +3423,8 @@ export default function Contacts() {
 
               {/* Dropdown Menu Panel */}
               {showProductDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn text-xs space-y-1.5">
+                <div className="absolute right-0 top-full z-50 pt-2">
+                <div className="w-56 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-3 animate-fadeIn text-xs space-y-1.5">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-1">
                     <span className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">Filter By Product</span>
                     {filterProducts.length > 0 && (
@@ -3133,11 +3439,15 @@ export default function Contacts() {
                   </div>
 
                   {/* All Products Checkbox */}
-                  <label className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-extrabold text-slate-700 select-none">
+                  <label
+                    onClick={() => { setFilterProducts([]); setExcludeProduct(false); setPage(1); }}
+                    onMouseEnter={() => { setFilterProducts([]); setExcludeProduct(false); setPage(1); }}
+                    className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-extrabold text-slate-700 select-none"
+                  >
                     <input
                       type="checkbox"
                       checked={filterProducts.length === 0}
-                      onChange={() => { setFilterProducts([]); setPage(1); }}
+                      onChange={() => { setFilterProducts([]); setExcludeProduct(false); setPage(1); }}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
                     />
                     <span>All Products</span>
@@ -3153,17 +3463,25 @@ export default function Contacts() {
                     ].map(prod => {
                       const isChecked = filterProducts.includes(prod.id);
                       return (
-                        <label key={prod.id} className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-bold text-slate-700 select-none">
+                        <label
+                          key={prod.id}
+                          onMouseEnter={() => {
+                            setFilterProducts([prod.id]);
+                            setExcludeProduct(false);
+                            setPage(1);
+                          }}
+                          className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer font-bold text-slate-700 select-none"
+                        >
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => {
-                              setFilterProducts(prev => {
-                                const next = prev.includes(prod.id)
+                              setFilterProducts(prev =>
+                                prev.includes(prod.id)
                                   ? prev.filter(p => p !== prod.id)
-                                  : [...prev, prod.id];
-                                return next;
-                              });
+                                  : [...prev, prod.id]
+                              );
+                              setExcludeProduct(false);
                               setPage(1);
                             }}
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
@@ -3173,6 +3491,7 @@ export default function Contacts() {
                       );
                     })}
                   </div>
+                </div>
                 </div>
               )}
             </div>
@@ -3209,6 +3528,16 @@ export default function Contacts() {
                 className="bg-transparent border-0 outline-none text-[11px] font-semibold text-slate-700 w-24 focus:ring-0 p-0 cursor-pointer"
                 title="To Date"
               />
+              {(dateFrom || dateTo) && (
+                <button
+                  type="button"
+                  onClick={() => { setDateFrom(''); setDateTo(''); setPage(1); }}
+                  className="text-slate-400 hover:text-red-500 font-bold text-xs ml-0.5 cursor-pointer"
+                  title="Clear Date Range"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* Column Picker Dropdown */}
@@ -3675,10 +4004,13 @@ export default function Contacts() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         <DataTable
           columns={activeCols}
-          data={sortedAndFilteredData}
-          total={activeTab === 'birthdays' ? birthdayList.length : (contactsRes?.meta?.total ?? contactsRes?.total ?? contactsRes?.meta?.totalCount ?? contactsListArray.length)}
+          data={sortedAndFilteredData.slice((page - 1) * 20, page * 20)}
+          total={sortedAndFilteredData.length}
           page={page}
           pageSize={20}
+          scrollAreaHeight="420px"
+          showPagination
+          horizontalScroll
           loading={activeTab === 'birthdays' ? birthdayLoading : contactsLoading}
           rowKey={r => r.id}
           onPageChange={setPage}
@@ -3947,7 +4279,7 @@ export default function Contacts() {
 
           {/* Tab contents */}
           <div className="h-[430px] overflow-y-auto pr-2 custom-scrollbar">
-            <fieldset disabled={isViewMode} className="min-w-0 border-0 p-0 m-0 w-full">
+            <fieldset disabled={isViewMode && ['Product Interest', 'Personal', 'Family'].includes(activeLeadTab)} className="min-w-0 border-0 p-0 m-0 w-full">
             {activeLeadTab === 'Product Interest' && (
               <div className="space-y-3 animate-fadeIn pb-2">
 
@@ -4432,7 +4764,7 @@ export default function Contacts() {
                     {personalFields.isDependent && (
                       <div className="animate-fadeIn">
                         <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                          Guardian WhatsApp Number <span className="text-red-500">*</span>
+                          Guardian WhatsApp Number
                         </label>
                         <CountryPhoneInput
                           value={personalFields.dependentNo || ''}
@@ -4741,7 +5073,7 @@ export default function Contacts() {
                 </div>
 
                 {/* 4. Address Details */}
-                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-hidden">
+                <div className="border border-slate-200/90 rounded-2xl bg-white shadow-2xs hover:shadow-xs transition-all overflow-visible">
                   <div
                     className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/30 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between cursor-pointer select-none"
                     onClick={() => togglePersonalCollapse('addressDetails')}
@@ -4762,31 +5094,23 @@ export default function Contacts() {
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">State <span className="text-red-500">*</span></label>
-                      <select
+                      <DatalistInput
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                        value={personalFields.state}
-                        onChange={e => setPersonalFields(p => ({ ...p, state: e.target.value }))}
-                      >
-                        <option value="">Select State</option>
-                        <option value="Maharashtra">Maharashtra</option>
-                        <option value="Delhi">Delhi</option>
-                        <option value="Karnataka">Karnataka</option>
-                        <option value="Gujarat">Gujarat</option>
-                      </select>
+                        placeholder="Select or search State"
+                        value={personalFields.state || ''}
+                        options={INDIAN_STATES_AND_UTS}
+                        onChange={val => setPersonalFields(p => ({ ...p, state: val, district: '' }))}
+                      />
                     </div>
                     <div>
-                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District <span className="text-red-500">*</span></label>
-                      <select
+                      <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">District</label>
+                      <DatalistInput
                         className="input w-full focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl transition-all"
-                        value={personalFields.district}
-                        onChange={e => setPersonalFields(p => ({ ...p, district: e.target.value }))}
-                      >
-                        <option value="">Select District</option>
-                        <option value="Pune">Pune</option>
-                        <option value="Mumbai">Mumbai</option>
-                        <option value="Bangalore">Bangalore</option>
-                        <option value="Ahmedabad">Ahmedabad</option>
-                      </select>
+                        placeholder={personalFields.state ? "Select or search District" : "Select State first"}
+                        value={personalFields.district || ''}
+                        options={personalFields.state ? (INDIAN_DISTRICTS_BY_STATE[personalFields.state] || []) : []}
+                        onChange={val => setPersonalFields(p => ({ ...p, district: val }))}
+                      />
                     </div>
                     <div>
                       <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">City / Town <span className="text-red-500">*</span></label>
@@ -5172,6 +5496,7 @@ export default function Contacts() {
                                   <option value="Mother">Mother</option>
                                   <option value="Brother">Brother</option>
                                   <option value="Sister">Sister</option>
+                                  <option value="Sibling">Sibling</option>
                                   <option value="Child">Child</option>
                                   <option value="Other">Other</option>
                                 </select>
@@ -5486,6 +5811,32 @@ export default function Contacts() {
                                 value={member.medicalHistoryDetails || ''}
                                 onChange={e => setFamilyMembers(prev => prev.map((m, i) => i === idx ? { ...m, medicalHistoryDetails: e.target.value } : m))}
                               />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Past Surgeries / Advised
+                                </label>
+                                <textarea
+                                  className="input w-full text-xs resize-none bg-white"
+                                  rows={2}
+                                  placeholder="Add surgeries done or advised..."
+                                  value={member.surgeryDetails || ''}
+                                  onChange={e => updateFamilyMember(idx, 'surgeryDetails', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
+                                  Current Medicines / Prescriptions
+                                </label>
+                                <textarea
+                                  className="input w-full text-xs resize-none bg-white"
+                                  rows={2}
+                                  placeholder="Add current medicines or prescriptions..."
+                                  value={member.prescriptionDetails || ''}
+                                  onChange={e => updateFamilyMember(idx, 'prescriptionDetails', e.target.value)}
+                                />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -5851,13 +6202,26 @@ export default function Contacts() {
                   ) : (
                     <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
                       {displayedContactClaims.map((cl: any) => (
-                        <div key={cl.id} className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2">
+                        <div
+                          key={cl.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedClaimDetail(cl)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedClaimDetail(cl);
+                            }
+                          }}
+                          className="w-full text-left p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-2 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer pointer-events-auto select-none group"
+                          aria-label={`View claim ${cl.claimNumber || ''}`}
+                        >
                           <div className="flex items-center justify-between">
                             <div>
                               <span className="text-[9px] font-black uppercase text-blue-600 tracking-wider bg-blue-50 px-1.5 py-0.5 rounded">
                                 {cl.claimType}
                               </span>
-                              <h4 className="text-xs font-bold text-slate-900 mt-1">{cl.claimNumber}</h4>
+                              <h4 className="text-xs font-bold text-slate-900 mt-1 group-hover:text-blue-600 transition-colors">{cl.claimNumber}</h4>
                               <p className="text-[10px] text-slate-400">Policy: {cl.policy?.policyNumber || 'N/A'}</p>
                             </div>
                             <div className="text-right">
@@ -5882,208 +6246,30 @@ export default function Contacts() {
             })()}
 
             {activeLeadTab === 'History' && (
-              <div className="space-y-4">
-                {/* Tab Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                      <History size={13} />
-                    </div>
-                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                      Contact & Family History Log
-                    </h3>
-                  </div>
-                  <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-0.5 rounded-full">
-                    {familyMembers.length} Family {familyMembers.length === 1 ? 'Member' : 'Members'}
-                  </span>
-                </div>
-
-                <div className="max-h-[420px] overflow-y-auto pr-1 custom-scrollbar space-y-4">
-                  {/* 1. Personal Details Log Card */}
-                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                          <UserCircle2 size={13} />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                          Personal Information Log
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md">
-                          {personalFields.role || loadedContact?.role || 'Contact'}
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                          (personalFields.contactStatus === 'Active' || (personalFields.contactStatus !== 'Inactive' && loadedContact?.isActive !== false))
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                            : 'bg-rose-50 text-rose-700 border-rose-100'
-                        }`}>
-                          {personalFields.contactStatus || (loadedContact?.isActive !== false ? 'Active' : 'Inactive')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Name</span>
-                        <p className="font-bold text-slate-800">
-                          {(personalFields.firstName || personalFields.middleName || personalFields.lastName) ? `${personalFields.firstName} ${personalFields.middleName} ${personalFields.lastName}`.trim() : (loadedContact ? `${loadedContact.firstName || ''} ${loadedContact.middleName || ''} ${loadedContact.lastName || ''}`.trim() : 'Not provided')}
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Mobile & Email</span>
-                        <p className="font-semibold text-slate-700">
-                          {personalFields.callingNumber || personalFields.whatsappNumber || (loadedContact?.phone) || 'No phone'}
-                          {(personalFields.email || loadedContact?.email) ? ` · ${personalFields.email || loadedContact?.email}` : ''}
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Date of Birth & Gender</span>
-                        <p className="font-semibold text-slate-700">
-                          {personalFields.dateOfBirth || loadedContact?.dob || 'DOB not set'}
-                          {(personalFields.gender || loadedContact?.gender) ? ` · ${personalFields.gender || loadedContact?.gender}` : ''}
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Occupation & Marital Status</span>
-                        <p className="font-semibold text-slate-700">
-                          {personalFields.occupationType || loadedContact?.occupation || 'Not specified'}
-                          {(personalFields.maritalStatus || loadedContact?.maritalStatus) ? ` · ${personalFields.maritalStatus || loadedContact?.maritalStatus}` : ''}
-                        </p>
-                      </div>
-
-                      {(personalFields.birthPlace || loadedContact?.birthPlace) && (
-                        <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 space-y-0.5">
-                          <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Birth Place</span>
-                          <p className="font-semibold text-slate-700">
-                            {personalFields.birthPlace || loadedContact?.birthPlace}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {(personalFields.streetAddress || personalFields.city || loadedContact?.address) && (
-                      <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100/80 text-xs space-y-0.5">
-                        <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Address Details</span>
-                        <p className="text-slate-700 font-medium">
-                          {[personalFields.streetAddress, personalFields.city, personalFields.state, personalFields.pincode].filter(Boolean).join(', ') || loadedContact?.address}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2. Family Members Created & Linked Log Card */}
-                  <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                          <Users size={13} />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                          Family Members Created ({familyMembers.length})
-                        </h4>
-                      </div>
-                      {familyMembers.length > 0 && (
-                        <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-md">
-                          {familyMembers.length} {familyMembers.length === 1 ? 'Member Created' : 'Members Created'}
-                        </span>
-                      )}
-                    </div>
-
-                    {familyMembers.length === 0 ? (
-                      <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                        <p className="text-xs text-slate-400 font-medium italic">No family members created for this contact yet.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {familyMembers.map((member, idx) => (
-                          <div key={idx} className="bg-slate-50/80 rounded-xl border border-slate-200/70 p-3 space-y-2 text-xs hover:border-blue-200 transition-all">
-                            <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-extrabold flex items-center justify-center">
-                                  {idx + 1}
-                                </span>
-                                <span className="font-extrabold text-slate-800 text-xs">
-                                  {member.name || `Family Member #${idx + 1}`}
-                                </span>
-                              </div>
-                              {member.relation && (
-                                <span className="text-[10px] font-extrabold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">
-                                  {member.relation}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                              <div>
-                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Date of Birth / Phone</span>
-                                <p className="font-semibold text-slate-700">
-                                  {member.dob || 'DOB not set'} {member.whatsapp ? ` · ${member.whatsapp}` : ''}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Occupation & Education</span>
-                                <p className="font-semibold text-slate-700">
-                                  {member.occupation || 'Not set'} {member.education ? ` · ${member.education}` : ''}
-                                </p>
-                              </div>
-                            </div>
-
-                            {member.medicalHistory && member.medicalHistory.length > 0 && (
-                              <div className="pt-1">
-                                <span className="text-[9px] font-extrabold text-slate-400 uppercase block mb-1">Medical History Tags</span>
-                                <div className="flex flex-wrap gap-1">
-                                  {member.medicalHistory.map((tag, ti) => (
-                                    <span key={ti} className="text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 3. Particular Contact Audit Log Card */}
-                  {loadedContact && (
-                    <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-2 text-xs">
-                      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-2">
-                        <div className="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                          <Calendar size={13} />
-                        </div>
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                          Contact Record Audit Log
-                        </h4>
-                      </div>
-                      <div className="space-y-1.5 pt-1 text-[11px]">
-                        {loadedContact.createdAt && (
-                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="text-slate-500 font-medium">Record Created Date</span>
-                            <span className="font-bold text-slate-700">
-                              {new Date(loadedContact.createdAt).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {loadedContact.updatedAt && (
-                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <span className="text-slate-500 font-medium">Last Modified Date</span>
-                            <span className="font-bold text-slate-700">
-                              {new Date(loadedContact.updatedAt).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ActivityTimeline
+                events={[contactHistoryRes, loadedContact?.activityLogs]}
+                fallbackEvents={[
+                  ...(loadedContact?.createdAt ? [{
+                    id: `contact-created-${loadedContact.id}`,
+                    entityType: 'Contact',
+                    entityId: loadedContact.id,
+                    action: 'CREATE',
+                    description: 'Contact profile created',
+                    createdAt: loadedContact.createdAt,
+                  }] : []),
+                  ...(loadedContact?.updatedAt && loadedContact.updatedAt !== loadedContact.createdAt ? [{
+                    id: `contact-updated-${loadedContact.id}`,
+                    entityType: 'Contact',
+                    entityId: loadedContact.id,
+                    action: 'UPDATE',
+                    description: 'Contact profile updated',
+                    createdAt: loadedContact.updatedAt,
+                  }] : []),
+                ]}
+                isLoading={contactHistoryLoading}
+                isError={contactHistoryError}
+                subtitle="Unified timeline tracking changes across this contact, family, policies, and claims."
+              />
             )}
 
             {activeLeadTab === 'Documents' && (() => {
@@ -6110,10 +6296,7 @@ export default function Contacts() {
                     {currentContactDocId && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null });
-                          setContactDocUploadOpen(true);
-                        }}
+                        onClick={() => setContactDocUploadOpen(true)}
                         className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] cursor-pointer"
                       >
                         <Upload size={13} />
@@ -6122,116 +6305,32 @@ export default function Contacts() {
                     )}
                   </div>
 
-                  {/* ── Contact Doc Upload Sub-Modal (Mirroring Claims/index.tsx) ────── */}
-                  <Modal
+                  <DocumentUploadModal
                     open={contactDocUploadOpen}
-                    onClose={() => { setContactDocUploadOpen(false); setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null }); }}
+                    onClose={() => setContactDocUploadOpen(false)}
+                    onUpload={async (file: File, meta: DocumentUploadMeta) => {
+                      if (!currentContactDocId) {
+                        toast.error('Please save the contact first.');
+                        return;
+                      }
+                      try {
+                        await documentsService.upload(file, { contactId: String(currentContactDocId), ...meta });
+                        await qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
+                        setContactDocUploadOpen(false);
+                        toast.success('Document uploaded successfully!');
+                        return true;
+                      } catch (err: any) {
+                        const message = err?.response?.data?.message;
+                        toast.error(Array.isArray(message) ? message.join(', ') : message || 'Failed to upload document.');
+                        return false;
+                      }
+                    }}
                     title="Upload Contact Document"
                     subtitle="Attach identity proof, policy bonds, or medical records for this contact."
-                    size="md"
+                    defaultType="IDENTITY_PROOF"
+                    types={CONTACT_DOC_TYPES}
                     zIndexClass="z-[70]"
-                    icon={<FileText className="text-indigo-600" size={20} />}
-                  >
-                    <div className="space-y-4 py-1">
-                      <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                          Document Type <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={contactDocUploadFields.type}
-                          onChange={e => setContactDocUploadFields(p => ({ ...p, type: e.target.value }))}
-                          className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                        >
-                          {CONTACT_DOC_TYPES.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                          Document Title <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={contactDocUploadFields.title}
-                          onChange={e => setContactDocUploadFields(p => ({ ...p, title: e.target.value }))}
-                          className="input w-full h-10 text-xs rounded-xl bg-white border border-slate-200"
-                          placeholder="e.g. Aadhaar Card – Rahul Otari"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                          Description / Notes
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={contactDocUploadFields.description}
-                          onChange={e => setContactDocUploadFields(p => ({ ...p, description: e.target.value }))}
-                          className="input w-full p-2.5 text-xs rounded-xl bg-white border border-slate-200"
-                          placeholder="Optional notes about this document"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="label text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-                          Choose File <span className="text-red-500">*</span>
-                        </label>
-                        <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-500 hover:bg-blue-50/30 transition-colors">
-                          <input
-                            type="file"
-                            onChange={e => setContactDocUploadFields(p => ({ ...p, file: e.target.files?.[0] || null }))}
-                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-gradient-to-r file:from-blue-600 file:to-indigo-600 file:text-white hover:file:opacity-90 cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-slate-100">
-                        <button
-                          type="button"
-                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-                          onClick={() => { setContactDocUploadOpen(false); setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null }); }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isUploadingContactDoc}
-                          onClick={async () => {
-                            if (!contactDocUploadFields.title.trim()) { toast.error('Please enter a document title.'); return; }
-                            if (!contactDocUploadFields.file) { toast.error('Please choose a file.'); return; }
-                            const targetContactId = loadedContact?.id || editContactId || loadedContact?.contactId;
-                            if (!targetContactId) { toast.error('Please save contact first.'); return; }
-
-                            setIsUploadingContactDoc(true);
-                            try {
-                              const meta: Record<string, string> = {
-                                contactId: String(targetContactId),
-                                type: contactDocUploadFields.type,
-                                title: contactDocUploadFields.title.trim(),
-                              };
-                              if (contactDocUploadFields.description.trim()) {
-                                meta.description = contactDocUploadFields.description.trim();
-                              }
-                              await documentsService.upload(contactDocUploadFields.file, meta);
-                              toast.success('Document uploaded successfully!');
-                              qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
-                              setContactDocUploadOpen(false);
-                              setContactDocUploadFields({ type: 'IDENTITY_PROOF', title: '', description: '', file: null });
-                            } catch (err) {
-                              toast.error('Failed to upload document.');
-                            } finally {
-                              setIsUploadingContactDoc(false);
-                            }
-                          }}
-                          className="px-4 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer disabled:opacity-50"
-                        >
-                          {isUploadingContactDoc ? 'Uploading…' : 'Add Document'}
-                        </button>
-                      </div>
-                    </div>
-                  </Modal>
+                  />
 
                   {!currentContactDocId ? (
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center">
@@ -6243,163 +6342,45 @@ export default function Contacts() {
                         Please save the contact details first before uploading and managing documents.
                       </p>
                     </div>
-                  ) : contactDocsList.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-10 text-center min-h-[200px]">
-                      <FileText size={32} className="mx-auto text-slate-300 mb-2" />
-                      <p className="text-sm font-bold text-slate-700">No documents added yet</p>
-                      <p className="text-[11px] text-slate-400 mt-1 max-w-[280px]">
-                        Click "Upload Document" to attach identity proofs, policy documents, medical records, or other files for this contact.
-                      </p>
-                    </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200/90 shadow-2xs max-h-[55vh] custom-scrollbar bg-white">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50/90 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                            <th className="py-2.5 px-3">File Name</th>
-                            <th className="py-2.5 px-3">Document Title</th>
-                            <th className="py-2.5 px-3">Description</th>
-                            <th className="py-2.5 px-3 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-xs">
-                          {contactDocsList.map((doc: any) => {
-                            const typeObj = CONTACT_DOC_TYPES.find(t => t.value === doc.type);
-                            const typeLabel = typeObj ? typeObj.label : (doc.type || 'DOCUMENT');
-                            const fileName = doc.filename || doc.originalName || doc.title || 'file.pdf';
-                            const docTitle = doc.title || doc.filename || doc.originalName || 'Document File';
-                            const fileExt = fileName.split('.').pop()?.toUpperCase() || 'FILE';
-
-                            return (
-                              <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors group">
-                                {/* Column 1: File Name */}
-                                <td className="py-2.5 px-3 max-w-[160px]">
-                                  <div className="flex items-center gap-2 truncate">
-                                    <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100 font-mono text-[9px] font-bold">
-                                      {fileExt.slice(0, 3)}
-                                    </div>
-                                    <span className="font-semibold text-slate-700 truncate" title={fileName}>
-                                      {fileName}
-                                    </span>
-                                  </div>
-                                </td>
-
-                                {/* Column 2: Document Title */}
-                                <td className="py-2.5 px-3 max-w-[200px]">
-                                  <div className="space-y-0.5">
-                                    <p className="font-extrabold text-slate-800 truncate" title={docTitle}>
-                                      {docTitle}
-                                    </p>
-                                    <span className="inline-block px-1.5 py-0.25 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                      {typeLabel}
-                                    </span>
-                                  </div>
-                                </td>
-
-                                {/* Column 3: Description */}
-                                <td className="py-2.5 px-3 max-w-[220px]">
-                                  <p className="text-slate-500 text-[11px] truncate" title={doc.description || '—'}>
-                                    {doc.description || '—'}
-                                  </p>
-                                </td>
-
-                                {/* Column 4: Actions (WhatsApp, Preview, Download, Delete) */}
-                                <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {/* Send on WhatsApp */}
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        try {
-                                          const res = await documentsService.url(doc.id);
-                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl || '';
-                                          const waMsg = `Hi, here is the document: *${docTitle}*\n${fileUrl}`;
-                                          const waUrl = contactPhoneNo
-                                            ? `https://api.whatsapp.com/send?phone=91${contactPhoneNo.slice(-10)}&text=${encodeURIComponent(waMsg)}`
-                                            : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMsg)}`;
-                                          window.open(waUrl, '_blank');
-                                        } catch {
-                                          toast.error('Failed to prepare WhatsApp share link.');
-                                        }
-                                      }}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold transition-colors cursor-pointer"
-                                      title="Send document details on WhatsApp"
-                                    >
-                                      <MessageCircle size={12} className="text-emerald-600" />
-                                      <span>WhatsApp</span>
-                                    </button>
-
-                                    {/* Preview */}
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        try {
-                                          const res = await documentsService.url(doc.id);
-                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl;
-                                          if (fileUrl) {
-                                            setDocPreviewModal({ open: true, title: docTitle, url: fileUrl });
-                                          } else {
-                                            toast.error('Unable to fetch preview link.');
-                                          }
-                                        } catch {
-                                          toast.error('Failed to preview document.');
-                                        }
-                                      }}
-                                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 transition-colors cursor-pointer"
-                                      title="Preview Document"
-                                    >
-                                      <Eye size={13} />
-                                    </button>
-
-                                    {/* Download */}
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        try {
-                                          const res = await documentsService.url(doc.id);
-                                          const fileUrl = res?.url || res?.data?.url || doc.url || doc.fileUrl;
-                                          if (fileUrl) {
-                                            window.open(fileUrl, '_blank');
-                                          } else {
-                                            toast.error('Unable to fetch download link.');
-                                          }
-                                        } catch {
-                                          toast.error('Failed to download document.');
-                                        }
-                                      }}
-                                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
-                                      title="Download Document"
-                                    >
-                                      <Download size={13} />
-                                    </button>
-
-                                    {/* Delete */}
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        if (confirm('Are you sure you want to delete this document?')) {
-                                          try {
-                                            await documentsService.remove(doc.id);
-                                            toast.success('Document deleted');
-                                            qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
-                                          } catch {
-                                            toast.error('Failed to delete document');
-                                          }
-                                        }
-                                      }}
-                                      className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition-colors cursor-pointer"
-                                      title="Delete Document"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DocumentsTable
+                      documents={contactDocsList}
+                      onView={async doc => {
+                        try {
+                          const response = await documentsService.url(doc.id);
+                          const url = response?.url || response?.data?.url || doc.url || doc.fileUrl;
+                          if (!url) throw new Error('Unable to fetch preview link.');
+                          setDocPreviewModal({ open: true, title: doc.name || doc.title || doc.originalName || 'Document', url });
+                        } catch {
+                          toast.error('Failed to preview document.');
+                        }
+                      }}
+                      onDelete={async doc => {
+                        if (!confirm('Are you sure you want to delete this document?')) return;
+                        try {
+                          await documentsService.remove(doc.id);
+                          await qc.invalidateQueries({ queryKey: ['contact-documents-list'] });
+                          toast.success('Document deleted');
+                        } catch {
+                          toast.error('Failed to delete document');
+                        }
+                      }}
+                      onShare={async doc => {
+                        try {
+                          const response = await documentsService.url(doc.id);
+                          const url = response?.url || response?.data?.url || doc.url || doc.fileUrl || '';
+                          if (!url) throw new Error('Unable to fetch document link.');
+                          const title = doc.name || doc.title || doc.originalName || 'Document';
+                          const message = `Hi, here is the document: *${title}*\n${url}`;
+                          const shareUrl = contactPhoneNo
+                            ? `https://api.whatsapp.com/send?phone=91${contactPhoneNo.slice(-10)}&text=${encodeURIComponent(message)}`
+                            : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+                          window.open(shareUrl, '_blank');
+                        } catch {
+                          toast.error('Failed to prepare WhatsApp share link.');
+                        }
+                      }}
+                    />
                   )}
                 </div>
               );
@@ -6513,12 +6494,24 @@ export default function Contacts() {
         onClose={() => setSelectedPolicyModalId(null)}
       />
 
+      <ClaimDetailModal
+        open={!!selectedClaimDetail}
+        claim={selectedClaimDetail}
+        onClose={() => setSelectedClaimDetail(null)}
+      />
+
       <CreatePolicyModal
         open={createPolicyModalOpen}
         policyToEdit={policyToEdit}
         onClose={() => {
           setPolicyToEdit(null);
           setCreatePolicyModalOpen(false);
+          if (isDirectPolicyModalRef.current) {
+            isDirectPolicyModalRef.current = false;
+            setLoadedContact(null);
+            setEditContactId(null);
+            return;
+          }
           qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
           qc.invalidateQueries({ queryKey: ['policies'] });
           if (editContactId) {
@@ -6534,12 +6527,42 @@ export default function Contacts() {
           refetchContacts();
           qc.invalidateQueries({ queryKey: ['contacts-policies-list'] });
           qc.invalidateQueries({ queryKey: ['policies'] });
+          if (isDirectPolicyModalRef.current) {
+            setCreatePolicyModalOpen(false);
+            setLoadedContact(null);
+            setEditContactId(null);
+            return;
+          }
           if (editContactId) {
             qc.invalidateQueries({ queryKey: ['contact', editContactId] });
             setLeadModalOpen(true);
             setActiveLeadTab('Policy');
           }
         }}
+      />
+
+      <ImportFormatModal
+        open={importFormatOpen}
+        onClose={() => setImportFormatOpen(false)}
+        onChooseFile={() => fileInputRef.current?.click()}
+        title="Import Contacts from CSV or Excel"
+        description="Download the sample file and keep the column headers unchanged."
+        warning="First Name and Phone are required. Phone numbers must be unique within your account."
+        columns={[
+          { name: 'First Name', requirement: 'Required.' },
+          { name: 'Last Name', requirement: 'Optional.' },
+          { name: 'Phone', requirement: 'Required. Must be unique.' },
+          { name: 'Email', requirement: 'Optional. Use a valid email address.' },
+          { name: 'Gender', requirement: 'Optional. Use MALE, FEMALE, or OTHER.' },
+          { name: 'Date of Birth', requirement: 'Optional. Use YYYY-MM-DD.' },
+          { name: 'PAN Number', requirement: 'Optional.' },
+          { name: 'Annual Income', requirement: 'Optional. Use a number.' },
+          { name: 'Tags', requirement: 'Optional. Separate multiple tags with | (pipe).' },
+          { name: 'Notes', requirement: 'Optional.' },
+        ] satisfies ImportFormatColumn[]}
+        sampleRow={['Sample', 'Contact', '9000000001', 'sample@example.com', 'OTHER', '1990-01-15', '', '500000', 'customer|health', 'Replace this sample row']}
+        fileFormats="CSV, XLS, and XLSX"
+        sampleFileName="contacts-sample.csv"
       />
 
     </div>

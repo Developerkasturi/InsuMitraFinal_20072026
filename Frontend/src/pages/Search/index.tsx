@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { searchService } from '@api/index';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Users, Shield, FileText, TrendingUp, UserCheck, Briefcase } from 'lucide-react';
 import { useDebounce } from '../../hooks/useDebounce';
 
@@ -48,8 +48,16 @@ function getItemSub(section: string, item: any): string {
 
 export default function GlobalSearch() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('q') || '');
   const debouncedQuery = useDebounce(query, 300);
+
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q !== null && q !== query) {
+      setQuery(q);
+    }
+  }, [searchParams]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['global-search-page', debouncedQuery],
@@ -75,13 +83,20 @@ export default function GlobalSearch() {
           className="w-full pl-11 pr-4 py-3 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
           placeholder="Type to search contacts, leads, policies, claims, employees…"
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => {
+            const val = e.target.value;
+            setQuery(val);
+            setSearchParams(val ? { q: val } : {}, { replace: true });
+          }}
           autoFocus
         />
         {query && (
           <button
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded"
-            onClick={() => setQuery('')}>
+            onClick={() => {
+              setQuery('');
+              setSearchParams({}, { replace: true });
+            }}>
             ✕
           </button>
         )}

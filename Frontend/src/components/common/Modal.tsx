@@ -13,6 +13,7 @@ interface Props {
   heightClass?: string;
   icon?: React.ReactNode;
   zIndexClass?: string;
+  closeOnEscapeAndBackdrop?: boolean;
 }
 
 const sizeClass: Record<NonNullable<Props['size']>, string> = {
@@ -24,10 +25,22 @@ const sizeClass: Record<NonNullable<Props['size']>, string> = {
   '3xl': 'max-w-6xl',
 };
 
-export default function Modal({ open, onClose, title, subtitle, children, size = 'md', actions, heightClass, icon, zIndexClass }: Props) {
+export default function Modal({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+  size = 'md',
+  actions,
+  heightClass,
+  icon,
+  zIndexClass,
+  closeOnEscapeAndBackdrop = true,
+}: Props) {
   return (
     <Transition show={open} as={Fragment}>
-      <Dialog onClose={onClose} className={`relative ${zIndexClass || 'z-50'}`}>
+      <Dialog onClose={closeOnEscapeAndBackdrop ? onClose : () => {}} className={`relative ${zIndexClass || 'z-50'}`}>
 
         {/* Backdrop */}
         <Transition.Child
@@ -39,11 +52,11 @@ export default function Modal({ open, onClose, title, subtitle, children, size =
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 backdrop-blur-md bg-slate-900/60 transition-all" />
+          <div className={`fixed inset-0 backdrop-blur-md bg-slate-900/60 transition-all ${zIndexClass || 'z-50'}`} />
         </Transition.Child>
 
         {/* Panel container */}
-        <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className={`fixed inset-0 flex items-center justify-center p-4 sm:p-6 overflow-y-auto ${zIndexClass || 'z-50'}`}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-250"

@@ -21,6 +21,7 @@ export const contactsService = {
   addRelationship:   (id: string, body: any)        => api.post(`/contacts/${id}/relationships`, body).then(r => r.data),
   updateRelationship:(id: string, relId: string, body: any) => api.put(`/contacts/${id}/relationships/${relId}`, body).then(r => r.data),
   removeRelationship:(id: string, relId: string)    => api.delete(`/contacts/${id}/relationships/${relId}`).then(r => r.data),
+  syncFamily:        (id: string)                   => api.post(`/contacts/${id}/relationships/sync-family`).then(r => r.data),
   activity:          (id: string, params?: any)     => api.get(`/contacts/${id}/activity`, { params }).then(r => r.data),
   inviteToPortal:    (id: string)                   => api.post(`/contacts/${id}/invite`).then(r => r.data),
   updateContactRole: (id: string, arg2: any, arg3?: any) => {
@@ -202,14 +203,13 @@ export const notificationsService = {
 /* ─── Documents ──────────────────────────────────────────────────────────── */
 export const documentsService = {
   list:   (params?: any) => api.get('/documents', { params }).then(r => r.data),
-  url:    (id: string)   => api.get(`/documents/${id}/url`).then(r => r.data),
+  url:    (id: string, download = false) => api.get(`/documents/${id}/url`, { params: download ? { download: true } : undefined }).then(r => r.data),
   remove: (id: string)   => api.delete(`/documents/${id}`).then(r => r.data),
   upload: (file: File, meta: Record<string, string>) => {
     const form = new FormData();
     form.append('file', file);
     return api.post('/documents/upload', form, {
       params: meta,
-      headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data);
   },
 };

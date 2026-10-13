@@ -2,11 +2,12 @@ import { Bell, Search, ChevronDown, User, Settings, LogOut, Camera, Users, Shiel
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { notificationsService, searchService } from '@api/index';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@store/auth.store';
 import { authService } from '@api/auth.service';
 
 import { useDebounce } from '@hooks/useDebounce';
+import { useEffect } from 'react';
 import TopBarShiftTracker from './TopBarShiftTracker';
 
 const SECTION_META: Record<string, { label: string; Icon: React.ElementType; color: string; iconBg: string; getRoute: (item: any) => string }> = {
@@ -25,6 +26,16 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
   const [showNotifPop, setShowNotifPop] = useState(false);
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith('/policies') || path.startsWith('/claims') || path.startsWith('/leads') || path.startsWith('/contacts')) {
+      const q = searchParams.get('search') ?? searchParams.get('q') ?? '';
+      setQuery(q);
+    }
+  }, [location.pathname, searchParams]);
 
   const debouncedQuery = useDebounce(query.trim(), 300);
 
@@ -108,7 +119,41 @@ export default function Header({ title, setMobileOpen }: { title?: string, setMo
                        focus:bg-white focus:border-blue-500/70 focus:ring-4 focus:ring-blue-500/5 focus:shadow-[0_0_15px_rgba(59,130,246,0.06)]"
             placeholder="Search contacts, leads, policies, claims, employees…"
             value={query}
-            onChange={e => { setQuery(e.target.value); setShowSearch(true); }}
+            onChange={e => {
+              const val = e.target.value;
+              setQuery(val);
+              setShowSearch(true);
+              const path = location.pathname;
+              if (path.startsWith('/policies') || path.startsWith('/claims') || path.startsWith('/leads') || path.startsWith('/contacts')) {
+                const sp = new URLSearchParams(location.search);
+                if (val.trim()) {
+                  sp.set('search', val.trim());
+                } else {
+                  sp.delete('search');
+                  sp.delete('q');
+                }
+                navigate(`${path}?${sp.toString()}`, { replace: true });
+              }
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                setShowSearch(false);
+                const trimmed = query.trim();
+                const path = location.pathname;
+                if (path.startsWith('/policies') || path.startsWith('/claims') || path.startsWith('/leads') || path.startsWith('/contacts')) {
+                  const sp = new URLSearchParams(location.search);
+                  if (trimmed) {
+                    sp.set('search', trimmed);
+                  } else {
+                    sp.delete('search');
+                    sp.delete('q');
+                  }
+                  navigate(`${path}?${sp.toString()}`);
+                } else {
+                  navigate(`/contacts?search=${encodeURIComponent(trimmed)}`);
+                }
+              }
+            }}
             onFocus={() => setShowSearch(true)}
             onBlur={() => setTimeout(() => setShowSearch(false), 400)}
           />

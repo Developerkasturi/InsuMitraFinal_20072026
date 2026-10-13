@@ -668,7 +668,16 @@ export default function Leads() {
   const [filterExpectedPremiumMax, setFilterExpectedPremiumMax] = useState('');
   const [filterLeadSource, setFilterLeadSource] = useState('');
   const [selectedQuickFilters, setSelectedQuickFilters] = useState<string[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('search') || searchParams.get('q') || '');
+
+  useEffect(() => {
+    const q = searchParams.get('search') ?? searchParams.get('q');
+    if (q !== null && q !== undefined) {
+      setSearch(q);
+    } else if (!searchParams.has('search') && !searchParams.has('q')) {
+      setSearch('');
+    }
+  }, [searchParams]);
 
   const toggleQuickFilter = (key: string) => {
     if (key === 'ALL') {
@@ -1403,6 +1412,11 @@ export default function Leads() {
   const filteredLeads = useMemo(() => {
     const sTerm = search.toLowerCase();
     return leadsFlat.filter(lead => {
+      // Must have product interest exclusively selected
+      if (!lead.interests || !Array.isArray(lead.interests) || lead.interests.length === 0 || lead.interests.every((i: any) => !i || !String(i).trim())) {
+        return false;
+      }
+
       // Employee role data isolation safeguard: only see self-assigned or unassigned
       if (user?.role === 'EMPLOYEE') {
         const currentUserId = user.id;
@@ -1418,8 +1432,8 @@ export default function Leads() {
           }
         }
       }
-      const fullName = `${lead.contact?.firstName || ''} ${lead.contact?.lastName || ''}`.toLowerCase();
-      if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm) && !(lead.leadId || '').toLowerCase().includes(sTerm)) return false;
+      const fullName = `${lead.contact?.firstName || ''} ${lead.contact?.lastName || ''}`.trim().toLowerCase();
+      if (search && !fullName.includes(sTerm) && !(lead.contact?.phone || '').includes(sTerm) && !(lead.contact?.email || '').toLowerCase().includes(sTerm) && !(lead.leadId || '').toLowerCase().includes(sTerm)) return false;
       if (filterPlans.length > 0 && !filterPlans.includes(lead.plan?.category ?? '')) return false;
       if (filterEmployee && lead.assignedEmployeeId !== filterEmployee) return false;
       if (filterStages.length > 0 && !filterStages.includes(lead.stage ?? '')) return false;
@@ -1802,7 +1816,7 @@ export default function Leads() {
     setPersonalFields(p => ({ ...p, dateOfBirth: val, age: String(age) }));
   };
 
-  const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean = false) => {
+  const handleLeadSubmit = async (e: React.FormEvent, shouldClose: boolean = true) => {
     if (e) e.preventDefault();
 
     if (!editTarget && !editContactId) {
@@ -1811,25 +1825,25 @@ export default function Leads() {
     }
 
     if (!editContactId) {
-      if (!personalFields.firstName.trim()) {
+      if (!(personalFields.firstName || '').trim()) {
         toast.error('First Name is required');
         return;
       }
-      if (isFieldRequired('lastName', true) && !personalFields.lastName.trim()) {
+      if (isFieldRequired('lastName', true) && !(personalFields.lastName || '').trim()) {
         toast.error('Last Name is required');
         return;
       }
-      if (isFieldRequired('phone', true) && !personalFields.whatsappNumber.trim()) {
+      if (isFieldRequired('phone', true) && !(personalFields.whatsappNumber || '').trim()) {
         toast.error('WhatsApp Number is required');
         return;
       }
       // Strip known country code prefix before validating (CountryPhoneInput stores code+number together)
       const KNOWN_CODES = ['971', '966', '974', '968', '965', '973', '880', '977', '234', '254', '353', '91', '44', '49', '33', '81', '86', '94', '60', '62', '63', '66', '84', '27', '55', '52', '39', '34', '31', '41', '46', '47', '45', '64', '65', '61', '86', '1', '7'];
-      const rawWaDigits = personalFields.whatsappNumber.trim().replace(/\D/g, '');
+      const rawWaDigits = (personalFields.whatsappNumber || '').trim().replace(/\D/g, '');
       const sortedCodes = [...KNOWN_CODES].sort((a, b) => b.length - a.length);
       const matchedCode = sortedCodes.find(c => rawWaDigits.startsWith(c));
       const waLocalDigits = matchedCode ? rawWaDigits.slice(matchedCode.length) : rawWaDigits;
-      if (personalFields.whatsappNumber.trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
+      if ((personalFields.whatsappNumber || '').trim() && !/^\d{10}$/.test(waLocalDigits) && !/^\d{10}$/.test(rawWaDigits)) {
         toast.error('WhatsApp Number must be exactly 10 digits');
         return;
       }
@@ -1844,12 +1858,12 @@ export default function Leads() {
         }
       }
 
-      const hasAadhaar = !!personalFields.aadhaarNumber.trim();
+      const hasAadhaar = !!(personalFields.aadhaarNumber || '').trim();
       if (isFieldRequired('aadhaarNumber', false) && !hasAadhaar) {
         toast.error('Aadhaar Number is required');
         return;
       }
-      if (hasAadhaar && !/^\d{12}$/.test(personalFields.aadhaarNumber.trim())) {
+      if (hasAadhaar && !/^\d{12}$/.test((personalFields.aadhaarNumber || '').trim())) {
         toast.error('Aadhaar Number must be exactly 12 digits');
         return;
       }
@@ -1906,6 +1920,11 @@ export default function Leads() {
       const isExisting = card.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(card.id);
 
       if (!isExisting) {
+        if (!card.interestedIn || card.interestedIn.length === 0) {
+          toast.error(`Product Interest #${i + 1}: Please select a Product Interest`);
+          setActiveLeadTab('Product Interest');
+          return;
+        }
         if (card.interestedIn.includes('Other') && !card.otherProduct?.trim()) {
           toast.error(`Product Interest #${i + 1}: Please specify the Other Product Name`);
           setActiveLeadTab('Product Interest');
@@ -1936,34 +1955,35 @@ export default function Leads() {
           setActiveLeadTab('Product Interest');
           return;
         }
-      }
 
-      if (hasActiveRenewalLeadForCard(card) && card.leadType === 'RENEWAL') {
-        toast.error("An active Renewal lead already exists for this product.");
-        return;
-      }
-      if (hasActivePolicyForCard(card) && card.leadType === 'RENEWAL' && isPolicyOutsideRenewalWindowForCard(card)) {
-        toast.error("Renewal cannot be created yet. The policy is outside the renewal period.");
-        return;
-      }
-      if (hasActivePolicyForCard(card) && card.leadType !== 'RENEWAL') {
-        toast.error("An active policy already exists for this product. Only a Renewal lead can be created.");
-        return;
+        if (hasActiveRenewalLeadForCard(card) && card.leadType === 'RENEWAL') {
+          toast.error("An active Renewal lead already exists for this product.");
+          return;
+        }
+        if (hasActivePolicyForCard(card) && card.leadType === 'RENEWAL' && isPolicyOutsideRenewalWindowForCard(card)) {
+          toast.error("Renewal cannot be created yet. The policy is outside the renewal period.");
+          return;
+        }
+        if (hasActivePolicyForCard(card) && card.leadType !== 'RENEWAL') {
+          toast.error("An active policy already exists for this product. Only a Renewal lead can be created.");
+          return;
+        }
       }
     }
 
-    const toastId = toast.loading(editContactId ? 'Updating lead...' : 'Creating lead...');
+    const resolvedContactId = editContactId || editTarget?.contactId || editTarget?.contact?.id;
+    const toastId = toast.loading(resolvedContactId ? 'Updating lead...' : 'Creating lead...');
     try {
-      const firstName = personalFields.firstName.trim();
-      const lastName = personalFields.lastName.trim();
+      const firstName = (personalFields.firstName || loadedContact?.firstName || '').trim();
+      const lastName = (personalFields.lastName || loadedContact?.lastName || '').trim();
 
       const mergedTags = [...selectedCampaigns];
       if (!mergedTags.includes('contact')) {
         mergedTags.push('contact');
       }
 
-      let contactId = editContactId;
-      if (editContactId) {
+      let contactId = resolvedContactId;
+      if (contactId) {
         // Do not update existing Contact profile or sub-resources from within the Leads module
       } else {
         const contactRes = await contactsService.createFull({
@@ -2012,9 +2032,10 @@ export default function Leads() {
       }
 
       const subResourcePromises: Promise<any>[] = [];
+      let hasLeadSaveError = false;
 
       // Save Family Members and Policies ONLY for newly created Contacts
-      if (!editContactId) {
+      if (!resolvedContactId) {
         // Save Family Members if any
         for (const fam of familyMembers) {
           const famFirst = (fam.firstName || fam.name || '').trim();
@@ -2079,34 +2100,36 @@ export default function Leads() {
         }
       }
 
-      // Save Product Interests (Leads)
+      // Save Product Interests (Leads) — only if exclusively selected
       for (const card of productInterests) {
-        const isUntouchedDefaultPlaceholder = card.id.startsWith('temp-') &&
-          (card.interestedIn.length === 1 && card.interestedIn[0] === 'Health') &&
-          !card.expectedPremium &&
-          !card.followUpDate &&
-          !card.descriptionDetails &&
-          !card.otherProduct;
+        const rawInterests = (card.interestedIn || [])
+          .map((p: string) => (p === 'Other' && card.otherProduct ? card.otherProduct.trim() : p.trim()))
+          .filter(Boolean);
 
-        if (isUntouchedDefaultPlaceholder) {
+        // If product interest was not exclusively selected, do not reflect in Leads
+        if (rawInterests.length === 0) {
           continue;
         }
 
-        const product = card.interestedIn[0];
-        const interests = [product === 'Other' && card.otherProduct ? card.otherProduct : product];
+        const interests = rawInterests;
 
         const stage = card.leadStage && card.leadStage !== 'OPEN' ? card.leadStage : 'TO_CONTACT';
 
         const serializedNotes = serializeLeadNotes(card);
 
         const validEmpId = (id?: string) => (id && /^[0-9a-fA-F]{24}$/.test(id.trim())) ? id.trim() : undefined;
+        const rawFollowUp = card.followUpDate;
+        const followUpStr = typeof rawFollowUp === 'string'
+          ? rawFollowUp
+          : (typeof rawFollowUp === 'object' && rawFollowUp !== null ? ((rawFollowUp as any).target?.value || (rawFollowUp as any).value || '') : String(rawFollowUp ?? ''));
+
         const body = {
           contactId: contactId!,
           interests,
           stage,
           source: card.leadSource,
           assignedEmployeeId: validEmpId(card.assignedEmployeeId),
-          followUpDate: String(card.followUpDate ?? '').trim() ? new Date(card.followUpDate).toISOString() : undefined,
+          followUpDate: followUpStr.trim() ? new Date(followUpStr).toISOString() : undefined,
           premiumBudget: Number(card.expectedPremium) || undefined,
           notes: serializedNotes,
         };
@@ -2120,12 +2143,20 @@ export default function Leads() {
               }
             } else {
               const res = await leadsService.create(body);
-              const savedLead = res.data ?? res;
-              for (const cmt of card.comments) {
-                await leadsService.addConsultation(savedLead.id, { notes: cmt.text });
+              const savedLead = res?.data?.data ?? res?.data ?? res;
+              const savedLeadId = savedLead?.id || savedLead?._id;
+              if (savedLeadId) {
+                setProductInterests(prev => prev.map(c => c.id === card.id ? { ...c, id: savedLeadId, collapsed: true, newComment: '' } : c));
+                for (const cmt of card.comments) {
+                  await leadsService.addConsultation(savedLeadId, { notes: cmt.text });
+                }
+                if (card.newComment?.trim()) {
+                  await leadsService.addConsultation(savedLeadId, { notes: card.newComment.trim() });
+                }
               }
             }
           } catch (leadErr: any) {
+            hasLeadSaveError = true;
             console.error('Failed to save product interest:', leadErr);
             toast.error(`Failed to save Product Interest (${interests.join(', ')}): ${leadErr.response?.data?.message || 'Error occurred'}`);
           }
@@ -2135,9 +2166,16 @@ export default function Leads() {
 
       await Promise.all(subResourcePromises);
 
-      toast.success(editContactId ? 'Lead successfully updated!' : 'Lead successfully created!', { id: toastId });
-      qc.invalidateQueries({ queryKey: ['contacts'] });
-      qc.invalidateQueries({ queryKey: ['leads'] });
+      if (hasLeadSaveError) {
+        toast.dismiss(toastId);
+        return;
+      }
+
+      toast.success(resolvedContactId ? 'Lead successfully updated!' : 'Lead successfully created!', { id: toastId });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['contacts'] }),
+        qc.invalidateQueries({ queryKey: ['leads'] }),
+      ]);
 
       if (shouldClose) {
         closeModal();
@@ -2190,7 +2228,7 @@ export default function Leads() {
       leadStatus: stage || 'TO_CONTACT',
       leadStage: stage || 'TO_CONTACT',
       leadType: 'FRESH',
-      interestedIn: ['Health'],
+      interestedIn: [],
       leadSource: 'Social Media',
       assignedEmployeeId: curEmp?.userId || currentUser?.id || '',
       followUpDate: '',
@@ -2200,7 +2238,7 @@ export default function Leads() {
 
     const defaultCard = {
       id: `temp-${Date.now()}`,
-      interestedIn: ['Health'],
+      interestedIn: [],
       otherProduct: '',
       descriptionDetails: '',
       leadStage: stage || 'TO_CONTACT',
@@ -2252,6 +2290,9 @@ export default function Leads() {
         contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
         isActive: contact.isActive !== false,
         fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+        firstName: contact.firstName || '',
+        middleName: contact.middleName || '',
+        lastName: contact.lastName || '',
         gender: contact.gender || '',
         maritalStatus: contact.maritalStatus || '',
         dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
@@ -2494,6 +2535,9 @@ export default function Leads() {
           contactStatus: contact.isActive !== false ? 'Active' : 'Inactive',
           isActive: contact.isActive !== false,
           fullName: `${contact.firstName || ''} ${contact.lastName || ''}`.trim(),
+          firstName: contact.firstName || '',
+          middleName: contact.middleName || '',
+          lastName: contact.lastName || '',
           gender: contact.gender || '',
           maritalStatus: contact.maritalStatus || '',
           dateOfBirth: contact.dateOfBirth ? contact.dateOfBirth.split('T')[0] : '',
@@ -2687,6 +2731,7 @@ export default function Leads() {
     const backendInterests = loadedContact.productInterests || [];
     return card.interestedIn.some((prod: string) => {
       return backendInterests.some((lead: any) => {
+        if (card.id && lead.id === card.id) return false;
         const extra = parseLeadNotes(lead.notes);
         const leadStatus = extra.leadStatus || '';
         const stage = lead.stage || '';
@@ -2854,6 +2899,13 @@ export default function Leads() {
                   key={q.key}
                   type="button"
                   onClick={() => toggleQuickFilter(q.key)}
+                  onMouseEnter={() => {
+                    if (q.key === 'ALL') {
+                      setSelectedQuickFilters([]);
+                    } else {
+                      setSelectedQuickFilters([q.key]);
+                    }
+                  }}
                   className={clsx(
                     'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-2xs whitespace-nowrap shrink-0',
                     isSelected
@@ -3299,7 +3351,7 @@ export default function Leads() {
                 </div>
 
                 <div className={clsx(
-                  'flex-1 min-h-[350px] rounded-xl border p-1.5 space-y-1.5 transition-all duration-200 overflow-y-auto custom-scrollbar',
+                  'flex-1 min-h-[350px] rounded-xl border p-1.5 space-y-1.5 transition-all duration-200',
                   STAGE_COLORS[stage],
                   draggedOverStage === stage ? 'ring-2 ring-blue-500 scale-[1.01] bg-slate-100' : 'bg-slate-50/50'
                 )}>
@@ -3357,7 +3409,7 @@ export default function Leads() {
             <button
               type="button"
               className="px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl cursor-pointer shadow-md shadow-blue-500/20 transition-all hover:scale-105"
-              onClick={(e) => handleLeadSubmit(e, false)}
+              onClick={(e) => handleLeadSubmit(e, true)}
             >
               {activeLeadTab === 'Policy'
                 ? (editTarget || editContactId ? 'Update Policy' : 'Add Policy')
