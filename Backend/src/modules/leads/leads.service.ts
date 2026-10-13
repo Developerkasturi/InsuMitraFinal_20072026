@@ -89,6 +89,10 @@ export class LeadsService implements OnModuleInit {
         where: {
           tenantId,
           status: 'ACTIVE',
+          OR: [
+            { deletedAt: null },
+            { deletedAt: { isSet: false } },
+          ],
           endDate: {
             gte: startOfToday,
             lte: in45Days,
@@ -103,7 +107,13 @@ export class LeadsService implements OnModuleInit {
       if (expiringPolicies.length === 0) return;
 
       const existingLeads = await this.prisma.productInterest.findMany({
-        where: { tenantId, deletedAt: null },
+        where: {
+          tenantId,
+          OR: [
+            { deletedAt: null },
+            { deletedAt: { isSet: false } },
+          ],
+        },
         select: { id: true, contactId: true, notes: true },
       });
 
@@ -111,7 +121,13 @@ export class LeadsService implements OnModuleInit {
         const alreadyExists = existingLeads.some(l => {
           if (l.contactId !== pol.contactId) return false;
           if (!l.notes) return false;
-          return l.notes.includes(pol.id) || l.notes.includes(pol.policyNumber);
+          try {
+            const notes = JSON.parse(l.notes);
+            return notes?.leadType === 'RENEWAL' &&
+              (notes.policyId === pol.id || notes.policyNumber === pol.policyNumber);
+          } catch {
+            return false;
+          }
         });
 
         if (!alreadyExists) {
@@ -284,7 +300,7 @@ export class LeadsService implements OnModuleInit {
         skip,
         take:    limit,
         include: {
-          contact: { select: { firstName: true, lastName: true, phone: true, tags: true } },
+          contact: { select: { id: true, firstName: true, lastName: true, phone: true, tags: true } },
           plan:    { include: { company: { select: { name: true } } } },
         },
         orderBy: { updatedAt: 'desc' },
@@ -518,6 +534,15 @@ export class LeadsService implements OnModuleInit {
       throw new ForbiddenException('Access denied');
     }
 
+    if (dto.stage && lead.stage) {
+      const STAGE_ORDER = ['TO_CONTACT', 'CONTACTED', 'PROPOSAL_SENT', 'LOGIN_PROGRESS', 'PAYMENT_DONE', 'PROCESS_COMPLETED'];
+      const currentIdx = STAGE_ORDER.indexOf(lead.stage);
+      const targetIdx = STAGE_ORDER.indexOf(dto.stage);
+      if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+        throw new BadRequestException('Moving lead backwards to a previous stage is not allowed.');
+      }
+    }
+
     const updated = await this.prisma.productInterest.update({
       where: { id },
       data:  dto as any,
@@ -534,6 +559,15 @@ export class LeadsService implements OnModuleInit {
     if (!lead) throw new NotFoundException('Lead not found');
     if (role === UserRole.EMPLOYEE && lead.assignedEmployeeId !== userId) {
       throw new ForbiddenException('Access denied');
+    }
+
+    if (lead.stage && dto.stage) {
+      const STAGE_ORDER = ['TO_CONTACT', 'CONTACTED', 'PROPOSAL_SENT', 'LOGIN_PROGRESS', 'PAYMENT_DONE', 'PROCESS_COMPLETED'];
+      const currentIdx = STAGE_ORDER.indexOf(lead.stage);
+      const targetIdx = STAGE_ORDER.indexOf(dto.stage);
+      if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+        throw new BadRequestException('Moving lead backwards to a previous stage is not allowed.');
+      }
     }
 
     const updated = await this.prisma.productInterest.update({
