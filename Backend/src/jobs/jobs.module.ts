@@ -14,9 +14,11 @@ import { WhatsappWorker }         from './whatsapp.worker';
 import { WhatsappCampaignWorker } from './whatsapp-campaign.worker';
 import { ReminderWorker }         from './reminder.worker';    // birthday & follow-up
 import { SchedulerService }       from './scheduler.service';
+import { LeadsModule } from '../modules/leads/leads.module';
 
 @Module({
   imports: [
+    LeadsModule,
     // One BullModule.registerQueue entry per named queue
     BullModule.registerQueue({ name: POLICY_RENEWAL_QUEUE }),
     BullModule.registerQueue({ name: PAYMENT_REMINDER_QUEUE }),

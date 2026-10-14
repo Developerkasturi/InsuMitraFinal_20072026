@@ -9,7 +9,33 @@ import {
   CreateClaimDto, UpdateClaimDto, UpdateClaimStatusDto,
   AddExpenseDto, ClaimQueryDto,
 } from './dto/claim.dto';
-import { UserRole } from '@prisma/client';
+import { ClaimStatus, UserRole } from '@prisma/client';
+
+function parseClaimStatus(raw?: string | null): ClaimStatus | null {
+  if (!raw) return null;
+  const s = raw.trim().toUpperCase();
+  if (s in ClaimStatus) return s as ClaimStatus;
+  const lower = raw.trim().toLowerCase();
+  if (lower === 'approved' || lower.includes('approved')) return ClaimStatus.APPROVED;
+  if (lower === 'rejected' || lower.includes('rejected') || lower.includes('cancelled')) return ClaimStatus.REJECTED;
+  if (lower === 'settled' || lower.includes('settled')) return ClaimStatus.SETTLED;
+  if (
+    lower === 'in progress' ||
+    lower.includes('progress') ||
+    lower.includes('query') ||
+    lower.includes('discharge') ||
+    lower.includes('submitted') ||
+    lower.includes('collected') ||
+    lower.includes('review') ||
+    lower.includes('approval')
+  ) {
+    return ClaimStatus.IN_REVIEW;
+  }
+  if (lower === 'pending' || lower === 'intimated' || lower.includes('pending documents')) {
+    return ClaimStatus.INTIMATED;
+  }
+  return null;
+}
 
 function rejectFutureIntimationDate(value?: string) {
   if (!value) return;
@@ -192,8 +218,19 @@ export class ClaimsService {
       restDto.assignedEmployeeId = createdById;
     }
 
+    let initialStatus: ClaimStatus = dto.status || ClaimStatus.INTIMATED;
+    if (!dto.status && dto.notes) {
+      try {
+        const parsed = JSON.parse(dto.notes);
+        if (parsed.uiClaimStatus) {
+          const derived = parseClaimStatus(parsed.uiClaimStatus);
+          if (derived) initialStatus = derived;
+        }
+      } catch {}
+    }
+
     const claim = await this.prisma.claim.create({
-      data: { ...restDto, tenantId, status: 'INTIMATED', intimatedAt: new Date(intimatedAt) } as any,
+      data: { ...restDto, tenantId, status: initialStatus, intimatedAt: new Date(intimatedAt) } as any,
     });
 
     await this.logActivity(tenantId, createdById, dto.contactId, claim.id, 'CREATE',
@@ -224,6 +261,19 @@ export class ClaimsService {
     if (!claim) throw new NotFoundException('Claim not found');
     if (role === UserRole.EMPLOYEE && claim.assignedEmployeeId !== userId) {
       throw new ForbiddenException('Access denied');
+    }
+
+    if (dto.status) {
+      const parsedStatus = parseClaimStatus(dto.status);
+      if (parsedStatus) dto.status = parsedStatus;
+    } else if (dto.notes) {
+      try {
+        const parsed = JSON.parse(dto.notes);
+        if (parsed.uiClaimStatus) {
+          const derived = parseClaimStatus(parsed.uiClaimStatus);
+          if (derived) dto.status = derived;
+        }
+      } catch {}
     }
 
     const fieldLabels: Record<string, string> = {
@@ -317,7 +367,26 @@ export class ClaimsService {
     const updateData: any = { status: dto.status };
     if (dto.approvedAmount !== undefined) updateData.approvedAmount = dto.approvedAmount;
     if (dto.rejectionReason)              updateData.rejectionReason = dto.rejectionReason;
-    if (dto.notes)                        updateData.notes = dto.notes;
+    if (dto.notes) {
+      updateData.notes = dto.notes;
+    } else if (claim.notes) {
+      try {
+        const parsed = JSON.parse(claim.notes);
+        if (typeof parsed === 'object') {
+          const statusUiMap: Record<string, string> = {
+            INTIMATED: 'Intimated',
+            DOC_COLLECTION: 'Documents Collected from Hospital/Customer',
+            FILED: 'Submitted to Company',
+            IN_REVIEW: 'Pending for approval',
+            APPROVED: 'Approved',
+            REJECTED: 'Rejected',
+            SETTLED: 'Settled',
+          };
+          parsed.uiClaimStatus = statusUiMap[dto.status] || dto.status;
+          updateData.notes = JSON.stringify(parsed);
+        }
+      } catch {}
+    }
     if (dto.status === 'FILED')           updateData.filedAt   = new Date();
     if (dto.status === 'SETTLED')         updateData.settledAt = dto.settledAt ? new Date(dto.settledAt) : new Date();
 

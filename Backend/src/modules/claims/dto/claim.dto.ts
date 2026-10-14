@@ -44,9 +44,19 @@ export class CreateClaimDto {
   @IsOptional()
   @IsNumber()
   approvedAmount?: number;
+
+  @ApiPropertyOptional({ enum: ClaimStatus })
+  @IsOptional()
+  @IsEnum(ClaimStatus)
+  status?: ClaimStatus;
 }
 
 export class UpdateClaimDto extends PartialType(CreateClaimDto) {
+  @ApiPropertyOptional({ enum: ClaimStatus })
+  @IsOptional()
+  @IsEnum(ClaimStatus)
+  status?: ClaimStatus;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -27,6 +27,7 @@ import {
 } from './queue.constants';
 import { ConfigService } from '@nestjs/config';
 import { WhatsappService } from '../modules/whatsapp/whatsapp.service';
+import { LeadsService } from '../modules/leads/leads.service';
 
 // Days before expiry at which we send reminders
 const RENEWAL_WINDOWS = [45, 30, 15, 7, 3] as const;
@@ -48,6 +49,7 @@ export class PolicyRenewalWorker extends WorkerHost {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly leadsService: LeadsService,
     @InjectBullQueue(POLICY_RENEWAL_QUEUE) private readonly queue: Queue,
   ) {
     super();
@@ -80,7 +82,7 @@ export class PolicyRenewalWorker extends WorkerHost {
           deletedAt: null,
           status: { notIn: ['INACTIVE_OLD' as any] },
         },
-        select: { id: true, endDate: true, status: true },
+        select: { id: true, tenantId: true, endDate: true, status: true },
       });
 
       for (const p of activePolicies) {
@@ -103,8 +105,11 @@ export class PolicyRenewalWorker extends WorkerHost {
           });
         }
       }
+
+      const tenantIds = [...new Set(activePolicies.map(policy => policy.tenantId))];
+      await Promise.all(tenantIds.map(id => this.leadsService.autoCreateRenewalLeads(id)));
     } catch (syncErr: any) {
-      this.logger.warn(`Lifecycle status sync notice: ${syncErr.message}`);
+      this.logger.error(`Policy lifecycle and renewal lead scan failed: ${syncErr.message}`, syncErr.stack);
     }
 
     // Build expiry windows: policies whose endDate falls within each window
