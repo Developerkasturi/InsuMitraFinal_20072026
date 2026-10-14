@@ -88,7 +88,7 @@ export class LeadsService implements OnModuleInit {
       const expiringPolicies = await this.prisma.policy.findMany({
         where: {
           tenantId,
-          status: { in: ['ACTIVE', 'RENEWAL_DUE'] },
+          status: { in: ['ACTIVE', 'INFORCE', 'RENEWAL_DUE'] },
           OR: [
             { deletedAt: null },
             { deletedAt: { isSet: false } },

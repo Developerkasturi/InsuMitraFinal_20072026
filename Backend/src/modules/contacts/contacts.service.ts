@@ -15,6 +15,7 @@ import {
 } from './dto/contact.dto';
 
 import { NotificationEngineService } from '../notifications/notification-engine.service';
+import { activityValuesDiffer, formatActivityChange } from '../../common/utils/activity-change.util';
 
 @Injectable()
 export class ContactsService implements OnModuleInit {
@@ -199,6 +200,7 @@ export class ContactsService implements OnModuleInit {
       firstName: 'First Name',
       middleName: 'Middle Name',
       lastName: 'Last Name',
+      birthPlace: 'Birth Place',
       phone: 'WhatsApp Number',
       alternatePhone: 'Calling Number',
       email: 'Email',
@@ -208,6 +210,8 @@ export class ContactsService implements OnModuleInit {
       weddingAnniversaryDate: 'Wedding Anniversary',
       education: 'Education',
       annualIncome: 'Annual Income',
+      height: 'Height',
+      weight: 'Weight',
       panNumber: 'PAN Number',
       aadhaarNumber: 'Aadhaar Number',
       occupation: 'Occupation',
@@ -223,16 +227,57 @@ export class ContactsService implements OnModuleInit {
       declaredMedicalHistory: 'Declared Medical History',
       notDeclaredMedicalHistory: 'Undeclared Medical History',
       medicalHistoryDetails: 'Medical History Details',
+      chewTobacco: 'Tobacco Use',
+      smoke: 'Smoking',
+      consumeAlcohol: 'Alcohol Use',
       surgeryDetails: 'Surgery Details',
       prescriptionDetails: 'Prescription Details',
+      role: 'Role',
+      tags: 'Tags',
+      source: 'Source',
+      assignedEmployeeId: 'Assigned Employee',
+      leadStage: 'Lead Stage',
+      leadStatus: 'Lead Status',
+      leadType: 'Lead Type',
+      followUpDate: 'Follow-up Date',
     };
     const changedFields = Object.keys(dto).filter((key) => {
       if (!(key in fieldLabels)) return false;
       const oldValue = (existing as any)[key];
       const newValue = (dto as any)[key];
-      return JSON.stringify(oldValue ?? null) !== JSON.stringify(newValue ?? null);
+      return activityValuesDiffer(key, oldValue, newValue);
     });
     await this.repo.update(tenantId, targetId, dto);
+
+    if (changedFields.length > 0) {
+      const familyRelationships = await this.prisma.contactRelationship.findMany({
+        where: { relatedContactId: targetId },
+        include: {
+          primaryContact: { select: { id: true, tenantId: true } },
+        },
+      });
+      const memberName = `${existing.firstName || ''} ${existing.lastName || ''}`.trim() || 'Family member';
+      for (const relationship of familyRelationships) {
+        if (relationship.primaryContact.tenantId !== tenantId || relationship.primaryContact.id === targetId) continue;
+        try {
+          await this.prisma.activityLog.create({
+            data: {
+              tenantId,
+              userId: updatedById,
+              contactId: relationship.primaryContact.id,
+              entityType: 'Contact',
+              entityId: relationship.primaryContact.id,
+              action: 'UPDATE',
+              description: `Family member ${memberName} updated: ${changedFields
+                .map(key => formatActivityChange(key, fieldLabels[key], (existing as any)[key], (dto as any)[key]))
+                .join('; ')}`,
+            },
+          });
+        } catch (err: any) {
+          this.logger.warn(`ActivityLog write failed for family member ${targetId}: ${err.message}`);
+        }
+      }
+    }
 
     // Create/update primary Address if city is provided
     if (dto.city) {
@@ -258,8 +303,10 @@ export class ContactsService implements OnModuleInit {
           entityId:   targetId,
           action:     'UPDATE',
           description: changedFields.length
-            ? `Personal details updated: ${changedFields.map((key) => fieldLabels[key]).join(', ')}`
-            : 'Contact profile updated',
+            ? `Personal details updated: ${changedFields
+              .map(key => formatActivityChange(key, fieldLabels[key], (existing as any)[key], (dto as any)[key]))
+              .join('; ')}`
+            : 'Contact details saved; no tracked fields changed',
         },
       });
     } catch (err: any) {

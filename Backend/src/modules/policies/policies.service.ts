@@ -14,6 +14,7 @@ import { UserRole } from '@prisma/client';
 
 import { LeadsService } from '../leads/leads.service';
 import { NotificationEngineService } from '../notifications/notification-engine.service';
+import { activityValuesDiffer, formatActivityChange } from '../../common/utils/activity-change.util';
 
 @Injectable()
 export class PoliciesService {
@@ -459,6 +460,7 @@ export class PoliciesService {
 
     const fieldLabels: Record<string, string> = {
       policyNumber: 'Policy Number',
+      contactId: 'Contact',
       planId: 'Plan',
       premiumAmount: 'Premium Amount',
       sumAssured: 'Sum Assured',
@@ -474,13 +476,15 @@ export class PoliciesService {
       phcRequired: 'PHC Status',
       phcAmount: 'PHC Amount',
       assignedEmployeeId: 'Assigned Employee',
+      businessType: 'Business Type',
+      renewedFromPolicyId: 'Renewed From Policy',
     };
-    const changedFields = Object.keys(dto).filter((key) => {
-      if (!(key in fieldLabels)) return false;
+    const changedFields = Object.keys(dto).flatMap((key) => {
+      if (!(key in fieldLabels)) return [];
       const oldValue = (policy as any)[key];
       const newValue = (dto as any)[key];
-      const normalize = (value: any) => value instanceof Date ? value.toISOString() : value;
-      return JSON.stringify(normalize(oldValue) ?? null) !== JSON.stringify(normalize(newValue) ?? null);
+      if (!activityValuesDiffer(key, oldValue, newValue)) return [];
+      return [formatActivityChange(key, fieldLabels[key], oldValue, newValue)];
     });
     const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
     const updated = await this.prisma.policy.update({
@@ -500,8 +504,8 @@ export class PoliciesService {
       id,
       'UPDATE',
       changedFields.length
-        ? `Policy details updated: ${changedFields.map((key) => fieldLabels[key]).join(', ')}`
-        : 'Policy updated',
+        ? `Policy details updated: ${changedFields.join('; ')}`
+        : 'Policy saved; no tracked fields changed',
     );
 
     // Auto-create renewal leads immediately for expiring policies

@@ -5,6 +5,7 @@
 import { Injectable, NotFoundException, ConflictException, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationEngineService } from '../notifications/notification-engine.service';
+import { activityValuesDiffer, formatActivityChange } from '../../common/utils/activity-change.util';
 import {
   CreateClaimDto, UpdateClaimDto, UpdateClaimStatusDto,
   AddExpenseDto, ClaimQueryDto,
@@ -306,10 +307,10 @@ export class ClaimsService {
       documents: 'Documents',
     };
     const changedFieldNames = Object.keys(dto).flatMap((key) => {
+      const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
       const oldValue = (claim as any)[key];
       const newValue = (dto as any)[key];
-      const normalize = (value: any) => value instanceof Date ? value.toISOString() : value;
-      if (JSON.stringify(normalize(oldValue) ?? null) === JSON.stringify(normalize(newValue) ?? null)) return [];
+      if (!activityValuesDiffer(key, oldValue, newValue)) return [];
 
       if (key === 'notes') {
         try {
@@ -317,10 +318,15 @@ export class ClaimsService {
           const newNotes = JSON.parse(newValue || '{}');
           if (oldNotes && newNotes && typeof oldNotes === 'object' && typeof newNotes === 'object') {
             const changedNotes = Object.keys(newNotes).filter(
-              (noteKey) => JSON.stringify(oldNotes[noteKey] ?? null) !== JSON.stringify(newNotes[noteKey] ?? null),
+              (noteKey) => activityValuesDiffer(noteKey, oldNotes[noteKey], newNotes[noteKey]),
             );
             if (changedNotes.length) {
-              return changedNotes.map((noteKey) => fieldLabels[noteKey] || noteKey.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()));
+              return changedNotes.map((noteKey) => formatActivityChange(
+                noteKey,
+                fieldLabels[noteKey] || noteKey.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()),
+                oldNotes[noteKey],
+                newNotes[noteKey],
+              ));
             }
           }
         } catch {
@@ -328,7 +334,7 @@ export class ClaimsService {
         }
       }
 
-      return [fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase())];
+      return [formatActivityChange(key, label, oldValue, newValue)];
     });
     const updated = await this.prisma.claim.update({ where: { id }, data: dto as any });
     await this.logActivity(
@@ -338,8 +344,8 @@ export class ClaimsService {
       id,
       'UPDATE',
       changedFieldNames.length
-        ? `Claim details updated: ${[...new Set(changedFieldNames)].join(', ')}`
-        : 'Claim details updated',
+        ? `Claim details updated: ${[...new Set(changedFieldNames)].join('; ')}`
+        : 'Claim saved; no tracked fields changed',
     );
 
     if (dto.assignedEmployeeId && dto.assignedEmployeeId !== claim.assignedEmployeeId) {
@@ -392,8 +398,23 @@ export class ClaimsService {
 
     const updated = await this.prisma.claim.update({ where: { id }, data: updateData });
 
-    await this.logActivity(tenantId, userId, updated.contactId, id,
-      'STAGE_CHANGE', `Claim status changed to ${dto.status}`);
+    const statusChange = formatActivityChange('status', 'Claim Status', claim.status, updated.status);
+    const additionalChanges = [
+      ...(dto.approvedAmount !== undefined && activityValuesDiffer('approvedAmount', claim.approvedAmount, updated.approvedAmount)
+        ? [formatActivityChange('approvedAmount', 'Approved Amount', claim.approvedAmount, updated.approvedAmount)]
+        : []),
+      ...(dto.rejectionReason !== undefined && activityValuesDiffer('rejectionReason', claim.rejectionReason, updated.rejectionReason)
+        ? [formatActivityChange('rejectionReason', 'Rejection Reason', claim.rejectionReason, updated.rejectionReason)]
+        : []),
+    ];
+    await this.logActivity(
+      tenantId,
+      userId,
+      updated.contactId,
+      id,
+      'STAGE_CHANGE',
+      [`Claim updated: ${statusChange}`, ...additionalChanges].join('; '),
+    );
 
     // Notify assigned employee of status change
     if (updated.assignedEmployeeId) {
