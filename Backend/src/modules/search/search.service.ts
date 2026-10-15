@@ -151,11 +151,18 @@ export class SearchService {
         }
       );
     }
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
     const rows = await this.prisma.contact.findMany({
       where: {
         tenantId,
         isActive: true,
-        deletedAt: null,
+        AND: [notDeleted],
         relatedTo: { none: {} },
         OR: suggestionOr,
       },
@@ -173,7 +180,7 @@ export class SearchService {
     };
   }
 
-  private searchContacts(
+  private async searchContacts(
     tenantId: string, userId: string, role: string, term: string, limit: number,
   ): Promise<ContactRow[]> {
     const isOwner = role === UserRole.OWNER || role === UserRole.SUPERADMIN || (role as string) === 'ADMIN';
@@ -220,23 +227,43 @@ export class SearchService {
       );
     }
 
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
     const where: any = {
       tenantId,
-      deletedAt: null,
+      AND: [notDeleted],
       OR,
     };
 
     if (!isOwner && userId) {
-      where.AND = [
-        {
-          OR: [
-            { assignedEmployeeId: userId },
-            { policies: { some: { assignedEmployeeId: userId } } },
-            { productInterests: { some: { assignedEmployeeId: userId } } },
-            { claims: { some: { assignedEmployeeId: userId } } },
-          ],
-        },
-      ];
+      const validEmployeeIds = [userId];
+      if (role === UserRole.EMPLOYEE) {
+        try {
+          const empProfile = await this.prisma.employeeProfile.findFirst({
+            where: { userId, tenantId },
+            select: { id: true },
+          });
+          if (empProfile?.id) validEmployeeIds.push(empProfile.id);
+        } catch (err) {
+          console.error('SEARCH EMP PROFILE LOOKUP ERROR:', err);
+        }
+      }
+
+      where.AND.push({
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: { isSet: false } },
+          { assignedEmployeeId: { in: validEmployeeIds } },
+          { policies: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
+          { productInterests: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
+          { claims: { some: { assignedEmployeeId: { in: validEmployeeIds } } } },
+        ],
+      });
     }
 
     return this.prisma.contact.findMany({
@@ -268,7 +295,7 @@ export class SearchService {
     })));
   }
 
-  private searchPolicies(
+  private async searchPolicies(
     tenantId: string, userId: string, role: string, term: string, limit: number,
   ): Promise<PolicyRow[]> {
     const isOwner = role === UserRole.OWNER || role === UserRole.SUPERADMIN || (role as string) === 'ADMIN';
@@ -278,15 +305,15 @@ export class SearchService {
       { policyNumber: { contains: term, mode: 'insensitive' } },
       { agentCode: { contains: term, mode: 'insensitive' } },
       { notes: { contains: term, mode: 'insensitive' } },
-      { plan: { is: { name: { contains: term, mode: 'insensitive' } } } },
-      { plan: { is: { company: { is: { name: { contains: term, mode: 'insensitive' } } } } } },
-      { contact: { is: { firstName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { lastName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { phone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { alternatePhone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { email: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { aadhaarNumber: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { panNumber: { contains: term, mode: 'insensitive' } } } },
+      { plan: { name: { contains: term, mode: 'insensitive' } } },
+      { plan: { company: { name: { contains: term, mode: 'insensitive' } } } },
+      { contact: { firstName: { contains: term, mode: 'insensitive' } } },
+      { contact: { lastName: { contains: term, mode: 'insensitive' } } },
+      { contact: { phone: { contains: term } } },
+      { contact: { alternatePhone: { contains: term } } },
+      { contact: { email: { contains: term, mode: 'insensitive' } } },
+      { contact: { aadhaarNumber: { contains: term } } },
+      { contact: { panNumber: { contains: term, mode: 'insensitive' } } },
       { members: { some: { name: { contains: term, mode: 'insensitive' } } } },
     ];
 
@@ -294,50 +321,73 @@ export class SearchService {
       OR.push(
         {
           contact: {
-            is: {
-              AND: tokens.map((token) => ({
-                OR: [
-                  { firstName: { contains: token, mode: 'insensitive' } },
-                  { lastName: { contains: token, mode: 'insensitive' } },
-                ],
-              })),
-            },
+            AND: tokens.map((token) => ({
+              OR: [
+                { firstName: { contains: token, mode: 'insensitive' } },
+                { lastName: { contains: token, mode: 'insensitive' } },
+              ],
+            })),
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens[0], mode: 'insensitive' },
-              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-            },
+            firstName: { contains: tokens[0], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[0], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[0], mode: 'insensitive' },
           },
         }
       );
     }
 
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
+    const where: any = {
+      tenantId,
+      AND: [notDeleted],
+      OR,
+    };
+
+    if (!isOwner && userId) {
+      const validEmployeeIds = [userId];
+      if (role === UserRole.EMPLOYEE) {
+        try {
+          const empProfile = await this.prisma.employeeProfile.findFirst({
+            where: { userId, tenantId },
+            select: { id: true },
+          });
+          if (empProfile?.id) validEmployeeIds.push(empProfile.id);
+        } catch (err) {
+          console.error('SEARCH EMP PROFILE LOOKUP ERROR:', err);
+        }
+      }
+
+      where.AND.push({
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: { isSet: false } },
+          { assignedEmployeeId: { in: validEmployeeIds } },
+        ],
+      });
+    }
+
     return this.prisma.policy.findMany({
-      where: {
-        tenantId,
-        deletedAt: null,
-        ...(isOwner ? {} : { assignedEmployeeId: userId }),
-        OR,
-      },
+      where,
       take: limit,
       include: {
         contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -356,7 +406,7 @@ export class SearchService {
     })));
   }
 
-  private searchClaims(
+  private async searchClaims(
     tenantId: string, userId: string, role: string, term: string, limit: number,
   ): Promise<ClaimRow[]> {
     const isOwner = role === UserRole.OWNER || role === UserRole.SUPERADMIN || (role as string) === 'ADMIN';
@@ -367,52 +417,87 @@ export class SearchService {
       { claimType: { contains: term, mode: 'insensitive' } },
       { notes: { contains: term, mode: 'insensitive' } },
       { rejectionReason: { contains: term, mode: 'insensitive' } },
-      { policy: { is: { policyNumber: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { firstName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { lastName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { phone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { alternatePhone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { email: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { aadhaarNumber: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { panNumber: { contains: term, mode: 'insensitive' } } } },
+      { policy: { policyNumber: { contains: term, mode: 'insensitive' } } },
+      { contact: { firstName: { contains: term, mode: 'insensitive' } } },
+      { contact: { lastName: { contains: term, mode: 'insensitive' } } },
+      { contact: { phone: { contains: term } } },
+      { contact: { alternatePhone: { contains: term } } },
+      { contact: { email: { contains: term, mode: 'insensitive' } } },
+      { contact: { aadhaarNumber: { contains: term } } },
+      { contact: { panNumber: { contains: term, mode: 'insensitive' } } },
     ];
 
     if (tokens.length >= 2) {
       OR.push(
         {
           contact: {
-            is: {
-              firstName: { contains: tokens[0], mode: 'insensitive' },
-              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-            },
+            AND: tokens.map((token) => ({
+              OR: [
+                { firstName: { contains: token, mode: 'insensitive' } },
+                { lastName: { contains: token, mode: 'insensitive' } },
+              ],
+            })),
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens[0], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[0], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+          },
+        },
+        {
+          contact: {
+            firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[0], mode: 'insensitive' },
           },
         }
       );
     }
 
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
+    const where: any = {
+      tenantId,
+      AND: [notDeleted],
+      OR,
+    };
+
+    if (!isOwner && userId) {
+      const validEmployeeIds = [userId];
+      if (role === UserRole.EMPLOYEE) {
+        try {
+          const empProfile = await this.prisma.employeeProfile.findFirst({
+            where: { userId, tenantId },
+            select: { id: true },
+          });
+          if (empProfile?.id) validEmployeeIds.push(empProfile.id);
+        } catch (err) {
+          console.error('SEARCH EMP PROFILE LOOKUP ERROR:', err);
+        }
+      }
+
+      where.AND.push({
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: { isSet: false } },
+          { assignedEmployeeId: { in: validEmployeeIds } },
+        ],
+      });
+    }
+
     return this.prisma.claim.findMany({
-      where: {
-        tenantId,
-        deletedAt: null,
-        ...(isOwner ? {} : { assignedEmployeeId: userId }),
-        OR,
-      },
+      where,
       take: limit,
       include: {
         contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -432,7 +517,7 @@ export class SearchService {
     })));
   }
 
-  private searchLeads(
+  private async searchLeads(
     tenantId: string, userId: string, role: string, term: string, limit: number,
   ): Promise<LeadRow[]> {
     const isOwner = role === UserRole.OWNER || role === UserRole.SUPERADMIN || (role as string) === 'ADMIN';
@@ -443,52 +528,87 @@ export class SearchService {
       { notes: { contains: term, mode: 'insensitive' } },
       { source: { contains: term, mode: 'insensitive' } },
       { interests: { hasSome: [term] } },
-      { plan: { is: { name: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { firstName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { lastName: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { phone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { alternatePhone: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { email: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { aadhaarNumber: { contains: term, mode: 'insensitive' } } } },
-      { contact: { is: { panNumber: { contains: term, mode: 'insensitive' } } } },
+      { plan: { name: { contains: term, mode: 'insensitive' } } },
+      { contact: { firstName: { contains: term, mode: 'insensitive' } } },
+      { contact: { lastName: { contains: term, mode: 'insensitive' } } },
+      { contact: { phone: { contains: term } } },
+      { contact: { alternatePhone: { contains: term } } },
+      { contact: { email: { contains: term, mode: 'insensitive' } } },
+      { contact: { aadhaarNumber: { contains: term } } },
+      { contact: { panNumber: { contains: term, mode: 'insensitive' } } },
     ];
 
     if (tokens.length >= 2) {
       OR.push(
         {
           contact: {
-            is: {
-              firstName: { contains: tokens[0], mode: 'insensitive' },
-              lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-            },
+            AND: tokens.map((token) => ({
+              OR: [
+                { firstName: { contains: token, mode: 'insensitive' } },
+                { lastName: { contains: token, mode: 'insensitive' } },
+              ],
+            })),
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens[0], mode: 'insensitive' },
+            lastName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
           },
         },
         {
           contact: {
-            is: {
-              firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
-              lastName: { contains: tokens[0], mode: 'insensitive' },
-            },
+            firstName: { contains: tokens.slice(0, -1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[tokens.length - 1], mode: 'insensitive' },
+          },
+        },
+        {
+          contact: {
+            firstName: { contains: tokens.slice(1).join(' '), mode: 'insensitive' },
+            lastName: { contains: tokens[0], mode: 'insensitive' },
           },
         }
       );
     }
 
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
+    const where: any = {
+      tenantId,
+      AND: [notDeleted],
+      OR,
+    };
+
+    if (!isOwner && userId) {
+      const validEmployeeIds = [userId];
+      if (role === UserRole.EMPLOYEE) {
+        try {
+          const empProfile = await this.prisma.employeeProfile.findFirst({
+            where: { userId, tenantId },
+            select: { id: true },
+          });
+          if (empProfile?.id) validEmployeeIds.push(empProfile.id);
+        } catch (err) {
+          console.error('SEARCH EMP PROFILE LOOKUP ERROR:', err);
+        }
+      }
+
+      where.AND.push({
+        OR: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: { isSet: false } },
+          { assignedEmployeeId: { in: validEmployeeIds } },
+        ],
+      });
+    }
+
     return this.prisma.productInterest.findMany({
-      where: {
-        tenantId,
-        deletedAt: null,
-        ...(isOwner ? {} : { assignedEmployeeId: userId }),
-        OR,
-      },
+      where,
       take: limit,
       include: {
         contact: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -507,7 +627,7 @@ export class SearchService {
     })));
   }
 
-  private searchEmployees(
+  private async searchEmployees(
     tenantId: string, term: string, limit: number,
   ): Promise<EmployeeRow[]> {
     const tokens = term.split(/\s+/).filter(Boolean);
@@ -517,7 +637,7 @@ export class SearchService {
       { phone: { contains: term } },
       { designation: { contains: term, mode: 'insensitive' } },
       { department: { contains: term, mode: 'insensitive' } },
-      { user: { is: { email: { contains: term, mode: 'insensitive' } } } },
+      { user: { email: { contains: term, mode: 'insensitive' } } },
     ];
 
     if (tokens.length >= 2) {
@@ -537,10 +657,17 @@ export class SearchService {
       );
     }
 
+    const notDeleted = {
+      OR: [
+        { deletedAt: null },
+        { deletedAt: { isSet: false } },
+      ],
+    };
+
     return this.prisma.employeeProfile.findMany({
       where: {
         tenantId,
-        deletedAt: null,
+        AND: [notDeleted],
         OR,
       },
       take: limit,
