@@ -446,7 +446,7 @@ export class PoliciesService {
     await this.logActivity(tenantId, createdById, policy.contactId, policy.id, 'CREATE', `Policy ${policy.policyNumber} created`);
 
     // Auto-create renewal leads immediately for expiring policies
-    this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
+    await this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
 
     return { data: policy, message: 'Policy created successfully' };
   }
@@ -509,7 +509,7 @@ export class PoliciesService {
     );
 
     // Auto-create renewal leads immediately for expiring policies
-    this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
+    await this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));
 
     return { data: updated, message: 'Policy updated' };
   }

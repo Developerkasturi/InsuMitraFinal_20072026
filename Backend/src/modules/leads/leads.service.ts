@@ -79,29 +79,32 @@ export class LeadsService implements OnModuleInit {
   /** Auto-create renewal leads for active policies ending within 45 days */
   async autoCreateRenewalLeads(tenantId: string): Promise<void> {
     try {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const in45Days = new Date(startOfToday.getTime() + 45 * 24 * 60 * 60 * 1000 + 86399999);
+      const past30Days = new Date(startOfToday.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const in45Days = new Date(startOfToday.getTime() + 45 * 24 * 60 * 60 * 1000);
-      in45Days.setHours(23, 59, 59, 999);
-
-      const expiringPolicies = await this.prisma.policy.findMany({
+      const allPolicies = await this.prisma.policy.findMany({
         where: {
           tenantId,
-          status: { in: ['ACTIVE', 'INFORCE', 'RENEWAL_DUE'] },
+          status: { notIn: ['INACTIVE_OLD' as any, 'CANCELLED' as any, 'SURRENDERED' as any] },
           OR: [
             { deletedAt: null },
             { deletedAt: { isSet: false } },
           ],
-          endDate: {
-            gte: startOfToday,
-            lte: in45Days,
-          },
         },
         include: {
           plan: { include: { company: true } },
           contact: true,
         },
+      });
+
+      const expiringPolicies = allPolicies.filter((pol) => {
+        const end = pol.endDate ? new Date(pol.endDate).getTime() : NaN;
+        const mat = pol.maturityDate ? new Date(pol.maturityDate).getTime() : NaN;
+        const endInRange = !isNaN(end) && end >= past30Days.getTime() && end <= in45Days.getTime();
+        const matInRange = !isNaN(mat) && mat >= past30Days.getTime() && mat <= in45Days.getTime();
+        return endInRange || matInRange;
       });
 
       if (expiringPolicies.length === 0) return;
@@ -123,8 +126,10 @@ export class LeadsService implements OnModuleInit {
           if (!l.notes) return false;
           try {
             const notes = JSON.parse(l.notes);
-            return notes?.leadType === 'RENEWAL' &&
-              (notes.policyId === pol.id || notes.policyNumber === pol.policyNumber);
+            return (
+              (notes.policyId && notes.policyId === pol.id) ||
+              (notes.policyNumber && notes.policyNumber === pol.policyNumber)
+            );
           } catch {
             return false;
           }
@@ -132,10 +137,19 @@ export class LeadsService implements OnModuleInit {
 
         if (!alreadyExists) {
           const category = pol.plan?.category || 'Health';
-          const interestName = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+          let interestName = 'Health';
+          const catUpper = category.toUpperCase().trim();
+          if (catUpper.includes('MOTOR')) interestName = 'Motor';
+          else if (catUpper.includes('LIFE')) interestName = 'Life';
+          else if (catUpper.includes('TERM')) interestName = 'Term';
+          else if (catUpper.includes('MUTUAL')) interestName = 'Mutual Funds';
+          else if (catUpper.includes('ACCIDENT')) interestName = 'Accident Policy';
+          else if (catUpper.includes('PORT')) interestName = 'Porting';
+          else interestName = 'Health';
+
           const notesObj = {
             leadStatus: 'INTERESTED',
-            leadType: 'RENEWAL',
+            leadType: 'Renewal/Porting',
             policyId: pol.id,
             policyNumber: pol.policyNumber,
             companyName: pol.plan?.company?.name || '',
@@ -144,7 +158,8 @@ export class LeadsService implements OnModuleInit {
             premiumAmount: pol.premiumAmount,
             startDate: pol.startDate,
             endDate: pol.endDate,
-            cleanNotes: `Auto-generated Renewal Lead for Policy #${pol.policyNumber}`,
+            maturityDate: pol.maturityDate,
+            cleanNotes: `Auto-generated Renewal/Porting Lead for Policy #${pol.policyNumber}`,
           };
 
           const nextLeadId = await this.getNextLeadId();
@@ -163,7 +178,7 @@ export class LeadsService implements OnModuleInit {
               notes: JSON.stringify(notesObj),
             },
           });
-          this.logger.log(`Created automatic Renewal lead for policy #${pol.policyNumber}`);
+          this.logger.log(`Created automatic Renewal/Porting lead for policy #${pol.policyNumber}`);
         }
       }
     } catch (err: any) {
@@ -347,10 +362,19 @@ export class LeadsService implements OnModuleInit {
     if (lead.notes) {
       try {
         const parsed = JSON.parse(lead.notes);
-        if (parsed.policyId) {
+        if (parsed.policyId || parsed.policyNumber) {
           connectedPolicy = await this.prisma.policy.findFirst({
-            where: { id: parsed.policyId, tenantId },
-            include: { plan: { include: { company: true } } },
+            where: {
+              tenantId,
+              OR: [
+                ...(parsed.policyId ? [{ id: parsed.policyId }] : []),
+                ...(parsed.policyNumber ? [{ policyNumber: parsed.policyNumber }] : []),
+              ],
+            },
+            include: {
+              plan: { include: { company: true } },
+              contact: { select: { firstName: true, lastName: true, phone: true, email: true } },
+            },
           });
         }
       } catch (e) {}

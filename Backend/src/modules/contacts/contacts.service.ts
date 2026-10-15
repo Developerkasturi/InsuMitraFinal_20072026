@@ -18,6 +18,52 @@ import {
 import { NotificationEngineService } from '../notifications/notification-engine.service';
 import { activityValuesDiffer, formatActivityChange } from '../../common/utils/activity-change.util';
 
+export const CONTACT_FIELD_LABELS: Record<string, string> = {
+  firstName: 'First Name',
+  middleName: 'Middle Name',
+  lastName: 'Last Name',
+  birthPlace: 'Birth Place',
+  phone: 'WhatsApp Number',
+  alternatePhone: 'Calling Number',
+  email: 'Email',
+  gender: 'Gender',
+  dateOfBirth: 'Date of Birth',
+  maritalStatus: 'Marital Status',
+  weddingAnniversaryDate: 'Wedding Anniversary',
+  education: 'Education',
+  annualIncome: 'Annual Income',
+  height: 'Height',
+  weight: 'Weight',
+  panNumber: 'PAN Number',
+  aadhaarNumber: 'Aadhaar Number',
+  occupation: 'Occupation',
+  city: 'Address',
+  state: 'State',
+  district: 'District',
+  pincode: 'Pincode',
+  notes: 'Notes',
+  isActive: 'Contact Status',
+  isDependent: 'Dependent Status',
+  dependentNo: 'Guardian WhatsApp Number',
+  medicalHistory: 'Medical History',
+  declaredMedicalHistory: 'Declared Medical History',
+  notDeclaredMedicalHistory: 'Undeclared Medical History',
+  medicalHistoryDetails: 'Medical History Details',
+  chewTobacco: 'Tobacco Use',
+  smoke: 'Smoking',
+  consumeAlcohol: 'Alcohol Use',
+  surgeryDetails: 'Surgery Details',
+  prescriptionDetails: 'Prescription Details',
+  role: 'Role',
+  tags: 'Tags',
+  source: 'Source',
+  assignedEmployeeId: 'Assigned Employee',
+  leadStage: 'Lead Stage',
+  leadStatus: 'Lead Status',
+  leadType: 'Lead Type',
+  followUpDate: 'Follow-up Date',
+};
+
 interface BulkImportContact {
   rowNumber?: number;
   contact: CreateContactDto;
@@ -250,51 +296,7 @@ export class ContactsService implements OnModuleInit {
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
 
     const targetId = existing.id;
-    const fieldLabels: Record<string, string> = {
-      firstName: 'First Name',
-      middleName: 'Middle Name',
-      lastName: 'Last Name',
-      birthPlace: 'Birth Place',
-      phone: 'WhatsApp Number',
-      alternatePhone: 'Calling Number',
-      email: 'Email',
-      gender: 'Gender',
-      dateOfBirth: 'Date of Birth',
-      maritalStatus: 'Marital Status',
-      weddingAnniversaryDate: 'Wedding Anniversary',
-      education: 'Education',
-      annualIncome: 'Annual Income',
-      height: 'Height',
-      weight: 'Weight',
-      panNumber: 'PAN Number',
-      aadhaarNumber: 'Aadhaar Number',
-      occupation: 'Occupation',
-      city: 'Address',
-      state: 'State',
-      district: 'District',
-      pincode: 'Pincode',
-      notes: 'Notes',
-      isActive: 'Contact Status',
-      isDependent: 'Dependent Status',
-      dependentNo: 'Guardian WhatsApp Number',
-      medicalHistory: 'Medical History',
-      declaredMedicalHistory: 'Declared Medical History',
-      notDeclaredMedicalHistory: 'Undeclared Medical History',
-      medicalHistoryDetails: 'Medical History Details',
-      chewTobacco: 'Tobacco Use',
-      smoke: 'Smoking',
-      consumeAlcohol: 'Alcohol Use',
-      surgeryDetails: 'Surgery Details',
-      prescriptionDetails: 'Prescription Details',
-      role: 'Role',
-      tags: 'Tags',
-      source: 'Source',
-      assignedEmployeeId: 'Assigned Employee',
-      leadStage: 'Lead Stage',
-      leadStatus: 'Lead Status',
-      leadType: 'Lead Type',
-      followUpDate: 'Follow-up Date',
-    };
+    const fieldLabels = CONTACT_FIELD_LABELS;
     const changedFields = Object.keys(dto).filter((key) => {
       if (!(key in fieldLabels)) return false;
       const oldValue = (existing as any)[key];
@@ -305,22 +307,31 @@ export class ContactsService implements OnModuleInit {
 
     if (changedFields.length > 0) {
       const familyRelationships = await this.prisma.contactRelationship.findMany({
-        where: { relatedContactId: targetId },
+        where: {
+          OR: [
+            { relatedContactId: targetId },
+            { primaryContactId: targetId },
+          ],
+        },
         include: {
           primaryContact: { select: { id: true, tenantId: true } },
+          relatedContact: { select: { id: true, tenantId: true } },
         },
       });
       const memberName = `${existing.firstName || ''} ${existing.lastName || ''}`.trim() || 'Family member';
+      const notifiedContactIds = new Set<string>();
       for (const relationship of familyRelationships) {
-        if (relationship.primaryContact.tenantId !== tenantId || relationship.primaryContact.id === targetId) continue;
+        const otherContact = relationship.primaryContactId === targetId ? relationship.relatedContact : relationship.primaryContact;
+        if (!otherContact || otherContact.tenantId !== tenantId || otherContact.id === targetId || notifiedContactIds.has(otherContact.id)) continue;
+        notifiedContactIds.add(otherContact.id);
         try {
           await this.prisma.activityLog.create({
             data: {
               tenantId,
               userId: updatedById,
-              contactId: relationship.primaryContact.id,
+              contactId: otherContact.id,
               entityType: 'Contact',
-              entityId: relationship.primaryContact.id,
+              entityId: otherContact.id,
               action: 'UPDATE',
               description: `Family member ${memberName} updated: ${changedFields
                 .map(key => formatActivityChange(key, fieldLabels[key], (existing as any)[key], (dto as any)[key]))
@@ -656,6 +667,23 @@ export class ContactsService implements OnModuleInit {
     if (dto.gender && ['MALE', 'FEMALE', 'OTHER'].includes(dto.gender.toUpperCase())) {
       familyDetails.gender = dto.gender.toUpperCase();
     }
+    const existingRel = await this.prisma.contactRelationship.findFirst({
+      where: {
+        OR: [
+          { primaryContactId: primaryContact.id, relatedContactId: relatedContact.id },
+          { primaryContactId: relatedContact.id, relatedContactId: primaryContact.id },
+        ],
+      },
+    });
+
+    const fieldLabels = CONTACT_FIELD_LABELS;
+    const changedFamilyFields = Object.keys(familyDetails).filter((key) => {
+      if (!(key in fieldLabels)) return false;
+      const oldValue = (relatedContact as any)[key];
+      const newValue = (familyDetails as any)[key];
+      return activityValuesDiffer(key, oldValue, newValue);
+    });
+
     if (Object.keys(familyDetails).length > 0) {
       await this.prisma.contact.update({
         where: { id: relatedContact.id },
@@ -693,17 +721,33 @@ export class ContactsService implements OnModuleInit {
       const memberName = [relatedContact.firstName, relatedContact.middleName, relatedContact.lastName]
         .filter(Boolean)
         .join(' ');
-      await this.prisma.activityLog.create({
-        data: {
-          tenantId,
-          userId,
-          contactId: primaryContact.id,
-          entityType: 'Contact',
-          entityId: primaryContact.id,
-          action: 'CREATE',
-          description: `Family member added: ${memberName} (${relType})`,
-        },
-      });
+      if (existingRel && changedFamilyFields.length > 0) {
+        await this.prisma.activityLog.create({
+          data: {
+            tenantId,
+            userId,
+            contactId: primaryContact.id,
+            entityType: 'Contact',
+            entityId: primaryContact.id,
+            action: 'UPDATE',
+            description: `Family member ${memberName} updated: ${changedFamilyFields
+              .map(key => formatActivityChange(key, fieldLabels[key], (relatedContact as any)[key], (familyDetails as any)[key]))
+              .join('; ')}`,
+          },
+        });
+      } else if (!existingRel) {
+        await this.prisma.activityLog.create({
+          data: {
+            tenantId,
+            userId,
+            contactId: primaryContact.id,
+            entityType: 'Contact',
+            entityId: primaryContact.id,
+            action: 'CREATE',
+            description: `Family member added: ${memberName} (${relType})`,
+          },
+        });
+      }
     } catch (err: any) {
       this.logger.warn(`ActivityLog write failed for addRelationship: ${err.message}`);
     }
@@ -1032,16 +1076,51 @@ export class ContactsService implements OnModuleInit {
 
   async getActivityLog(tenantId: string, contactId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
+    const where = {
+      tenantId,
+      OR: [
+        { contactId },
+        { entityId: contactId },
+      ],
+    };
     const [data, total] = await Promise.all([
       this.prisma.activityLog.findMany({
-        where:   { tenantId, contactId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take:    limit,
       }),
-      this.prisma.activityLog.count({ where: { tenantId, contactId } }),
+      this.prisma.activityLog.count({ where }),
     ]);
-    return { data, meta: { total, page, limit } };
+
+    const userIds = Array.from(new Set(data.map(d => d.userId).filter(Boolean))) as string[];
+    const users = userIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: userIds } },
+          include: { employeeProfile: true },
+        })
+      : [];
+    const userMap = new Map<string, { firstName?: string; lastName?: string }>();
+    users.forEach(u => {
+      if (u.employeeProfile) {
+        userMap.set(u.id, {
+          firstName: u.employeeProfile.firstName,
+          lastName: u.employeeProfile.lastName,
+        });
+      } else if (u.email) {
+        userMap.set(u.id, {
+          firstName: u.email.split('@')[0],
+          lastName: '',
+        });
+      }
+    });
+
+    const enrichedData = data.map(item => ({
+      ...item,
+      user: item.userId ? userMap.get(item.userId) || null : null,
+    }));
+
+    return { data: enrichedData, meta: { total, page, limit } };
   }
 
   private async checkContactAccess(tenantId: string, contactId: string, userId: string, role: UserRole) {
