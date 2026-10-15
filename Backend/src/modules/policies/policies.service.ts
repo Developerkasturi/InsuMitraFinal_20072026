@@ -111,7 +111,7 @@ export class PoliciesService {
       } else if (isObjectId) {
         where.contactId = contactId;
       } else {
-        where.contactId = contactId;
+        where.contactId = '000000000000000000000000';
       }
     }
     if (planId)    where.planId    = planId;

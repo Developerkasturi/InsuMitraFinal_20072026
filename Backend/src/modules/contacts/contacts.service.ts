@@ -7,6 +7,7 @@ import { PrismaService }      from '../../database/prisma.service';
 import { EmailService }       from '../../common/email/email.service';
 import * as bcrypt from 'bcryptjs';
 import { UserRole }           from '@prisma/client';
+import { ClaimStatus, LeadStage, PaymentFrequency, PolicyStatus } from '@prisma/client';
 import {
   CreateContactDto, UpdateContactDto,
   CreateAddressDto, CreateOccupationDto,
@@ -16,6 +17,59 @@ import {
 
 import { NotificationEngineService } from '../notifications/notification-engine.service';
 import { activityValuesDiffer, formatActivityChange } from '../../common/utils/activity-change.util';
+
+interface BulkImportContact {
+  rowNumber?: number;
+  contact: CreateContactDto;
+  importErrors?: string[];
+  address?: CreateAddressDto;
+  occupation?: CreateOccupationDto;
+  productInterests?: Array<{
+    importErrors?: string[];
+    interests?: string[];
+    source?: string;
+    stage?: string;
+    leadStatus?: string;
+    leadType?: string;
+    dependencyType?: string;
+    dependentDetails?: string;
+    descriptionDetails?: string;
+    followUpDate?: string;
+    premiumBudget?: number;
+    sumAssuredRequired?: number;
+    notes?: string;
+  }>;
+  familyMembers?: Array<CreateRelationshipDto & { occupation?: string }>;
+  policies?: Array<{
+    importErrors?: string[];
+    policyNumber?: string;
+    planName?: string;
+    status?: string;
+    sumAssured?: number;
+    premiumAmount?: number;
+    paymentFrequency?: string;
+    startDate?: string;
+    endDate?: string;
+    maturityDate?: string;
+    nextDueDate?: string;
+    agentCode?: string;
+    notes?: string;
+  }>;
+  claims?: Array<{
+    importErrors?: string[];
+    claimNumber?: string;
+    policyNumber?: string;
+    claimType?: string;
+    claimAmount?: number;
+    approvedAmount?: number;
+    intimatedAt?: string;
+    filedAt?: string;
+    settledAt?: string;
+    status?: string;
+    notes?: string;
+    rejectionReason?: string;
+  }>;
+}
 
 @Injectable()
 export class ContactsService implements OnModuleInit {
@@ -1262,43 +1316,282 @@ export class ContactsService implements OnModuleInit {
   async bulkImportContactsJson(
     tenantId: string,
     createdById: string,
-    contacts: CreateContactDto[],
+    contacts: BulkImportContact[],
     role?: UserRole
   ) {
     let created = 0;
     const skipped: string[] = [];
+    const warnings: string[] = [];
 
-    for (const c of contacts) {
-      if (!c.firstName || !c.phone) { skipped.push('unknown'); continue; }
+    for (let rowIndex = 0; rowIndex < contacts.length; rowIndex++) {
+      const row = contacts[rowIndex];
+      const rowNumber = row.rowNumber || rowIndex + 1;
+      const c = row.contact || row as unknown as CreateContactDto;
+      if (row.importErrors?.length) {
+        skipped.push(`Row ${rowNumber}: ${row.importErrors.join(', ')}`);
+        continue;
+      }
+      const normalizedPhone = (c.phone || '').replace(/\D/g, '').slice(-10);
+      if (!c.firstName?.trim() || !normalizedPhone || normalizedPhone.length !== 10) {
+        skipped.push(`Row ${rowNumber}: first name and a 10-digit phone are required`);
+        continue;
+      }
 
-      const exists = await this.repo.findByPhone(tenantId, c.phone);
-      if (exists) { skipped.push(c.phone); continue; }
+      const exists = await this.repo.findByPhone(tenantId, normalizedPhone);
+      if (exists) { skipped.push(`Row ${rowNumber}: phone ${normalizedPhone} already exists`); continue; }
 
-      const contact = await this.repo.create(tenantId, c);
-
-
+      const contactDetails = {
+        ...c,
+        phone: normalizedPhone,
+        annualIncome: c.annualIncome === undefined ? undefined : Number(c.annualIncome),
+        tags: Array.isArray(c.tags) ? c.tags : [],
+      };
+      let createdProfile: Awaited<ReturnType<ContactsService['createContactFull']>>;
       try {
-        await this.prisma.activityLog.create({
-          data: {
-            tenantId,
-            userId:      createdById,
-            contactId:   contact.id,
-            entityType:  'Contact',
-            entityId:    contact.id,
-            action:      'CREATE',
-            description: `Contact bulk imported from directory: ${contact.firstName} ${contact.lastName}`,
+        createdProfile = await this.createContactFull(
+          tenantId,
+          {
+            contact: contactDetails,
+            address: row.address,
+            occupation: row.occupation,
           },
-        });
+          createdById,
+          role,
+        );
       } catch (err: any) {
-        this.logger.warn(`ActivityLog write failed for bulk import: ${err.message}`);
+        skipped.push(`Row ${rowNumber}: ${err.message}`);
+        continue;
+      }
+      const contact = createdProfile.data.contact;
+      const policyIdsByNumber = new Map<string, string>();
+
+      for (const [index, interest] of (row.productInterests || []).entries()) {
+        if (interest.importErrors?.length) {
+          warnings.push(`Row ${rowNumber}, product interest ${index + 1}: ${interest.importErrors.join(', ')}`);
+          continue;
+        }
+        if (!interest.interests?.length) {
+          warnings.push(`Row ${rowNumber}, product interest ${index + 1}: Categories are required`);
+          continue;
+        }
+        try {
+          const followUpDate = parseSafeDate(interest.followUpDate);
+          const premiumBudget = Number(interest.premiumBudget);
+          if (!interest.source?.trim() || !followUpDate || !Number.isFinite(premiumBudget) || premiumBudget <= 0) {
+            throw new BadRequestException('Lead Source, Follow-up Date, and Expected Premium / Budget greater than zero are required');
+          }
+          const normalizedStage = interest.stage?.trim().toUpperCase();
+          const stage = Object.values(LeadStage).includes(normalizedStage as LeadStage)
+            ? normalizedStage as LeadStage
+            : LeadStage.TO_CONTACT;
+          const notes = JSON.stringify({
+            leadStatus: interest.leadStatus || 'INTERESTED',
+            leadType: interest.leadType || 'FRESH',
+            dependencyType: interest.dependencyType || 'SELF',
+            dependentDetails: interest.dependentDetails || '',
+            descriptionDetails: interest.descriptionDetails || '',
+            cleanNotes: interest.notes || '',
+          });
+          await this.prisma.productInterest.create({
+            data: {
+              tenantId,
+              contactId: contact.id,
+              interests: interest.interests,
+              source: interest.source || undefined,
+              stage,
+              ...(followUpDate ? { followUpDate } : {}),
+              premiumBudget,
+              ...(interest.sumAssuredRequired !== undefined ? { sumAssuredRequired: interest.sumAssuredRequired } : {}),
+              notes,
+              assignedEmployeeId: contact.assignedEmployeeId || undefined,
+            },
+          });
+        } catch (err: any) {
+          warnings.push(`Row ${rowNumber}, product interest ${index + 1}: ${err.message}`);
+        }
+      }
+
+      for (const [index, member] of (row.familyMembers || []).entries()) {
+        if (!member.firstName?.trim()) {
+          warnings.push(`Row ${rowNumber}, family member ${index + 1}: First Name is required`);
+          continue;
+        }
+        if (!member.relationshipType?.trim()) {
+          warnings.push(`Row ${rowNumber}, family member ${index + 1}: Relationship is required`);
+          continue;
+        }
+        try {
+          await this.addRelationship(tenantId, contact.id, member, createdById);
+        } catch (err: any) {
+          warnings.push(`Row ${rowNumber}, family member ${index + 1}: ${err.message}`);
+        }
+      }
+
+      for (const [index, policy] of (row.policies || []).entries()) {
+        if (policy.importErrors?.length) {
+          warnings.push(`Row ${rowNumber}, policy ${index + 1}: ${policy.importErrors.join(', ')}`);
+          continue;
+        }
+        if (!policy.policyNumber?.trim()) {
+          warnings.push(`Row ${rowNumber}, policy ${index + 1}: Policy Number is required`);
+          continue;
+        }
+        try {
+          const startDate = parseSafeDate(policy.startDate);
+          const endDate = parseSafeDate(policy.endDate);
+          const sumAssured = Number(policy.sumAssured);
+          const premiumAmount = Number(policy.premiumAmount);
+          if (!policy.planName?.trim() || !startDate || !endDate ||
+              !Number.isFinite(sumAssured) || !Number.isFinite(premiumAmount)) {
+            throw new BadRequestException('Policy Number, Plan Name, Sum Assured, Premium, Start Date, and End Date are required');
+          }
+
+          const plan = await this.prisma.insurancePlan.findFirst({
+            where: {
+              tenantId,
+              OR: [
+                { name: { equals: policy.planName.trim(), mode: 'insensitive' } },
+                { planCode: { equals: policy.planName.trim(), mode: 'insensitive' } },
+              ],
+            },
+            select: { id: true },
+          });
+          if (!plan) throw new NotFoundException(`Insurance plan "${policy.planName}" was not found`);
+
+          const duplicate = await this.prisma.policy.findFirst({
+            where: { tenantId, policyNumber: policy.policyNumber.trim() },
+            select: { id: true },
+          });
+          if (duplicate) throw new ConflictException(`Policy number ${policy.policyNumber} already exists`);
+
+          const normalizedStatus = policy.status?.trim().toUpperCase();
+          const status = Object.values(PolicyStatus).includes(normalizedStatus as PolicyStatus)
+            ? normalizedStatus as PolicyStatus
+            : PolicyStatus.ACTIVE;
+          const normalizedFrequency = policy.paymentFrequency?.trim().toUpperCase();
+          const paymentFrequency = Object.values(PaymentFrequency).includes(normalizedFrequency as PaymentFrequency)
+            ? normalizedFrequency as PaymentFrequency
+            : PaymentFrequency.YEARLY;
+          const maturityDate = parseSafeDate(policy.maturityDate);
+          const nextDueDate = parseSafeDate(policy.nextDueDate);
+          const savedPolicy = await this.prisma.policy.create({
+            data: {
+              tenantId,
+              contactId: contact.id,
+              planId: plan.id,
+              policyNumber: policy.policyNumber.trim(),
+              status,
+              sumAssured,
+              premiumAmount,
+              paymentFrequency,
+              startDate,
+              endDate,
+              assignedEmployeeId: contact.assignedEmployeeId || undefined,
+              ...(maturityDate ? { maturityDate } : {}),
+              ...(nextDueDate ? { nextDueDate } : {}),
+              ...(policy.agentCode?.trim() ? { agentCode: policy.agentCode.trim() } : {}),
+              ...(policy.notes?.trim() ? { notes: policy.notes.trim() } : {}),
+            },
+          });
+          policyIdsByNumber.set(policy.policyNumber.trim().toLowerCase(), savedPolicy.id);
+          try {
+            await this.prisma.activityLog.create({
+              data: {
+                tenantId,
+                userId: createdById,
+                contactId: contact.id,
+                entityType: 'Policy',
+                entityId: savedPolicy.id,
+                action: 'CREATE',
+                description: `Policy ${savedPolicy.policyNumber} imported`,
+              },
+            });
+          } catch (err: any) {
+            this.logger.warn(`ActivityLog write failed for imported policy: ${err.message}`);
+          }
+        } catch (err: any) {
+          warnings.push(`Row ${rowNumber}, policy ${index + 1}: ${err.message}`);
+        }
+      }
+
+      for (const [index, claim] of (row.claims || []).entries()) {
+        if (claim.importErrors?.length) {
+          warnings.push(`Row ${rowNumber}, claim ${index + 1}: ${claim.importErrors.join(', ')}`);
+          continue;
+        }
+        if (!claim.claimNumber?.trim()) {
+          warnings.push(`Row ${rowNumber}, claim ${index + 1}: Claim Number is required`);
+          continue;
+        }
+        try {
+          const policyId = policyIdsByNumber.get((claim.policyNumber || '').trim().toLowerCase());
+          const policy = policyId
+            ? await this.prisma.policy.findFirst({ where: { id: policyId, tenantId, contactId: contact.id } })
+            : await this.prisma.policy.findFirst({
+                where: { tenantId, contactId: contact.id, policyNumber: (claim.policyNumber || '').trim() },
+              });
+          const intimatedAt = parseSafeDate(claim.intimatedAt);
+          const claimAmount = Number(claim.claimAmount);
+          if (!policy || !intimatedAt || !claim.claimType?.trim() || !Number.isFinite(claimAmount)) {
+            throw new BadRequestException('Claim Number, this contact’s Policy Number, Claim Type, Claim Amount, and Intimated At are required');
+          }
+          if (intimatedAt.getTime() > Date.now()) {
+            throw new BadRequestException('Intimated At cannot be in the future');
+          }
+          const duplicateClaim = await this.prisma.claim.findFirst({
+            where: { tenantId, claimNumber: claim.claimNumber.trim() },
+            select: { id: true },
+          });
+          if (duplicateClaim) throw new ConflictException(`Claim number ${claim.claimNumber} already exists`);
+          const normalizedStatus = claim.status?.trim().toUpperCase();
+          const status = Object.values(ClaimStatus).includes(normalizedStatus as ClaimStatus)
+            ? normalizedStatus as ClaimStatus
+            : ClaimStatus.INTIMATED;
+          const approvedAmount = claim.approvedAmount === undefined ? undefined : Number(claim.approvedAmount);
+          const savedClaim = await this.prisma.claim.create({
+            data: {
+              tenantId,
+              contactId: contact.id,
+              policyId: policy.id,
+              claimNumber: claim.claimNumber.trim(),
+              claimType: claim.claimType.trim().toUpperCase(),
+              claimAmount,
+              status,
+              intimatedAt,
+              assignedEmployeeId: contact.assignedEmployeeId || undefined,
+              ...(Number.isFinite(approvedAmount) ? { approvedAmount } : {}),
+              ...(parseSafeDate(claim.filedAt) ? { filedAt: parseSafeDate(claim.filedAt) } : {}),
+              ...(parseSafeDate(claim.settledAt) ? { settledAt: parseSafeDate(claim.settledAt) } : {}),
+              ...(claim.notes?.trim() ? { notes: claim.notes.trim() } : {}),
+              ...(claim.rejectionReason?.trim() ? { rejectionReason: claim.rejectionReason.trim() } : {}),
+            },
+          });
+          try {
+            await this.prisma.activityLog.create({
+              data: {
+                tenantId,
+                userId: createdById,
+                contactId: contact.id,
+                entityType: 'Claim',
+                entityId: savedClaim.id,
+                action: 'CREATE',
+                description: `Claim ${savedClaim.claimNumber} imported`,
+              },
+            });
+          } catch (err: any) {
+            this.logger.warn(`ActivityLog write failed for imported claim: ${err.message}`);
+          }
+        } catch (err: any) {
+          warnings.push(`Row ${rowNumber}, claim ${index + 1}: ${err.message}`);
+        }
       }
 
       created++;
     }
 
     return {
-      data: { created, skipped },
-      message: `Bulk imported ${created} contact(s) from directory, skipped ${skipped.length}`
+      data: { created, skipped, warnings },
+      message: `Imported ${created} contact(s), skipped ${skipped.length} contact row(s), ${warnings.length} related record(s) could not be imported`,
     };
   }
 }
