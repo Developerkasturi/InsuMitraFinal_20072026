@@ -151,7 +151,38 @@ export class PoliciesService {
         skip,
         take:    limit,
         include: {
-          contact: { select: { id: true, contactId: true, firstName: true, lastName: true, phone: true } },
+          contact: {
+            select: {
+              id: true,
+              contactId: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              addresses: {
+                select: {
+                  id: true,
+                  city: true,
+                  state: true,
+                  pincode: true,
+                  isPrimary: true,
+                },
+              },
+              relatedTo: {
+                select: {
+                  primaryContact: {
+                    select: {
+                      addresses: {
+                        select: {
+                          city: true,
+                          isPrimary: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           plan:    { include: { company: { select: { name: true } } } },
           assignedEmployee: { include: { employeeProfile: { select: { firstName: true, lastName: true } } } },
           renewedFromPolicy: { select: { id: true, policyNumber: true } },
@@ -164,10 +195,23 @@ export class PoliciesService {
 
     const formattedData = data.map((p: any) => {
       const lc = this.computePolicyLifecycleStatus(p);
+      const matchCity = (p.notes || '').match(/(?:Policy Zone(?: Location)? City|Policy City|Zone City|City):\s*([^\n\r]+)/i);
+      const noteCity = matchCity && matchCity[1].trim() && matchCity[1].trim() !== 'N/A' ? matchCity[1].trim() : undefined;
+      const contactAddresses = p.contact?.addresses || [];
+      const primaryAddress = contactAddresses.find((a: any) => a.isPrimary) || contactAddresses[0];
+      let resolvedCity = noteCity || (primaryAddress?.city && primaryAddress.city !== 'N/A' ? primaryAddress.city : undefined);
+      if (!resolvedCity) {
+        const relPrimary = p.contact?.relatedTo?.[0]?.primaryContact;
+        const relAddr = relPrimary?.addresses?.find((a: any) => a.isPrimary) || relPrimary?.addresses?.[0];
+        if (relAddr?.city && relAddr.city !== 'N/A') {
+          resolvedCity = relAddr.city;
+        }
+      }
       return {
         ...p,
         lifecycleStatus: lc.statusKey,
         displayStatus: lc.displayStatus,
+        contactCity: resolvedCity || undefined,
       };
     });
 
@@ -368,6 +412,21 @@ export class PoliciesService {
       isRenewalCase = true;
     }
 
+    if (contactId && !notes?.match(/(?:Policy Zone(?: Location)? City|Policy City|Zone City|City):/i)) {
+      try {
+        const contactAddr = await this.prisma.address.findFirst({
+          where: { contactId, isPrimary: true },
+        }) || await this.prisma.address.findFirst({
+          where: { contactId },
+        });
+        if (contactAddr?.city && contactAddr.city !== 'N/A') {
+          notes = (notes ? `${notes}\n` : '') + `Policy Zone City: ${contactAddr.city}\nPolicy Zone Location City: ${contactAddr.city}`;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to auto-resolve city for contact ${contactId}: ${err?.message}`);
+      }
+    }
+
     const policyData: any = {
       tenantId,
       policyNumber,
@@ -479,13 +538,33 @@ export class PoliciesService {
       businessType: 'Business Type',
       renewedFromPolicyId: 'Renewed From Policy',
     };
-    const changedFields = Object.keys(dto).flatMap((key) => {
-      if (!(key in fieldLabels)) return [];
-      const oldValue = (policy as any)[key];
-      const newValue = (dto as any)[key];
-      if (!activityValuesDiffer(key, oldValue, newValue)) return [];
-      return [formatActivityChange(key, fieldLabels[key], oldValue, newValue)];
-    });
+    const changedFields: string[] = [];
+    for (const key of Object.keys(dto)) {
+      if (!(key in fieldLabels)) continue;
+      let oldValue = (policy as any)[key];
+      let newValue = (dto as any)[key];
+      if (!activityValuesDiffer(key, oldValue, newValue)) continue;
+
+      if (key === 'assignedEmployeeId') {
+        const empIds = [oldValue, newValue].filter(Boolean);
+        if (empIds.length > 0) {
+          const profiles = await this.prisma.employeeProfile.findMany({
+            where: { OR: [{ id: { in: empIds } }, { userId: { in: empIds } }] },
+            select: { id: true, userId: true, firstName: true, lastName: true },
+          });
+          const resolveName = (id?: string) => {
+            if (!id) return null;
+            const p = profiles.find(prof => prof.id === id || prof.userId === id);
+            return p ? `${p.firstName} ${p.lastName}`.trim() : id;
+          };
+          oldValue = resolveName(oldValue);
+          newValue = resolveName(newValue);
+        }
+      }
+
+      const formatted = formatActivityChange(key, fieldLabels[key], oldValue, newValue);
+      if (formatted) changedFields.push(formatted);
+    }
     const { startDate, endDate, maturityDate, nextDueDate, ...rest } = dto as any;
     const updated = await this.prisma.policy.update({
       where: { id },
@@ -497,16 +576,16 @@ export class PoliciesService {
         ...(nextDueDate  ? { nextDueDate:  new Date(nextDueDate)  } : {}),
       } as any,
     });
-    await this.logActivity(
-      tenantId,
-      userId,
-      updated.contactId,
-      id,
-      'UPDATE',
-      changedFields.length
-        ? `Policy details updated: ${changedFields.join('; ')}`
-        : 'Policy saved; no tracked fields changed',
-    );
+    if (changedFields.length > 0) {
+      await this.logActivity(
+        tenantId,
+        userId,
+        updated.contactId,
+        id,
+        'UPDATE',
+        `Policy details updated: ${changedFields.join('; ')}`,
+      );
+    }
 
     // Auto-create renewal leads immediately for expiring policies
     await this.leadsService.autoCreateRenewalLeads(tenantId).catch(e => this.logger.warn(`Auto-renewal lead error: ${e.message}`));

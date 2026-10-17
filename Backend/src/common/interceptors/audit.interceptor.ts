@@ -25,6 +25,12 @@ export class AuditInterceptor implements NestInterceptor {
         if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && user?.tenantId) {
           const entityType = this.extractEntityType(url);
           
+          // Contact, Policy, and Claim modules maintain their own granular, meaningful activity logs with exact diffs.
+          // Skip generic placeholder logs to prevent duplicate and uninformative history cards.
+          if (['Contact', 'Policy', 'Claim'].includes(entityType) && ['POST', 'PUT', 'PATCH'].includes(method)) {
+            return;
+          }
+
           let entityId = params.id || body.id || resData?.id || resData?._id;
           
           const isValidObjectId = (id: any): boolean => {

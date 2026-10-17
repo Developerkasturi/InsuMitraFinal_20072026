@@ -306,47 +306,64 @@ export class ClaimsService {
       expenses: 'Claim Expenses',
       documents: 'Documents',
     };
-    const changedFieldNames = Object.keys(dto).flatMap((key) => {
+    const changedFieldNames: string[] = [];
+    for (const key of Object.keys(dto)) {
       const label = fieldLabels[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
-      const oldValue = (claim as any)[key];
-      const newValue = (dto as any)[key];
-      if (!activityValuesDiffer(key, oldValue, newValue)) return [];
+      let oldValue = (claim as any)[key];
+      let newValue = (dto as any)[key];
+      if (!activityValuesDiffer(key, oldValue, newValue)) continue;
 
       if (key === 'notes') {
         try {
           const oldNotes = JSON.parse(oldValue || '{}');
           const newNotes = JSON.parse(newValue || '{}');
           if (oldNotes && newNotes && typeof oldNotes === 'object' && typeof newNotes === 'object') {
-            const changedNotes = Object.keys(newNotes).filter(
-              (noteKey) => activityValuesDiffer(noteKey, oldNotes[noteKey], newNotes[noteKey]),
-            );
-            if (changedNotes.length) {
-              return changedNotes.map((noteKey) => formatActivityChange(
-                noteKey,
-                fieldLabels[noteKey] || noteKey.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase()),
-                oldNotes[noteKey],
-                newNotes[noteKey],
-              ));
+            const allNotesKeys = Array.from(new Set([...Object.keys(oldNotes), ...Object.keys(newNotes)]));
+            for (const noteKey of allNotesKeys) {
+              if (activityValuesDiffer(noteKey, oldNotes[noteKey], newNotes[noteKey])) {
+                const noteLabel = fieldLabels[noteKey] || noteKey.replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+                const formattedNote = formatActivityChange(noteKey, noteLabel, oldNotes[noteKey], newNotes[noteKey]);
+                if (formattedNote) changedFieldNames.push(formattedNote);
+              }
             }
+            continue;
           }
         } catch {
           // Plain-text notes are reported as a single field below.
         }
       }
 
-      return [formatActivityChange(key, label, oldValue, newValue)];
-    });
+      if (key === 'assignedEmployeeId') {
+        const empIds = [oldValue, newValue].filter(Boolean);
+        if (empIds.length > 0) {
+          const profiles = await this.prisma.employeeProfile.findMany({
+            where: { OR: [{ id: { in: empIds } }, { userId: { in: empIds } }] },
+            select: { id: true, userId: true, firstName: true, lastName: true },
+          });
+          const resolveName = (id?: string) => {
+            if (!id) return null;
+            const p = profiles.find(prof => prof.id === id || prof.userId === id);
+            return p ? `${p.firstName} ${p.lastName}`.trim() : id;
+          };
+          oldValue = resolveName(oldValue);
+          newValue = resolveName(newValue);
+        }
+      }
+
+      const formatted = formatActivityChange(key, label, oldValue, newValue);
+      if (formatted) changedFieldNames.push(formatted);
+    }
     const updated = await this.prisma.claim.update({ where: { id }, data: dto as any });
-    await this.logActivity(
-      tenantId,
-      userId,
-      updated.contactId,
-      id,
-      'UPDATE',
-      changedFieldNames.length
-        ? `Claim details updated: ${[...new Set(changedFieldNames)].join('; ')}`
-        : 'Claim saved; no tracked fields changed',
-    );
+    if (changedFieldNames.length > 0) {
+      await this.logActivity(
+        tenantId,
+        userId,
+        updated.contactId,
+        id,
+        'UPDATE',
+        `Claim details updated: ${[...new Set(changedFieldNames)].join('; ')}`,
+      );
+    }
 
     if (dto.assignedEmployeeId && dto.assignedEmployeeId !== claim.assignedEmployeeId) {
       await this.notifEngine.notifyAssignment({

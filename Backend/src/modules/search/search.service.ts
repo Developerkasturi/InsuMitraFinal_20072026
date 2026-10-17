@@ -65,6 +65,15 @@ interface EmployeeRow {
   avatar_url: string | null;
 }
 
+export function sanitizePhone(p?: string | null): string {
+  if (!p) return '';
+  const s = String(p).trim();
+  if (s.startsWith('00') || s === '0000000000' || s.toLowerCase().includes('unknown')) {
+    return '';
+  }
+  return s;
+}
+
 @Injectable()
 export class SearchService {
   constructor(private readonly prisma: PrismaService) { }
@@ -174,7 +183,7 @@ export class SearchService {
       data: rows.map((row) => ({
         id: row.id,
         label: `${row.firstName} ${row.lastName}`.trim(),
-        sub: row.phone,
+        sub: sanitizePhone(row.phone),
         entity: 'contact',
       })),
     };
@@ -731,16 +740,22 @@ export class SearchService {
     return result.slice(0, limit);
   }
 
+  private sanitizePhone(p?: string | null): string {
+    return sanitizePhone(p);
+  }
+
   private mapContact(r: ContactRow) {
     const contactName = `${r.first_name || ''} ${r.last_name || ''}`.trim();
+    const phone = this.sanitizePhone(r.phone);
+    const alternatePhone = this.sanitizePhone(r.alternate_phone);
     return {
       id: r.id,
       entityType: 'contact' as const,
       firstName: r.first_name,
       lastName: r.last_name,
       contactName,
-      phone: r.phone,
-      alternatePhone: r.alternate_phone,
+      phone,
+      alternatePhone,
       email: r.email,
       aadhaarNumber: r.aadhaar_number,
       panNumber: r.pan_number,
@@ -749,7 +764,7 @@ export class SearchService {
         id: r.id,
         firstName: r.first_name,
         lastName: r.last_name,
-        phone: r.phone,
+        phone,
         email: r.email,
       },
     };
@@ -757,20 +772,21 @@ export class SearchService {
 
   private mapPolicy(r: PolicyRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
+    const phone = this.sanitizePhone(r.contact_phone);
     return {
       id: r.id,
       entityType: 'policy' as const,
       policyNumber: r.policy_number,
       status: r.status,
       contactName,
-      phone: r.contact_phone,
+      phone,
       planName: r.plan_name,
       companyName: r.company_name,
       contact: {
         id: r.contact_id,
         firstName: r.contact_first,
         lastName: r.contact_last,
-        phone: r.contact_phone,
+        phone,
       },
       plan: {
         name: r.plan_name,
@@ -781,6 +797,7 @@ export class SearchService {
 
   private mapClaim(r: ClaimRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
+    const phone = this.sanitizePhone(r.contact_phone);
     return {
       id: r.id,
       entityType: 'claim' as const,
@@ -788,13 +805,13 @@ export class SearchService {
       status: r.status,
       claimType: r.claim_type,
       contactName,
-      phone: r.contact_phone,
+      phone,
       policyNumber: r.policy_number,
       contact: {
         id: r.contact_id,
         firstName: r.contact_first,
         lastName: r.contact_last,
-        phone: r.contact_phone,
+        phone,
       },
       policy: {
         id: r.policy_id,
@@ -805,6 +822,7 @@ export class SearchService {
 
   private mapLead(r: LeadRow) {
     const contactName = `${r.contact_first || ''} ${r.contact_last || ''}`.trim();
+    const phone = this.sanitizePhone(r.contact_phone);
     return {
       id: r.id,
       entityType: 'lead' as const,
@@ -812,14 +830,14 @@ export class SearchService {
       firstName: r.contact_first,
       lastName: r.contact_last,
       contactName,
-      phone: r.contact_phone,
+      phone,
       planName: r.plan_name,
       interests: r.interests,
       contact: {
         id: r.contact_id,
         firstName: r.contact_first,
         lastName: r.contact_last,
-        phone: r.contact_phone,
+        phone,
       },
       plan: {
         name: r.plan_name,

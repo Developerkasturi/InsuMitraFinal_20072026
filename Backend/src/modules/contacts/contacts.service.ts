@@ -64,6 +64,36 @@ export const CONTACT_FIELD_LABELS: Record<string, string> = {
   followUpDate: 'Follow-up Date',
 };
 
+export function cleanContactPhone<T = any>(c: T): T {
+  if (!c || typeof c !== 'object') return c;
+  const item: any = c;
+  if (item.phone && (item.phone.startsWith('00') || item.phone === '0000000000' || String(item.phone).toLowerCase().includes('unknown'))) {
+    item.phone = '';
+  }
+  if (item.alternatePhone && (item.alternatePhone.startsWith('00') || item.alternatePhone === '0000000000' || String(item.alternatePhone).toLowerCase().includes('unknown'))) {
+    item.alternatePhone = '';
+  }
+  if (Array.isArray(item.relationships)) {
+    item.relationships.forEach((r: any) => {
+      if (r.relatedContact) {
+        if (r.relatedContact.phone && (r.relatedContact.phone.startsWith('00') || r.relatedContact.phone === '0000000000' || String(r.relatedContact.phone).toLowerCase().includes('unknown'))) {
+          r.relatedContact.phone = '';
+        }
+        if (r.relatedContact.alternatePhone && (r.relatedContact.alternatePhone.startsWith('00') || r.relatedContact.alternatePhone === '0000000000' || String(r.relatedContact.alternatePhone).toLowerCase().includes('unknown'))) {
+          r.relatedContact.alternatePhone = '';
+        }
+      }
+      if (r.phone && (r.phone.startsWith('00') || r.phone === '0000000000' || String(r.phone).toLowerCase().includes('unknown'))) {
+        r.phone = '';
+      }
+      if (r.alternatePhone && (r.alternatePhone.startsWith('00') || r.alternatePhone === '0000000000' || String(r.alternatePhone).toLowerCase().includes('unknown'))) {
+        r.alternatePhone = '';
+      }
+    });
+  }
+  return item;
+}
+
 interface BulkImportContact {
   rowNumber?: number;
   contact: CreateContactDto;
@@ -130,6 +160,33 @@ export class ContactsService implements OnModuleInit {
 
   async onModuleInit() {
     await this.initializeContactIds();
+    await this.cleanupDummyPhones();
+  }
+
+  async cleanupDummyPhones() {
+    try {
+      const dummyContacts = await this.prisma.contact.findMany({
+        where: {
+          OR: [
+            { phone: { startsWith: '00' } },
+            { phone: '0000000000' },
+            { phone: { contains: 'unknown', mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, phone: true },
+      });
+      if (dummyContacts.length > 0) {
+        for (const dc of dummyContacts) {
+          await this.prisma.contact.update({
+            where: { id: dc.id },
+            data: { phone: '' },
+          });
+        }
+        this.logger.log(`Cleaned up ${dummyContacts.length} contacts with dummy phone numbers`);
+      }
+    } catch (e: any) {
+      this.logger.warn(`Failed cleanupDummyPhones: ${e.message}`);
+    }
   }
 
   /** Generate atomic sequential Contact ID C1, C2... using MongoDB counter */
@@ -185,7 +242,7 @@ export class ContactsService implements OnModuleInit {
     await this.initializeContactIds();
     const result = await this.repo.findAll(tenantId, query, userId, role);
     return {
-      data:    result.data,
+      data:    result.data.map(cleanContactPhone),
       message: 'Contacts retrieved',
       meta: {
         total:       result.total,
@@ -202,20 +259,16 @@ export class ContactsService implements OnModuleInit {
     }
     const contact = await this.repo.findOne(tenantId, id);
     if (!contact) throw new NotFoundException(`Contact ${id} not found`);
-    return { data: contact };
+    return { data: cleanContactPhone(contact) };
   }
 
   async create(tenantId: string, dto: CreateContactDto, createdById: string, role?: UserRole) {
-    if (!dto.phone || !dto.phone.trim()) {
-      if (dto.isDependent) {
-        dto.phone = `00${Date.now().toString().slice(-8)}`;
-      } else {
-        dto.phone = '0000000000';
-      }
+    if (!dto.phone || !dto.phone.trim() || dto.phone.startsWith('00') || dto.phone === '0000000000') {
+      dto.phone = '';
     }
 
     // Duplicate phone check (within same tenant)
-    if (dto.phone !== '0000000000' && !dto.phone.startsWith('00')) {
+    if (dto.phone && dto.phone !== '0000000000' && !dto.phone.startsWith('00')) {
       const existing = await this.repo.findByPhone(tenantId, dto.phone);
       if (existing) {
         if (!existing.isActive) {
@@ -296,13 +349,42 @@ export class ContactsService implements OnModuleInit {
     if (!existing) throw new NotFoundException(`Contact ${id} not found`);
 
     const targetId = existing.id;
+    if (dto.phone !== undefined) {
+      const p = dto.phone ? dto.phone.trim() : '';
+      dto.phone = (p.startsWith('00') || p === '0000000000' || p.toLowerCase().includes('unknown')) ? '' : p;
+    }
+    if (dto.alternatePhone !== undefined) {
+      const ap = dto.alternatePhone ? dto.alternatePhone.trim() : '';
+      dto.alternatePhone = (ap.startsWith('00') || ap === '0000000000' || ap.toLowerCase().includes('unknown')) ? '' : ap;
+    }
     const fieldLabels = CONTACT_FIELD_LABELS;
-    const changedFields = Object.keys(dto).filter((key) => {
-      if (!(key in fieldLabels)) return false;
-      const oldValue = (existing as any)[key];
-      const newValue = (dto as any)[key];
-      return activityValuesDiffer(key, oldValue, newValue);
-    });
+    const changedFields: string[] = [];
+    for (const key of Object.keys(dto)) {
+      if (!(key in fieldLabels)) continue;
+      let oldValue = (existing as any)[key];
+      let newValue = (dto as any)[key];
+      if (!activityValuesDiffer(key, oldValue, newValue)) continue;
+
+      if (key === 'assignedEmployeeId') {
+        const empIds = [oldValue, newValue].filter(Boolean);
+        if (empIds.length > 0) {
+          const profiles = await this.prisma.employeeProfile.findMany({
+            where: { OR: [{ id: { in: empIds } }, { userId: { in: empIds } }] },
+            select: { id: true, userId: true, firstName: true, lastName: true },
+          });
+          const resolveName = (id?: string) => {
+            if (!id) return null;
+            const p = profiles.find(prof => prof.id === id || prof.userId === id);
+            return p ? `${p.firstName} ${p.lastName}`.trim() : id;
+          };
+          oldValue = resolveName(oldValue);
+          newValue = resolveName(newValue);
+        }
+      }
+
+      const formatted = formatActivityChange(key, fieldLabels[key], oldValue, newValue);
+      if (formatted) changedFields.push(formatted);
+    }
     await this.repo.update(tenantId, targetId, dto);
 
     if (changedFields.length > 0) {
@@ -333,9 +415,7 @@ export class ContactsService implements OnModuleInit {
               entityType: 'Contact',
               entityId: otherContact.id,
               action: 'UPDATE',
-              description: `Family member ${memberName} updated: ${changedFields
-                .map(key => formatActivityChange(key, fieldLabels[key], (existing as any)[key], (dto as any)[key]))
-                .join('; ')}`,
+              description: `Family member ${memberName} updated: ${changedFields.join('; ')}`,
             },
           });
         } catch (err: any) {
@@ -357,25 +437,23 @@ export class ContactsService implements OnModuleInit {
       }).catch(err => this.logger.warn(`Failed to auto-update address: ${err.message}`));
     }
 
-    // Log activity (non-critical)
-    try {
-      await this.prisma.activityLog.create({
-        data: {
-          tenantId,
-          userId:     updatedById,
-          contactId:  targetId,
-          entityType: 'Contact',
-          entityId:   targetId,
-          action:     'UPDATE',
-          description: changedFields.length
-            ? `Personal details updated: ${changedFields
-              .map(key => formatActivityChange(key, fieldLabels[key], (existing as any)[key], (dto as any)[key]))
-              .join('; ')}`
-            : 'Contact details saved; no tracked fields changed',
-        },
-      });
-    } catch (err: any) {
-      this.logger.warn(`ActivityLog write failed for contact ${targetId}: ${err.message}`);
+    // Log activity only when tracked fields actually changed
+    if (changedFields.length > 0) {
+      try {
+        await this.prisma.activityLog.create({
+          data: {
+            tenantId,
+            userId:     updatedById,
+            contactId:  targetId,
+            entityType: 'Contact',
+            entityId:   targetId,
+            action:     'UPDATE',
+            description: `Personal details updated: ${changedFields.join('; ')}`,
+          },
+        });
+      } catch (err: any) {
+        this.logger.warn(`ActivityLog write failed for contact ${targetId}: ${err.message}`);
+      }
     }
 
     const updated = await this.repo.findOne(tenantId, targetId);
@@ -401,7 +479,7 @@ export class ContactsService implements OnModuleInit {
       }).catch(err => this.logger.warn(`Failed sending contact assignment notification: ${err.message}`));
     }
 
-    return { data: updated, message: 'Contact updated successfully' };
+    return { data: cleanContactPhone(updated), message: 'Contact updated successfully' };
   }
 
   async remove(tenantId: string, id: string, userId?: string) {
@@ -583,7 +661,7 @@ export class ContactsService implements OnModuleInit {
           firstName,
           middleName,
           lastName,
-          phone: phone || `00${Date.now().toString().slice(-8)}`,
+          phone: (phone && !phone.startsWith('00') && phone !== '0000000000' && !phone.toLowerCase().includes('unknown')) ? phone : '',
           alternatePhone: dto.alternatePhone,
           dateOfBirth: dto.dateOfBirth,
           gender: inferredGender,
@@ -599,7 +677,7 @@ export class ContactsService implements OnModuleInit {
           surgeryDetails: dto.surgeryDetails,
           prescriptionDetails: dto.prescriptionDetails,
           isDependent: true,
-          assignedEmployeeId: primaryContact.assignedEmployeeId,
+          assignedEmployeeId: (dto as any).assignedEmployeeId || undefined,
           contactId: nextContactId,
           tags: (primaryContact.tags && primaryContact.tags.length > 0) ? primaryContact.tags : ['contact'],
         } as any);
@@ -658,8 +736,9 @@ export class ContactsService implements OnModuleInit {
     if (dto.dateOfBirth !== undefined) {
       familyDetails.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
     }
-    if (dto.phone && dto.phone.trim() && !dto.phone.startsWith('00')) {
-      familyDetails.phone = dto.phone.trim();
+    if (dto.phone !== undefined) {
+      const cleanPhone = (dto.phone && !dto.phone.startsWith('00') && dto.phone !== '0000000000' && !dto.phone.toLowerCase().includes('unknown')) ? dto.phone.trim() : '';
+      familyDetails.phone = cleanPhone;
     }
     if (dto.alternatePhone !== undefined) {
       familyDetails.alternatePhone = dto.alternatePhone || null;
@@ -758,7 +837,7 @@ export class ContactsService implements OnModuleInit {
       this.logger.warn(`Interconnecting cluster failed: ${e.message}`);
     }
 
-    return { data: rel, message: 'Relationship added successfully' };
+    return { data: cleanContactPhone(rel), message: 'Relationship added successfully' };
   }
 
   async removeRelationship(tenantId: string, contactId: string, relationshipId: string, userId?: string) {
@@ -836,8 +915,9 @@ export class ContactsService implements OnModuleInit {
       if (nameParts[0]) updateData.firstName = nameParts[0];
       updateData.lastName = nameParts.slice(1).join(' ') || '';
     }
-    if (dto.phone && dto.phone.trim() && !dto.phone.startsWith('00')) {
-      updateData.phone = dto.phone.trim();
+    if (dto.phone !== undefined) {
+      const cleanPhone = (dto.phone && !dto.phone.startsWith('00') && dto.phone !== '0000000000' && !dto.phone.toLowerCase().includes('unknown')) ? dto.phone.trim() : '';
+      updateData.phone = cleanPhone;
     }
     if (dto.dateOfBirth) {
       updateData.dateOfBirth = new Date(dto.dateOfBirth);
@@ -899,7 +979,7 @@ export class ContactsService implements OnModuleInit {
       this.logger.warn(`ActivityLog write failed for updateRelationship: ${err.message}`);
     }
 
-    return { data: rel, message: 'Relationship and contact profile updated successfully' };
+    return { data: cleanContactPhone(rel), message: 'Relationship and contact profile updated successfully' };
   }
 
   async syncFamilyCluster(contactId: string, tenantId: string) {
@@ -1230,12 +1310,8 @@ export class ContactsService implements OnModuleInit {
     createdById: string,
     role?: UserRole,
   ) {
-    if (!dto.contact.phone || !dto.contact.phone.trim()) {
-      if (dto.contact.isDependent) {
-        dto.contact.phone = `00${Date.now().toString().slice(-8)}`;
-      } else {
-        dto.contact.phone = '0000000000';
-      }
+    if (!dto.contact.phone || !dto.contact.phone.trim() || dto.contact.phone.startsWith('00') || dto.contact.phone === '0000000000' || dto.contact.phone.toLowerCase().includes('unknown')) {
+      dto.contact.phone = '';
     }
 
     if (dto.contact.phone !== '0000000000' && !dto.contact.phone.startsWith('00')) {
@@ -1316,6 +1392,9 @@ export class ContactsService implements OnModuleInit {
       this.logger.warn(`ActivityLog write failed: ${err.message}`);
     }
 
+    if (result?.contact) {
+      result.contact = cleanContactPhone(result.contact);
+    }
     return { data: result, message: 'Contact profile created successfully' };
   }
 
