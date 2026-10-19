@@ -134,17 +134,24 @@ export class InsuranceController {
   }
 
   @Post('compulsory-rules')
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.SUPERADMIN)
   @ApiOperation({ summary: 'Create or update compulsory field rules' })
   updateCompulsoryRules(@Req() req: any, @Body() body: { rules: { module: string; fieldKey: string; required: boolean }[] }) {
     return this.svc.updateCompulsoryRules(req.tenantId, body.rules);
   }
 
-  @Delete('compulsory-rules/:module/:fieldKey')
-  @Roles(UserRole.OWNER)
-  @ApiOperation({ summary: 'Delete a compulsory field rule' })
-  deleteCompulsoryRule(@Req() req: any, @Param('module') module: string, @Param('fieldKey') fieldKey: string) {
+  @Delete('compulsory-rules')
+  @Roles(UserRole.OWNER, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Delete or reset a compulsory field rule' })
+  deleteCompulsoryRule(@Req() req: any, @Query('module') module: string, @Query('fieldKey') fieldKey: string) {
     return this.svc.deleteCompulsoryRule(req.tenantId, module, fieldKey);
+  }
+
+  @Post('compulsory-rules/reset')
+  @Roles(UserRole.OWNER, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Reset compulsory field rules to system default' })
+  resetCompulsoryRules(@Req() req: any, @Body() body: { module?: string }) {
+    return this.svc.resetCompulsoryRules(req.tenantId, body?.module);
   }
 
   @Get('table-columns')

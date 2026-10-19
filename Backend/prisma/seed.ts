@@ -24,7 +24,7 @@ async function main() {
       maxUsers:     1,
       maxContacts:  100,
       maxPolicies:  50,
-      features:     { contacts: true, policies: true, claims: true, calendar: true, workspace: true },
+      features:     { contacts: true, policies: true, claims: true, calendar: true, workspace: true, dashboard: true, leads: true, operations: true, employees: true, commissions: true, branding: true },
       isActive:     true,
     },
   });
@@ -40,7 +40,7 @@ async function main() {
       maxUsers:     1,
       maxContacts:  400,
       maxPolicies:  200,
-      features:     { contacts: true, policies: true, claims: true, calendar: true, workspace: true, dashboard: true, leads: true, operations: true },
+      features:     { contacts: true, policies: true, claims: true, calendar: true, workspace: true, dashboard: true, leads: true, operations: true, employees: true, commissions: true, branding: true },
       isActive:     true,
     },
   });

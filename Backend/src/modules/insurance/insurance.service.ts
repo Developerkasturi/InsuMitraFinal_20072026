@@ -54,13 +54,25 @@ export class InsuranceService {
   }
 
   async createCompany(tenantId: string, dto: any) {
-    const existing = await this.prisma.insuranceCompany.findUnique({
-      where: { tenantId_shortCode: { tenantId, shortCode: dto.shortCode } },
+    const rawCode = dto.shortCode || dto.code || (dto.name ? dto.name.substring(0, 4) : 'COMP');
+    const shortCode = String(rawCode).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20) || 'COMP';
+
+    const existing = await this.prisma.insuranceCompany.findFirst({
+      where: { tenantId, shortCode },
     });
-    if (existing) throw new BadRequestException('Short code already exists');
+    const finalShortCode = existing ? `${shortCode}-${Date.now().toString().slice(-4)}` : shortCode;
 
     const company = await this.prisma.insuranceCompany.create({
-      data: { tenantId, ...dto },
+      data: {
+        tenantId,
+        name: dto.name || 'Unnamed Company',
+        shortCode: finalShortCode,
+        logoUrl: dto.logoUrl || null,
+        website: dto.website || null,
+        phone: dto.phone || null,
+        email: dto.email || null,
+        isActive: dto.isActive !== false,
+      },
     });
     return { data: company };
   }
@@ -68,16 +80,28 @@ export class InsuranceService {
   async updateCompany(tenantId: string, id: string, dto: any) {
     await this.getCompany(tenantId, id); // throws 404 if not found
 
-    if (dto.shortCode) {
+    const rawCode = dto.shortCode || dto.code;
+    let finalShortCode: string | undefined = undefined;
+    if (rawCode) {
+      finalShortCode = String(rawCode).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20);
       const conflict = await this.prisma.insuranceCompany.findFirst({
-        where: { tenantId, shortCode: dto.shortCode, id: { not: id } },
+        where: { tenantId, shortCode: finalShortCode, id: { not: id } },
       });
       if (conflict) throw new BadRequestException('Short code already in use');
     }
 
+    const updateData: any = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (finalShortCode !== undefined) updateData.shortCode = finalShortCode;
+    if (dto.logoUrl !== undefined) updateData.logoUrl = dto.logoUrl;
+    if (dto.website !== undefined) updateData.website = dto.website;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.email !== undefined) updateData.email = dto.email;
+    if (dto.isActive !== undefined) updateData.isActive = Boolean(dto.isActive);
+
     const updated = await this.prisma.insuranceCompany.update({
       where: { id },
-      data:  dto,
+      data:  updateData,
     });
     return { data: updated };
   }
@@ -338,40 +362,46 @@ export class InsuranceService {
   }
 
   async updateCompulsoryRules(tenantId: string, rules: { module: string; fieldKey: string; required: boolean }[]) {
-    const results = await Promise.all(
-      rules.map(r =>
-        this.prisma.compulsoryFieldRule.upsert({
-          where: {
-            tenantId_module_fieldKey: {
-              tenantId,
-              module: r.module,
-              fieldKey: r.fieldKey,
-            },
-          },
-          create: {
+    const results: any[] = [];
+    for (const r of rules) {
+      const res = await this.prisma.compulsoryFieldRule.upsert({
+        where: {
+          tenantId_module_fieldKey: {
             tenantId,
             module: r.module,
             fieldKey: r.fieldKey,
-            required: r.required,
           },
-          update: {
-            required: r.required,
-          },
-        })
-      )
-    );
+        },
+        create: {
+          tenantId,
+          module: r.module,
+          fieldKey: r.fieldKey,
+          required: r.required,
+        },
+        update: {
+          required: r.required,
+        },
+      });
+      results.push(res);
+    }
     return { data: results };
   }
 
   async deleteCompulsoryRule(tenantId: string, module: string, fieldKey: string) {
     await this.prisma.compulsoryFieldRule.deleteMany({
+      where: { tenantId, module, fieldKey },
+    });
+    return { success: true, message: 'Field rule reset / deleted successfully' };
+  }
+
+  async resetCompulsoryRules(tenantId: string, module?: string) {
+    await this.prisma.compulsoryFieldRule.deleteMany({
       where: {
         tenantId,
-        module,
-        fieldKey,
+        ...(module && module !== 'All Modules' ? { module } : {}),
       },
     });
-    return { success: true, message: 'Rule deleted successfully' };
+    return { success: true, message: 'Compulsory field rules reset to defaults successfully' };
   }
 
   // ─────────────────────────────────────────────────────────────────────────

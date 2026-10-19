@@ -301,7 +301,7 @@ export class PoliciesService {
   }
 
   async create(tenantId: string, dto: CreatePolicyDto, createdById: string, role?: UserRole) {
-    const {
+    let {
       policyNumber,
       contactId: rawContactId,
       planId: rawPlanId,
@@ -315,10 +315,8 @@ export class PoliciesService {
       maturityDate,
       nextDueDate,
       agentCode,
-      notes: rawNotes,
+      notes,
     } = dto as any;
-
-    let notes = rawNotes;
 
     const isValidObjectId = (id?: string) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
 

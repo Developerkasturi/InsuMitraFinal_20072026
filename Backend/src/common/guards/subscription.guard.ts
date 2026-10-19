@@ -58,30 +58,13 @@ export class SubscriptionGuard implements CanActivate {
 
     const planName = sub?.plan?.name || 'Free';
 
-    // Explicit PDF-aligned feature check (Page 14)
+    // Only WhatsApp requires Enterprise or Business plan
     const isFeatureAllowed = (plan: string, feature: string): boolean => {
-      // 1. Free features (Workspace, Contacts, Policies, Claims, Calendar)
-      const freeFeatures = ['contacts', 'policies', 'claims', 'calendar', 'workspace'];
-      if (freeFeatures.includes(feature)) return true;
-
-      // 2. Starter features (Dashboard, Leads, Operations/Documents)
-      const starterFeatures = [...freeFeatures, 'dashboard', 'leads', 'documents', 'operations'];
-      if (plan === 'Starter') {
-        return starterFeatures.includes(feature);
+      if (feature === 'whatsapp') {
+        return plan === 'Enterprise' || plan === 'Business';
       }
 
-      // 3. Growth features (Employees, Commissions, Firm Profile/Branding)
-      const growthFeatures = [...starterFeatures, 'employees', 'commissions', 'branding'];
-      if (plan === 'Growth') {
-        return growthFeatures.includes(feature);
-      }
-
-      // 4. Enterprise features (All features including WhatsApp)
-      if (plan === 'Enterprise' || plan === 'Business') {
-        return true;
-      }
-
-      return false;
+      return true;
     };
 
     if (!isFeatureAllowed(planName, requiredFeature)) {
