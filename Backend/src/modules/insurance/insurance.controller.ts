@@ -140,6 +140,13 @@ export class InsuranceController {
     return this.svc.updateCompulsoryRules(req.tenantId, body.rules);
   }
 
+  @Delete('compulsory-rules/:module/:fieldKey')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Delete a compulsory field rule' })
+  deleteCompulsoryRule(@Req() req: any, @Param('module') module: string, @Param('fieldKey') fieldKey: string) {
+    return this.svc.deleteCompulsoryRule(req.tenantId, module, fieldKey);
+  }
+
   @Get('table-columns')
   @ApiOperation({ summary: 'Get global table column visibility settings' })
   getTableColumnVisibility(@Req() req: any) {

@@ -338,29 +338,40 @@ export class InsuranceService {
   }
 
   async updateCompulsoryRules(tenantId: string, rules: { module: string; fieldKey: string; required: boolean }[]) {
-    const results: any[] = [];
-    for (const r of rules) {
-      const res = await this.prisma.compulsoryFieldRule.upsert({
-        where: {
-          tenantId_module_fieldKey: {
+    const results = await Promise.all(
+      rules.map(r =>
+        this.prisma.compulsoryFieldRule.upsert({
+          where: {
+            tenantId_module_fieldKey: {
+              tenantId,
+              module: r.module,
+              fieldKey: r.fieldKey,
+            },
+          },
+          create: {
             tenantId,
             module: r.module,
             fieldKey: r.fieldKey,
+            required: r.required,
           },
-        },
-        create: {
-          tenantId,
-          module: r.module,
-          fieldKey: r.fieldKey,
-          required: r.required,
-        },
-        update: {
-          required: r.required,
-        },
-      });
-      results.push(res);
-    }
+          update: {
+            required: r.required,
+          },
+        })
+      )
+    );
     return { data: results };
+  }
+
+  async deleteCompulsoryRule(tenantId: string, module: string, fieldKey: string) {
+    await this.prisma.compulsoryFieldRule.deleteMany({
+      where: {
+        tenantId,
+        module,
+        fieldKey,
+      },
+    });
+    return { success: true, message: 'Rule deleted successfully' };
   }
 
   // ─────────────────────────────────────────────────────────────────────────

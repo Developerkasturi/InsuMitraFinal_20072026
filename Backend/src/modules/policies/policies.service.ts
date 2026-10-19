@@ -315,8 +315,10 @@ export class PoliciesService {
       maturityDate,
       nextDueDate,
       agentCode,
-      notes,
+      notes: rawNotes,
     } = dto as any;
+
+    let notes = rawNotes;
 
     const isValidObjectId = (id?: string) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
 
