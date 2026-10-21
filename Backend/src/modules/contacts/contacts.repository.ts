@@ -158,8 +158,8 @@ export class ContactsRepository {
         take:    limitNum,
         orderBy: { [sortBy]: sortOrder },
         include: {
-          addresses:   { where: { isPrimary: true }, take: 1 },
-          occupations: { where: { isPrimary: true }, take: 1 },
+          addresses:   true,
+          occupations: true,
           assignedEmployee: { select: { id: true, email: true, role: true, employeeProfile: { select: { firstName: true, lastName: true } } } },
           productInterests: { select: { id: true, leadId: true, stage: true, assignedEmployeeId: true, assignedEmployee: { select: { id: true, email: true, employeeProfile: { select: { firstName: true, lastName: true } } } } } },
           policies: { select: { id: true, status: true } },

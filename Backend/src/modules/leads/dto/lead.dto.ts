@@ -51,7 +51,17 @@ export class CreateLeadDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined))
+  @Transform(({ value }) => {
+    if (!value || typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return undefined;
+    // If YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return `${trimmed}T00:00:00.000Z`;
+    }
+    const d = new Date(trimmed);
+    return isNaN(d.getTime()) ? undefined : d.toISOString();
+  })
   @IsDateString()
   followUpDate?: string;
 

@@ -567,9 +567,26 @@ export class LeadsService implements OnModuleInit {
       }
     }
 
+    const data: any = { ...dto };
+    if ('followUpDate' in data) {
+      if (data.followUpDate) {
+        const d = new Date(data.followUpDate);
+        data.followUpDate = isNaN(d.getTime()) ? null : d;
+      } else {
+        data.followUpDate = null;
+      }
+    }
+    if ('assignedEmployeeId' in data) {
+      const empId = typeof data.assignedEmployeeId === 'string' ? data.assignedEmployeeId.trim() : '';
+      data.assignedEmployeeId = (empId && /^[0-9a-fA-F]{24}$/.test(empId)) ? empId : null;
+    }
+    if ('premiumBudget' in data && data.premiumBudget !== null && data.premiumBudget !== undefined) {
+      data.premiumBudget = Number(data.premiumBudget) || 0;
+    }
+
     const updated = await this.prisma.productInterest.update({
       where: { id },
-      data:  dto as any,
+      data,
     });
 
     await this.logActivity(tenantId, userId, updated.contactId, id, 'UPDATE', 'Lead updated');
