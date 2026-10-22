@@ -211,6 +211,16 @@ export class PoliciesController {
     return this.svc.recordPayment(user.tenantId, policyId, dto, user.id, user.role);
   }
 
+  @Post(':id/payments/mark-all-paid')
+  @Roles(UserRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Mark all installments/payments as paid for a policy' })
+  markAllPaymentsPaid(
+    @CurrentUser() user: any,
+    @Param('id') policyId: string,
+  ) {
+    return this.svc.markAllPaymentsPaid(user.tenantId, policyId, user.id, user.role);
+  }
+
   // ── Nominees ──────────────────────────────────────────────────────────────
 
   @Post(':id/nominees')

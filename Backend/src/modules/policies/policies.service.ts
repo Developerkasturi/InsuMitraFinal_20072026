@@ -585,6 +585,76 @@ export class PoliciesService {
         'UPDATE',
         `Policy details updated: ${changedFields.join('; ')}`,
       );
+    // Sync preventive health checkup if present in notes
+    if (updated.notes && (updated.notes.includes('Preventive Health Checkup:') || updated.notes.includes('PHC '))) {
+      try {
+        const notes = updated.notes;
+        const amtMatch = notes.match(/PHC Utilized Amount:\s*₹?([\d,.]+)/i) || notes.match(/Preventive Health Checkup:[^\n]*?Utilized(?:\s*Amount)?:\s*₹?([\d,.]+)/i);
+        const stMatch = notes.match(/(?:Preventive Health Checkup:[^\n]*?Status:\s*|PHC Status:\s*)([^,\n)]+)/i);
+        const phcAmountMatch = notes.match(/Preventive Health Checkup:[^\n]*?Amount:\s*₹?([\d,.]+)/i);
+        const fullPhcAmount = phcAmountMatch ? Number(phcAmountMatch[1].replace(/,/g, '')) : 0;
+        
+        let utilized = amtMatch ? Number(amtMatch[1].replace(/,/g, '')) : 0;
+        const statusStr = stMatch ? stMatch[1].trim().toUpperCase() : '';
+        if (!utilized && (statusStr === 'FULLY_UTILISED' || statusStr === 'FULLY UTILIZED') && fullPhcAmount > 0) {
+          utilized = fullPhcAmount;
+        }
+
+        const bookingDateStr = notes.match(/PHC Booking Date:\s*([^\n]+)/i)?.[1]?.trim();
+        const apptDateStr = notes.match(/PHC Appointment Date:\s*([^\n]+)/i)?.[1]?.trim();
+        const centreName = notes.match(/PHC Centre(?:\s*\/\s*Lab Name)?:\s*([^\n]+)/i)?.[1]?.trim() || null;
+        const centreCity = notes.match(/PHC Centre(?:\s*City|\s*\/\s*Lab City)?:\s*([^\n]+)/i)?.[1]?.trim() || null;
+        const reimbursementType = notes.match(/PHC Reimbursement(?:\s*Type|\s*\/\s*Cashless)?:\s*([^\n]+)/i)?.[1]?.trim() || 'Cashless';
+
+        const parseDateSafe = (dStr?: string | null) => {
+          if (!dStr || dStr.toLowerCase() === 'n/a') return null;
+          const dmy = dStr.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+          if (dmy) {
+            const d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10));
+            if (!isNaN(d.getTime())) return d;
+          }
+          const d = new Date(dStr);
+          return isNaN(d.getTime()) ? null : d;
+        };
+
+        const existingCheckup = await this.prisma.preventiveHealthCheckup.findFirst({
+          where: { policyId: id },
+        });
+
+        const checkupStatus = statusStr === 'FULLY_UTILISED' ? 'Test Completed' : (apptDateStr ? 'Appointment Scheduled' : 'Test Booked');
+
+        if (existingCheckup) {
+          await this.prisma.preventiveHealthCheckup.update({
+            where: { id: existingCheckup.id },
+            data: {
+              status: checkupStatus,
+              utilizedAmount: utilized,
+              bookingDate: parseDateSafe(bookingDateStr) || existingCheckup.bookingDate,
+              scheduledAt: parseDateSafe(apptDateStr) || existingCheckup.scheduledAt,
+              completedAt: statusStr === 'FULLY_UTILISED' ? (parseDateSafe(apptDateStr) || new Date()) : null,
+              centreName,
+              centreCity,
+              reimbursementType,
+            },
+          });
+        } else if (utilized > 0 || bookingDateStr || apptDateStr || centreName) {
+          await this.prisma.preventiveHealthCheckup.create({
+            data: {
+              policyId: id,
+              status: checkupStatus,
+              utilizedAmount: utilized,
+              bookingDate: parseDateSafe(bookingDateStr),
+              scheduledAt: parseDateSafe(apptDateStr),
+              completedAt: statusStr === 'FULLY_UTILISED' ? (parseDateSafe(apptDateStr) || new Date()) : null,
+              centreName,
+              centreCity,
+              reimbursementType,
+            },
+          });
+        }
+      } catch (syncErr: any) {
+        this.logger.warn(`Failed to sync preventiveHealthCheckup for policy ${id}: ${syncErr.message}`);
+      }
     }
 
     // Auto-create renewal leads immediately for expiring policies
@@ -641,13 +711,38 @@ export class PoliciesService {
     }
     // Default dueDate to today when caller omits it
     const effectiveDueDate = dto.dueDate ? new Date(dto.dueDate) : new Date();
-    const payment = await this.prisma.policyPayment.create({
-      data: { ...dto, dueDate: effectiveDueDate, policyId } as any,
+
+    // Find earliest unpaid payment on this policy to mark as paid
+    const existingUnpaid = await this.prisma.policyPayment.findFirst({
+      where: { policyId, isPaid: false },
+      orderBy: { dueDate: 'asc' },
     });
 
-    // Compute next due date based on frequency
+    let payment;
+    if (existingUnpaid) {
+      payment = await this.prisma.policyPayment.update({
+        where: { id: existingUnpaid.id },
+        data: {
+          isPaid: true,
+          paidDate: dto.paidDate ? new Date(dto.paidDate) : new Date(),
+          amount: dto.amount && dto.amount > 0 ? dto.amount : existingUnpaid.amount,
+          mode: (dto.mode || existingUnpaid.mode || 'ONLINE') as any,
+          referenceNo: dto.referenceNo || existingUnpaid.referenceNo,
+        },
+      });
+    } else {
+      payment = await this.prisma.policyPayment.create({
+        data: { ...dto, dueDate: effectiveDueDate, policyId } as any,
+      });
+    }
+
+    // Compute next due date
     if (dto.isPaid) {
-      const nextDue = this.computeNextDueDate(effectiveDueDate, policy.paymentFrequency);
+      const remainingUnpaid = await this.prisma.policyPayment.findFirst({
+        where: { policyId, isPaid: false },
+        orderBy: { dueDate: 'asc' },
+      });
+      const nextDue = remainingUnpaid ? remainingUnpaid.dueDate : policy.endDate;
       await this.prisma.policy.update({ where: { id: policyId }, data: { nextDueDate: nextDue } });
     }
 
@@ -660,6 +755,47 @@ export class PoliciesService {
       `Policy payment recorded: ₹${Number(dto.amount || 0).toLocaleString('en-IN')}`,
     );
     return { data: payment, message: 'Payment recorded' };
+  }
+
+  async markAllPaymentsPaid(tenantId: string, policyId: string, userId?: string, role?: UserRole) {
+    const policy = await this.prisma.policy.findFirst({ where: { id: policyId, tenantId } });
+    if (!policy) throw new NotFoundException('Policy not found');
+    if (role === UserRole.EMPLOYEE && policy.assignedEmployeeId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    await this.prisma.policyPayment.updateMany({
+      where: { policyId, isPaid: false },
+      data: { isPaid: true, paidDate: new Date() },
+    });
+
+    const totalPayments = await this.prisma.policyPayment.count({ where: { policyId } });
+    if (totalPayments === 0) {
+      await this.prisma.policyPayment.create({
+        data: {
+          policyId,
+          amount: policy.premiumAmount,
+          dueDate: policy.startDate,
+          isPaid: true,
+          paidDate: new Date(),
+        },
+      });
+    }
+
+    await this.prisma.policy.update({
+      where: { id: policyId },
+      data: { nextDueDate: policy.endDate },
+    });
+
+    await this.logActivity(
+      tenantId,
+      userId,
+      policy.contactId,
+      policy.id,
+      'UPDATE',
+      'All installment payments marked as paid',
+    );
+    return { message: 'All installments marked as paid' };
   }
 
   // ── Nominees ──────────────────────────────────────────────────────────────
@@ -797,15 +933,67 @@ export class PoliciesService {
         status: { notIn: ['INACTIVE_OLD' as any, 'CANCELLED', 'SURRENDERED'] },
         OR: [
           { plan: { hasPhcBenefit: true } },
+          { plan: { category: { equals: 'HEALTH', mode: 'insensitive' } } },
           { notes: { contains: 'Preventive Health Checkup:' } },
+          { healthCheckups: { some: {} } },
         ],
       },
-      include: {
-        plan: { include: { company: true } },
-        contact: true,
-        members: true,
-        healthCheckups: { include: { member: true } },
-      }
+      select: {
+        id: true,
+        policyNumber: true,
+        startDate: true,
+        endDate: true,
+        sumAssured: true,
+        businessType: true,
+        notes: true,
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            hasPhcBenefit: true,
+            phcAmount: true,
+            phcCount: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+                shortCode: true,
+              },
+            },
+          },
+        },
+        contact: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            leadStatus: true,
+          },
+        },
+        healthCheckups: {
+          select: {
+            id: true,
+            status: true,
+            bookingDate: true,
+            scheduledAt: true,
+            completedAt: true,
+            createdAt: true,
+            centreName: true,
+            centreCity: true,
+            utilizedAmount: true,
+            reimbursementType: true,
+            member: {
+              select: {
+                id: true,
+                name: true,
+                relationship: true,
+              },
+            },
+          },
+        },
+      },
     } as any);
 
     const now = new Date();
@@ -814,17 +1002,48 @@ export class PoliciesService {
       const companyInfo = p.plan?.company;
       const tY = (p.endDate.getTime() - p.startDate.getTime()) / (1000 * 3600 * 24 * 365.25);
       const totalYears = Math.max(1, Math.ceil(tY));
-      const notesPhcAmount = p.notes?.match(/Preventive Health Checkup:[^\n]*?Amount:\s*₹?([\d,.]+)/i)?.[1];
+      const notesPhcAmount = p.notes?.match(/(?:Preventive Health Checkup:[^\n]*?Amount:\s*|PHC Amount:\s*)₹?([\d,.]+)/i)?.[1];
       const baseEligibleAmount = (notesPhcAmount ? Number(notesPhcAmount.replace(/,/g, '')) : undefined)
         ?? (p.plan as any)?.phcAmount
         ?? 10000;
       const basePhcCount = (p.plan as any)?.phcCount || 1;
+
+      // Extract notes utilized amount
+      const notesUtilizedMatch = p.notes?.match(/PHC Utilized Amount:\s*₹?([\d,.]+)/i)
+        || p.notes?.match(/Utilized(?:\s*Amount)?:\s*₹?([\d,.]+)/i);
+      let notesUtilized = notesUtilizedMatch ? Number(notesUtilizedMatch[1].replace(/,/g, '')) : 0;
+
+      // Check explicit PHC status from policy notes or contact
+      let explicitStatus: string | null = null;
+      const notesStatusMatch = p.notes?.match(/(?:Preventive Health Checkup:[^\n]*?Status:\s*|PHC Status:\s*)([^,\n)]+)/i)?.[1]?.trim();
+      if (notesStatusMatch) {
+        const u = notesStatusMatch.toUpperCase();
+        if (u === 'INTERESTED' || u === 'HOT' || u === 'VERY_HOT') explicitStatus = 'Interested';
+        else if (u === 'NOT_INTERESTED' || u === 'LEAD_LOST') explicitStatus = 'Not Interested';
+        else if (u === 'FULLY_UTILISED' || u === 'FULLY UTILISED' || u === 'FULLY UTILIZED') explicitStatus = 'Fully Utilized';
+        else if (u === 'PARTIAL_UTILISED' || u === 'PARTIAL UTILISED' || u === 'PARTIAL UTILIZED') explicitStatus = 'Partial Utilized';
+        else if (u === 'COMPLETED') explicitStatus = 'Completed';
+        else if (u === 'REMIND_LATER' || u === 'PENDING') explicitStatus = 'Upcoming';
+      }
+
+      if (notesUtilized === 0 && (explicitStatus === 'Fully Utilized' || notesStatusMatch?.toUpperCase() === 'FULLY_UTILISED')) {
+        notesUtilized = baseEligibleAmount;
+      }
+
+      if (!explicitStatus && p.contact) {
+        const cls = p.contact.leadStatus?.trim();
+        if (cls) {
+          const u = cls.toUpperCase();
+          if (u === 'INTERESTED' || u === 'HOT' || u === 'VERY_HOT') explicitStatus = 'Interested';
+          else if (u === 'NOT_INTERESTED' || u === 'LEAD_LOST') explicitStatus = 'Not Interested';
+        }
+      }
       
       const years: any[] = [];
       let totalUtilized = 0;
       let totalEligible = 0;
       
-      let p_phcStatus = 'Upcoming';
+      let p_phcStatus = explicitStatus || 'Upcoming';
       let currentPhcYearLabel = 'Year 1 (Current)';
       let p_daysRemaining = 0;
       let p_phcYearStartDate = p.startDate;
@@ -846,28 +1065,67 @@ export class PoliciesService {
           const checkupDate = h.completedAt || h.scheduledAt || h.bookingDate || h.createdAt;
           return checkupDate >= yearStart && checkupDate <= actualEnd;
         });
-        const yearUtilized = yearCheckups.reduce((sum: number, h: any) => sum + (h.utilizedAmount || 0), 0);
+        const checkupsUtilized = yearCheckups.reduce((sum: number, h: any) => sum + (h.utilizedAmount || 0), 0);
+        const isCurrent = now >= yearStart && now <= actualEnd;
+        const yearUtilized = checkupsUtilized > 0 ? checkupsUtilized : (isCurrent || (totalYears === 1 && i === 0) ? notesUtilized : 0);
+
+        if (yearCheckups.length === 0 && (yearUtilized > 0 || explicitStatus === 'Fully Utilized' || explicitStatus === 'Partial Utilized')) {
+          const notesBookingDate = p.notes?.match(/PHC Booking Date:\s*([^\n]+)/i)?.[1]?.trim();
+          const notesAppointmentDate = p.notes?.match(/PHC Appointment Date:\s*([^\n]+)/i)?.[1]?.trim();
+          const notesCentreName = p.notes?.match(/PHC Centre(?:\s*\/\s*Lab Name)?:\s*([^\n]+)/i)?.[1]?.trim();
+          const notesCentreCity = p.notes?.match(/PHC Centre(?:\s*City|\s*\/\s*Lab City)?:\s*([^\n]+)/i)?.[1]?.trim();
+          const notesReimbursement = p.notes?.match(/PHC Reimbursement(?:\s*Type|\s*\/\s*Cashless)?:\s*([^\n]+)/i)?.[1]?.trim();
+          const notesPerson = p.notes?.match(/(?:PHC Insured Person:\s*|Insured Person for PHC:\s*|Insured Person:\s*)([^\n]+)/i)?.[1]?.trim()
+            || (p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Primary');
+
+          const parseDateSafe = (dStr?: string | null) => {
+            if (!dStr || dStr.toLowerCase() === 'n/a') return null;
+            const dmy = dStr.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+            if (dmy) {
+              const d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10));
+              if (!isNaN(d.getTime())) return d;
+            }
+            const d = new Date(dStr);
+            return isNaN(d.getTime()) ? null : d;
+          };
+
+          yearCheckups.push({
+            id: `notes-${p.id}`,
+            status: explicitStatus === 'Fully Utilized' ? 'Test Completed' : (notesAppointmentDate ? 'Appointment Scheduled' : (notesBookingDate ? 'Test Booked' : 'Completed')),
+            bookingDate: parseDateSafe(notesBookingDate),
+            scheduledAt: parseDateSafe(notesAppointmentDate),
+            completedAt: explicitStatus === 'Fully Utilized' ? (parseDateSafe(notesAppointmentDate) || now) : null,
+            createdAt: p.createdAt,
+            centreName: notesCentreName || null,
+            centreCity: notesCentreCity || null,
+            utilizedAmount: yearUtilized,
+            reimbursementType: notesReimbursement || 'Cashless',
+            member: {
+              id: null,
+              name: notesPerson,
+              relationship: 'Self',
+            }
+          });
+        }
         
-        // "applicable only after 1 full year from each policy's own start date." -> year 1 (i=0) has 0 eligible.
-        const isRenewal = p.businessType === 'RENEWAL';
-        const isEligible = isRenewal ? true : i >= 1;
-        const eligibleAmount = isEligible ? baseEligibleAmount : 0;
+        const eligibleAmount = baseEligibleAmount;
+        const balanceAmount = Math.max(0, eligibleAmount - yearUtilized);
         
         totalUtilized += yearUtilized;
         totalEligible += eligibleAmount;
         
-        const isCurrent = now >= yearStart && now <= actualEnd;
-        
         let statusStr = 'Upcoming';
-        if (!isEligible) {
-          statusStr = 'Not Applicable Yet';
-        } else if (yearUtilized >= eligibleAmount) {
-          statusStr = 'Completed';
+        if (yearUtilized >= eligibleAmount && eligibleAmount > 0) {
+          statusStr = 'Fully Utilized';
+        } else if (yearUtilized > 0) {
+          statusStr = 'Partial Utilized';
+        } else if (explicitStatus && explicitStatus !== 'Not Applicable Yet') {
+          statusStr = explicitStatus;
         } else if (now > actualEnd) {
           statusStr = 'Overdue';
         } else {
           const isDueThisMonth = actualEnd.getFullYear() === now.getFullYear() && actualEnd.getMonth() === now.getMonth();
-          statusStr = isDueThisMonth ? 'Due This Month' : (yearUtilized > 0 ? 'Partial Utilized' : 'Upcoming');
+          statusStr = isDueThisMonth ? 'Due This Month' : 'Upcoming';
         }
         
         const personMap = new Map();
@@ -879,6 +1137,17 @@ export class PoliciesService {
            entry.phcCount += 1;
         }
 
+        if (personMap.size === 0 && yearUtilized > 0) {
+          const notesPerson = p.notes?.match(/(?:PHC Insured Person:\s*|Insured Person for PHC:\s*|Insured Person:\s*)([^\n]+)/i)?.[1]?.trim()
+            || (p.contact ? `${p.contact.firstName} ${p.contact.lastName || ''}`.trim() : 'Primary');
+          personMap.set(notesPerson, {
+            name: notesPerson,
+            relationship: 'Self',
+            utilizedAmount: yearUtilized,
+            phcCount: 1,
+          });
+        }
+
         const yrData = {
           yearNo: i + 1,
           label: `Year ${i + 1}`,
@@ -888,8 +1157,8 @@ export class PoliciesService {
           status: statusStr,
           eligibleAmount,
           utilizedAmount: yearUtilized,
-          balanceAmount: Math.max(0, eligibleAmount - yearUtilized),
-          phcCount: yearCheckups.length,
+          balanceAmount,
+          phcCount: yearCheckups.length || (yearUtilized > 0 ? 1 : 0),
           daysRemaining: isCurrent ? Math.max(0, Math.ceil((actualEnd.getTime() - now.getTime()) / (1000 * 3600 * 24))) : 0,
           insuredPersons: Array.from(personMap.values()),
           allCheckups: yearCheckups
@@ -908,9 +1177,21 @@ export class PoliciesService {
         
         years.push(yrData);
       }
+
+      if (!years.some(y => y.isCurrent) && years.length > 0) {
+        const fallbackYear = now > p.endDate ? years[years.length - 1] : years[0];
+        currentPhcYearLabel = fallbackYear.label;
+        p_phcStatus = fallbackYear.status;
+        p_daysRemaining = fallbackYear.daysRemaining;
+        p_phcYearStartDate = p.startDate;
+        p_phcYearEndDate = p.endDate;
+        p_eligibleAmount = fallbackYear.eligibleAmount;
+        p_utilizedAmount = fallbackYear.utilizedAmount;
+        p_balanceAmount = fallbackYear.balanceAmount;
+      }
       
       const companyColors = ['bg-blue-600', 'bg-red-600', 'bg-teal-600', 'bg-orange-500', 'bg-purple-600'];
-      const cColor = companyColors[companyInfo?.name.length % companyColors.length] || 'bg-blue-600';
+      const cColor = companyColors[companyInfo?.name?.length ? companyInfo.name.length % companyColors.length : 0] || 'bg-blue-600';
 
       return {
         id: p.id,
@@ -924,16 +1205,20 @@ export class PoliciesService {
         companyColor: cColor, 
         policyStartDate: p.startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         policyEndDate: p.endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        rawPolicyStartDate: p.startDate,
+        rawPolicyEndDate: p.endDate,
         sumInsured: p.sumAssured || 0,
         phcFrequency: 'Annual',
         currentPhcYear: currentPhcYearLabel,
         phcYearStartDate: p_phcYearStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
         phcYearEndDate: p_phcYearEndDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        rawPhcYearStartDate: p_phcYearStartDate,
+        rawPhcYearEndDate: p_phcYearEndDate,
         phcStatus: p_phcStatus,
         phcCount: basePhcCount,
-        eligibleAmount: p_eligibleAmount || totalEligible,
-        utilizedAmount: p_utilizedAmount || totalUtilized,
-        balanceAmount: p_balanceAmount || Math.max(0, totalEligible - totalUtilized),
+        eligibleAmount: p_eligibleAmount !== undefined ? p_eligibleAmount : totalEligible,
+        utilizedAmount: p_utilizedAmount !== undefined ? p_utilizedAmount : totalUtilized,
+        balanceAmount: p_balanceAmount !== undefined ? p_balanceAmount : Math.max(0, totalEligible - totalUtilized),
         daysRemaining: p_daysRemaining,
         totalYears,
         years,

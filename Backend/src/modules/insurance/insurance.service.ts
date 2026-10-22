@@ -9,17 +9,27 @@ import { PrismaService } from '../../database/prisma.service';
 export class InsuranceService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async resolveTenantId(tenantId?: string): Promise<string> {
+    if (tenantId && typeof tenantId === 'string' && tenantId.trim() && tenantId !== 'undefined' && tenantId !== 'null') {
+      return tenantId.trim();
+    }
+    const tenant = await this.prisma.tenant.findFirst({ select: { id: true } });
+    if (tenant?.id) return tenant.id;
+    throw new BadRequestException('Tenant ID is required');
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Insurance Companies
   // ─────────────────────────────────────────────────────────────────────────
 
-  async listCompanies(tenantId: string, query: any) {
-    const { page = '1', limit = '50', search, active } = query;
+  async listCompanies(tenantId: string, query: any = {}) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    const { page = '1', limit = '100', search, active } = query || {};
     const pageNum  = Math.max(1, parseInt(page,  10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { tenantId };
+    const where: any = { tenantId: effectiveTenantId };
     if (active !== undefined) where.isActive = active === 'true';
     if (search) {
       where.OR = [
@@ -45,8 +55,9 @@ export class InsuranceService {
   }
 
   async getCompany(tenantId: string, id: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const company = await this.prisma.insuranceCompany.findFirst({
-      where:   { id, tenantId },
+      where:   { id, tenantId: effectiveTenantId },
       include: { plans: { where: { isActive: true }, orderBy: { name: 'asc' } } },
     });
     if (!company) throw new NotFoundException('Insurance company not found');
@@ -54,50 +65,54 @@ export class InsuranceService {
   }
 
   async createCompany(tenantId: string, dto: any) {
-    const rawCode = dto.shortCode || dto.code || (dto.name ? dto.name.substring(0, 4) : 'COMP');
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+
+    const name = (dto?.name || '').trim() || 'Unnamed Company';
+    const rawCode = dto?.shortCode || dto?.code || (name ? name.substring(0, 4) : 'COMP');
     const shortCode = String(rawCode).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20) || 'COMP';
 
     const existing = await this.prisma.insuranceCompany.findFirst({
-      where: { tenantId, shortCode },
+      where: { tenantId: effectiveTenantId, shortCode },
     });
     const finalShortCode = existing ? `${shortCode}-${Date.now().toString().slice(-4)}` : shortCode;
 
     const company = await this.prisma.insuranceCompany.create({
       data: {
-        tenantId,
-        name: dto.name || 'Unnamed Company',
+        tenantId: effectiveTenantId,
+        name,
         shortCode: finalShortCode,
-        logoUrl: dto.logoUrl || null,
-        website: dto.website || null,
-        phone: dto.phone || null,
-        email: dto.email || null,
-        isActive: dto.isActive !== false,
+        logoUrl: dto?.logoUrl ? String(dto.logoUrl).trim() : null,
+        website: dto?.website ? String(dto.website).trim() : null,
+        phone: dto?.phone ? String(dto.phone).trim() : null,
+        email: dto?.email ? String(dto.email).trim() : null,
+        isActive: dto?.isActive !== false,
       },
     });
     return { data: company };
   }
 
   async updateCompany(tenantId: string, id: string, dto: any) {
-    await this.getCompany(tenantId, id); // throws 404 if not found
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    await this.getCompany(effectiveTenantId, id); // throws 404 if not found
 
-    const rawCode = dto.shortCode || dto.code;
+    const rawCode = dto?.shortCode || dto?.code;
     let finalShortCode: string | undefined = undefined;
     if (rawCode) {
       finalShortCode = String(rawCode).toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20);
       const conflict = await this.prisma.insuranceCompany.findFirst({
-        where: { tenantId, shortCode: finalShortCode, id: { not: id } },
+        where: { tenantId: effectiveTenantId, shortCode: finalShortCode, id: { not: id } },
       });
       if (conflict) throw new BadRequestException('Short code already in use');
     }
 
     const updateData: any = {};
-    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto?.name !== undefined) updateData.name = (dto.name || '').trim() || 'Unnamed Company';
     if (finalShortCode !== undefined) updateData.shortCode = finalShortCode;
-    if (dto.logoUrl !== undefined) updateData.logoUrl = dto.logoUrl;
-    if (dto.website !== undefined) updateData.website = dto.website;
-    if (dto.phone !== undefined) updateData.phone = dto.phone;
-    if (dto.email !== undefined) updateData.email = dto.email;
-    if (dto.isActive !== undefined) updateData.isActive = Boolean(dto.isActive);
+    if (dto?.logoUrl !== undefined) updateData.logoUrl = dto.logoUrl ? String(dto.logoUrl).trim() : null;
+    if (dto?.website !== undefined) updateData.website = dto.website ? String(dto.website).trim() : null;
+    if (dto?.phone !== undefined) updateData.phone = dto.phone ? String(dto.phone).trim() : null;
+    if (dto?.email !== undefined) updateData.email = dto.email ? String(dto.email).trim() : null;
+    if (dto?.isActive !== undefined) updateData.isActive = Boolean(dto.isActive);
 
     const updated = await this.prisma.insuranceCompany.update({
       where: { id },
@@ -107,7 +122,8 @@ export class InsuranceService {
   }
 
   async removeCompany(tenantId: string, id: string) {
-    await this.getCompany(tenantId, id);
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    await this.getCompany(effectiveTenantId, id);
     await this.prisma.insuranceCompany.update({
       where: { id },
       data:  { isActive: false },
@@ -120,12 +136,13 @@ export class InsuranceService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async listPlans(tenantId: string, query: any) {
-    const { page = '1', limit = '50', search, companyId, category, active } = query;
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    const { page = '1', limit = '100', search, companyId, category, active } = query || {};
     const pageNum  = Math.max(1, parseInt(page,  10));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { tenantId };
+    const where: any = { tenantId: effectiveTenantId };
     if (active     !== undefined) where.isActive  = active === 'true';
     if (companyId)                where.companyId = companyId;
     if (category)                 where.category  = category;
@@ -151,8 +168,9 @@ export class InsuranceService {
   }
 
   async getPlan(tenantId: string, id: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const plan = await this.prisma.insurancePlan.findFirst({
-      where:   { id, tenantId },
+      where:   { id, tenantId: effectiveTenantId },
       include: { company: true },
     });
     if (!plan) throw new NotFoundException('Insurance plan not found');
@@ -160,9 +178,10 @@ export class InsuranceService {
   }
 
   async createPlan(tenantId: string, dto: any) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     // Validate company belongs to tenant
     const company = await this.prisma.insuranceCompany.findFirst({
-      where: { id: dto.companyId, tenantId, isActive: true },
+      where: { id: dto.companyId, tenantId: effectiveTenantId, isActive: true },
     });
     if (!company) throw new NotFoundException('Insurance company not found');
 
@@ -172,13 +191,13 @@ export class InsuranceService {
     const planCode = dto.planCode || `${prefix}-${cleanName}-${Date.now().toString().slice(-4)}`;
 
     const existing = await this.prisma.insurancePlan.findUnique({
-      where: { tenantId_planCode_companyId: { tenantId, planCode, companyId: dto.companyId } },
+      where: { tenantId_planCode_companyId: { tenantId: effectiveTenantId, planCode, companyId: dto.companyId } },
     });
     const finalPlanCode = existing ? `${planCode}-${Math.floor(1000 + Math.random() * 9000)}` : planCode;
 
     const plan = await this.prisma.insurancePlan.create({
       data: {
-        tenantId,
+        tenantId: effectiveTenantId,
         companyId: dto.companyId,
         name: dto.name,
         planCode: finalPlanCode,
@@ -200,12 +219,13 @@ export class InsuranceService {
   }
 
   async updatePlan(tenantId: string, id: string, dto: any) {
-    await this.getPlan(tenantId, id);
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    await this.getPlan(effectiveTenantId, id);
 
     if (dto.planCode) {
       const companyId = dto.companyId ?? (await this.prisma.insurancePlan.findUnique({ where: { id } }))!.companyId;
       const conflict = await this.prisma.insurancePlan.findFirst({
-        where: { tenantId, planCode: dto.planCode, companyId, id: { not: id } },
+        where: { tenantId: effectiveTenantId, planCode: dto.planCode, companyId, id: { not: id } },
       });
       if (conflict) throw new BadRequestException('Plan code already in use for this company');
     }
@@ -233,7 +253,8 @@ export class InsuranceService {
   }
 
   async removePlan(tenantId: string, id: string) {
-    await this.getPlan(tenantId, id);
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
+    await this.getPlan(effectiveTenantId, id);
     await this.prisma.insurancePlan.update({
       where: { id },
       data:  { isActive: false },
@@ -246,8 +267,9 @@ export class InsuranceService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async listHospitals(tenantId: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const data = await this.prisma.hospital.findMany({
-      where: { tenantId },
+      where: { tenantId: effectiveTenantId },
       include: { doctors: true },
       orderBy: { name: 'asc' },
     });
@@ -255,11 +277,12 @@ export class InsuranceService {
   }
 
   async createHospital(tenantId: string, dto: any) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const { doctors, ...hospitalData } = dto;
     
     const data = await this.prisma.hospital.create({
       data: {
-        tenantId,
+        tenantId: effectiveTenantId,
         name: hospitalData.name,
         city: hospitalData.city,
         state: hospitalData.state || null,
@@ -291,8 +314,9 @@ export class InsuranceService {
   }
 
   async updateHospital(tenantId: string, id: string, dto: any) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const hospital = await this.prisma.hospital.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: effectiveTenantId },
     });
     if (!hospital) throw new NotFoundException('Hospital not found');
 
@@ -342,8 +366,9 @@ export class InsuranceService {
   }
 
   async removeHospital(tenantId: string, id: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const hospital = await this.prisma.hospital.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: effectiveTenantId },
     });
     if (!hospital) throw new NotFoundException('Hospital not found');
 
@@ -355,25 +380,27 @@ export class InsuranceService {
   }
 
   async getCompulsoryRules(tenantId: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const rules = await this.prisma.compulsoryFieldRule.findMany({
-      where: { tenantId },
+      where: { tenantId: effectiveTenantId },
     });
     return { data: rules };
   }
 
   async updateCompulsoryRules(tenantId: string, rules: { module: string; fieldKey: string; required: boolean }[]) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const results: any[] = [];
     for (const r of rules) {
       const res = await this.prisma.compulsoryFieldRule.upsert({
         where: {
           tenantId_module_fieldKey: {
-            tenantId,
+            tenantId: effectiveTenantId,
             module: r.module,
             fieldKey: r.fieldKey,
           },
         },
         create: {
-          tenantId,
+          tenantId: effectiveTenantId,
           module: r.module,
           fieldKey: r.fieldKey,
           required: r.required,
@@ -388,16 +415,18 @@ export class InsuranceService {
   }
 
   async deleteCompulsoryRule(tenantId: string, module: string, fieldKey: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     await this.prisma.compulsoryFieldRule.deleteMany({
-      where: { tenantId, module, fieldKey },
+      where: { tenantId: effectiveTenantId, module, fieldKey },
     });
     return { success: true, message: 'Field rule reset / deleted successfully' };
   }
 
   async resetCompulsoryRules(tenantId: string, module?: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     await this.prisma.compulsoryFieldRule.deleteMany({
       where: {
-        tenantId,
+        tenantId: effectiveTenantId,
         ...(module && module !== 'All Modules' ? { module } : {}),
       },
     });
@@ -409,23 +438,25 @@ export class InsuranceService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async getTableColumnVisibility(tenantId: string) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const rules = await this.prisma.tableColumnVisibility.findMany({
-      where: { tenantId },
+      where: { tenantId: effectiveTenantId },
     });
     return { data: rules };
   }
 
   async updateTableColumnVisibility(tenantId: string, pageId: string, colName: string, isHidden: boolean) {
+    const effectiveTenantId = await this.resolveTenantId(tenantId);
     const res = await this.prisma.tableColumnVisibility.upsert({
          where: {
             tenantId_pageId_colName: {
-               tenantId,
+               tenantId: effectiveTenantId,
                pageId,
                colName
             }
          },
          create: {
-            tenantId,
+            tenantId: effectiveTenantId,
             pageId,
             colName,
             isHidden
