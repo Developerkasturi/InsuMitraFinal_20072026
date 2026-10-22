@@ -80,4 +80,3 @@ export function formatActivityChange(
   if (dispBefore === '(empty)') return `${label}: ${dispAfter}`;
   return `${label}: ${dispBefore} -> ${dispAfter}`;
 }
-

@@ -585,6 +585,7 @@ export class PoliciesService {
         'UPDATE',
         `Policy details updated: ${changedFields.join('; ')}`,
       );
+    }
     // Sync preventive health checkup if present in notes
     if (updated.notes && (updated.notes.includes('Preventive Health Checkup:') || updated.notes.includes('PHC '))) {
       try {
@@ -593,7 +594,7 @@ export class PoliciesService {
         const stMatch = notes.match(/(?:Preventive Health Checkup:[^\n]*?Status:\s*|PHC Status:\s*)([^,\n)]+)/i);
         const phcAmountMatch = notes.match(/Preventive Health Checkup:[^\n]*?Amount:\s*₹?([\d,.]+)/i);
         const fullPhcAmount = phcAmountMatch ? Number(phcAmountMatch[1].replace(/,/g, '')) : 0;
-        
+
         let utilized = amtMatch ? Number(amtMatch[1].replace(/,/g, '')) : 0;
         const statusStr = stMatch ? stMatch[1].trim().toUpperCase() : '';
         if (!utilized && (statusStr === 'FULLY_UTILISED' || statusStr === 'FULLY UTILIZED') && fullPhcAmount > 0) {

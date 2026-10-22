@@ -351,4 +351,3 @@ export class ContactsController {
     return this.svc.inviteToPortal(user.tenantId, contactId);
   }
 }
-
